@@ -359,15 +359,37 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: { "Cache-Control": "no-store" } },
       );
     }
+    const scope = body.scope;
+    if (scope !== "files" && scope !== "memory" && scope !== "both") {
+      return NextResponse.json(
+        { error: "Invalid purge scope. Choose files, memory, or both." },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     const includeFiles = scope === "files" || scope === "both";
     const includeMemory = scope === "memory" || scope === "both";
 
-    // File deletion is deliberately disabled until this endpoint has a complete,
-    // bounded cross-table reference inventory for both Cloudinary and Supabase
-    // Storage. The separate retention workflow has a stronger inventory contract;
-    // this admin endpoint must not infer that an asset is unreferenced from tags
-    // or the social queue alone.
-    if (includeFiles) {
+    const cloudinary = includeFiles ? cloudinaryConfig() : null;
+    const lockToken = randomUUID();
+    const lockAcquired = await acquirePurgeLock(lockToken);
+    if (!lockAcquired) {
+      return NextResponse.json(
+        { error: "يوجد تنظيف آخر قيد التنفيذ. لم يبدأ أي حذف؛ أعد المحاولة بعد انتهائه.", deletionStarted: false, retryRequired: true },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    purgeLockToken = lockToken;
+    automationWasEnabled = await getVideoAutomationEnabled();
+    await pauseVideoAutomation();
+
+    const processing = await getActiveVideoWork();
+    if (processing.generation > 0) {
+      // No destructive work started; restore the prior setting and release our lock.
+      await restoreVideoAutomation(automationWasEnabled);
+      if (purgeLockToken) {
+        await releasePurgeLock(purgeLockToken);
+        purgeLockToken = null;
+      }
       return NextResponse.json(
         {
           error: "File purge is disabled until a complete cross-table reference inventory proves that every Cloudinary and Supabase Storage asset is unreferenced. No files or project data were changed.",
@@ -546,10 +568,8 @@ export async function POST(request: NextRequest) {
     const assets = includeFiles ? await listGeneratedVideos() : [];
     const storagePaths = includeFiles ? await listAutomatedStorageObjects() : [];
     const processingAfterPreflight = await getActiveVideoWork();
-    if (processingAfterPreflight.generation > 0 || processingAfterPreflight.publications > 0) {
-      throw new Error(
-        `Video generation or scheduled publication became active during purge preflight (${processingAfterPreflight.generation} generation request(s), ${processingAfterPreflight.publications} publication(s)); no deletion started.`,
-      );
+    if (processingAfterPreflight.generation > 0) {
+      throw new Error(`Video generation became active during purge preflight (${processingAfterPreflight.generation} request(s)); no deletion started.`);
     }
     if (includeFiles && assets.length > 0) destructiveWorkStarted = true;
     const cloudinaryErrors = includeFiles
@@ -646,8 +666,7 @@ export async function POST(request: NextRequest) {
       await releasePurgeLock(purgeLockToken);
       purgeLockToken = null;
     }
-    const auditRecorded = await runPostCommitAudit(
-      () => recordAdminAuditEvent({
+    await recordAdminAuditEvent({
       action: "video.library.purge",
       permission: "video.delete",
       resourceType: "generated_video_library",
