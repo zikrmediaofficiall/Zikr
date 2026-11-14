@@ -23,10 +23,10 @@ assert.match(
   /requestedPublicId/,
   "the regression contract must cover the admin endpoint that accepts a caller-supplied public ID",
 );
-assert.match(adminUploadRoute, /MAX_IMAGE_REQUEST_BYTES\\s*=\\s*MAX_IMAGE_BYTES\\s*\\+\\s*64\\s*\\*\\s*1024/);
-assert.match(adminUploadRoute, /readBoundedRequestBytes\\(request, MAX_IMAGE_REQUEST_BYTES\\)/);
-assert.doesNotMatch(adminUploadRoute, /request\\.formData\\(\\)/);
-assert.match(adminUploadRoute, /new Response\\([\\s\\S]*?\\.formData\\(\\)/);
+assert.match(adminUploadRoute, /MAX_IMAGE_REQUEST_BYTES\s*=\s*MAX_IMAGE_BYTES\s*\+\s*64\s*\*\s*1024/);
+assert.match(adminUploadRoute, /readBoundedRequestBytes\(request, MAX_IMAGE_REQUEST_BYTES\)/);
+assert.doesNotMatch(adminUploadRoute, /request\.formData\(\)/);
+assert.match(adminUploadRoute, /new Response\([\s\S]*?\.formData\(\)/);
 
 assert.match(kidsAdminActions, /async function compensateOrphanedKidsImage/);
 assert.match(kidsAdminActions, /featured_image_url=eq\./,
