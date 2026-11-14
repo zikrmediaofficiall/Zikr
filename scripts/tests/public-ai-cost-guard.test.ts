@@ -84,6 +84,11 @@ assert.match(apiHealthSource, /Live generation is intentionally not invoked by h
 
 const geminiClientSource = readFileSync('src/features/spiritual-ai/services/gemini-client.ts', 'utf8');
 assert.match(geminiClientSource, /systemInstruction: systemInstruction\.trim\(\)/);
+assert.match(geminiClientSource, /streamGeminiText\([\s\S]*systemInstruction\?: string/);
+const aiHelpersSource = readFileSync('src/features/spiritual-ai/services/ai.ts', 'utf8');
+assert.match(aiHelpersSource, /ISLAMIC_AI_HELPER_SYSTEM_INSTRUCTION/);
+assert.match(aiHelpersSource, /generateGeminiText\(prompt, 1500, ISLAMIC_AI_HELPER_SYSTEM_INSTRUCTION\)/,
+  'all retained Islamic AI helper prompts must use the separate provider system instruction');
 
 const nextConfig = readFileSync('next.config.ts', 'utf8');
 assert.match(nextConfig, /serverActions:\s*\{\s*bodySizeLimit:\s*'4mb'/);

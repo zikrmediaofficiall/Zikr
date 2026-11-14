@@ -131,7 +131,10 @@ export async function generateGeminiText(
   return callDirectSdk(prompt, maxTokens, systemInstruction);
 }
 
-export async function* streamGeminiText(prompt: string): AsyncGenerator<string, void, unknown> {
+export async function* streamGeminiText(
+  prompt: string,
+  systemInstruction?: string,
+): AsyncGenerator<string, void, unknown> {
   const keys = getAvailableKeys();
   const attempts = Math.min(Math.max(keys.length, 3), 6);
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -143,6 +146,7 @@ export async function* streamGeminiText(prompt: string): AsyncGenerator<string, 
         model: getDirectModels()[0],
         safetySettings,
         generationConfig,
+        ...(systemInstruction?.trim() ? { systemInstruction: systemInstruction.trim() } : {}),
       });
       const streamResult = await model.generateContentStream(prompt);
       for await (const chunk of streamResult.stream) {
