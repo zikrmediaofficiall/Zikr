@@ -45,12 +45,14 @@ const rows = await loadKidsSocialQueueRows(
 );
 assert.equal(rows.length, 501, "the queue loader must collect every row across pages");
 assert.equal(paths.length, 2, "a full first page must trigger one cursor-based follow-up");
-assert.ok(paths[0].includes("content_id=in.(" + requestId + ")"), "request IDs must be trimmed and deduplicated");
-assert.match(paths[0], /metadata->>audience=eq\.kids/, "the queue scan must remain scoped to Kids rows");
-assert.match(paths[0], /order=created_at\.desc,id\.desc/, "the queue scan must use a stable composite order");
-assert.match(paths[0], /limit=500/, "the queue scan must retain its bounded page size");
+const firstPath = paths[0] ?? "";
+const secondPath = paths[1] ?? "";
+assert.ok(firstPath.includes("content_id=in.(" + requestId + ")"), "request IDs must be trimmed and deduplicated");
+assert.match(firstPath, /metadata->>audience=eq\.kids/, "the queue scan must remain scoped to Kids rows");
+assert.match(firstPath, /order=created_at\.desc,id\.desc/, "the queue scan must use a stable composite order");
+assert.match(firstPath, /limit=500/, "the queue scan must retain its bounded page size");
 assert.ok(
-  paths[1].includes(encodeURIComponent(
+  secondPath.includes(encodeURIComponent(
     "(created_at.lt." + sharedTimestamp +
     ",and(created_at.eq." + sharedTimestamp + ",id.lt." + queueId(1) + "))",
   )),
