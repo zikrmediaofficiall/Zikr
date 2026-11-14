@@ -89,9 +89,12 @@ export async function waitForVercelDeploymentReady({
         "",
       ).toLowerCase();
       const expected = expectedSha.toLowerCase();
+      // Release verification is pinned to the full approved commit SHA.
+      // A seven-character prefix is useful for display, but is not sufficient
+      // evidence that the deployment was built from the exact release commit.
       const shaMatches =
-        actualSha.length >= 7 &&
-        (expected.startsWith(actualSha) || actualSha.startsWith(expected));
+        /^[a-f0-9]{40}$/i.test(actualSha) &&
+        actualSha.toLowerCase() === expected;
       if (!shaMatches) {
         throw new Error("Vercel deployment commit SHA does not match the approved Git SHA.");
       }
