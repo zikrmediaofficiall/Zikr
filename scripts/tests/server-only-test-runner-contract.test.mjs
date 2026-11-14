@@ -1,29 +1,35 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
-  scripts: { test: string };
-};
-const scanCursorService = readFileSync(
+const cursorService = readFileSync(
   "src/features/social/services/social-insights-scan-cursor.ts",
   "utf8",
 );
-const testCommand = packageJson.scripts.test;
-
-assert.match(
-  scanCursorService,
-  /^import\s+["']server-only["'];/m,
-  "the social insights cursor must retain its server-only boundary",
-);
-assert.match(
-  testCommand,
-  /node --conditions=react-server --import tsx scripts\/tests\/social-post-insights-storage\.test\.ts/,
-  "the Node test runner must select the React Server export for server-only modules",
-);
 assert.doesNotMatch(
-  testCommand,
-  /tsx scripts\/tests\/social-post-insights-storage\.test\.ts/,
-  "the social insights test must not run through the default client condition",
+  cursorService,
+  /^import\s+["']server-only["'];/m,
+  "the shared social insights cursor is imported by Node background workers and must remain Node-safe",
 );
 
-console.log("Server-only test runner contract passed.");
+const workerImport = spawnSync(
+  process.execPath,
+  [
+    "--import",
+    "tsx",
+    "--input-type=module",
+    "-e",
+    'await import("./scripts/jobs/social-publishing.ts")',
+  ],
+  { cwd: process.cwd(), encoding: "utf8" },
+);
+assert.equal(
+  workerImport.status,
+  0,
+  [
+    workerImport.stdout,
+    workerImport.stderr,
+  ].filter(Boolean).join("\n") || "the social background worker must load under default Node conditions",
+);
+
+console.log("Social insights worker import boundary contract passed.");

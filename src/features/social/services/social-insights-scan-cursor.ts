@@ -1,4 +1,3 @@
-import "server-only";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 
 export type SocialInsightsScanPlatform = "youtube" | "facebook_reels";
