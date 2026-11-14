@@ -5,8 +5,6 @@ import {
   createClient,
 } from "@/lib/supabase/server";
 import { resolveAdminRole } from "@/features/admin/services/permissions";
-import { buildAuthProfileSyncPayload } from "./profile-sync";
-import { normalizeIanaTimeZone } from "@/lib/timezone";
 
 export type ProfileFavorite = {
   id: string;
