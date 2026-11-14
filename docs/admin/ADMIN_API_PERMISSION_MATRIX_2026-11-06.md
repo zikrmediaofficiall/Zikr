@@ -20,7 +20,7 @@
 | PATCH | `/api/admin/site-audio` | `audio.manage` |
 | DELETE | `/api/admin/site-audio` | `audio.manage` |
 | POST | `/api/admin/site-audio/upload` | `audio.manage` |
-| GET | `/api/admin/social/facebook/callback` | `social.manage` — validates OAuth state and stores the verified Page credential only; it never resumes queued posts |
+| GET | `/api/admin/social/facebook/callback` | `social.manage`, `social.publish` (MFA step-up) — validates OAuth state and stores the verified Page credential only; it never resumes queued posts |
 | GET | `/api/admin/social/facebook/connect` | `social.manage` + `social.publish` MFA step-up — Page publishing + Insights permissions |
 | GET | `/api/admin/social` | `social.manage` — queue and connection management |
 | POST | `/api/admin/social` | `social.manage` + `social.publish` — step-up required for sensitive actions |
@@ -34,7 +34,7 @@
 | PATCH | `/api/admin/video-generation` | `video.manage` — external publish retry returns HTTP 410 |
 | GET | `/api/admin/video-generation/sources` | `video.manage` |
 | GET | `/api/admin/social/youtube/connect` | `social.manage` + `social.publish` MFA step-up — publishing-capable OAuth |
-| GET | `/api/admin/social/youtube/callback` | `social.manage` — validates upload/read scopes and stores the publishing refresh token |
+| GET | `/api/admin/social/youtube/callback` | `social.manage`, `social.publish` (MFA step-up) — validates upload/read scopes and stores the publishing refresh token |
 | GET | `/api/admin/video/templates` | `video.manage` |
 | POST | `/api/admin/video/templates` | `video.manage` |
 | POST | `/api/admin/videos/[id]/retry` | `video.manage` |
