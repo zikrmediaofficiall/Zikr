@@ -582,10 +582,10 @@ assert.match(envExample, /^AUTO_VIDEO_PUBLISH_ENABLED=false$/m, "local .env.exam
 assert.match(envExample, /^SOCIAL_PUBLISH_ENABLED=false$/m, "local .env.example must not enable social publishing by default");
 assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example must keep video automation in dry-run mode");
 
-assert.match(worker, /isKidsAudience\\(metadata\\.audience\\)/, "published articles labeled for children must not enter the general knowledge generation pool");
-assert.match(worker, /WRITTEN_CONTENT_ENABLED\\?\\.trim\\(\\)\\.toLowerCase\\(\\)!==\\"true\\"/, "Gemini generation must remain disabled unless explicitly enabled");
+assert.ok(worker.includes("isKidsAudience(metadata.audience)"), "published articles labeled for children must not enter the general knowledge generation pool");
+assert.ok(worker.includes('WRITTEN_CONTENT_ENABLED?.trim().toLowerCase()!=="true"'), "Gemini generation must remain disabled unless explicitly enabled");
 const writtenWorkflow = readFileSync(".github/workflows/generate-written-content.yml", "utf8");
-assert.match(writtenWorkflow, /WRITTEN_CONTENT_ENABLED:\\s*\\"true\\"/, "the scheduled workflow must explicitly opt in to content generation");
+assert.ok(writtenWorkflow.includes('WRITTEN_CONTENT_ENABLED: "true"'), "the scheduled workflow must explicitly opt in to content generation");
 assert.ok(worker.includes("WRITTEN_CONTENT_SYSTEM_INSTRUCTION"));
 assert.ok(worker.includes("systemInstruction:{parts:[{text:WRITTEN_CONTENT_SYSTEM_INSTRUCTION}]}"));
 assert.ok(worker.includes('contents:[{role:"user",parts:[{text:userPayload}]}]'));
