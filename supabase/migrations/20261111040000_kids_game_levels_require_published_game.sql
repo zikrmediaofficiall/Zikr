@@ -2,9 +2,9 @@ BEGIN;
 
 ALTER TABLE public.kids_game_levels ENABLE ROW LEVEL SECURITY;
 
--- Remove the legacy authenticated SELECT policy as well as its command-specific
--- admin policies. The public game client consumes the reviewed offline snapshot;
--- direct table access is intentionally anon-only and parent-scoped.
+-- Remove the legacy broad authenticated SELECT policy and command-specific
+-- admin write policies. The public game client consumes the reviewed offline
+-- snapshot; anon reads are parent-scoped and authenticated admin access is SELECT-only.
 DROP POLICY IF EXISTS kids_game_levels_public_read ON public.kids_game_levels;
 DROP POLICY IF EXISTS kids_game_levels_admin_all ON public.kids_game_levels;
 DROP POLICY IF EXISTS admin_all_kids_game_levels_select ON public.kids_game_levels;

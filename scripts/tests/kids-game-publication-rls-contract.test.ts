@@ -40,9 +40,16 @@ for (const legacyPolicy of [
 }
 assert.match(
   levelsMigration,
-  /CREATE POLICY kids_game_levels_admin_all[\s\S]*?TO authenticated[\s\S]*?private\.is_admin_user\(\)/i,
-  "only database administrators must retain direct authenticated access to all levels",
+  /CREATE POLICY kids_game_levels_admin_select[\s\S]*?FOR SELECT[\s\S]*?TO authenticated[\s\S]*?private\.is_admin_user\(\)/i,
+  "authenticated administrators retain read-only access to all levels",
 );
+assert.doesNotMatch(levelsMigration, /CREATE POLICY kids_game_levels_admin_all/i);
+assert.match(
+  levelsMigration,
+  /REVOKE ALL PRIVILEGES ON TABLE public\.kids_game_levels\s+FROM PUBLIC, anon, authenticated/i,
+);
+assert.match(levelsMigration, /GRANT SELECT ON TABLE public\.kids_game_levels TO anon, authenticated/i);
+assert.match(levelsMigration, /GRANT ALL PRIVILEGES ON TABLE public\.kids_game_levels TO service_role/i);
 
 assert.match(
   questionsMigration,
@@ -86,6 +93,9 @@ assert.match(
 );
 
 assert.match(integrationSetup, /CREATE TABLE public\.kids_game_questions/);
+assert.match(integrationSetup, /CREATE ROLE service_role NOLOGIN/);
+assert.match(integrationSetup, /GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role/);
+
 assert.match(integrationSetup, /correct_index integer NOT NULL/i);
 assert.match(
   integrationSetup,
@@ -107,16 +117,6 @@ assert.match(integrationTest, /private\.is_admin_user/);
 assert.match(integrationRunner, /20261111040000_kids_game_levels_require_published_game\.sql/);
 assert.match(integrationRunner, /20261111170000_kids_game_questions_require_published_parent\.sql/);
 
-assert.match(
-  levelsMigration,
-  /REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN\s+ON TABLE public\.kids_game_levels\s+FROM PUBLIC, anon/i,
-  "anonymous level access must not retain DML or non-DML privileges",
-);
-assert.match(
-  levelsMigration,
-  /REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN\s+ON TABLE public\.kids_game_levels\s+FROM authenticated/i,
-  "authenticated level editors must not retain non-DML privileges that bypass RLS",
-);
 assert.match(
   questionsMigration,
   /REVOKE ALL PRIVILEGES ON TABLE public\.kids_game_questions\s+FROM PUBLIC, anon, authenticated/i,
