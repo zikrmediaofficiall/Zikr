@@ -33,7 +33,7 @@ const request: KidsSocialQueueRequest = async <T>(path: string): Promise<T> => {
   paths.push(path);
   const page = pages.shift();
   if (!page) throw new Error("unexpected extra page request");
-  return page as T;
+  return page as unknown as T;
 };
 
 const rows = await loadKidsSocialQueueRows(
@@ -52,7 +52,7 @@ assert.ok(paths[1].includes(encodeURIComponent("(created_at.lt." + sharedTimesta
 let emptyCalls = 0;
 const empty = await loadKidsSocialQueueRows(["", "   "], async <T>() => {
   emptyCalls += 1;
-  return [] as T;
+  return [] as unknown as T;
 });
 assert.deepEqual(empty, []);
 assert.equal(emptyCalls, 0, "empty request-ID input must not query the database");
