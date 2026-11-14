@@ -205,8 +205,10 @@ async function scheduleNativePrayerNotificationsNow(
         PRAYER_NATIVE_ID_BASE +
         dayOffset * PRAYERS.length +
         PRAYERS.indexOf(prayer);
-      refreshedPrayerIds.add(id);
       if (scheduled <= now) continue;
+      // A past local time is a resolved schedule, but it must not preserve an
+      // older on-device alarm that may still be pending after a timezone change.
+      refreshedPrayerIds.add(id);
       scheduleEntries.push({ id, prayer, scheduleAt: scheduled.toISOString() });
     }
   }

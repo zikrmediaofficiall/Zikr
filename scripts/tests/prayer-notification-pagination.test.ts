@@ -876,6 +876,13 @@ assert.equal(simulatedServerTimeZone, "Africa/Cairo");
 
 const salawatHookSource = readFileSync("src/features/reminders/hooks/use-salawat-reminder.ts", "utf8");
 const prayerAlertProviderSource = readFileSync("src/components/layout/prayer-alert-provider.tsx", "utf8");
+const prayerAlertHookSource = readFileSync("src/features/prayer/hooks/use-prayer-alert.ts", "utf8");
+const pastPrayerScheduleGuard = prayerAlertHookSource.indexOf("if (scheduled <= now) continue;");
+const refreshedPrayerAlarmMarker = prayerAlertHookSource.indexOf("refreshedPrayerIds.add(id)");
+assert.ok(
+  pastPrayerScheduleGuard >= 0 && refreshedPrayerAlarmMarker > pastPrayerScheduleGuard,
+  "past prayer times must cancel stale native alarms instead of being marked as refreshed",
+);
 assert.match(salawatHookSource, /serverTimeZone: data\.timezone/);
 assert.match(salawatHookSource, /event === "SIGNED_IN"[\s\S]*?syncBackgroundReminderTimeZone/);
 assert.match(salawatHookSource, /window\.addEventListener\("zikr:native-app-state", syncTimeZone\)/);
