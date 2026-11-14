@@ -60,7 +60,7 @@ assert.ok(
 );
 
 let emptyCalls = 0;
-const empty = await loadKidsSocialQueueRows(["", "   "], async <T>() => {
+const empty = await loadKidsSocialQueueRows(["", "   "], async <T>(_path: string) => {
   emptyCalls += 1;
   return [] as unknown as T;
 });
@@ -70,7 +70,7 @@ assert.equal(emptyCalls, 0, "empty request-ID input must not query the database"
 await assert.rejects(
   () => loadKidsSocialQueueRows(
     [requestId],
-    async <T>() => ({ rows: [] }) as unknown as T,
+    async <T>(_path: string) => ({ rows: [] }) as unknown as T,
   ),
   /invalid page/,
   "a malformed PostgREST response must fail closed",
@@ -82,7 +82,7 @@ const duplicatePages = [
 ];
 let duplicateCall = 0;
 await assert.rejects(
-  () => loadKidsSocialQueueRows([requestId], async <T>() => {
+  () => loadKidsSocialQueueRows([requestId], async <T>(_path: string) => {
     const page = duplicatePages[duplicateCall++];
     return page as unknown as T;
   }),
@@ -92,7 +92,7 @@ await assert.rejects(
 
 let oversizedCall = 0;
 await assert.rejects(
-  () => loadKidsSocialQueueRows([requestId], async <T>() => {
+  () => loadKidsSocialQueueRows([requestId], async <T>(_path: string) => {
     const pageIndex = oversizedCall++;
     const count = pageIndex < 10 ? 500 : 1;
     const page = Array.from({ length: count }, (_, index) => {
