@@ -565,13 +565,25 @@ assert.ok(
   "video deletion must remain behind the retention-safe server path",
 );
 assert.ok(
-  storageWritePolicyMigration.includes("CREATE POLICY video_assets_admin_insert") &&
-    storageWritePolicyMigration.includes("FOR INSERT") &&
-    storageWritePolicyMigration.includes("TO authenticated") &&
-    storageWritePolicyMigration.includes("bucket_id = 'videos'") &&
-    storageWritePolicyMigration.includes("(storage.foldername(name))[1] = (SELECT auth.uid())::text") &&
-    storageWritePolicyMigration.includes("private.has_admin_role(ARRAY['admin', 'super_admin', 'video_manager']::text[])"),
-  "only full admins and video managers may upload into their own video prefix",
+  storageWritePolicyMigration.includes("DROP POLICY IF EXISTS video_assets_admin_insert ON storage.objects;") &&
+    !storageWritePolicyMigration.includes("CREATE POLICY video_assets_admin_insert"),
+  "authenticated clients must not mint video upload capabilities directly through Storage RLS; video uploads use the audited server-signed capability",
+);
+const videoUploadRouteForStorage = readFileSync(
+  "src/app/api/admin/videos/upload/route.ts",
+  "utf8",
+);
+const genericStoragePresignRoute = readFileSync(
+  "src/app/api/storage/presign/route.ts",
+  "utf8",
+);
+assert.match(videoUploadRouteForStorage, /requireAdminStepUpApi\(['"]video\.manage['"]/);
+assert.match(videoUploadRouteForStorage, /runPostCommitAudit/);
+assert.match(videoUploadRouteForStorage, /purpose:\s*['"]video['"]/);
+assert.match(
+  genericStoragePresignRoute,
+  /const PURPOSES = new Set<StorageObjectPurpose>\(\['avatar', 'media', 'audio', 'document'\]\)/,
+  "the generic user presign route must not expose the service-role video upload purpose",
 );
 assert.ok(
   !storageWritePolicyMigration.includes("CREATE POLICY video_assets_admin_update") &&
