@@ -447,9 +447,10 @@ const writtenFactory = readFileSync("src/features/social/services/written-conten
 const kidsApi = readFileSync("src/app/api/kids/social-posts/route.ts", "utf8");
 const kidsPage = readFileSync("src/app/kids/page.tsx", "utf8");
 const writtenApi = readFileSync("src/app/api/admin/social/written/route.ts", "utf8");
-assert.match(writtenApi, /request\.json\(\)/);
-assert.match(writtenApi, /Invalid JSON request body\./, "malformed JSON must be rejected instead of silently dispatching automatic generation");
-assert.match(writtenApi, /parseWrittenGenerationRequest\(requestBody\)/, "admin generation inputs must pass strict validation before workflow dispatch");
+const writtenPost = writtenApi.slice(writtenApi.indexOf("export async function POST"));
+assert.match(writtenPost, /readBoundedJsonBody\(request\)/, "admin generation requests must enforce the bounded JSON body contract");
+assert.doesNotMatch(writtenPost, /request\.json\(\)/, "the route must not bypass bounded request parsing");
+assert.match(writtenPost, /parseWrittenGenerationRequest\(bodyResult\.value\)/, "admin generation inputs must pass strict validation before workflow dispatch");
 
 const writtenWorkflow = readFileSync(".github/workflows/generate-written-content.yml", "utf8");
 const writtenStudio = readFileSync("src/app/admin/social/written-studio/written-studio-client.tsx", "utf8");
