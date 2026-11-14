@@ -12,7 +12,7 @@
 | POST | `/api/admin/media` | `media.manage` |
 | PATCH | `/api/admin/media` | `media.manage` |
 | GET | `/api/admin/overview` | `dashboard.view` |
-| POST | `/api/admin/page-view` | `analytics.read` |
+| POST | `/api/admin/page-view` | `admin.access` — records the current admin route after removing query strings and fragments; it is write-only telemetry, not analytics data access |
 | GET | `/api/admin/sections` | `sections.manage` |
 | POST | `/api/admin/sections` | `sections.manage` |
 | GET | `/api/admin/site-audio` | `audio.manage` |

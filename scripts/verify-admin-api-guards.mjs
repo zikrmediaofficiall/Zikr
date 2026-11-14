@@ -85,7 +85,7 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/media/route.ts POST": ["media.manage"],
   "src/app/api/admin/media/route.ts PATCH": ["media.manage"],
   "src/app/api/admin/overview/route.ts GET": ["dashboard.view"],
-  "src/app/api/admin/page-view/route.ts POST": ["analytics.read"],
+  "src/app/api/admin/page-view/route.ts POST": ["admin.access"],
   "src/app/api/admin/sections/route.ts GET": ["sections.manage"],
   "src/app/api/admin/sections/route.ts POST": ["sections.manage"],
   "src/app/api/admin/site-audio/route.ts GET": ["audio.manage"],
