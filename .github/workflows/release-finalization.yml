@@ -282,17 +282,18 @@ jobs:
               sys.exit(1)
           print("PASS: iOS Universal Links App ID is configured for the production build.")
 
-          if not re.fullmatch(r"https://zqtssvlvmkzeeyqghqfk\\.supabase\\.co/?", supabase_url):
+          if not re.fullmatch(r"https://zqtssvlvmkzeeyqghqfk\.supabase\.co/?", supabase_url):
               print("::error title=Missing production Supabase URL::NEXT_PUBLIC_SUPABASE_URL must point to the approved ZIKR production project.", file=sys.stderr)
               sys.exit(1)
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as github_env:
-              github_env.write(f"SUPABASE_URL={supabase_url.rstrip('/') }\\n")
+              github_env.write(f"SUPABASE_URL={supabase_url.rstrip('/')}\n")
           print("PASS: production Supabase URL matches the approved project.")
           PY
 
       - name: Build production artifact
         env:
           VERCEL_TOKEN: ${{ secrets.ZIKR_VERCEL_TOKEN || secrets.VERCEL_DEPLOY_TOKEN || secrets.VERCEL_TOKEN }}
+          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
         run: vercel build --prod --scope "${VERCEL_ORG_ID}"
 
       - name: Recheck approved main SHA immediately before production database changes

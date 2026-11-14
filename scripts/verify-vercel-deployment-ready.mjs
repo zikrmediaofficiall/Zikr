@@ -30,7 +30,7 @@ export async function waitForVercelDeploymentReady({
     throw new Error("DEPLOYMENT_URL must be an absolute HTTPS URL.");
   }
   if (parsedDeploymentUrl.protocol !== "https:" || !parsedDeploymentUrl.hostname.endsWith(".vercel.app")) {
-    throw new Error("DEPLOYMENT_URL must point to the exact Vercel deployment hostname.");
+    throw new Error("DEPLOYMENT_URL must point to a Vercel-hosted deployment URL.");
   }
 
   const apiUrl = new URL(

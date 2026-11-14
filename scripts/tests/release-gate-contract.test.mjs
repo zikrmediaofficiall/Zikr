@@ -140,3 +140,16 @@ assert.ok(releaseWorkflow.includes("SUPABASE_URL must point to the approved ZIKR
 assert.ok(releaseWorkflow.includes("VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}"), "Vercel readiness must use the approved team ID");
 assert.ok(releaseWorkflow.includes("EXPECTED_COMMIT_SHA: ${{ github.sha }}"), "Vercel readiness must verify the exact approved commit");
 assert.ok(releaseWorkflow.includes("EXPECTED_VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}"), "Vercel readiness must verify the production project");
+
+assert.ok(
+  releaseWorkflow.includes('r"https://zqtssvlvmkzeeyqghqfk\\.supabase\\.co/?"'),
+  "production Supabase URL validation must use a literal-dot regex",
+);
+assert.ok(
+  releaseWorkflow.includes('github_env.write(f"SUPABASE_URL={supabase_url.rstrip(\'/\')}\\n")'),
+  "the production Supabase URL must be exported to later release steps with a real newline",
+);
+assert.ok(
+  releaseWorkflow.includes("VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}"),
+  "Vercel build and deployment must carry the approved commit SHA",
+);
