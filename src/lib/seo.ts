@@ -24,9 +24,9 @@ export function generateStructuredData(
   data: Record<string, unknown>
 ) {
   return {
+    ...data,
     "@context": "https://schema.org",
     "@type": type,
-    ...data,
   };
 }
 
@@ -116,8 +116,12 @@ export function optimizeTextForSEO(
   text: string,
   maxLength: number = 160
 ): string {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength).trim() + "...";
+  const normalized = text.trim().replace(/\s+/gu, " ");
+  const limit = Number.isFinite(maxLength) ? Math.max(0, Math.trunc(maxLength)) : 160;
+  const characters = Array.from(normalized);
+  if (characters.length <= limit) return normalized;
+  if (limit <= 3) return characters.slice(0, limit).join("");
+  return `${characters.slice(0, limit - 3).join("").trimEnd()}...`;
 }
 
 /**
@@ -125,19 +129,25 @@ export function optimizeTextForSEO(
  */
 export function generateSlug(text: string): string {
   return text
-    .toLowerCase()
+    .normalize("NFKC")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/\u0640/gu, "")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
     .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
+    .replace(/[\s-]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 /**
  * Check if text contains target keywords
  */
 export function checkKeywordDensity(text: string, keyword: string): number {
-  const words = text.toLowerCase().split(/\s+/);
-  const keywordCount = words.filter(w => w === keyword.toLowerCase()).length;
+  const normalizedKeyword = keyword.trim().toLocaleLowerCase();
+  const words = text.toLocaleLowerCase().trim().split(/\s+/u).filter(Boolean);
+  if (!normalizedKeyword || words.length === 0) return 0;
+  const keywordCount = words.filter((word) => word === normalizedKeyword).length;
   return (keywordCount / words.length) * 100;
 }
 
