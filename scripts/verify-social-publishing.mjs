@@ -336,7 +336,9 @@ if (
   failures.push("YouTube OAuth authorize and token exchange must use the same canonical Google redirect URI");
 }
 if (!youtubeConnect.includes('requireAdminApi("social.manage")') ||
-    !youtubeConnect.includes("https://www.googleapis.com/auth/youtube.upload") ||
+    !youtubeConnect.includes('requireAdminStepUpApi("social.publish"') ||
+     !youtubeConnect.includes('createSignedOAuthState(auth.profile.id, "youtube")') ||
+     !youtubeConnect.includes("https://www.googleapis.com/auth/youtube.upload") ||
     !youtubeConnect.includes('include_granted_scopes", "false"')) {
   failures.push("YouTube OAuth connect must request isolated upload consent without inheriting unknown legacy scopes");
 }
@@ -345,14 +347,19 @@ if (facebookConnect.includes("pages_manage_engagement") || facebookCallback.incl
 }
 if (!facebookConnect.includes('requireAdminApi("social.manage")') ||
     !facebookConnect.includes('requireAdminStepUpApi("social.publish"') ||
-    !facebookConnect.includes("dialog/oauth") ||
+    !facebookConnect.includes('createSignedOAuthState(auth.profile.id, "facebook")') ||
+     !facebookConnect.includes("dialog/oauth") ||
     !facebookConnect.includes("FACEBOOK_REQUESTED_PERMISSIONS.join") ||
     !facebookOAuthPolicy.includes("pages_manage_posts") ||
     facebookConnect.includes("FACEBOOK_INTEGRATION_RETIRED")) {
   failures.push("Facebook OAuth connect must start a scoped Meta Page authorization flow");
 }
 if (!facebookCallback.includes('requireAdminApi("social.manage")') ||
-    !facebookCallback.includes("timingSafeEqual") ||
+    !facebookCallback.includes('requireAdminStepUpApi("social.publish"') ||
+     !facebookCallback.includes('verifySignedOAuthState(state, auth.profile.id, "facebook")') ||
+     !facebookCallback.includes("manageAuth.profile.id !== auth.profile.id") ||
+     !facebookCallback.includes('permission: "social.manage"') ||
+     !facebookCallback.includes("timingSafeEqual") ||
     !facebookCallback.includes("saveFacebookPageCredential") ||
     !facebookCallback.includes("hasFacebookPublishingPermissions(grantedPermissions)") ||
     !facebookCallback.includes("hasFacebookInsightsPermission(grantedPermissions)") ||
@@ -385,7 +392,10 @@ if (!facebookCallback.includes("await saveFacebookPageCredential(") ||
   failures.push("Facebook OAuth callback must persist the verified Page credential only; queue recovery remains a separate confirmed social.publish action");
 }
 if (!youtubeCallback.includes('requireAdminApi("social.manage")') ||
-    !youtubeCallback.includes("hasYouTubeUploadScopes(scopes)") ||
+    !youtubeCallback.includes('requireAdminStepUpApi("social.publish"') ||
+     !youtubeCallback.includes('verifySignedOAuthState(state, auth.profile.id, "youtube")') ||
+     !youtubeCallback.includes("manageAuth.profile.id !== auth.profile.id") ||
+     !youtubeCallback.includes("hasYouTubeUploadScopes(scopes)") ||
     !youtubeCallback.includes("canUpload") ||
     !youtubeCallback.includes("flags.canUpload") ||
     !youtubeCallback.includes('permission: "social.manage"') ||

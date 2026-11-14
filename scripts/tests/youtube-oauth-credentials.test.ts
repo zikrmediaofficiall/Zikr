@@ -15,7 +15,9 @@ try {
   assert.equal(verifySignedOAuthState(signedState, "admin-profile-b", "youtube", stateNow + 1000), false, "OAuth state must be bound to the initiating admin profile");
   assert.equal(verifySignedOAuthState(signedState, "admin-profile-a", "facebook", stateNow + 1000), false, "OAuth state must be bound to the initiating provider");
   assert.equal(verifySignedOAuthState(signedState, "admin-profile-a", "youtube", stateNow + 10 * 60 * 1000 + 1), false, "expired OAuth state must fail closed");
-  const tamperedState = signedState.slice(0, -1) + (signedState.endsWith("a") ? "b" : "a");
+  const [statePayload, stateSignature] = signedState.split(".");
+  const tamperedSignature = (stateSignature[0] === "a" ? "b" : "a") + stateSignature.slice(1);
+  const tamperedState = `${statePayload}.${tamperedSignature}`;
   assert.equal(verifySignedOAuthState(tamperedState, "admin-profile-a", "youtube", stateNow + 1000), false, "tampered OAuth state must fail signature validation");
 } finally {
   if (previousOAuthStateSecret === undefined) delete process.env.OAUTH_STATE_SECRET;
