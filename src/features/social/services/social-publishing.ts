@@ -23,7 +23,7 @@ import {
 import { getPublishedVideoStagingCleanupEligibleAt, PUBLISHED_VIDEO_CLEANUP_POSTGREST_FILTER, shouldRetryPublishedVideoCleanup } from "@/features/social/services/published-video-cleanup";
 import { patchSocialQueueMetadataWithCas } from "@/features/social/services/social-queue-metadata";
 import { buildNextRowVersionUpdatedAt } from "@/lib/supabase/row-version";
-import { buildSocialPublishInFlightMetadata, buildStaleSocialPublishRecoveryFilter, buildStaleSocialPublishRecoveryMetadata, clearRevalidatedSocialApprovalDeferrals, clearSocialPublishInFlightMetadata } from "@/features/social/services/social-publish-recovery-policy";
+import { buildSocialPublishInFlightMetadata, buildStaleSocialPublishRecoveryFilter, buildStaleSocialPublishRecoveryMetadata, clearRevalidatedSocialApprovalDeferrals, clearSocialPublishInFlightMetadata, shouldScheduleSocialPublishRetry } from "@/features/social/services/social-publish-recovery-policy";
 import { isEligibleKidsWrittenPostForPublishing, isKidsWrittenPostCandidate, type CurrentKidsStory } from "@/features/social/services/written-content";
 import { canAttemptSocialPlatform, getEnabledSocialPlatforms, getManualReconciliationPlatforms, getUnavailableSocialPlatforms, isAmbiguousProviderOutcome, isAuthBlocked, isPermanentSocialFailure, mergeAuthBlockedPlatforms, normalizeSocialAttemptCount, normalizeSocialPlatformResults } from "@/features/social/services/platform-availability";
 
@@ -1200,7 +1200,7 @@ export async function processSocialPublishItem(
   const deferredFailures = failures.filter(failure =>
     failure.platform === "facebook_reels" && isFacebookReelsCooldownDeferredError(failure.error),
   );
-  const operationalFailures = failures.filter(failure => !deferredFailures.includes(failure));
+  const operationalFailures = failures.filter(failure => !failure.providerCallSkipped && !deferredFailures.includes(failure));
   const allTargetsSucceeded = platforms.every(platform => {
     const result = mergedResults[platform];
     return result?.ok === true && typeof result.remoteId === "string" && result.remoteId.trim().length > 0;
@@ -1241,8 +1241,15 @@ export async function processSocialPublishItem(
   const videoCatalogPublicationPending = results.some(result => result.videoCatalogPublicationPending === true);
   const videoCatalogApprovalReason = results.find(result => result.videoCatalogApprovalBlocked === true || result.videoCatalogPublicationPending === true)?.error ?? null;
   const hasDeferredTargets = unavailablePlatforms.length > 0 || approvalDeferredPlatforms.length > 0 || deferredFailures.length > 0;
-  const shouldRetry = Boolean(facebookReelsNextAllowedAt) || hasDeferredTargets || videoCatalogPublicationPending ||
-    (retryableOperationalFailures && (hasTransientFailure || successes.length > 0));
+  const shouldRetry = shouldScheduleSocialPublishRetry({
+    facebookReelsNextAllowedAt,
+    hasDeferredTargets,
+    videoCatalogApprovalBlocked,
+    videoCatalogPublicationPending,
+    retryableOperationalFailures,
+    hasTransientFailure,
+    hasSuccesses: successes.length > 0,
+  });
   const retryDelayMinutes = hasAuthFailure ? 15 : socialRetryDelayMinutes(attempts, item.id);
   const nextRetryAt = facebookReelsNextAllowedAt ?? (shouldRetry
     ? new Date(Date.now() + (hasDeferredTargets || videoCatalogPublicationPending ? 15 : retryDelayMinutes) * 60_000).toISOString()
@@ -1303,6 +1310,7 @@ export async function processSocialPublishItem(
     `${failure.platform}: ${failure.error ?? "unknown error"}` +
       (failure.requiresReconciliation ? " (remote outcome unknown; manual reconciliation required before retry)" : ""),
   );
+  if (videoCatalogApprovalReason) errorMessages.push(videoCatalogApprovalReason);
   if (unavailablePlatforms.length) errorMessages.push("Waiting for channel configuration: " + unavailablePlatforms.join(", "));
   if (approvalDeferredPlatforms.length) errorMessages.push("Approval revalidation held publishing for: " + approvalDeferredPlatforms.join(", "));
   const finalized = await markQueueItem(item.id, persistedStatus, {

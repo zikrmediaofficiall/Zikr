@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { evaluateVideoCatalogPublication } from "../../src/features/social/services/video-catalog-publication-policy";
-import { clearRevalidatedSocialApprovalDeferrals } from "../../src/features/social/services/social-publish-recovery-policy";
+import { clearRevalidatedSocialApprovalDeferrals, shouldScheduleSocialPublishRetry } from "../../src/features/social/services/social-publish-recovery-policy";
 
 const videoUrl = "https://res.cloudinary.com/zikr/video/upload/v123/auto-kids-episode.mp4";
 const kidsMetadata = {
@@ -88,11 +88,56 @@ assert.equal(cleared.videoCatalogPublicationPending, false);
 assert.equal(cleared.videoCatalogApprovalReason, null);
 assert.equal(cleared.videoCatalogPublicationRetryAt, null);
 
+assert.equal(
+  shouldScheduleSocialPublishRetry({
+    facebookReelsNextAllowedAt: "2026-11-14T12:00:00.000Z",
+    hasDeferredTargets: true,
+    videoCatalogApprovalBlocked: true,
+    videoCatalogPublicationPending: false,
+    retryableOperationalFailures: true,
+    hasTransientFailure: true,
+    hasSuccesses: true,
+  }),
+  false,
+  "a catalog-level block must suppress every automatic retry, including retries caused by another target's success, transient failure, or cooldown",
+);
+assert.equal(
+  shouldScheduleSocialPublishRetry({
+    facebookReelsNextAllowedAt: null,
+    hasDeferredTargets: false,
+    videoCatalogApprovalBlocked: false,
+    videoCatalogPublicationPending: true,
+    retryableOperationalFailures: false,
+    hasTransientFailure: false,
+    hasSuccesses: false,
+  }),
+  true,
+  "a pending catalog publication remains eligible for bounded automatic revalidation",
+);
+assert.equal(
+  shouldScheduleSocialPublishRetry({
+    facebookReelsNextAllowedAt: null,
+    hasDeferredTargets: false,
+    videoCatalogApprovalBlocked: false,
+    videoCatalogPublicationPending: false,
+    retryableOperationalFailures: true,
+    hasTransientFailure: false,
+    hasSuccesses: true,
+  }),
+  true,
+  "ordinary partial provider success with a retryable failure remains eligible for retry",
+);
+
+
 const socialSource = readFileSync("src/features/social/services/social-publishing.ts", "utf8");
 const availabilitySource = readFileSync("src/features/social/services/platform-availability.ts", "utf8");
 assert.match(availabilitySource, /videoCatalogApprovalBlocked === true/);
 assert.match(socialSource, /videoCatalogApprovalBlocked: true/);
 assert.match(socialSource, /videoCatalogPublicationPending: true/);
+assert.match(socialSource, /const operationalFailures = failures\.filter\(failure => !failure\.providerCallSkipped && !deferredFailures\.includes\(failure\)\);/);
+assert.match(socialSource, /if \(videoCatalogApprovalReason\) errorMessages\.push\(videoCatalogApprovalReason\);/);
+assert.match(socialSource, /shouldScheduleSocialPublishRetry\(\{/);
+
 const processStart = socialSource.indexOf("async function processSocialPublishItem");
 const processCatalogGate = socialSource.indexOf("const videoCatalogApproval = await checkVideoCatalogPublication(item);", processStart);
 const processSourceApproval = socialSource.indexOf("const sourceApproval = await checkWrittenPostSourceApproval(item);", processStart);

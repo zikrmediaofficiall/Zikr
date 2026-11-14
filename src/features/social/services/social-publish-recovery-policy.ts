@@ -122,6 +122,25 @@ export function clearRevalidatedSocialApprovalDeferrals(
   };
 }
 
+export function shouldScheduleSocialPublishRetry(input: {
+  facebookReelsNextAllowedAt: string | null;
+  hasDeferredTargets: boolean;
+  videoCatalogApprovalBlocked: boolean;
+  videoCatalogPublicationPending: boolean;
+  retryableOperationalFailures: boolean;
+  hasTransientFailure: boolean;
+  hasSuccesses: boolean;
+}): boolean {
+  // A catalog-level block is a manual hold for the entire video, even when a
+  // different target succeeded or failed transiently. Never leave a phantom
+  // automatic retry scheduled while canAttemptSocialPlatform rejects the row.
+  if (input.videoCatalogApprovalBlocked) return false;
+  return Boolean(input.facebookReelsNextAllowedAt) ||
+    input.hasDeferredTargets ||
+    input.videoCatalogPublicationPending ||
+    (input.retryableOperationalFailures && (input.hasTransientFailure || input.hasSuccesses));
+}
+
 export function buildStaleSocialPublishRecoveryMetadata(
   metadataInput: Record<string, unknown> | null | undefined,
   targetPlatformsInput: readonly string[],
