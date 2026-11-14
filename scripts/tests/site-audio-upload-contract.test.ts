@@ -165,7 +165,6 @@ assert.ok(manager.includes("const presignAuditRecorded = signed.auditRecorded !=
 assert.match(manager, /!presignAuditRecorded/);
 assert.match(adminRoute, /recordAuditSafely/);
 const primaryPatchStart = adminRoute.indexOf("export async function PATCH");
-const deleteStart = adminRoute.indexOf("export async function DELETE");
 const primaryPatch = adminRoute.slice(primaryPatchStart, deleteStart);
 assert.ok(primaryPatch.includes("admin_set_primary_site_audio_asset"));
 assert.ok(primaryPatch.includes("auditRecorded: true"));
