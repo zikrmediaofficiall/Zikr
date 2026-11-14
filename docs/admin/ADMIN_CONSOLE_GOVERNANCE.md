@@ -156,7 +156,7 @@
 | المحتوى والمعرفة | `/admin/content`, `/admin/library`, `/admin/editorial`, `/admin/knowledge` | `content_library`, `content_revisions`, `articles`, `stories`, `hadiths`, `duas`, `prophets`, `companions`, `scholars` | تُراجع صلاحية القراءة/التعديل/النشر مستقلة، ولا يكفي إخفاء الرابط من القائمة. |
 | الفيديو والوسائط | `/admin/video`, `/admin/video/requests`, `/admin/video/studio`, `/admin/video/sources`, `/admin/video/scripts`, `/admin/video/voices`, `/admin/video/visuals`, `/admin/video/templates`, `/admin/video/qa`, `/admin/media` | `videos`, `video_generation_requests`, `media_assets` وموارد التخزين | لا يُعلن عن تنفيذ فوري إذا كانت العملية قد دخلت طابور عامل مجدول. |
 | سجل المنصات التاريخي | غير ظاهر في التنقل | `social_publish_queue`, `social_sync_jobs`, `social_platform_credentials` | سجلات للقراءة والتدقيق فقط؛ لا مهام نشر جديدة ولا سياسات قراءة عامة لبيانات OAuth. |
-| الأطفال والألعاب | `/admin/kids` وما يتفرع عنها | `kids_content` وجداول الألعاب والتقدم والنتائج | تعديلات اللعب ونتائج الأطفال تُفحص بعقود الاختبار وسياسات RLS الخاصة بالمجال. |
+| الأطفال والألعاب | `/admin/kids` وما يتفرع عنها | `kids_content`, `kids_games`, `kids_game_levels`, `kids_game_questions`, `kids_game_results` وجداول التقدم والنتائج | تعديلات اللعب ونتائج الأطفال تُفحص بعقود الاختبار وسياسات RLS الخاصة بالمجال. |
 | الصوت | `/admin/audio`, `/admin/site-audio` | `site_audio_assets` ومصادر الصوت | تُختبر روابط الأصول وحالات فشل التحميل؛ لا تُعرض حالة نجاح وهمية عند فشل القراءة. |
 | النشر والإصدار | `/admin/seo`, `/admin/release`, `/admin/android`, `/admin/health` | إعدادات الموقع وبيانات الإصدار وعمليات الفحص | إعدادات SEO والنشر لا تتجاوز التحقق من الروابط أو سجل التدقيق. |
 

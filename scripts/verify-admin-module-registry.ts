@@ -45,6 +45,21 @@ if (!seoManagerPermissions.includes("site.metadata.manage")) {
   failures.push("seo_manager must retain the dedicated public site metadata permission.");
 }
 
+const kidsModule = ADMIN_MODULES.find((item) => item.key === "kids");
+if (!kidsModule?.sourceTables.includes("kids_game_questions")) {
+  failures.push("Kids module ownership inventory must include the restricted-answer kids_game_questions table.");
+}
+const kidsActions = readFileSync("src/app/admin/kids/actions.ts", "utf8");
+for (const requiredGuard of [
+  'requireAdminPermission("kids.manage")',
+  'requireAdminStepUp("content.publish"',
+  'requireAdminPermission("media.manage")',
+]) {
+  if (!kidsActions.includes(requiredGuard)) {
+    failures.push("Kids content Server Actions must enforce the independent kids, publish, and media permissions: " + requiredGuard);
+  }
+}
+
 const seen = new Set<string>();
 for (const adminModule of ADMIN_MODULES) {
   if (seen.has(adminModule.key)) failures.push(`Duplicate admin module key: ${adminModule.key}`);

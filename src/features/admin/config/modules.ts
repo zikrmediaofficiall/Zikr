@@ -115,7 +115,7 @@ export const ADMIN_MODULES: readonly AdminModuleDefinition[] = [
     routes: routesFor("kids"),
     permission: "kids.manage",
     permissions: ["kids.manage"],
-    sourceTables: ["kids_content", "kids_games", "kids_game_levels", "kids_game_results"],
+    sourceTables: ["kids_content", "kids_games", "kids_game_levels", "kids_game_questions", "kids_game_results"],
     ownerRole: "moderator",
     status: "active",
   },
