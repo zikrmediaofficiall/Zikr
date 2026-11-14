@@ -24,7 +24,7 @@ import { getPublishedVideoStagingCleanupEligibleAt, PUBLISHED_VIDEO_CLEANUP_POST
 import { patchSocialQueueMetadataWithCas } from "@/features/social/services/social-queue-metadata";
 import { buildNextRowVersionUpdatedAt } from "@/lib/supabase/row-version";
 import { buildSocialPublishInFlightMetadata, buildStaleSocialPublishRecoveryFilter, buildStaleSocialPublishRecoveryMetadata, clearRevalidatedSocialApprovalDeferrals, clearSocialPublishInFlightMetadata, shouldScheduleSocialPublishRetry } from "@/features/social/services/social-publish-recovery-policy";
-import { isEligibleKidsWrittenPostForPublishing, isKidsWrittenPostCandidate, type CurrentKidsStory } from "@/features/social/services/written-content";
+import { isEligibleKidsWrittenPostForPublishing, isKidsWrittenPostCandidate, isKidsWrittenSourceReservation, type CurrentKidsStory } from "@/features/social/services/written-content";
 import { canAttemptSocialPlatform, getEnabledSocialPlatforms, getManualReconciliationPlatforms, getUnavailableSocialPlatforms, isAmbiguousProviderOutcome, isAuthBlocked, isPermanentSocialFailure, mergeAuthBlockedPlatforms, normalizeSocialAttemptCount, normalizeSocialPlatformResults } from "@/features/social/services/platform-availability";
 
 export type SocialPlatform = "facebook" | "facebook_reels" | "youtube";
@@ -223,12 +223,13 @@ async function checkWrittenPostSourceApproval(
 
   if (!sourceId) return "blocked";
   try {
-    const articles = await supabaseServerAdminRequest<Array<{ id: string; published: unknown }>>(
+    const articles = await supabaseServerAdminRequest<Array<{ id: string; published: unknown; metadata: unknown }>>(
       "/rest/v1/articles?id=eq." + encodeURIComponent(sourceId) +
-        "&select=id,published&limit=2",
+        "&select=id,published,metadata&limit=2",
     );
     if (!Array.isArray(articles)) throw new Error("Written article publication lookup returned invalid data.");
     if (articles.length !== 1) return "blocked";
+    if (isKidsWrittenSourceReservation(articles[0].metadata)) return "blocked";
     if (articles[0].published === true) return "approved";
     if (typeof articles[0].published !== "boolean") {
       throw new Error("Written article publication flag is invalid.");

@@ -559,7 +559,8 @@ assert.match(writtenFactory, /content_type:\s*"written_post"/);
 assert.match(writtenFactory, /target_platforms:\s*\["facebook"\]/);
 assert.match(socialPublishing, /checkWrittenPostSourceApproval\(item\)/, "social publishing must revalidate both Kids sources and general written articles before provider delivery");
 assert.match(socialPublishing, /\/rest\/v1\/articles\?id=eq\./, "general written-post delivery must verify that its source article still exists");
-assert.match(socialPublishing, /select=id,published&limit=2/, "general written-post delivery must require the live article publication flag");
+assert.match(socialPublishing, /select=id,published,metadata&limit=2/, "general written-post delivery must revalidate the live article audience as well as its publication flag");
+assert.ok(socialPublishing.includes("isKidsWrittenSourceReservation(articles[0].metadata)"), "a general queue row must be blocked when its source article carries any Kids marker");
 assert.match(socialPublishing, /content_publish_queue\?content_table=eq\.articles/, "unpublished generated articles may only wait when a site-publication job remains active");
 assert.match(socialPublishing, /writtenArticlePublicationBlocked/, "withdrawn general articles must be held from social publication");
 assert.match(socialPublishing, /writtenArticlePublicationPending/, "not-yet-published articles must be deferred instead of being sent early");
@@ -588,7 +589,7 @@ assert.match(envExample, /^AUTO_VIDEO_PUBLISH_ENABLED=false$/m, "local .env.exam
 assert.match(envExample, /^SOCIAL_PUBLISH_ENABLED=false$/m, "local .env.example must not enable social publishing by default");
 assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example must keep video automation in dry-run mode");
 
-assert.ok(worker.includes("isKidsAudience(metadata.audience)"), "published articles labeled for children must not enter the general knowledge generation pool");
+assert.ok(worker.includes("isKidsWrittenSourceReservation(metadata)"), "articles with any Kids audience, source, identity or public-path marker must not enter the general knowledge generation pool");
 assert.ok(worker.includes("isSafeWrittenBackfillSource(sourceType,metadata)"), "historical social backfill must fail closed when Kids metadata conflicts with a general source type");
 assert.ok(worker.includes('WRITTEN_CONTENT_ENABLED?.trim().toLowerCase()!=="true"'), "Gemini generation must remain disabled unless explicitly enabled");
 assert.ok(writtenWorkflow.includes('WRITTEN_CONTENT_ENABLED: "true"'), "the scheduled workflow must explicitly opt in to content generation");

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { asWrittenRecord } from "../../src/features/social/services/written-content";
 import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
-import { buildWrittenArticleBackfillCreatedAtFilter, buildWrittenBackfillQueuePayload, countUniqueWrittenContentReservations, buildWrittenPost, buildWrittenSocialQueuePayload, chooseWrittenSourceKind, shouldBackfillKidsWrittenPost, scheduleKidsBackfillWithinUtcDay, containsKidsPersonalDataSolicitation, createWrittenAutomationKey, createWrittenSocialAutomationKey, isKidsAudience, isKidsWrittenPostCandidate, isKidsWrittenSourceReservation, isSafeWrittenBackfillSource, normalizeWrittenCategory, validateWrittenPostDraft, type WrittenContentSource, type WrittenPostDraft } from "../../src/features/social/services/written-content";
+import { buildWrittenArticleBackfillCreatedAtFilter, buildWrittenBackfillQueuePayload, countUniqueWrittenContentReservations, buildWrittenPost, buildWrittenSocialQueuePayload, chooseWrittenSourceKind, shouldBackfillKidsWrittenPost, scheduleKidsBackfillWithinUtcDay, containsKidsPersonalDataSolicitation, createWrittenAutomationKey, createWrittenSocialAutomationKey, isKidsWrittenPostCandidate, isKidsWrittenSourceReservation, isSafeWrittenBackfillSource, normalizeWrittenCategory, validateWrittenPostDraft, type WrittenContentSource, type WrittenPostDraft } from "../../src/features/social/services/written-content";
 
 type Row = Record<string, unknown>;
 const str=(v:unknown)=>typeof v==="string"?v.trim():"";
@@ -87,7 +87,7 @@ async function loadSources():Promise<WrittenContentSource[]>{
  }
  for(const x of articles){
   const metadata=x.metadata&&typeof x.metadata==="object"&&!Array.isArray(x.metadata)?x.metadata as Row:{};
-  if(metadata.automation==="written-content-v2"||isKidsAudience(metadata.audience))continue;
+  if(metadata.automation==="written-content-v2"||isKidsWrittenSourceReservation(metadata))continue;
   const title=str(x.title_ar)||str(x.title);
   const text=str(x.content_ar)||str(x.summary_ar)||str(x.content)||str(x.summary);
   if(!title||!text)continue;
