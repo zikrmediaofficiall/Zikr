@@ -57,8 +57,9 @@ if (socialApi.includes("SOCIAL_PUBLISHING_RETIRED") || socialApi.includes("statu
   failures.push("social API must be restored from its retired HTTP 410 state");
 }
 if (!socialApi.includes("created_at=gte.") || !socialApi.includes("limit=200") ||
-    !socialApi.includes("limit=500") || !socialApi.includes("private, max-age=30")) {
-  failures.push("social admin reads must be bounded, cached and isolated to the post-launch queue window");
+    !socialApi.includes("limit=500") || !socialApi.includes("private, no-store") ||
+    socialApi.includes("max-age=")) {
+  failures.push("social admin reads must be bounded, non-cacheable and isolated to the post-launch queue window");
 }
 if (!adminClient.includes('href="/admin/social/written-studio"') ||
     !adminClient.includes('item.content_type === "written_post"')) {
