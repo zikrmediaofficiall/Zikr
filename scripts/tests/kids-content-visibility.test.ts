@@ -10,12 +10,14 @@ import {
 } from "../../src/features/kids/services/kids-offline-content";
 import { isSocialPlatformDeletionCurrent } from "../../src/features/social/services/social-deletion-visibility";
 import {
+  buildKidsStoryAgeReviewPatch,
   getFallbackKidsContentBySlug,
   hasKidsEnglishContent,
   isKidsContentPubliclyVisible,
   mergeKidsContentWithFallback,
   shouldTreatKidsContentLookupAsUnavailable,
 } from "../../src/features/kids/services/kids-content-visibility";
+import { isKidsVideoGenerationRequestContent } from "../../src/features/kids/services/kids-video-request-visibility";
 
 for (const status of [408, 429, 500, 502, 503, 504]) {
   assert.equal(
@@ -111,10 +113,26 @@ for (const type of KIDS_CONTENT_TYPES) {
 }
 assert.equal(isKidsContentType("unsupported"), false, "unknown Kids content types must fail validation");
 assert.equal(isKidsContentPubliclyVisible({ type: "story", metadata: { age_appropriate: true } }), true, "age-approved Kids stories remain publicly visible");
-assert.equal(isKidsContentPubliclyVisible({ type: "story", metadata: { age_appropriate: false } }), true, "automation eligibility must not hide an already-published story from public content");
-assert.equal(isKidsContentPubliclyVisible({ type: "story", metadata: {} }), true, "legacy published stories without an automation flag remain publicly visible");
+assert.equal(isKidsContentPubliclyVisible({ type: "story", metadata: { age_appropriate: false } }), false, "rejected Kids stories must not remain publicly visible");
+assert.equal(isKidsContentPubliclyVisible({ type: "story", metadata: {} }), false, "legacy stories without explicit age approval must remain private until reviewed");
 assert.equal(isKidsContentPubliclyVisible({ type: "unknown", metadata: {} }), false, "unsupported content types must not be exposed through the public Kids resolver");
 assert.equal(isKidsContentPubliclyVisible({ type: "game", metadata: {} }), true, "non-story Kids content keeps its existing publication contract");
+assert.deepEqual(
+  buildKidsStoryAgeReviewPatch({ reviewNote: "unsafe" }, true, false, "2026-11-14T13:00:00.000Z"),
+  { metadata: { reviewNote: "unsafe", age_appropriate: false }, published: false, updated_at: "2026-11-14T13:00:00.000Z" },
+  "rejecting an already-published Kids story must atomically unpublish it without deleting its content",
+);
+assert.deepEqual(
+  buildKidsStoryAgeReviewPatch({ reviewNote: "approved" }, true, true, "2026-11-14T13:00:00.000Z"),
+  { metadata: { reviewNote: "approved", age_appropriate: true }, published: true, updated_at: "2026-11-14T13:00:00.000Z" },
+  "approving an already-published Kids story may preserve publication",
+);
+assert.equal(
+  buildKidsStoryAgeReviewPatch({}, false, true, "2026-11-14T13:00:00.000Z").published,
+  false,
+  "age approval must not publish a previously unpublished Kids story",
+);
+
 assert.equal(normalizeKidsVideoEmbedUrl("https://www.youtube.com/embed/dQw4w9WgXcQ"), "https://www.youtube.com/embed/dQw4w9WgXcQ", "standard HTTPS YouTube embed URLs must remain supported");
 assert.equal(normalizeKidsVideoEmbedUrl("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"), "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ", "privacy-enhanced YouTube embeds must remain supported");
 for (const unsafeUrl of [
@@ -130,21 +148,21 @@ for (const unsafeUrl of [
 }
 
 const databaseItems = [
-  { slug: "story-live", type: "story", source: "database" },
+  { slug: "story-live", type: "story", metadata: { age_appropriate: true }, source: "database" },
 ];
 const fallbackItems = [
-  { slug: "story-live", type: "story", source: "fallback" },
+  { slug: "story-live", type: "story", metadata: { age_appropriate: true }, source: "fallback" },
   { slug: "story-unpublished", type: "story", source: "fallback" },
   { slug: "story-inactive", type: "story", source: "fallback" },
-  { slug: "story-static-only", type: "story", source: "fallback" },
+  { slug: "story-static-only", type: "story", metadata: { age_appropriate: true }, source: "fallback" },
 ];
 const knownDatabaseSlugs = new Set(["story-live", "story-unpublished", "story-inactive"]);
 
 assert.deepEqual(
   mergeKidsContentWithFallback(databaseItems, fallbackItems, knownDatabaseSlugs),
   [
-    { slug: "story-live", type: "story", source: "database" },
-    { slug: "story-static-only", type: "story", source: "fallback" },
+    { slug: "story-live", type: "story", metadata: { age_appropriate: true }, source: "database" },
+    { slug: "story-static-only", type: "story", metadata: { age_appropriate: true }, source: "fallback" },
   ],
   "database-backed unpublished or inactive slugs must not be resurrected by static fallback",
 );
@@ -172,18 +190,18 @@ const publicFallbackItems = [
 ];
 assert.deepEqual(
   mergeKidsContentWithFallback([], publicFallbackItems, new Set()),
-  publicFallbackItems,
-  "curated static fallback stories remain public regardless of their separate automation eligibility flag",
+  [publicFallbackItems[0], publicFallbackItems[3]],
+  "only age-approved stories and non-story Kids content may be returned publicly",
 );
 assert.equal(
-  getFallbackKidsContentBySlug("unapproved-story", publicFallbackItems, new Set())?.slug,
-  "unapproved-story",
-  "public fallback detail lookup must not confuse automation eligibility with publication visibility",
+  getFallbackKidsContentBySlug("unapproved-story", publicFallbackItems, new Set()),
+  null,
+  "unapproved fallback stories must not be exposed by detail lookup",
 );
 assert.equal(
-  getFallbackKidsContentBySlug("legacy-story", publicFallbackItems, new Set())?.slug,
-  "legacy-story",
-  "legacy static stories without an automation flag remain publicly visible",
+  getFallbackKidsContentBySlug("legacy-story", publicFallbackItems, new Set()),
+  null,
+  "legacy fallback stories without explicit age approval must remain private",
 );
 assert.deepEqual(
   parseKidsQuizData("{\"questions\":[{\"text\":\"من ربك؟\",\"options\":[\"الله\",\"غير ذلك\"],\"correctAnswer\":0}]}"),
@@ -260,6 +278,8 @@ assert.match(kidsVideoDetailPage, /referrerPolicy="strict-origin-when-cross-orig
 assert.match(kidsVideoDetailPage, /loading="lazy"/, "the public Kids video detail iframe must load lazily");
 
 assert.ok(kidsVideosApi.includes("loadKidsSocialQueueRows(requestIds"), "the Kids video feed must read the complete paginated Kids social history");
+assert.ok(kidsVideosApi.includes("status=eq.completed"), "only completed generation requests may supply public Kids story metadata");
+assert.ok(kidsVideosApi.includes("isKidsVideoGenerationRequestContent(content)"), "linked request text must be validated as Kids content before it is exposed");
 assert.match(kidsVideosApi, /VIDEO_GENERATION_REQUEST_ID_PATTERN\.test\(id\.trim\(\)\)/, "only valid generation UUIDs may enter the Kids feed Supabase filters");
 assert.ok(kidsVideosApi.includes("resolveKidsVideoSocialPublication"), "the Kids video feed must aggregate all original and supplemental social queue rows");
 assert.ok(kidsVideosApi.includes("socialQueueReadSucceeded = true"), "stored social badges must be used only after a successful live queue read");
@@ -269,6 +289,10 @@ assert.doesNotMatch(kidsVideosApi, /status=in\.\(published,partial\)/, "queued, 
 // All queue states are read so live failed/pending rows can override stale catalog metadata.
 
 
+assert.equal(isKidsVideoGenerationRequestContent({ audience: "kids", type: "kids_story_episode" }), true);
+assert.equal(isKidsVideoGenerationRequestContent({ sourceType: "story", type: "story" }), true, "the validated legacy story source contract must remain supported");
+assert.equal(isKidsVideoGenerationRequestContent({ audience: "general", sourceType: "article", type: "article" }), false);
+assert.equal(isKidsVideoGenerationRequestContent(null), false);
 assert.equal(isPublicKidsVideoSocialQueueRow({ content_type: "kids_video", status: "published", target_platforms: ["youtube"], published_at: "2026-11-11T12:00:00.000Z", metadata: { audience: "kids" } }), true);
 assert.equal(isPublicKidsVideoSocialQueueRow({
   content_type: "kids_video",
@@ -685,6 +709,8 @@ const kidsLevelsAdminPage = readFileSync("src/app/admin/kids/levels/page.tsx", "
 const kidsContentData = readFileSync("src/features/kids/data/content.ts", "utf8");
 
 assert.match(adminAction, /age_appropriate: ageAppropriate/);
+assert.ok(adminAction.includes("buildKidsStoryAgeReviewPatch"), "age-review rejection must use the tested publication-state transition");
+assert.ok(adminAction.includes('revalidatePath("/api/kids/social-posts")') && adminAction.includes('revalidatePath("/sitemap-index.xml")'), "age-review decisions must invalidate public Kids social and sitemap caches");
 assert.match(adminAction, /if \(!Array\.isArray\(existingSlug\)/, "Kids slug preflight must reject malformed PostgREST responses before media upload");
 assert.match(adminAction, /!Array\.isArray\(saved\)\s*\|\|\s*saved\.length !== 1/, "Kids inserts must verify exactly one returned row before reporting success");
 assert.match(adminManager, /if \(!Array\.isArray\(rowsResult\.value\)\)/, "Kids admin list must not treat malformed row data as a successful empty list");
@@ -828,7 +854,10 @@ const offlineKidsSnapshot = JSON.parse(readFileSync("public/offline-content/v1/k
 const offlineManifest = JSON.parse(readFileSync("public/offline-content/v1/manifest.json", "utf8")) as OfflineManifest;
 assert.match(service, /published=eq\.true&is_active=eq\.true/, "public Kids queries must include active state");
 assert.match(service, /select=\*&published=eq\.true&is_active=eq\.true/, "the Kids page must preserve every active published content type");
-assert.doesNotMatch(service, /metadata->>age_appropriate\.eq\.true/, "public Kids database reads must not use the automation eligibility flag as a visibility gate");
+const kidsVisibilitySource = readFileSync("src/features/kids/services/kids-content-visibility.ts", "utf8");
+assert.match(kidsVisibilitySource, /metadata\.age_appropriate === true/, "public Kids story visibility must require explicit age-suitability approval");
+assert.ok(kidsContentServiceSource.includes("age_appropriate: true"), "curated static fallback stories must carry explicit age approval");
+assert.ok(kidsContentServiceSource.includes("FALLBACK_KIDS_CONTENT.find"), "fallback detail lookup must use the same age-approved curated list");
 assert.match(service, /isKidsContentPubliclyVisible/, "public Kids services must reject unsupported types even when the database RLS policy is unavailable");
 assert.match(service, /FALLBACK_KIDS_CONTENT\.filter\(isKidsContentPubliclyVisible\)/, "static fallback lists must apply the same supported-type visibility gate");
 assert.match(service, /if \(!fallback \|\| !isKidsContentPubliclyVisible\(fallback\)\) return null/, "static fallback detail routes must not bypass supported-type visibility");
@@ -857,7 +886,8 @@ const migration = readFileSync(
 assert.match(migration, /drop policy if exists "kids_content_public_read"/i);
 assert.match(migration, /published\s+is\s+true[\s\S]*is_active\s+is\s+true/i, "public Kids RLS must require published and active content");
 assert.match(migration, /kids_content\.published\s+is\s+true[\s\S]*kids_content\.is_active\s+is\s+true/i, "the share counter must use the same published and active visibility contract");
-assert.doesNotMatch(migration, /age_appropriate/i, "the automation eligibility flag must not restrict public Kids visibility or sharing");
+assert.match(migration, /type\s*<>\s*'story'[\s\S]*metadata->>'age_appropriate'\s*=\s*'true'/i, "public Kids RLS must require age approval for stories");
+assert.match(migration, /kids_content\.type\s*<>\s*'story'[\s\S]*kids_content\.metadata->>'age_appropriate'\s*=\s*'true'/i, "the share counter must use the same age-approved story visibility contract");
 
 assert.match(migration, /security invoker\s+set search_path = ''/i, "the service-role share counter must use invoker privileges and an empty search path");
 assert.doesNotMatch(migration, /security definer/i, "public share-count code must not introduce a definer entry point");

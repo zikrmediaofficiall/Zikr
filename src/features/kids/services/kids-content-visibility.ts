@@ -1,10 +1,31 @@
 import { isKidsContentType } from "@/features/kids/services/kids-content-validation";
 
 export function isKidsContentPubliclyVisible(item: { type?: unknown; metadata?: unknown }): boolean {
-  // Publication and active state are enforced by the database query/RLS policy.
-  // age_appropriate is a separate review signal for automated Kids distribution;
-  // it must not hide an already-published story from the public Kids library.
-  return isKidsContentType(item.type);
+  // The public Kids library must not expose a story until a reviewer explicitly
+  // approves its age suitability. Publication and active state remain DB/RLS gates.
+  if (!isKidsContentType(item.type)) return false;
+  if (item.type !== "story") return true;
+  const metadata = item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata)
+    ? item.metadata as Record<string, unknown>
+    : {};
+  return metadata.age_appropriate === true;
+}
+
+export function buildKidsStoryAgeReviewPatch(
+  existingMetadata: Record<string, unknown>,
+  currentPublished: boolean,
+  approved: boolean,
+  updatedAt: string,
+): {
+  metadata: Record<string, unknown>;
+  published: boolean;
+  updated_at: string;
+} {
+  return {
+    metadata: { ...existingMetadata, age_appropriate: approved },
+    published: approved ? currentPublished : false,
+    updated_at: updatedAt,
+  };
 }
 
 export function normalizeKidsContentSlug(value: unknown): string {

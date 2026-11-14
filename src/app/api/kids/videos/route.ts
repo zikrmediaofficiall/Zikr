@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getKidsGeneratedVideos } from "@/features/videos/services/videos";
+import { isKidsVideoGenerationRequestContent } from "@/features/kids/services/kids-video-request-visibility";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 import { getConfirmedPublicKidsVideoSocialPlatforms, resolveKidsVideoSocialPublication } from "@/features/social/services/kids-video-social-visibility";
 import { loadKidsSocialQueueRows, type KidsSocialQueueRow } from "@/features/social/services/kids-video-social-query";
@@ -35,7 +36,7 @@ export async function GET() {
       const filter = requestIds.map(encodeURIComponent).join(",");
       const [requestsResult, socialRowsResult] = await Promise.allSettled([
         supabaseServerAdminRequest<Array<{ id: string; content: unknown }>>(
-          "/rest/v1/video_generation_requests?id=in.(" + filter + ")&select=id,content",
+          "/rest/v1/video_generation_requests?id=in.(" + filter + ")&status=eq.completed&select=id,content",
         ),
         // Include every Kids queue state so a newer supplemental or failed row
         // cannot hide an older confirmed publication or leave a stale badge.
@@ -53,7 +54,11 @@ export async function GET() {
       }
 
       requestContentById = new Map<string, Record<string, unknown>>();
-      for (const row of requests ?? []) requestContentById.set(row.id, asRecord(row.content));
+      for (const row of requests ?? []) {
+        const content = asRecord(row.content);
+        if (!isKidsVideoGenerationRequestContent(content)) continue;
+        requestContentById.set(row.id, content);
+      }
       for (const row of socialRows ?? []) {
         if (!row.content_id) continue;
         const rowsForRequest = socialQueueByRequestId.get(row.content_id) ?? [];

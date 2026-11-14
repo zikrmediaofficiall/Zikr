@@ -17,6 +17,7 @@ import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { buildNextRowVersionUpdatedAt } from "@/lib/supabase/row-version";
 import { isRegisteredGameId } from "@/lib/games/registry";
 import { isKidsContentType, normalizeKidsVideoEmbedUrl, parseKidsQuizData } from "@/features/kids/services/kids-content-validation";
+import { buildKidsStoryAgeReviewPatch } from "@/features/kids/services/kids-content-visibility";
 
 function value(formData: FormData, key: string) {
   const raw = String(formData.get(key) ?? "").trim();
@@ -255,10 +256,11 @@ export async function reviewKidsStoryAgeSuitabilityAction(formData: FormData) {
     age_group: string | null;
     content_ar: string;
     metadata: Record<string, unknown> | null;
+    published: boolean;
     updated_at: string;
   }>>(
     "/rest/v1/kids_content?id=eq." + encodeURIComponent(id) +
-      "&select=id,slug,type,age_group,content_ar,metadata,updated_at&limit=2",
+      "&select=id,slug,type,age_group,content_ar,metadata,published,updated_at&limit=2",
     { method: "GET" },
   );
 
@@ -286,20 +288,26 @@ export async function reviewKidsStoryAgeSuitabilityAction(formData: FormData) {
   }
   const existingMetadata = (metadataValue ?? {}) as Record<string, unknown>;
   const approved = decision === "approved";
-  const nextMetadata = { ...existingMetadata, age_appropriate: approved };
   const nextUpdatedAt = buildNextRowVersionUpdatedAt(current.updated_at);
-  const updated = await supabaseServerAdminRequest<Array<{ id: string; updated_at: string }>>(
+  const reviewPatch = buildKidsStoryAgeReviewPatch(
+    existingMetadata,
+    current.published === true,
+    approved,
+    nextUpdatedAt,
+  );
+  const updated = await supabaseServerAdminRequest<Array<{ id: string; published: boolean; updated_at: string }>>(
     "/rest/v1/kids_content?id=eq." + encodeURIComponent(id) +
       "&updated_at=eq." + encodeURIComponent(current.updated_at) +
-      "&select=id,updated_at",
+      "&select=id,published,updated_at",
     {
       method: "PATCH",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ metadata: nextMetadata, updated_at: nextUpdatedAt }),
+      body: JSON.stringify(reviewPatch),
     },
   );
 
-  if (!Array.isArray(updated) || updated.length !== 1 || updated[0]?.id !== id) {
+  if (!Array.isArray(updated) || updated.length !== 1 || updated[0]?.id !== id ||
+      updated[0]?.published !== reviewPatch.published || updated[0]?.updated_at !== nextUpdatedAt) {
     throw new Error("تغيرت القصة أثناء الحفظ. لم يتم تسجيل القرار؛ حدّث الصفحة ثم أعد المراجعة.");
   }
 
@@ -315,6 +323,8 @@ export async function reviewKidsStoryAgeSuitabilityAction(formData: FormData) {
         ageGroup: current.age_group,
         decision,
         previousAgeAppropriate: current.metadata?.age_appropriate === true,
+        previousPublished: current.published,
+        publishedAfterReview: reviewPatch.published,
         reviewNote: reviewNote || null,
       },
     });
@@ -325,8 +335,12 @@ export async function reviewKidsStoryAgeSuitabilityAction(formData: FormData) {
   revalidatePath("/admin/kids/content");
   revalidatePath("/admin/kids");
   revalidatePath("/api/kids/content");
+  revalidatePath("/api/kids/social-posts");
   revalidatePath("/kids");
   revalidatePath(`/kids/${current.slug}`);
+  revalidatePath("/sitemap.xml");
+  revalidatePath("/sitemap-index.xml");
+  revalidatePath("/sitemap-content/[id]");
 
   if (auditError) {
     console.warn("[admin/kids] age-review audit event unavailable after metadata update:", auditError);

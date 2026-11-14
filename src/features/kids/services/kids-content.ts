@@ -2,7 +2,6 @@ import "server-only";
 
 import { isSupabaseConfigured, supabaseServerAdminRequest, supabaseServerAnonRequest } from "@/lib/supabase/server";
 import {
-  getKidsItemBySlug,
   kidsContent,
   normalizeKidsContentRow,
   type KidsItem,
@@ -30,7 +29,9 @@ function dedupeBySlug(items: KidsItem[]): KidsItem[] {
   });
 }
 
-const FALLBACK_KIDS_CONTENT = dedupeBySlug(kidsContent);
+const FALLBACK_KIDS_CONTENT = dedupeBySlug(kidsContent).map((item) => item.type === "story"
+  ? { ...item, metadata: { ...item.metadata, age_appropriate: true } }
+  : item);
 
 type KidsVisibilityDbRow = { slug?: unknown };
 
@@ -162,7 +163,7 @@ export async function getKidsContentBySlug(
 
   const database = await getDatabaseKidsContentBySlug(cleanSlug);
   if (!database.configured) {
-    const fallback = getKidsItemBySlug(cleanSlug);
+    const fallback = FALLBACK_KIDS_CONTENT.find((item) => item.slug.toLowerCase() === cleanSlug) ?? null;
     if (!fallback || !isKidsContentPubliclyVisible(fallback)) return null;
     if (activeLocale === "en" && !hasKidsEnglishContent(fallback)) return null;
     return fallback;

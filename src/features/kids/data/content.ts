@@ -49,6 +49,7 @@ export interface KidsItem {
   youtube_video_id?: string;
   facebook_share_enabled?: boolean;
   metadata?: {
+    age_appropriate?: boolean;
     reward?: string;
     memorizationTarget?: string;
     durationDays?: number;
