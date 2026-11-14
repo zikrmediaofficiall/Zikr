@@ -221,7 +221,9 @@ assert.ok(finalization.includes("secrets.ZIKR_VERCEL_TOKEN"), "web production re
 assert.ok(finalization.includes("secrets.VERCEL_DEPLOY_TOKEN") && finalization.includes("secrets.VERCEL_TOKEN"), "web production release must support common alternate GitHub secret names");
 assert.ok(finalization.includes("Add the token as a GitHub Actions SECRET named ZIKR_VERCEL_TOKEN (preferred), VERCEL_DEPLOY_TOKEN, or VERCEL_TOKEN"), "missing-token diagnostics must name all supported GitHub secret names");
 assert.ok(finalization.includes("Vercel project Environment Variables are not available to this GitHub Actions workflow"), "missing-token diagnostics must distinguish GitHub Actions secrets from Vercel project variables");
-assert.ok(finalization.split("secrets.ZIKR_VERCEL_TOKEN || secrets.VERCEL_DEPLOY_TOKEN || secrets.VERCEL_TOKEN").length - 1 === 6, "every Vercel CLI step must use the same secret fallback resolution");
+assert.ok(finalization.split("secrets.ZIKR_VERCEL_TOKEN || secrets.VERCEL_DEPLOY_TOKEN || secrets.VERCEL_TOKEN").length - 1 === 7, "every Vercel release and inspection step must use the same secret fallback resolution");
+assert.ok(finalization.includes("node scripts/verify-vercel-deployment-ready.mjs"), "web production release must verify Vercel READY state and approved deployment identity");
+assert.ok(finalization.includes("node scripts/verify-supabase-edge-health.mjs"), "web production release must smoke-test the deployed Supabase health Edge Function");
 assert.ok(finalization.includes("pnpm production:smoke"), "web production release must verify its deployment");
 assert.ok(finalization.includes("fetch-depth: 0"), "schema-baseline verification must have the parent commit available");
 assert.ok(finalization.includes('git worktree add --detach "${baseline}" "${GITHUB_SHA}^"'), "schema baseline must be checked against the commit before this release");
