@@ -159,6 +159,9 @@ jobs:
         run: pnpm exec cap sync android
         timeout-minutes: 10
 
+      - name: Verify committed Capacitor Android wiring
+        run: git diff --exit-code -- android/capacitor.settings.gradle android/app/capacitor.build.gradle
+
       - name: Build Debug APK (no release signing)
         shell: bash
         run: |
