@@ -110,4 +110,22 @@ assert.equal(
   "upload, download, and error responses must never cache signed storage capabilities",
 );
 
+
+const storageServiceSource = readFileSync("src/lib/services/storage.ts", "utf8");
+const videoUploadRouteSource = readFileSync("src/app/api/admin/videos/upload/route.ts", "utf8");
+const videoUploadFieldSource = readFileSync("src/features/admin/components/video-upload-field.tsx", "utf8");
+const videoStorageMigration = readFileSync("supabase/migrations/20261114030000_scope_video_storage_writes.sql", "utf8");
+
+assert.match(
+  storageServiceSource,
+  /params\\.purpose === "video"[\\s\\S]*?createAdminClient\\(\\)[\\s\\S]*?:[\\s\\S]*?await createClient\\(\\)/,
+  "video signed-upload capabilities must be minted with the service role after the admin route guard; user-managed buckets must retain their session client",
+);
+assert.match(videoUploadRouteSource, /requireAdminStepUpApi\\(['"]video\\.manage['"]/);
+assert.match(videoUploadRouteSource, /purpose: ['"]video['"]/);
+assert.match(videoUploadFieldSource, /uploadToSignedUrl\\(/);
+assert.doesNotMatch(videoUploadFieldSource, /\\.upload\\(/, "browser video uploads must use the short-lived signed capability");
+assert.match(videoStorageMigration, /DROP POLICY IF EXISTS video_assets_admin_insert/i);
+assert.doesNotMatch(videoStorageMigration, /CREATE POLICY ["']?video_assets_admin_insert/i, "authenticated users must not mint video upload capabilities directly through Storage RLS");
+
 console.log("Storage owner-policy, MIME, path, upload-expiry, and bounded no-store presign contracts passed.");
