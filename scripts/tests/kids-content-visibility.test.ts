@@ -988,4 +988,29 @@ await assert.rejects(
 );
 assert.equal(oversizedPage, 11, "the bounded Kids history scan must detect rows beyond its 5,000-row safety limit");
 
+const kidsVideoPublicReadMigration = readFileSync(
+  "supabase/migrations/20261114210000_restrict_public_kids_video_read_to_qa_passed.sql",
+  "utf8",
+);
+assert.match(kidsVideoPublicReadMigration, /DROP POLICY IF EXISTS videos_public_read ON public\\.videos/i);
+assert.match(kidsVideoPublicReadMigration, /CREATE POLICY videos_public_read[\\s\\S]*?TO anon, authenticated[\\s\\S]*?published IS TRUE/i);
+assert.match(
+  kidsVideoPublicReadMigration,
+  /lower\\(btrim\\(coalesce\\(metadata->>'audience', ''\\)\\)\\) <> 'kids'/i,
+  "non-Kids videos may remain public while every Kids audience value is gated",
+);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'generator' = 'zikr_internal_video_factory'/);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'kidsVideoQaStatus' = 'passed'/);
+assert.match(kidsVideoPublicReadMigration, /metadata->'automatedVideoQa'->>'status' = 'passed'/);
+assert.doesNotMatch(
+  kidsVideoPublicReadMigration,
+  /DELETE FROM public\\.videos|TRUNCATE TABLE public\\.videos|DROP TABLE public\\.videos/i,
+  "Kids video visibility hardening must preserve every existing video row",
+);
+const publicVideoService = readFileSync("src/features/videos/services/videos.ts", "utf8");
+assert.match(publicVideoService, /metadata->>audience=eq\\.kids/);
+assert.match(publicVideoService, /metadata->>generator=eq\\.zikr_internal_video_factory/);
+assert.match(publicVideoService, /metadata->>kidsVideoQaStatus=eq\\.passed/);
+assert.match(publicVideoService, /metadata->automatedVideoQa->>status=eq\\.passed/);
+
 console.log("Kids content visibility and fallback contracts passed.");
