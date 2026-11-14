@@ -132,7 +132,7 @@ assert.match(videoUploadFieldSource, /50 ميجابايت/);
 assert.match(videoUploadRouteSource, /MAX_VIDEO_BYTES = 50 \* 1024 \* 1024/);
 assert.match(videoUploadRouteSource, /contentLength > MAX_VIDEO_BYTES[\s\S]*?jsonError\([\s\S]*?413/);
 assert.match(supabaseConfig, /\[storage\.buckets\.videos\][\s\S]*?file_size_limit = "50MiB"/);
-assert.match(videoBucketLimitMigration, /UPDATE storage\\.buckets[\\s\\S]*?SET file_size_limit = 52428800[\\s\\S]*?WHERE id = 'videos'/i);
+assert.match(videoBucketLimitMigration, /UPDATE storage\.buckets[\s\S]*?SET file_size_limit = 52428800[\s\S]*?WHERE id = 'videos'/i);
 assert.match(videoStorageMigration, /DROP POLICY IF EXISTS video_assets_admin_insert/i);
 assert.doesNotMatch(videoStorageMigration, /CREATE POLICY ["']?video_assets_admin_insert/i, "authenticated users must not mint video upload capabilities directly through Storage RLS");
 
