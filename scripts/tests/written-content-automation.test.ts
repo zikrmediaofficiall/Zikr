@@ -572,4 +572,10 @@ assert.match(envExample, /^AUTO_VIDEO_PUBLISH_ENABLED=false$/m, "local .env.exam
 assert.match(envExample, /^SOCIAL_PUBLISH_ENABLED=false$/m, "local .env.example must not enable social publishing by default");
 assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example must keep video automation in dry-run mode");
 
+assert.ok(worker.includes("WRITTEN_CONTENT_SYSTEM_INSTRUCTION"));
+assert.ok(worker.includes("systemInstruction:{parts:[{text:WRITTEN_CONTENT_SYSTEM_INSTRUCTION}]}"));
+assert.ok(worker.includes("JSON.stringify(userPayload)"));
+assert.ok(worker.includes("sourceText:source.sourceText"));
+assert.ok(!worker.includes("النص المعتمد:"), "source text must not be concatenated into the instruction prompt");
+
 console.log("Written-content source-lock, quality, idempotency, website scheduling, Facebook queue, and safe local automation defaults passed.");

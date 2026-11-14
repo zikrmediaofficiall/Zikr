@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { resolveStaleTranslationQueueRecovery } from "../../src/features/articles/services/translation-queue-recovery";
 
 const completedArticle = {
@@ -53,5 +54,15 @@ assert.equal(
   "failed",
   "a deleted source article must not leave a permanently processing queue row",
 );
+
+const translationWorker = readFileSync("scripts/translate-published-articles-en.ts", "utf8");
+assert.ok(translationWorker.includes("systemInstruction: ARTICLE_TRANSLATION_SYSTEM_INSTRUCTION"),
+  "translation rules must use Gemini's system-instruction channel");
+assert.ok(translationWorker.includes("return JSON.stringify({"),
+  "Arabic article fields must be serialized as source data");
+assert.ok(translationWorker.includes("contentAr: article.content_ar"),
+  "the complete Arabic source must remain available as data for faithful translation");
+assert.ok(!translationWorker.includes("CONTENT_AR:"),
+  "article text must not be concatenated into the instruction prompt");
 
 console.log("Stale translation queue recovery contracts passed.");

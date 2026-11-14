@@ -295,6 +295,13 @@ if (!read("src/features/videos/services/voice-profiles.ts").includes("hadith_mal
 if (!read("src/features/videos/services/narration-quality.ts").includes("evaluateArabicNarrationText")) failures.push("Arabic narration quality validator missing");
 if (!worker.includes("wordsPerSecond")) failures.push("Video worker missing speaking-rate checks");
 
+if (!worker.includes("VIDEO_PLAN_SYSTEM_INSTRUCTION") ||
+    !worker.includes("systemInstruction: { parts: [{ text: systemInstruction }] }") ||
+    !worker.includes("JSON.stringify(userPayload)") ||
+    !worker.includes("sourceText,")) {
+  failures.push("video planning must isolate fixed editorial policy from untrusted source data in the Gemini system-instruction channel");
+}
+
 if (failures.length) {
   console.error("ADMIN_VIDEO_FACTORY_CHECK_FAILED");
   for (const failure of failures) console.error(`❌ ${failure}`);
