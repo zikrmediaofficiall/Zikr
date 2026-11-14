@@ -76,7 +76,7 @@ await assert.rejects(
 
 const duplicatePages = [
   firstPage,
-  [queueRow(firstPage[0].id, sharedTimestamp)],
+  [queueRow(firstPage[0]?.id ?? queueId(500), sharedTimestamp)],
 ];
 let duplicateCall = 0;
 await assert.rejects(
