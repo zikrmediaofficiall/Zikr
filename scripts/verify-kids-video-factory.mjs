@@ -128,7 +128,9 @@ for (const token of [
   "storyText: kidsStoryText",
   "socialCaption: kidsSocialCaption",
   'audience: content.audience === "kids" ? "kids" : "general"',
-  'kidsContentQaStatus: content.audience === "kids" ? "passed" : null',
+  'kidsContentQaStatus: isKidsVideo ? content.kidsVideoQaStatus : null',
+  'content.kidsVideoQaStatus === "passed"',
+  'request.content.kidsVideoQaStatus === "passed"',
 ]) {
   if (!kidsWorker.includes(token)) failures.push("Kids generation must persist story/social copy with an explicit Kids QA audience: " + token);
 }
