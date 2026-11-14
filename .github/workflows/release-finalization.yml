@@ -270,15 +270,24 @@ jobs:
               sys.exit(1)
 
           app_id = ""
+          supabase_url = ""
           for line in env_file.read_text(encoding="utf-8").splitlines():
               if line.startswith("IOS_ASSOCIATED_DOMAIN_APP_ID="):
                   app_id = line.split("=", 1)[1].strip().strip('"').strip("'")
-                  break
+              elif line.startswith("NEXT_PUBLIC_SUPABASE_URL="):
+                  supabase_url = line.split("=", 1)[1].strip().strip('"').strip("'")
 
           if not re.fullmatch(r"[A-Z0-9]{10}\.com\.zikr\.app", app_id):
               print("::error title=Missing iOS Universal Links App ID::Set IOS_ASSOCIATED_DOMAIN_APP_ID to the real Apple Team ID plus .com.zikr.app in the Vercel production environment. The AASA route would otherwise be built without an app association.", file=sys.stderr)
               sys.exit(1)
           print("PASS: iOS Universal Links App ID is configured for the production build.")
+
+          if not re.fullmatch(r"https://zqtssvlvmkzeeyqghqfk\\.supabase\\.co/?", supabase_url):
+              print("::error title=Missing production Supabase URL::NEXT_PUBLIC_SUPABASE_URL must point to the approved ZIKR production project.", file=sys.stderr)
+              sys.exit(1)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as github_env:
+              github_env.write(f"SUPABASE_URL={supabase_url.rstrip('/') }\\n")
+          print("PASS: production Supabase URL matches the approved project.")
           PY
 
       - name: Build production artifact
@@ -424,6 +433,19 @@ jobs:
           url="$(vercel deploy --prebuilt --prod --yes --scope "${VERCEL_ORG_ID}")"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Production deployment: $url"
+
+      - name: Verify Vercel deployment reached READY
+        env:
+          VERCEL_TOKEN: ${{ secrets.ZIKR_VERCEL_TOKEN || secrets.VERCEL_DEPLOY_TOKEN || secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: node scripts/verify-vercel-deployment-ready.mjs
+
+      - name: Verify deployed Supabase health Edge Function
+        env:
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SITE_URL: ${{ env.NEXT_PUBLIC_SITE_URL }}
+        run: node scripts/verify-supabase-edge-health.mjs
 
       - name: Production smoke test after schema migration and deployment
         env:

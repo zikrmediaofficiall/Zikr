@@ -127,3 +127,12 @@ assert.ok(androidPublishIndex > androidPreflightIndex, "CODEOWNER preflight must
 assert.ok(gate.includes("process.env.RELEASE_COMMIT_SHA?.trim() || process.env.GITHUB_SHA?.trim()"));
 assert.ok(gate.includes("RELEASE_COMMIT_SHA or GITHUB_SHA"));
 console.log("Release preflight contract passed.");
+
+const vercelReadyIndex = releaseWorkflow.indexOf("node scripts/verify-vercel-deployment-ready.mjs");
+const supabaseHealthIndex = releaseWorkflow.indexOf("node scripts/verify-supabase-edge-health.mjs");
+const productionSmokeIndex = releaseWorkflow.indexOf("run: pnpm production:smoke");
+assert.ok(vercelReadyIndex > releaseVercelDeployIndex, "the exact production deployment must be inspected after deploy");
+assert.ok(supabaseHealthIndex > vercelReadyIndex, "the deployed Supabase health function must be checked after Vercel reaches READY");
+assert.ok(productionSmokeIndex > supabaseHealthIndex, "public production smoke must run after deployment and Edge Function health checks");
+assert.ok(releaseWorkflow.includes("NEXT_PUBLIC_SUPABASE_URL="));
+assert.ok(releaseWorkflow.includes("SUPABASE_URL must point to the approved ZIKR production project"));
