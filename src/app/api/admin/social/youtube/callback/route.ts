@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApi } from "@/features/admin/services/admin";
+import { requireAdminStepUpApi } from "@/features/admin/services/security";
+import { verifySignedOAuthState } from "@/features/social/services/oauth-state";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
 import { getServerEnv } from "@/lib/env";
 import { findYouTubeChannelAcrossPages, hasYouTubeUploadScopes, saveYouTubeOAuthCredential } from "@/features/social/services/youtube-oauth-credentials";
@@ -62,6 +63,19 @@ function redirectResult(status: string, extra: Record<string, string> = {}) {
   return response;
 }
 
+function redirectToStepUp(nextPath: string) {
+  const response = NextResponse.redirect(new URL(nextPath, siteUrl()));
+  response.headers.set("Cache-Control", "no-store");
+  response.cookies.set(STATE_COOKIE, "", {
+    httpOnly: true,
+    secure: siteUrl().startsWith("https://"),
+    sameSite: "lax",
+    path: "/api/admin/social/youtube/callback",
+    maxAge: 0,
+  });
+  return response;
+}
+
 function matchesState(expected: string, actual: string) {
   const left = Buffer.from(expected);
   const right = Buffer.from(actual);
@@ -78,12 +92,15 @@ function scopeFlags(scopes: string[]) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAdminApi("social.manage");
-  if (!auth.ok) return redirectResult("admin_session_missing");
+  const auth = await requireAdminStepUpApi("social.publish", "/admin/social");
+  if (!auth.ok) {
+    if (auth.error === "step_up_required" && "nextPath" in auth) return redirectToStepUp(auth.nextPath);
+    return redirectResult("admin_session_missing");
+  }
 
   const state = request.nextUrl.searchParams.get("state") ?? "";
   const expectedState = request.cookies.get(STATE_COOKIE)?.value ?? "";
-  if (!state || !expectedState || !matchesState(expectedState, state)) {
+  if (!state || !expectedState || !matchesState(expectedState, state) || !verifySignedOAuthState(state, auth.profile.id, "youtube")) {
     return redirectResult("state_mismatch");
   }
 
@@ -210,7 +227,7 @@ export async function GET(request: NextRequest) {
     try {
       await recordAdminAuditEvent({
         action: "social.youtube.oauth.connect",
-        permission: "social.manage",
+        permission: "social.publish",
         resourceType: "youtube_channel",
         resourceId: channelId,
         metadata: {

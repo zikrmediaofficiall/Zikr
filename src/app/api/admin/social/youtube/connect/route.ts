@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createSignedOAuthState } from "@/features/social/services/oauth-state";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdminApi } from "@/features/admin/services/admin";
 import { buildCanonicalOAuthStartRedirect } from "@/features/social/services/oauth-canonical-origin";
@@ -56,7 +56,12 @@ export async function GET(request: NextRequest) {
   // Fail before redirecting to consent when the server configuration is incomplete.
   if (!clientId || !clientSecret) return adminStatusRedirect("configuration_missing");
 
-  const state = randomBytes(32).toString("hex");
+  let state: string;
+  try {
+    state = createSignedOAuthState(auth.profile.id, "youtube");
+  } catch {
+    return adminStatusRedirect("configuration_missing");
+  }
   const redirectUri = YOUTUBE_REDIRECT_URI;
   const authorizeUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   authorizeUrl.searchParams.set("client_id", clientId);

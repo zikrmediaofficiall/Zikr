@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createSignedOAuthState } from "@/features/social/services/oauth-state";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdminApi } from "@/features/admin/services/admin";
 import { buildCanonicalOAuthStartRedirect } from "@/features/social/services/oauth-canonical-origin";
@@ -43,7 +43,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const state = randomBytes(32).toString("hex");
+  let state: string;
+  try {
+    state = createSignedOAuthState(auth.profile.id, "facebook");
+  } catch {
+    return NextResponse.redirect(
+      new URL("/admin/social?facebook=configuration_missing", CANONICAL_SITE_ORIGIN),
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
   const version = (env.FACEBOOK_GRAPH_API_VERSION || "v26.0").trim();
   const authorizeUrl = new URL("https://www.facebook.com/" + version + "/dialog/oauth");
   authorizeUrl.searchParams.set("client_id", appId);

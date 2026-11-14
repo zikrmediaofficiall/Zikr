@@ -3,6 +3,24 @@ import { resolveYouTubeVideoDisclosure } from "../../src/features/social/service
 import { readFileSync } from "node:fs";
 import { findYouTubeChannelAcrossPages, getYouTubeRefreshToken, getYouTubeUploadRefreshToken, hasYouTubeReadScopes, hasYouTubeUploadScopes, matchesConfiguredYouTubeChannel, readStoredYouTubeUploadRefreshToken, selectYouTubeChannel } from "../../src/features/social/services/youtube-oauth-credentials";
 import { buildCanonicalOAuthStartRedirect } from "../../src/features/social/services/oauth-canonical-origin";
+import { createSignedOAuthState, verifySignedOAuthState } from "../../src/features/social/services/oauth-state";
+
+
+const previousOAuthStateSecret = process.env.OAUTH_STATE_SECRET;
+try {
+  process.env.OAUTH_STATE_SECRET = "test-only-oauth-state-signing-secret-32-bytes";
+  const stateNow = Date.now();
+  const signedState = createSignedOAuthState("admin-profile-a", "youtube", stateNow);
+  assert.equal(verifySignedOAuthState(signedState, "admin-profile-a", "youtube", stateNow + 1000), true);
+  assert.equal(verifySignedOAuthState(signedState, "admin-profile-b", "youtube", stateNow + 1000), false, "OAuth state must be bound to the initiating admin profile");
+  assert.equal(verifySignedOAuthState(signedState, "admin-profile-a", "facebook", stateNow + 1000), false, "OAuth state must be bound to the initiating provider");
+  assert.equal(verifySignedOAuthState(signedState, "admin-profile-a", "youtube", stateNow + 10 * 60 * 1000 + 1), false, "expired OAuth state must fail closed");
+  const tamperedState = signedState.slice(0, -1) + (signedState.endsWith("a") ? "b" : "a");
+  assert.equal(verifySignedOAuthState(tamperedState, "admin-profile-a", "youtube", stateNow + 1000), false, "tampered OAuth state must fail signature validation");
+} finally {
+  if (previousOAuthStateSecret === undefined) delete process.env.OAUTH_STATE_SECRET;
+  else process.env.OAUTH_STATE_SECRET = previousOAuthStateSecret;
+}
 
 assert.equal(matchesConfiguredYouTubeChannel("UC123", "UC123"), true, "stored provider ID must match the configured YouTube channel");
 assert.equal(matchesConfiguredYouTubeChannel("UC123", "UC999"), false, "a token for a different channel must fail closed");
@@ -426,7 +444,7 @@ for (const [provider, routePath] of [
   const routeSource = readFileSync(new URL(routePath, import.meta.url), "utf8");
   const canonicalGuard = routeSource.indexOf("buildCanonicalOAuthStartRedirect(request.url, CANONICAL_SITE_ORIGIN)");
   const adminGuard = routeSource.indexOf('requireAdminApi("social.manage")');
-  const stateCreation = routeSource.indexOf("randomBytes(32)");
+  const stateCreation = routeSource.indexOf(`createSignedOAuthState(auth.profile.id, "${provider.toLowerCase()}")`);
   assert.ok(
     canonicalGuard >= 0 && canonicalGuard < adminGuard && canonicalGuard < stateCreation,
     provider + " OAuth must canonicalize before auth checks and state-cookie creation",
@@ -435,4 +453,19 @@ for (const [provider, routePath] of [
   assert.match(routeSource, /Cache-Control", "private, no-store, max-age=0/);
 }
 
-console.log("YouTube OAuth read-only and upload-scope credential tests passed.");
+const facebookCallbackSource = readFileSync(
+  new URL("../../src/app/api/admin/social/facebook/callback/route.ts", import.meta.url),
+  "utf8",
+);
+for (const [provider, callbackSource] of [
+  ["youtube", youtubeCallbackSource],
+  ["facebook", facebookCallbackSource],
+] as const) {
+  assert.match(callbackSource, /requireAdminStepUpApi\(["']social\.publish["']/);
+  assert.ok(
+    callbackSource.includes(`verifySignedOAuthState(state, auth.profile.id, "${provider}")`),
+    provider + " OAuth callback must bind the returned state to the authenticated admin and provider",
+  );
+}
+
+console.log("YouTube OAuth scope, signed state binding, and upload credential tests passed.");
