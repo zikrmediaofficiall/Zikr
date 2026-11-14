@@ -86,6 +86,7 @@ assert.ok(socialLoginLock, "pnpm lockfile must resolve Capgo Social Login with t
 const expectedSocialLoginPath = `../node_modules/.pnpm/@capgo+capacitor-social-login@${socialLoginLock[1]}_@capacitor+core@${socialLoginLock[2]}/node_modules/@capgo/capacitor-social-login/android`;
 assert.ok(androidCapacitorSettings.includes("include ':capgo-capacitor-social-login'"), "Android settings must include the Capgo Social Login project");
 assert.ok(androidCapacitorSettings.includes(`new File('${expectedSocialLoginPath}')`), "Android settings must point to the exact locked Capgo plugin package");
+assert.ok(!androidCapacitorSettings.endsWith("\n\n"), "Committed Android settings must match cap sync output without an extra trailing blank line");
 assert.ok(!androidCapacitorSettings.includes("include ':capacitor-cli'"), "Capacitor CLI is a build tool, not an Android plugin project");
 assert.ok(androidCapacitorBuild.includes("implementation project(':capgo-capacitor-social-login')"), "Android app must link the native Google login plugin");
 const coreVersion = pkg.dependencies?.["@capacitor/core"];

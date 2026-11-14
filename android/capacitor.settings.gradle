@@ -49,4 +49,3 @@ project(':capawesome-capacitor-background-task').projectDir = new File('../node_
 
 include ':capgo-capacitor-social-login'
 project(':capgo-capacitor-social-login').projectDir = new File('../node_modules/.pnpm/@capgo+capacitor-social-login@7.20.0_@capacitor+core@7.6.9/node_modules/@capgo/capacitor-social-login/android')
-
