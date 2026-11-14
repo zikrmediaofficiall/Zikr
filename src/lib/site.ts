@@ -69,6 +69,9 @@ import type { Metadata } from "next";
  * content can be discovered by search engines.
  */
 const NOINDEX_PATHS = new Set([
+  "/admin",
+  "/api",
+  "/auth",
   "/search",
   "/qibla",
   "/prayer-times",
@@ -91,7 +94,7 @@ const NOINDEX_PATHS = new Set([
   "/kids/achievements",
 ]);
 
-function isNoindexPath(path: string): boolean {
+export function isNoindexPath(path: string): boolean {
   const normalized = path.split("?")[0].replace(/\/$/, "") || "/";
   return Array.from(NOINDEX_PATHS).some(
     blockedPath =>

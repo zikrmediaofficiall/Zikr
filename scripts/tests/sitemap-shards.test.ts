@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  filterIndexableSitemapRoutes,
   getSitemapShard,
   getSitemapShardCountForEntryCount,
   SITEMAP_PAGE_SIZE,
 } from "../../src/lib/seo/sitemap-shards";
+import { isNoindexPath, siteConfig } from "../../src/lib/site";
 
 assert.equal(SITEMAP_PAGE_SIZE, 45_000);
 assert.equal(getSitemapShardCountForEntryCount(0), 1);
@@ -22,10 +24,29 @@ assert.deepEqual(getSitemapShard(entries, 2), entries.slice(90_000));
 assert.deepEqual(getSitemapShard(entries, 3), []);
 assert.deepEqual(getSitemapShard(entries, -1), []);
 
+const noindexBase = siteConfig.url;
+const sitemapCandidates = [
+  { url: noindexBase + "/admin/users" },
+  { url: noindexBase + "/api/kids/content" },
+  { url: noindexBase + "/auth/callback" },
+  { url: noindexBase + "/kids/puzzle" },
+  { url: noindexBase + "/kids/games/level-1" },
+  { url: noindexBase + "/kids/adventures" },
+  { url: noindexBase + "/stories/approved" },
+  { url: "https://external.invalid/untrusted" },
+];
+assert.deepEqual(
+  filterIndexableSitemapRoutes(sitemapCandidates, siteConfig.url, isNoindexPath).map((entry) => entry.url),
+  [noindexBase + "/kids/adventures", noindexBase + "/stories/approved"],
+  "sitemap filtering must apply the shared noindex policy to static and dynamic routes and reject external origins",
+);
+
+
 const sitemapSource = readFileSync("src/app/sitemap.ts", "utf8");
 const shardRouteSource = readFileSync("src/app/sitemap-content/[id]/route.ts", "utf8");
 const indexRouteSource = readFileSync("src/app/sitemap-index.xml/route.ts", "utf8");
-assert.match(sitemapSource, /uniqueRoutes\(\[\.\.\.staticRoutes, \.\.\.dynamicRoutes\]\);/);
+assert.match(sitemapSource, /filterIndexableSitemapRoutes\([\s\S]*uniqueRoutes\(\[\.\.\.staticRoutes, \.\.\.dynamicRoutes\]\)/);
+assert.match(sitemapSource, /item\.type === ["']story["'][\s\S]*item\.metadata\?\.age_appropriate === true/);
 assert.match(sitemapSource, /getSitemapShardCountForEntryCount\(entries\.length\)/);
 assert.match(sitemapSource, /getSitemapShard\(await getSitemapEntries\(\), 0\)/);
 assert.doesNotMatch(sitemapSource, /SITEMAP_URL_LIMIT|slice\(0,\s*50_000\)/);

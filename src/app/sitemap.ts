@@ -9,8 +9,8 @@ import { getPublicContentLibrary } from "@/features/content-library/services/con
 import { getKidsContent } from "@/features/kids/services/kids-content";
 import { surahs as fallbackSurahs } from "@/features/quran/data/fallback";
 import { supabaseServerAnonRequest } from "@/lib/supabase/server";
-import { appRoutes, siteConfig } from "@/lib/site";
-import { getSitemapShard, getSitemapShardCountForEntryCount } from "@/lib/seo/sitemap-shards";
+import { appRoutes, isNoindexPath, siteConfig } from "@/lib/site";
+import { filterIndexableSitemapRoutes, getSitemapShard, getSitemapShardCountForEntryCount } from "@/lib/seo/sitemap-shards";
 import { PUBLIC_CONTENT_THRESHOLDS } from "@/lib/content-quality";
 import type { Surah } from "@/features/quran/types/quran";
 import type { Scholar } from "@/features/scholars/types/scholars";
@@ -25,7 +25,6 @@ type SlugRow = { slug: string };
 
 const MIN_INDEXABLE_EDITORIAL_CHARS = PUBLIC_CONTENT_THRESHOLDS.article;
 const MIN_INDEXABLE_STORY_CHARS = PUBLIC_CONTENT_THRESHOLDS.story;
-const NON_INDEXABLE_PATHS = new Set(["/admin", "/api", "/auth", "/favorites", "/profile", "/settings", "/search", "/qibla", "/prayer-times", "/tasbeeh", "/memorization", "/wird", "/zakat", "/offline-library", "/spiritual-ai", "/radio", "/reciters", "/tawasheeh"]);
 
 export const dynamic = "force-dynamic";
 
@@ -36,12 +35,8 @@ async function getPublishedSlugs(table: "prophets" | "battles" | "companions" | 
   });
 }
 
-function isIndexablePath(path: string) {
-  return !Array.from(NON_INDEXABLE_PATHS).some(blockedPath => path === blockedPath || path.startsWith(`${blockedPath}/`));
-}
-
 function siteConfigRoutes() {
-  return appRoutes.filter(r => isIndexablePath(r.path));
+  return appRoutes.filter(r => !isNoindexPath(r.path));
 }
 
 function route(path = "", options: Omit<SitemapEntry, "url">): SitemapEntry {
@@ -99,10 +94,17 @@ export async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
           changeFrequency: "monthly",
           priority: 0.6,
         })),
-      ...kidsContentItems.map((item) => route(`/kids/${item.slug}`, { lastModified: now, changeFrequency: "weekly", priority: 0.65 })),
+      ...kidsContentItems
+        .filter((item) => item.type === "story" && item.metadata?.age_appropriate === true &&
+          (item.content_ar?.trim().length ?? 0) >= MIN_INDEXABLE_STORY_CHARS)
+        .map((item) => route(`/kids/${item.slug}`, { lastModified: now, changeFrequency: "weekly", priority: 0.65 })),
     ];
 
-    const safeEntries = uniqueRoutes([...staticRoutes, ...dynamicRoutes]);
+    const safeEntries = filterIndexableSitemapRoutes(
+      uniqueRoutes([...staticRoutes, ...dynamicRoutes]),
+      siteConfig.url,
+      isNoindexPath,
+    );
     return safeEntries;
   } catch (error) {
     console.error("[sitemap] Error generating dynamic routes:", error);

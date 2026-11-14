@@ -12,3 +12,25 @@ export function getSitemapShard<T>(entries: readonly T[], shardId: number): T[] 
   const start = shardId * SITEMAP_PAGE_SIZE;
   return entries.slice(start, start + SITEMAP_PAGE_SIZE);
 }
+
+export function filterIndexableSitemapRoutes<T extends { url: string }>(
+  entries: readonly T[],
+  baseUrl: string,
+  isNoindexPath: (pathname: string) => boolean,
+): T[] {
+  let base: URL;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return [];
+  }
+
+  return entries.filter((entry) => {
+    try {
+      const candidate = new URL(entry.url, base);
+      return candidate.origin === base.origin && !isNoindexPath(candidate.pathname);
+    } catch {
+      return false;
+    }
+  });
+}
