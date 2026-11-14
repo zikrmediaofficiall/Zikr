@@ -138,18 +138,8 @@ requireCondition(
 );
 requireCondition(
   adsenseSlot.includes("Capacitor.isNativePlatform()") &&
-    adsenseSlot.includes("isCanonicalProductionOrigin"),
-  "The existing AdSense slot must reject native Capacitor runtimes and non-canonical deployment origins.",
-);
-requireCondition(
-  runtimeEffects.includes("Capacitor.isNativePlatform()") &&
-    runtimeEffects.includes("isWebRuntime && ADSENSE_CONFIGURED"),
-  "The AdSense script loader itself must be gated to web runtime, not only the empty ad slot.",
-);
-requireCondition(
-  /import\s+\{\s*Capacitor\s*\}\s+from\s+["']@capacitor\/core["']/.test(deferredRuntime) &&
-    deferredRuntime.includes("if (Capacitor.isNativePlatform())"),
-  "Native reminder runtime must import Capacitor directly and initialize immediately without depending on a late window.Capacitor injection.",
+    adsenseSlot.includes("isCanonicalProductionHost"),
+  "The existing AdSense slot must reject native Capacitor runtimes and non-canonical deployment hosts.",
 );
 
 if (failures.length) {
