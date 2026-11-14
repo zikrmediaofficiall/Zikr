@@ -584,7 +584,6 @@ assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example
 
 assert.ok(worker.includes("isKidsAudience(metadata.audience)"), "published articles labeled for children must not enter the general knowledge generation pool");
 assert.ok(worker.includes('WRITTEN_CONTENT_ENABLED?.trim().toLowerCase()!=="true"'), "Gemini generation must remain disabled unless explicitly enabled");
-const writtenWorkflow = readFileSync(".github/workflows/generate-written-content.yml", "utf8");
 assert.ok(writtenWorkflow.includes('WRITTEN_CONTENT_ENABLED: "true"'), "the scheduled workflow must explicitly opt in to content generation");
 assert.ok(worker.includes("WRITTEN_CONTENT_SYSTEM_INSTRUCTION"));
 assert.ok(worker.includes("systemInstruction:{parts:[{text:WRITTEN_CONTENT_SYSTEM_INSTRUCTION}]}"));
