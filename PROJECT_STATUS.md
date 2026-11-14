@@ -1300,3 +1300,20 @@ No repository-wide error-free or project-closed certification is made.
 - Site-audio upload lifecycle still needs a safe orphan-recovery design: if the signed upload succeeds but metadata persistence fails (or the client never commits), the object can remain unreferenced. The current POST path does not yet prove object metadata against Storage or perform reference-checked compensation. This was not exercised and no object was deleted.
 - The audit is **not closed**. Remaining review includes admin content-console routes, Facebook integration contracts, Quran/Hadith/Tasbeeh routes, Android workflow details, the full video automation worker, and complete consumer tracing for social/video and scheduling paths.
 - No Gemini/content generation, social publishing, push delivery, production database mutation, Storage deletion, index deletion, secret change, Android release, merge, or deployment was triggered during this audit batch.
+
+## Latest audit checkpoint — 2026-11-14T1802Z
+
+**State: OPEN / IN PROGRESS.** PR #320 remains open and unmerged. No audit deployment has been made.
+
+- Exact code/test head: `d21bb6f35c089a4113a7d30ac26a24b637a84e50` on `audit/zikr-kids-daily-priority-20261110`; base `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- Repair commits: `66e57f22cf192925c16e9762dc166ee0e9f2b318` (require exact full Vercel deployment SHA) and `d21bb6f35c089a4113a7d30ac26a24b637a84e50` (abbreviated/overlong SHA regression).
+- GitHub Quality Gate run **43623842152**, job **132535228109**: SUCCESS, full-scope; `pnpm verify`, `pnpm verify:pr`, PostgreSQL 17 integration checks, and `QUALITY_GATE=PASSED_FULL` are present in the job log.
+- CircleCI `source-verify`, `application-build-docs`, and `config-guard`: SUCCESS. Android Native Login Debug APK run **43623842270**: SUCCESS; debug-only, not a release.
+- New path review: 20 of 21 newly reviewed paths are CONTENT_READ_TESTED_PASS; `src/features/admin/components/video-upload-field.tsx` remains REVIEW_REQUIRED because it has no repository consumer and abandoned-upload cleanup is not proven.
+- Branch tree: 2,386 entries (1,887 blobs, 499 directories); main tree: 2,154 entries (1,662 blobs, 492 directories). PR #320: 535 changed paths (225 added, 310 modified, zero removed).
+- Current overlay: `docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1802Z.md` — 535 rows; 267 tested pass, 203 review required, 43 pending trace, 22 tested/pending live migration apply. Recursive manifest: `docs/audits/PR320_REPO_MANIFEST_20261114T1802Z.jsonl`, self-excluding. Main-baseline matrix remains 1,525 REVIEW_REQUIRED.
+- Production Vercel deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu` remains READY on main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3; the audit branch is not deployed. No production smoke was run in this checkpoint.
+- No production DB mutation, migration apply, content generation, Gemini call, social publishing, media/storage/index deletion, secret change, Android/iOS release, merge, or deployment occurred.
+- Owner-only acceptance remains: CODEOWNERS review and migration approval/application. Device-only acceptance remains: iOS AASA/Universal Links, Android/iOS deep links, OAuth, notifications, and signing. Kids editorial review and safe diagnosis of the English-content-sync failure remain open.
+
+The audit is not closed; continue the remaining review-required and pending-trace paths, then obtain owner approval and follow the protected release process.

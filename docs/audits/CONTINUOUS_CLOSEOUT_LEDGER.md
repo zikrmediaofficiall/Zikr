@@ -1732,3 +1732,40 @@ Status overlay: `docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1336Z.md`. Recur
 
 ### Next checkpoint
 Request current CODEOWNERS review, finish the 45 pending-trace and 205 review-required PR paths, then the 1,525-row baseline backlog. Owner migration approval, iOS environment/device acceptance, Kids editorial review, English-sync diagnosis, post-merge release, Vercel READY verification, and production smoke checks remain open. Do not mark the audit closed until evidenced.
+
+## 2026-11-14T1802Z — exact-SHA release-gate repair and repository reconciliation
+
+### Repair batch and exact-head evidence
+
+- Existing audit branch / PR: `audit/zikr-kids-daily-priority-20261110` / [#320](https://github.com/zikrofficial-X/Zikr/pull/320), base `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- Exact code/test head: `d21bb6f35c089a4113a7d30ac26a24b637a84e50`.
+- Repair commit `66e57f22cf192925c16e9762dc166ee0e9f2b318`: `scripts/verify-vercel-deployment-ready.mjs` previously accepted any matching SHA prefix of at least seven characters. A READY deployment reporting only an abbreviated commit ID could therefore pass the release gate even though the workflow requires the exact approved SHA. The verifier now requires a full 40-hex SHA and exact equality.
+- Regression commit `d21bb6f35c089a4113a7d30ac26a24b637a84e50`: `scripts/tests/production-deployment-readiness.test.mjs` now rejects both a seven-character prefix and an overlong SHA sharing the expected prefix. The regression passed as subtest 6.
+- GitHub Quality Gate run **43623842152**, job **132535228109**: **SUCCESS**. Logs confirm `QUALITY_GATE_FULL_SCOPE=true`, `pnpm verify`, `pnpm verify:pr`, PostgreSQL 17 migration integration checks, and `QUALITY_GATE=PASSED_FULL`.
+- CircleCI `source-verify`, `application-build-docs`, and `config-guard`: **SUCCESS** at the same code/test head.
+- Android Native Login **Debug APK** workflow run **43623842270**: **SUCCESS** as a debug validation only. No release tag, signed release, Play Store upload, or production release was created.
+- The source/test repair batch is verified at `d21bb6f35c089a4113a7d30ac26a24b637a84e50`; the following documentation snapshot is a separate commit and must receive its own exact-head CI verification.
+
+### Newly reviewed path batch
+
+- Read and traced the 21 PR paths added to the prior 14:43Z overlay delta: 20 are marked `CONTENT_READ_TESTED_PASS`; `src/features/admin/components/video-upload-field.tsx` remains `REVIEW_REQUIRED` because no repository consumer was found and no reference-checked cleanup path for an abandoned successful upload was proven.
+- Traced admin analytics/page-view authorization, audio catalog/API/native config, GA4 and YouTube read-only reporting, MFA policy enforcement, Kids video social-history keyset pagination, template studio/API/renderer/RLS, signed Facebook/YouTube OAuth state, and the isolated read-only social-insights worker/workflow.
+- The 14:43Z overlay and manifest remain historical artifacts and are marked `REVIEW_REQUIRED` as superseded snapshots; they are retained rather than deleted.
+- No preview render, video generation, Gemini request, OAuth connection, social publish, or background job was triggered during this review.
+
+### Reconciled inventory and status
+
+- Exact code/test tree: **2,386 entries** (**1,887 blobs**, **499 directories**); main tree: **2,154 entries** (**1,662 blobs**, **492 directories**).
+- PR #320 before this snapshot: **535 changed paths** (**225 added**, **310 modified**, **0 removed**).
+- New overlay: `docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1802Z.md`, **535 rows**; counts **267 CONTENT_READ_TESTED_PASS**, **203 REVIEW_REQUIRED**, **43 CONTENT_READ_PENDING_TRACE**, **22 FIXED_TESTED_PENDING_LIVE_APPLY**. It excludes only itself and its matching manifest.
+- New recursive manifest: `docs/audits/PR320_REPO_MANIFEST_20261114T1802Z.jsonl`, self-excluding; generated from the pre-manifest tree including the new overlay and updated status/ledger files. `docs` and `docs/audits` directory hashes are null to avoid self-reference.
+- The main-baseline matrix remains **1,525 REVIEW_REQUIRED** rows. No module is being declared closed.
+- PR #320 remains **OPEN / UNMERGED** with no requested CODEOWNERS reviewer or submitted owner approval. Protected-branch, CODEOWNERS, migration, and release gates remain intact.
+
+### Production state and safety boundary
+
+- Latest Vercel production listing: deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu` is **READY**, target `production`, on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. This is not the audit branch. No audit deployment or post-deploy smoke run occurred.
+- The last recorded Supabase reconciliation remains 440 local migration files versus 418 remote versions (22 local-only); this run performed no live DDL, migration apply, production write, or advisor-driven index change.
+- No storage object, media, index, secret, release, or production resource was deleted or changed. No content generation, Gemini request, social publishing, push delivery, Android/iOS release, merge, or deployment was triggered.
+- Remaining owner/device work: CODEOWNERS review; approval and controlled application of the 22 pending migrations; iOS App ID/AASA configuration; physical Android/iOS deep-link, OAuth, notification, and signing acceptance; Kids editorial decisions; diagnosis of the main-only English-content-sync failure without invoking Gemini; and post-merge Vercel READY plus production smoke verification.
+- **Audit status: OPEN / IN PROGRESS.** Do not certify the repository as error-free or closed.
