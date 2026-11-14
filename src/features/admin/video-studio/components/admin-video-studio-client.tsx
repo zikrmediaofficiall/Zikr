@@ -95,6 +95,7 @@ export default function AdminVideoStudioClient() {
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isLocked = IS_SOURCE_LOCKED(category);
@@ -213,11 +214,13 @@ export default function AdminVideoStudioClient() {
       return;
     }
     if (!AUDIO_TYPES.includes(file.type)) {
+      setAudioFile(null);
       setError("اختر تسجيلًا بصيغة MP3 أو M4A أو WAV أو OGG أو WebM.");
       return;
     }
-    if (file.size > MAX_AUDIO_BYTES) {
-      setError("حجم التسجيل يجب ألا يتجاوز 15 ميغابايت.");
+    if (file.size <= 0 || file.size > MAX_AUDIO_BYTES) {
+      setAudioFile(null);
+      setError("حجم التسجيل يجب أن يكون أكبر من صفر وألا يتجاوز 15 ميغابايت.");
       return;
     }
     setAudioFile(file);
@@ -236,8 +239,8 @@ export default function AdminVideoStudioClient() {
     );
     const payload = await response.json().catch(() => ({}));
     if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return null;
-    if (!response.ok || typeof payload.audioUrl !== "string") {
-      throw new Error(payload.error || "تعذر رفع التسجيل الصوتي.");
+    if (!response.ok || typeof payload.audioUrl !== "string" || payload.auditRecorded !== true) {
+      throw new Error(payload.error || "تعذر تأكيد تسجيل رفع الصوت في سجل التدقيق؛ لم يتم إرفاقه بطلب الفيديو.");
     }
     setUploadedAudioUrl(payload.audioUrl);
     return payload.audioUrl as string;
@@ -246,6 +249,7 @@ export default function AdminVideoStudioClient() {
   async function createRequest() {
     setError(null);
     setMessage(null);
+    setWarning(null);
     if (title.trim().length < 3)
       return setError("اكتب عنوانًا واضحًا للفيديو.");
     if (description.trim().length < 5)
@@ -292,13 +296,17 @@ export default function AdminVideoStudioClient() {
       if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return;
       if (!response.ok)
         throw new Error(payload.error || "تعذر إنشاء طلب الفيديو.");
-      setMessage(
-        humanAudioUrl
-          ? "تم حفظ الطلب بالتسجيل البشري الذي رفعته. سيفحص العامل صلاحية الصوت والفيديو قبل اعتماد الناتج."
-          : category === "quran"
-            ? "تم حفظ الطلب بنص الآية وتلاوتها من المصدر."
-            : "تم حفظ الطلب. سيُستخدم صوت عربي إلكتروني طبيعي ما لم ترفع تسجيلًا بشريًا."
-      );
+      if (payload.auditRecorded === true) {
+        setMessage(
+          humanAudioUrl
+            ? "تم حفظ الطلب بالتسجيل البشري الذي رفعته. سيفحص العامل صلاحية الصوت والفيديو قبل اعتماد الناتج."
+            : category === "quran"
+              ? "تم حفظ الطلب بنص الآية وتلاوتها من المصدر."
+              : "تم حفظ الطلب. سيُستخدم صوت عربي إلكتروني طبيعي ما لم ترفع تسجيلًا بشريًا."
+        );
+      } else {
+        setWarning("تم حفظ طلب الفيديو بالفعل، لكن تعذر تأكيد تسجيله في سجل التدقيق. لا تعاود الإرسال؛ اطلب من مسؤول النظام مراجعة سجل الإدارة.");
+      }
       setTitle("");
       setDescription("");
       setNarration("");
@@ -319,6 +327,7 @@ export default function AdminVideoStudioClient() {
   async function createVerifiedBatch() {
     setError(null);
     setMessage(null);
+    setWarning(null);
     setBatchLoading(true);
     const plans: Array<{ category: Category; title: string; description: string; sourceId?: string; narration?: string }> = [
       { category: "quran", title: "تدبر سورة الفاتحة: خريطة العبودية والهداية", description: "إنتاج تعليمي من نص المصحف ومصدر التفسير المرفق.", sourceId: "quran:1:1" },
@@ -334,6 +343,8 @@ export default function AdminVideoStudioClient() {
         for (const source of firstTwo) plans.push({ category, title: source.title, description: source.sourceLabel, sourceId: source.id });
       }
       let created = 0;
+      let failed = 0;
+      let auditFailures = 0;
       for (const plan of plans) {
         const response = await fetch("/api/admin/videos/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
           title: plan.title, description: plan.description, category: plan.category, sourceId: plan.sourceId, narration: plan.narration,
@@ -341,9 +352,20 @@ export default function AdminVideoStudioClient() {
         }) });
         const payload = await response.json().catch(() => ({}));
         if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return;
-        if (response.ok) created += 1;
+        if (response.ok) {
+          created += 1;
+          if (payload.auditRecorded !== true) auditFailures += 1;
+        } else {
+          failed += 1;
+        }
       }
-      setMessage(`تم إنشاء ${created} طلبًا موثقًا من الأقسام المتاحة. افتح طابور الفيديوهات لمتابعة الرندر.`);
+      if (auditFailures > 0) {
+        setWarning(`تم إنشاء ${created} طلبًا، لكن ${auditFailures} عملية لم يؤكد سجل التدقيق تسجيلها. لا تعاود إنشاء الدفعة؛ اطلب مراجعة سجل الإدارة.`);
+      } else if (failed > 0) {
+        setWarning(`تم إنشاء ${created} طلبًا وتعذر إنشاء ${failed} طلبات أخرى. راجع الطابور قبل إعادة المحاولة.`);
+      } else {
+        setMessage(`تم إنشاء ${created} طلبًا موثقًا من الأقسام المتاحة. افتح طابور الفيديوهات لمتابعة الرندر.`);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر إنشاء دفعة الفيديوهات.");
     } finally {
@@ -632,6 +654,11 @@ export default function AdminVideoStudioClient() {
           </div>
         )}
 
+        {warning && (
+          <div role="status" className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            {warning}
+          </div>
+        )}
         {error && (
           <div
             role="alert"

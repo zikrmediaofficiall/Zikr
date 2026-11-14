@@ -61,6 +61,7 @@ export default function TemplateStudioClient() {
   const [sourceCardStyle, setSourceCardStyle] = useState<"standard" | "compact">("standard");
   const [audioPolicy, setAudioPolicy] = useState<"allow-tts" | "verified-audio-only">("allow-tts");
   const [message, setMessage] = useState("");
+  const [warning, setWarning] = useState("");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -119,6 +120,7 @@ export default function TemplateStudioClient() {
     setBusy(action + ":" + String(values.versionId ?? ""));
     setError("");
     setMessage("");
+    setWarning("");
     try {
       const response = await fetch("/api/admin/video/templates", {
         method: "POST",
@@ -128,6 +130,11 @@ export default function TemplateStudioClient() {
       const payload = await response.json().catch(() => ({}));
       if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return;
       if (!response.ok) throw new Error(payload.error || "تعذر تنفيذ العملية.");
+      if (payload.auditRecorded !== true) {
+        setWarning("تم تنفيذ العملية بالفعل، لكن تعذر تأكيد تسجيلها في سجل التدقيق. لا تكرر الإجراء؛ اطلب من مسؤول النظام مراجعة سجل الإدارة.");
+        await load();
+        return;
+      }
       setMessage(
         action === "create-version" ? "تم إنشاء مسودة إصدار جديدة. اختبرها ثم اطلب مراجعتها من مسؤول آخر." :
         action === "approve-version" ? "تم تسجيل المراجعة." :
@@ -173,6 +180,7 @@ export default function TemplateStudioClient() {
       </header>
 
       {message && <p role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-sm text-emerald-200">{message}</p>}
+      {warning && <p role="status" className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-sm text-amber-100">{warning}</p>}
       {error && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-200">{error}</p>}
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.75fr)]">

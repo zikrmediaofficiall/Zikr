@@ -134,8 +134,12 @@ export async function POST(request: NextRequest) {
       (auditError) => console.error("[api/admin/video-generation/narration-upload] audit event failed after Cloudinary upload:", auditError),
     );
 
+    if (!auditRecorded) {
+      return jsonError("تم رفع التسجيل لكن تعذر تسجيل العملية في سجل التدقيق؛ لم يتم إصدار رابط الاستخدام.", 503);
+    }
+
     return NextResponse.json(
-      { audioUrl: result.secure_url, audioSource: "human_recording", auditRecorded },
+      { audioUrl: result.secure_url, audioSource: "human_recording", auditRecorded: true },
       { status: 201, headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {

@@ -150,6 +150,13 @@ assert.match(studioClient, /approve-version/);
 assert.match(studioClient, /activate-version/);
 assert.match(studioClient, /preview-version/);
 assert.match(studioCreateClient, /templateVersionId/);
+assert.match(studioCreateClient, /payload\.auditRecorded !== true/);
+assert.match(studioCreateClient, /if \(!AUDIO_TYPES\.includes\(file\.type\)\) \{\s*setAudioFile\(null\);/);
+assert.match(studioCreateClient, /file\.size <= 0 \|\| file\.size > MAX_AUDIO_BYTES/);
+assert.match(studioCreateClient, /auditFailures > 0/);
+assert.match(studioClient, /payload\.auditRecorded !== true/);
+const narrationUpload = read("src/app/api/admin/video-generation/narration-upload/route.ts");
+assert.match(narrationUpload, /if \(!auditRecorded\)[\s\S]*?return jsonError/);
 
 assert.match(types, /video_templates:\s*\{/);
 assert.match(types, /video_template_versions:\s*\{/);
