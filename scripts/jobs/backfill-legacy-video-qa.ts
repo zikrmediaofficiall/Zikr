@@ -1,5 +1,6 @@
 import { getServerEnv } from "../../src/lib/env";
 import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
+import { classifyBackfillPatchResult } from "../../src/features/videos/services/video-qa-backfill-policy";
 import { sourceHash, videoContentHash } from "../../src/features/videos/providers/content-hash";
 import { AI_VISUAL_POLICY_VERSION } from "../../src/features/videos/providers/ai-visual-policy";
 import {
@@ -20,6 +21,7 @@ import {
 } from "./template-video-automation";
 
 type LegacyVideoRequest = GeneratedRequest & {
+  updated_at: string;
   source_hash: string | null;
   content_hash: string | null;
   template_version: string | null;
@@ -122,26 +124,40 @@ function expectedHashes(request: LegacyVideoRequest) {
 async function patchRequest(
   id: string,
   content: RecordValue,
+  expectedUpdatedAt: string,
   expectedBlockedReason?: string,
-) {
+): Promise<boolean> {
+  if (!expectedUpdatedAt.trim()) {
+    throw new Error("Legacy Video QA backfill requires the selected row's updated_at value.");
+  }
   const qaGuard = expectedBlockedReason
     ? "&content->automatedVideoQa->>blockedReason=eq." + encodeURIComponent(expectedBlockedReason)
     : "&content->automatedVideoQa=is.null";
-  await supabaseServerAdminRequest(
-    "/rest/v1/video_generation_requests?id=eq." + encodeURIComponent(id) + "&status=eq.completed" + qaGuard,
+  const updatedRows = await supabaseServerAdminRequest<RecordValue[]>(
+    "/rest/v1/video_generation_requests?id=eq." +
+      encodeURIComponent(id) +
+      "&status=eq.completed&updated_at=eq." +
+      encodeURIComponent(expectedUpdatedAt) +
+      qaGuard +
+      "&select=id,updated_at",
     {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        Prefer: "return=minimal",
+        Prefer: "return=representation",
       },
       body: JSON.stringify({ content, updated_at: new Date().toISOString() }),
     },
   );
+  const outcome = classifyBackfillPatchResult(updatedRows);
+  if (outcome === "unexpected") {
+    throw new Error("Legacy Video QA backfill expected exactly one updated row; refusing to report a successful write.");
+  }
+  return outcome === "updated";
 }
 
 async function listLegacyRequests(): Promise<LegacyVideoRequest[]> {
-  const select = "select=id,title,description,category,content,status,automation_key,video_url,source_hash,content_hash,template_version,scene,render_duration_ms,provider";
+  const select = "select=id,title,description,category,content,status,updated_at,automation_key,video_url,source_hash,content_hash,template_version,scene,render_duration_ms,provider";
   const cutoff = "/rest/v1/video_generation_requests?status=eq.completed&video_url=not.is.null&" + select +
     "&order=created_at.asc&limit=200&";
   const [missingQa, kidsClassificationBlocked] = await Promise.all([
@@ -216,11 +232,15 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
       };
     }
     if (apply) {
-      await patchRequest(
+      const updated = await patchRequest(
         request.id,
         blockedContent,
+        request.updated_at,
         revalidatingKidsClassification ? KIDS_CLASSIFICATION_BLOCK_REASON : undefined,
       );
+      if (!updated) {
+        return { id: request.id, status: "stale", reason: "The request changed after selection; no QA metadata was written." };
+      }
     }
     return { id: request.id, status: "blocked", reason, missingChecks };
   };
@@ -343,11 +363,15 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
     };
   }
   if (apply) {
-    await patchRequest(
+    const updated = await patchRequest(
       request.id,
       approvedContent,
+      request.updated_at,
       revalidatingKidsClassification ? KIDS_CLASSIFICATION_BLOCK_REASON : undefined,
     );
+    if (!updated) {
+      return { id: request.id, status: "stale", reason: "The request changed after selection; no QA metadata was written." };
+    }
   }
   return {
     id: request.id,
@@ -374,7 +398,8 @@ async function main() {
   }
   const passed = results.filter((item) => item.status === "passed").length;
   const blocked = results.filter((item) => item.status === "blocked").length;
-  console.log("[video-qa-backfill] complete passed=" + passed + " blocked=" + blocked + " applied=" + apply);
+  const stale = results.filter((item) => item.status === "stale").length;
+  console.log("[video-qa-backfill] complete passed=" + passed + " blocked=" + blocked + " stale=" + stale + " applied=" + apply);
 }
 
 main().catch((error) => {

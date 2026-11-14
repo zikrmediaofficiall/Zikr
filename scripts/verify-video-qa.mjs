@@ -42,6 +42,24 @@ if (!detail.includes("video.youtubeId")) failures.push("video detail must retain
 const site = read("src/lib/site.ts");
 if (!site.includes('defaultOgImage = "/branding/og-image.jpg"')) failures.push("QA placeholder must use the canonical optimized local OG image");
 
+const backfill = read("scripts/jobs/backfill-legacy-video-qa.ts");
+for (const token of [
+  "updated_at=eq.",
+  'Prefer: "return=representation"',
+  "classifyBackfillPatchResult",
+  'status: "stale"',
+]) {
+  if (!backfill.includes(token)) failures.push(`legacy Video QA backfill missing concurrency guard: ${token}`);
+}
+const backfillPolicy = read("src/features/videos/services/video-qa-backfill-policy.ts");
+if (!backfillPolicy.includes("rows.length === 1") || !backfillPolicy.includes('return "stale"')) {
+  failures.push("legacy Video QA backfill must distinguish one-row success from a stale compare-and-set");
+}
+const backfillTest = read("scripts/tests/video-qa-backfill-policy.test.ts");
+if (!backfillTest.includes("zero returned rows is a stale compare-and-set")) {
+  failures.push("legacy Video QA backfill stale-write regression test is missing");
+}
+
 const worker = read("scripts/jobs/template-video-automation.ts");
 for (const token of [
   "assertNarrationQuality",
