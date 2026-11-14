@@ -56,7 +56,7 @@ assert.equal(evaluateVideoCatalogPublication({
   ...kidsInput,
   row: { published: true, metadata: { ...kidsMetadata, episodeNumber: 0 } },
 }).status, "blocked");
-assert.equal(evaluateVideoCatalogPublication({ ...kidsInput, queuedVideoUrl: "https://example.com/video.mp4" }).status, "blocked");
+assert.equal(evaluateVideoCatalogPublication({ ...kidsInput, queuedVideoUrl: "https://res.cloudinary.com/zikr/image/upload/v123/not-a-video.jpg" }).status, "blocked");
 assert.equal(evaluateVideoCatalogPublication({ ...kidsInput, queueAudience: "other" }).status, "blocked");
 
 const generalMetadata: Record<string, unknown> = {
