@@ -536,7 +536,7 @@ assert.match(kidsApi, /metadata->>age_appropriate=eq\.true/);
 assert.match(kidsPage, /\/api\/kids\/social-posts/);
 assert.match(kidsPage, /kidsWrittenPosts\.map/);
 assert.match(writtenFactory, /"kids"/, "the strict request parser must allow the supported Kids category");
-assert.match(writtenApi, /parseWrittenGenerationRequest\(requestBody\)/, "the admin endpoint must validate the parsed body before dispatch");
+assert.match(writtenPost, /parseWrittenGenerationRequest\(bodyResult\.value\)/, "the admin endpoint must validate the bounded body before dispatch");
 assert.match(writtenWorkflow, /knowledge, kids/);
 assert.match(writtenStudio, /value: "kids", label: "قصص الأطفال المعتمدة"/);
 assert.match(writtenFactory, /content_type:\s*"written_post"/);
