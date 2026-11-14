@@ -1,5 +1,59 @@
 # ZIKR Continuous Closeout Ledger
 
+## 2026-11-14T18:38:18Z — PR #320 full-scope verification and production contract preflight
+
+### Exact Git state
+
+- Repository: `zikrofficial-X/Zikr`
+- PR: [#320](https://github.com/zikrofficial-X/Zikr/pull/320)
+- Branch: `audit/zikr-kids-daily-priority-20261110`
+- Base main SHA: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`
+- Verified code/test head: `a77b2d2d923073b53574bac2550607fe8555d56d`
+- PR changed paths before this snapshot: 540. The new overlay and manifest add two files; expected PR changed-path count after this snapshot: 542.
+- New file-status overlay: `docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1838Z.md` (540 rows). Statuses: CONTENT_READ_PENDING_TRACE: 53; CONTENT_READ_TESTED_PASS: 270; FIXED_TESTED_PENDING_LIVE_APPLY: 25; REVIEW_REQUIRED: 190; SUPERSEDED_SNAPSHOT: 2.
+- New repository manifest: `docs/audits/PR320_REPO_MANIFEST_20261114T1838Z.jsonl` (2,391 pre-manifest tree entries, 1,892 blobs, 499 directories; manifest self-excluded). Old 18:02Z overlay/manifest remain in the repository as historical evidence and are not deleted.
+
+### Repair batch reviewed at this head
+
+1. Kids video request visibility: explicit general-audience story requests are rejected; the legacy story/type contract is retained only when audience is absent. Regression coverage includes explicit general and legacy missing-audience cases.
+2. Kids age review: the server action requires `kids.manage` plus `content.publish` step-up, checks the full-story confirmation, uses an updated-at compare-and-set, records an admin audit event, and now calls `revalidatePath("/sitemap-content/[id]", "page")` for the dynamic shard route.
+3. Sitemap: static and dynamic entries pass through the shared noindex policy and same-origin filter. Dynamic Kids stories require `type=story`, `metadata.age_appropriate=true`, and the configured minimum Arabic content length.
+4. SEO: Unicode slug and structured-data tests are included in the canonical test command; JSON-LD context/type are set after input spread.
+5. Social/Kids feed: reviewed queue selection, target-platform metadata, Kids written-post source approval, public visibility, and pagination. The full publishing worker, admin social mutation route and background job caller remain pending trace.
+6. Storage lifecycle: reviewed the dry-run/manual-apply workflow guards and focused tests. No cleanup job or delete path was executed.
+
+### Verification evidence
+
+- GitHub Actions ZIKR Quality Gate run `43627717182`: completed successfully on `a77b2d2d923073b53574bac2550607fe8555d56d`. The audit branch uses the full-scope `pnpm verify` path, including 13 PostgreSQL 17 integration checks.
+- CircleCI statuses on the same head: `source-verify=success`, `application-build-docs=success`, `config-guard=success`.
+- Android Native Login Debug APK run `43627717118`: success. This builds a debug APK only; no release signing, Play upload or release creation.
+- CircleCI Config Validation run `43627717113`: success.
+- No check was bypassed and no failing/pending check was treated as success.
+
+### Read-only Supabase findings and migration gate
+
+- Remote migration versions: 418. Local migration files: 440. Pending versions (22):
+  `20261110212000`, `20261111000000`, `20261111003000`, `20261111010000`, `20261111020000`, `20261111030000`, `20261111040000`, `20261111050000`, `20261111153000`, `20261111170000`, `20261112103200`, `20261113000000`, `20261113190000`, `20261113200000`, `20261113210000`, `20261113220000`, `20261113230000`, `20261114000000`, `20261114010000`, `20261114020000`, `20261114030000`, `20261114040000`.
+- All 102 public/storage tables inspected have RLS enabled.
+- Critical live exposure: `public.kids_content` grants anon SELECT and current `kids_content_public_read` policy is only `published = true`. Read-only counts show 20 published+active story rows where `metadata.age_appropriate` is missing or not true; they are directly readable through anonymous Supabase REST even though the application service filters them. Local migration `20261110212000` replaces this policy with active-state and age-approval conditions, but it is not applied. The 20 rows remain untouched.
+- Other read-only counts: 0 published inactive Kids rows; 0 published game levels under unpublished games; 0 published questions under unpublished levels/games; 0 prophet sections under unpublished prophets; 0 published Kids videos without passed QA or approval; 0 invalid `social_publish_queue.target_platforms` rows; 0 duplicate active `content_publish_queue` groups; 0 users with multiple default prayer locations.
+- `auth_leaked_password_protection` is disabled. The performance advisor reports 78 unused-index notices; none was dropped.
+- `site_audio_upload_intents` and RPC `save_default_prayer_location` are absent on production until the corresponding pending migrations are applied.
+- Read-only video-request metadata: 18 legacy story requests have no `audience`; 7 are linked to Kids video rows, and all 7 currently carry `kidsVideoQaStatus=revalidation_required`. They are not eligible for the public Kids video feed. The visibility helper retains this legacy contract while rejecting explicit `audience=general`.
+
+### Vercel, CircleCI and governance
+
+- Production Vercel deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu` is READY on main commit `c4560d9`. The production homepage returned HTML. The runtime-log query returned no error/fatal or warning entries in the last 50-minute window. No audit branch deployment was created.
+- `vercel.json` has `git.deploymentEnabled=false`; a merge will not auto-deploy. Production deploy must use the owner-approved manual release/deploy path.
+- Vercel variable `IOS_ASSOCIATED_DOMAIN_APP_ID` is absent; the AASA endpoint returns 503 until the owner supplies the Apple Team ID plus bundle ID. The iOS project also has no `DEVELOPMENT_TEAM` setting. Physical iOS acceptance remains open.
+- Main branch metadata reports `protected=false`. PR #320 has no reviews or requested reviewers; CODEOWNERS names `@Zikrmediaofficial`. No merge was attempted.
+- Main CircleCI `english-content-sync` failed at `https://app.circleci.com/workflow/2993d87d-6546-48c4-8b09-f896360bd6fb/job/f4af7f25-da70-4455-b67f-4587d84cfb59`. The job is not rerun because it invokes Gemini and writes production Supabase; its CircleCI context/log diagnosis is owner-only.
+
+### Safety and next acceptance
+
+No production SQL write, migration apply, Gemini request, content generation, social publish, remote post deletion, storage cleanup, media/index/secret deletion, Android release, merge or audit-branch deployment was performed. The 22 migrations, the 20-story editorial review, owner approval/branch rules, iOS identifiers/device test, physical Android login test, CircleCI English-sync diagnosis and post-merge manual Vercel smoke test remain open.
+
+
 ## 2026-11-14T1443Z — Kids English visibility, API docs, social queue, and release gates at `325aadaf01315c395b575485178c279c69717db5`
 
 ### Defects found and repaired
