@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { asWrittenRecord } from "../../src/features/social/services/written-content";
 import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
-import { buildWrittenArticleBackfillCreatedAtFilter, buildWrittenBackfillQueuePayload, countUniqueWrittenContentReservations, buildWrittenPost, buildWrittenSocialQueuePayload, chooseWrittenSourceKind, shouldBackfillKidsWrittenPost, scheduleKidsBackfillWithinUtcDay, containsKidsPersonalDataSolicitation, createWrittenAutomationKey, createWrittenSocialAutomationKey, isKidsAudience, isKidsWrittenPostCandidate, isKidsWrittenSourceReservation, normalizeWrittenCategory, validateWrittenPostDraft, type WrittenContentSource, type WrittenPostDraft } from "../../src/features/social/services/written-content";
+import { buildWrittenArticleBackfillCreatedAtFilter, buildWrittenBackfillQueuePayload, countUniqueWrittenContentReservations, buildWrittenPost, buildWrittenSocialQueuePayload, chooseWrittenSourceKind, shouldBackfillKidsWrittenPost, scheduleKidsBackfillWithinUtcDay, containsKidsPersonalDataSolicitation, createWrittenAutomationKey, createWrittenSocialAutomationKey, isKidsAudience, isKidsWrittenPostCandidate, isKidsWrittenSourceReservation, isSafeWrittenBackfillSource, normalizeWrittenCategory, validateWrittenPostDraft, type WrittenContentSource, type WrittenPostDraft } from "../../src/features/social/services/written-content";
 
 type Row = Record<string, unknown>;
 const str=(v:unknown)=>typeof v==="string"?v.trim():"";
@@ -313,7 +313,7 @@ async function enqueueExistingWrittenArticlesForFacebook(limit=100) {
    const publicPath=str(metadata.publicPath);
    const sourceType=str(source.type),sourceId=str(source.id);
    if(article.published!==true||!articleId||title.length<8||!body||body.length>12000||quality.passed!==true||source.verified!==true||
-      !sourceType||!sourceId||!publicPath.startsWith("/")||publicPath.startsWith("//"))return [];
+      !sourceType||!sourceId||!publicPath.startsWith("/")||publicPath.startsWith("//")||!isSafeWrittenBackfillSource(sourceType,metadata))return [];
    return [{
     articleId,title,body,publicPath,sourceType,sourceId,
     sourceTitle:str(source.title)||title,

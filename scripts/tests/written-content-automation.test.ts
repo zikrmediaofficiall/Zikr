@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsAudience,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
+import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsAudience,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,isSafeWrittenBackfillSource,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
 assert.deepEqual(asWrittenRecord({ automationPublicationHold: true }), { automationPublicationHold: true }, "object metadata must be preserved for publication-hold checks");
 assert.deepEqual(asWrittenRecord(null), {}, "missing metadata must normalize to an empty record");
 assert.deepEqual(asWrittenRecord(["invalid"]), {}, "array metadata must not be treated as a metadata record");
@@ -202,6 +202,12 @@ assert.equal(isKidsWrittenSourceReservation({
  publicPath: "/kids/legacy-kids-story",
 }), true, "legacy Kids reservations must be recognized even when the newer audience and kidsContentId markers are absent");
 assert.equal(isKidsWrittenSourceReservation({ audience: " KIDS " }), true, "audience matching must be case- and whitespace-insensitive so malformed Kids labels cannot bypass the social safety gate");
+assert.equal(isSafeWrittenBackfillSource("quran", { audience: "kids" }), false, "a Kids audience marker must never be backfilled as a general source");
+assert.equal(isSafeWrittenBackfillSource("quran", { kidsContentId: "kids-1" }), false, "a Kids content identity must never be relabeled as a general source");
+assert.equal(isSafeWrittenBackfillSource("quran", { publicPath: "/kids/story-1" }), false, "a Kids public path must never be relabeled as a general source");
+assert.equal(isSafeWrittenBackfillSource("kids_story", { audience: "general" }), true, "a verified Kids source type must remain eligible for the Kids-specific backfill validation");
+assert.equal(isSafeWrittenBackfillSource("quran", { audience: "general", publicPath: "/quran/ash-sharh" }), true, "ordinary general content must remain eligible for the general backfill");
+
 assert.equal(isKidsWrittenPostCandidate({
  ...kidsPublishCandidate,
  metadata: { audience: " KIDS " },
@@ -583,6 +589,7 @@ assert.match(envExample, /^SOCIAL_PUBLISH_ENABLED=false$/m, "local .env.example 
 assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example must keep video automation in dry-run mode");
 
 assert.ok(worker.includes("isKidsAudience(metadata.audience)"), "published articles labeled for children must not enter the general knowledge generation pool");
+assert.ok(worker.includes("isSafeWrittenBackfillSource(sourceType,metadata)"), "historical social backfill must fail closed when Kids metadata conflicts with a general source type");
 assert.ok(worker.includes('WRITTEN_CONTENT_ENABLED?.trim().toLowerCase()!=="true"'), "Gemini generation must remain disabled unless explicitly enabled");
 assert.ok(writtenWorkflow.includes('WRITTEN_CONTENT_ENABLED: "true"'), "the scheduled workflow must explicitly opt in to content generation");
 assert.ok(worker.includes("WRITTEN_CONTENT_SYSTEM_INSTRUCTION"));

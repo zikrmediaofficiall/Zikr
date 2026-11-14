@@ -342,6 +342,11 @@ export function isKidsWrittenSourceReservation(value: unknown): boolean {
     publicPath.startsWith("/kids/");
 }
 
+/** Reject a backfill row when any Kids marker conflicts with a non-Kids source type. */
+export function isSafeWrittenBackfillSource(sourceType: string, metadata: unknown): boolean {
+  return sourceType === "kids_story" || !isKidsWrittenSourceReservation(metadata);
+}
+
 export function isKidsWrittenPostCandidate(
   row: { content_type?: unknown; metadata?: unknown; automation_key?: unknown },
 ): boolean {
