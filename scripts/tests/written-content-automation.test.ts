@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
+import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsAudience,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
 assert.deepEqual(asWrittenRecord({ automationPublicationHold: true }), { automationPublicationHold: true }, "object metadata must be preserved for publication-hold checks");
 assert.deepEqual(asWrittenRecord(null), {}, "missing metadata must normalize to an empty record");
 assert.deepEqual(asWrittenRecord(["invalid"]), {}, "array metadata must not be treated as a metadata record");
@@ -19,6 +19,11 @@ assert.throws(
 const source:WrittenContentSource={kind:"quran",id:"ayah-1",title:"آية",sourceText:"إِنَّ مَعَ الْعُسْرِ يُسْرًا",reference:"سورة الشرح، الآية 6",publicPath:"/quran/ash-sharh",categoryLabel:"القرآن الكريم",sourceVerified:true,quoteRequired:true};
 const draft:WrittenPostDraft={eligible:true,title:"مع كل عسر يسر",hook:"قد تمر بلحظة تظن فيها أن الطريق انتهى، لكن الأمل يظل حاضرًا.",reflection:"تدعونا الآية إلى ألا نستسلم لليأس، وأن نتذكر أن الشدة لا تدوم وأن الأمل باب للعمل والصبر.",question:"ما المعنى الذي تستحضره عندما تمر بوقت صعب؟"};
 assert.equal(normalizeWrittenCategory("hadith"),"hadith");assert.equal(normalizeWrittenCategory("other"),"auto");assert.equal(normalizeWrittenCategory("companions"),"companions");assert.equal(normalizeWrittenCategory("kids"),"kids");
+assert.equal(isKidsAudience("kids"), true);
+assert.equal(isKidsAudience(" KIDS "), true);
+assert.equal(isKidsAudience("children"), true);
+assert.equal(isKidsAudience("general"), false);
+assert.equal(isKidsAudience(null), false);
 assert.deepEqual(parseWrittenGenerationRequest({}), { ok: true, value: { category: "auto", batchSize: 1 } });
 assert.deepEqual(parseWrittenGenerationRequest({ category: "kids", batchSize: "2" }), { ok: true, value: { category: "kids", batchSize: 2 } });
 assert.deepEqual(parseWrittenGenerationRequest(null), { ok: false, reason: "invalid_body" });
@@ -196,6 +201,11 @@ assert.equal(isKidsWrittenSourceReservation({
  source: { type: "kids_story", id: "legacy-kids-source", verified: true },
  publicPath: "/kids/legacy-kids-story",
 }), true, "legacy Kids reservations must be recognized even when the newer audience and kidsContentId markers are absent");
+assert.equal(isKidsWrittenSourceReservation({ audience: " KIDS " }), true, "audience matching must be case- and whitespace-insensitive so malformed Kids labels cannot bypass the social safety gate");
+assert.equal(isKidsWrittenPostCandidate({
+ ...kidsPublishCandidate,
+ metadata: { audience: " KIDS " },
+}), true, "normalized Kids audience markers must still trigger source approval");
 assert.equal(isKidsWrittenPostCandidate({
  content_type: "written_post",
  metadata: {},
@@ -572,6 +582,10 @@ assert.match(envExample, /^AUTO_VIDEO_PUBLISH_ENABLED=false$/m, "local .env.exam
 assert.match(envExample, /^SOCIAL_PUBLISH_ENABLED=false$/m, "local .env.example must not enable social publishing by default");
 assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example must keep video automation in dry-run mode");
 
+assert.match(worker, /isKidsAudience\\(metadata\\.audience\\)/, "published articles labeled for children must not enter the general knowledge generation pool");
+assert.match(worker, /WRITTEN_CONTENT_ENABLED\\?\\.trim\\(\\)\\.toLowerCase\\(\\)!==\\"true\\"/, "Gemini generation must remain disabled unless explicitly enabled");
+const writtenWorkflow = readFileSync(".github/workflows/generate-written-content.yml", "utf8");
+assert.match(writtenWorkflow, /WRITTEN_CONTENT_ENABLED:\\s*\\"true\\"/, "the scheduled workflow must explicitly opt in to content generation");
 assert.ok(worker.includes("WRITTEN_CONTENT_SYSTEM_INSTRUCTION"));
 assert.ok(worker.includes("systemInstruction:{parts:[{text:WRITTEN_CONTENT_SYSTEM_INSTRUCTION}]}"));
 assert.ok(worker.includes('contents:[{role:"user",parts:[{text:userPayload}]}]'));

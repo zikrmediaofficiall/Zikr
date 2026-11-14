@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { asWrittenRecord } from "../../src/features/social/services/written-content";
 import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
-import { buildWrittenArticleBackfillCreatedAtFilter, buildWrittenBackfillQueuePayload, countUniqueWrittenContentReservations, buildWrittenPost, buildWrittenSocialQueuePayload, chooseWrittenSourceKind, shouldBackfillKidsWrittenPost, scheduleKidsBackfillWithinUtcDay, containsKidsPersonalDataSolicitation, createWrittenAutomationKey, createWrittenSocialAutomationKey, isKidsWrittenPostCandidate, isKidsWrittenSourceReservation, normalizeWrittenCategory, validateWrittenPostDraft, type WrittenContentSource, type WrittenPostDraft } from "../../src/features/social/services/written-content";
+import { buildWrittenArticleBackfillCreatedAtFilter, buildWrittenBackfillQueuePayload, countUniqueWrittenContentReservations, buildWrittenPost, buildWrittenSocialQueuePayload, chooseWrittenSourceKind, shouldBackfillKidsWrittenPost, scheduleKidsBackfillWithinUtcDay, containsKidsPersonalDataSolicitation, createWrittenAutomationKey, createWrittenSocialAutomationKey, isKidsAudience, isKidsWrittenPostCandidate, isKidsWrittenSourceReservation, normalizeWrittenCategory, validateWrittenPostDraft, type WrittenContentSource, type WrittenPostDraft } from "../../src/features/social/services/written-content";
 
 type Row = Record<string, unknown>;
 const str=(v:unknown)=>typeof v==="string"?v.trim():"";
@@ -87,7 +87,7 @@ async function loadSources():Promise<WrittenContentSource[]>{
  }
  for(const x of articles){
   const metadata=x.metadata&&typeof x.metadata==="object"&&!Array.isArray(x.metadata)?x.metadata as Row:{};
-  if(metadata.automation==="written-content-v2")continue;
+  if(metadata.automation==="written-content-v2"||isKidsAudience(metadata.audience))continue;
   const title=str(x.title_ar)||str(x.title);
   const text=str(x.content_ar)||str(x.summary_ar)||str(x.content)||str(x.summary);
   if(!title||!text)continue;
@@ -375,7 +375,8 @@ async function enqueueExistingWrittenArticlesForFacebook(limit=100) {
  return created;
 }
 export async function runWrittenContentAutomation(options:{category?:string;batchSize?:number}={}){
- if(process.env.WRITTEN_CONTENT_ENABLED?.toLowerCase()==="false")return {enabled:false,created:0,duplicates:0,skipped:0};
+ // Gemini generation is side-effecting; require an explicit opt-in.
+ if(process.env.WRITTEN_CONTENT_ENABLED?.trim().toLowerCase()!=="true")return {enabled:false,created:0,duplicates:0,skipped:0};
  const apiKey=process.env.GEMINI_API_KEY?.trim();if(!apiKey)throw new Error("GEMINI_API_KEY is required.");
  const facebookBackfilled=await enqueueExistingWrittenArticlesForFacebook();
  const dailyTarget=clamp(process.env.WRITTEN_CONTENT_DAILY_TARGET,3,1,10),batchSize=clamp(options.batchSize??process.env.WRITTEN_CONTENT_BATCH_SIZE,1,1,3);

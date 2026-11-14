@@ -325,11 +325,17 @@ export type KidsWrittenPublishQueueItem = Pick<
   "content_type" | "content_id" | "title" | "body" | "metadata"
 >;
 
+export function isKidsAudience(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const audience = value.trim().toLowerCase();
+  return audience === "kids" || audience === "kid" || audience === "children" || audience === "child";
+}
+
 export function isKidsWrittenSourceReservation(value: unknown): boolean {
   const metadata = asWrittenRecord(value);
   const sourceMetadata = asWrittenRecord(metadata.source);
   const publicPath = typeof metadata.publicPath === "string" ? metadata.publicPath : "";
-  return metadata.audience === "kids" ||
+  return isKidsAudience(metadata.audience) ||
     typeof metadata.kidsContentId === "string" ||
     sourceMetadata.type === "kids_story" ||
     publicPath === "/kids" ||
