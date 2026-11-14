@@ -52,7 +52,7 @@ test("Vercel readiness rejects terminal deployment failures and non-deployment U
   );
   await assert.rejects(
     waitForVercelDeploymentReady({
-      deploymentUrl: "https://example.com",
+      deploymentUrl: "https://not-vercel.invalid",
       token: "test-token",
       teamId: "team_test",
       expectedSha: "a".repeat(40),
