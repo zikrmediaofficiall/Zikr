@@ -4,6 +4,7 @@ import { getVideoEngineConfig, parseCustomVideoSpaces } from "../../src/features
 
 const providerSource = readFileSync("src/features/videos/providers/hf-space-provider.ts", "utf8");
 const pythonSource = readFileSync("scripts/jobs/hf-space-video.py", "utf8");
+const visualsPageSource = readFileSync("src/app/admin/video/visuals/page.tsx", "utf8");
 
 const entries = parseCustomVideoSpaces(JSON.stringify([
   { space: "example/wan-free", variant: "wan2_2_fast", enabled: true },
@@ -28,6 +29,16 @@ const config = getVideoEngineConfig({ ...process.env,
 });
 assert.ok(config.order.includes("hf_custom_1"));
 assert.deepEqual(config.customSpaces.map((entry) => entry.name), ["hf_custom_1"]);
+const disabledAiConfig = getVideoEngineConfig({
+  VIDEO_AI_ENABLED: "false",
+  HF_VIDEO_CUSTOM_SPACES: JSON.stringify([{ space: "example/wan-free", variant: "wan2_2_fast", enabled: true }]),
+});
+assert.equal(disabledAiConfig.aiEnabled, false);
+assert.equal(disabledAiConfig.customSpaces.length, 1);
+assert.ok(
+  visualsPageSource.includes("...(config.aiEnabled ? config.customSpaces.map((entry) => entry.name) : [])"),
+  "Admin visuals must not label custom providers enabled while the global AI switch is off",
+);
 const missingConfig = getVideoEngineConfig({ ...process.env, ...process.env, VIDEO_FREE_ONLY: "true", VIDEO_PROVIDER_ORDER: "hf_custom_2,hf_wan" });
 assert.ok(!missingConfig.order.includes("hf_custom_2"));
 console.log("Custom Hugging Face provider registry tests passed.");
