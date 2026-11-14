@@ -130,12 +130,12 @@ const pushSubscriptionAccessMigration = readFileSync(
 );
 assert.match(
   pushSubscriptionAccessMigration,
-  /REVOKE ALL PRIVILEGES ON TABLE public\\.push_subscriptions\\s+FROM PUBLIC, anon, authenticated/i,
+  /REVOKE ALL PRIVILEGES ON TABLE public\.push_subscriptions\s+FROM PUBLIC, anon, authenticated/i,
   "push subscriptions must be server-managed because endpoint validation is enforced in the API and worker",
 );
 assert.match(
   pushSubscriptionAccessMigration,
-  /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\\.push_subscriptions\\s+TO service_role/i,
+  /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\.push_subscriptions\s+TO service_role/i,
   "service_role must retain the only required DML path for push subscriptions",
 );
 assert.doesNotMatch(
