@@ -232,10 +232,11 @@ async function getTopArticles(): Promise<{ rows: TopArticle[]; available: boolea
 }
 
 export async function recordAdminPageView(route: string, actorUserId: string | null) {
-  if (!route.startsWith("/admin")) return;
+  const pathname = route.trim().split(/[?#]/, 1)[0] ?? "";
+  if (pathname !== "/admin" && !pathname.startsWith("/admin/")) return;
   await supabaseServerAdminRequest("/rest/v1/admin_page_views", {
     method: "POST",
     headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-    body: JSON.stringify({ route: route.slice(0, 180), actor_user_id: actorUserId }),
+    body: JSON.stringify({ route: pathname.slice(0, 180), actor_user_id: actorUserId }),
   }).catch((error) => console.warn("[admin/analytics] page view not recorded", error));
 }

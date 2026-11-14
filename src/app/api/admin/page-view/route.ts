@@ -4,7 +4,7 @@ import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
 import { recordAdminPageView } from "@/features/admin/services/analytics";
 
 export async function POST(request: Request) {
-  const auth = await requireAdminApi("analytics.read");
+  const auth = await requireAdminApi("admin.access");
   if (!auth.ok) {
     return NextResponse.json(
       { error: auth.error },

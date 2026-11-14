@@ -129,6 +129,7 @@ const audioConfigSource = readFileSync(resolve(process.cwd(), "src/lib/audio/con
 const audioLibrarySource = readFileSync(resolve(process.cwd(), "src/components/audio/audio-library.tsx"), "utf8");
 assert.ok(audioConfigSource.includes("if (audioResponse.ok) registerAudioChoices(remote)"),
   "a failed site-audio response must not clear the last known-good remote audio snapshot");
+assert.ok(audioLibrarySource.includes("asset.attribution"), "the public audio library must display the creator attribution supplied by the catalog");
 assert.ok(audioLibrarySource.includes("if (!response.ok) throw new Error") &&
   audioLibrarySource.indexOf("if (!response.ok) throw new Error") < audioLibrarySource.indexOf("registerAudioChoices(choices)"),
   "the audio library must replace its snapshot only after a successful catalog response");

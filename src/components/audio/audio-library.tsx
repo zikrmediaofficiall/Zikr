@@ -113,6 +113,7 @@ export function AudioLibrary() {
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-brand-cream/45">
                           {asset.isHuman && <span>صوت بشري</span>}
                           {asset.sourceName && <span>· {asset.sourceName}</span>}
+                          {asset.attribution && <span>· {asset.attribution}</span>}
                           {asset.license && <span>· {asset.license}</span>}
                         </div>
                       </div>
