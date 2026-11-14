@@ -252,6 +252,16 @@ if (claimBody.includes("await retryPendingPublishedVideoCleanup(")) {
 if ((socialWorker.match(/retryPendingPublishedVideoCleanup\(/g) ?? []).length !== 1) {
   failures.push("the social worker must run published-video cleanup exactly once per queue poll");
 }
+const retentionSummaryStart = socialPublishingService.indexOf("export async function retryPendingPublishedVideoCleanup(");
+const retentionSummaryEnd = socialPublishingService.indexOf("export async function processSocialPublishItem(", retentionSummaryStart);
+const retentionSummary = retentionSummaryStart >= 0 && retentionSummaryEnd > retentionSummaryStart
+  ? socialPublishingService.slice(retentionSummaryStart, retentionSummaryEnd)
+  : "";
+if (!retentionSummary.includes("markedForRetention") ||
+    /\\bcleaned\\b/.test(retentionSummary) ||
+    !socialWorker.includes("Published video staging-retention markers refreshed")) {
+  failures.push("published-video staging retention must report metadata markers, not claim media has been deleted");
+}
 if (!socialPublishingService.includes("shouldRetryPublishedVideoCleanup(item.metadata)") ||
     !cleanupPolicy.includes("metadata?.stagingCleanupDeferred !== true") ||
     !cleanupPolicy.includes("metadata.videoCleanupPending === true")) {

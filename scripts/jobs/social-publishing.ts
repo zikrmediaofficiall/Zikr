@@ -99,9 +99,9 @@ export async function processSocialPublishQueue(limit = 10) {
   // Reconcile deferred staging-cleanup metadata for posts already confirmed
   // on every target. The 48-hour retention worker removes only the redundant
   // Supabase staging copy; the public Cloudinary playback master is never deleted.
-  const cleanup = await retryPendingPublishedVideoCleanup(Math.max(25, Math.min(100, limit * 2)));
-  if (cleanup.attempted > 0) {
-    console.log("[social-worker] Published media cleanup retry:", JSON.stringify(cleanup));
+  const retentionMarkers = await retryPendingPublishedVideoCleanup(Math.max(25, Math.min(100, limit * 2)));
+  if (retentionMarkers.attempted > 0) {
+    console.log("[social-worker] Published video staging-retention markers refreshed:", JSON.stringify(retentionMarkers));
   }
   const enabledPlatforms = getEnabledSocialPlatforms(process.env);
   const items = enabledPlatforms.length > 0

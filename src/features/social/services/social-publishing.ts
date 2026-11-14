@@ -913,12 +913,12 @@ export async function resetQueuedSocialVideoMedia(
 
 export async function retryPendingPublishedVideoCleanup(limit = 25): Promise<{
   attempted: number;
-  cleaned: number;
+  markedForRetention: number;
   pending: number;
   error?: string;
 }> {
   let attempted = 0;
-  let cleaned = 0;
+  let markedForRetention = 0;
   try {
     const cutoff = new Date(process.env.SOCIAL_PUBLISH_AFTER ?? "2026-11-06T20:00:00Z");
     if (!Number.isFinite(cutoff.getTime())) throw new Error("Invalid SOCIAL_PUBLISH_AFTER cutoff.");
@@ -932,18 +932,18 @@ export async function retryPendingPublishedVideoCleanup(limit = 25): Promise<{
       if (!isVideoContentType(item.content_type)) continue;
       if (!shouldRetryPublishedVideoCleanup(item.metadata)) continue;
       attempted += 1;
-      if (await disposePublishedVideo(item)) cleaned += 1;
+      if (await disposePublishedVideo(item)) markedForRetention += 1;
     }
   } catch (error) {
-    console.error("[social-publishing] Failed to retry published-video cleanup:", error);
+    console.error("[social-publishing] Failed to refresh published-video staging-retention markers:", error);
     return {
       attempted,
-      cleaned,
-      pending: Math.max(1, attempted - cleaned),
+      markedForRetention,
+      pending: Math.max(1, attempted - markedForRetention),
       error: error instanceof Error ? error.message : String(error),
     };
   }
-  return { attempted, cleaned, pending: Math.max(0, attempted - cleaned) };
+  return { attempted, markedForRetention, pending: Math.max(0, attempted - markedForRetention) };
 }
 
 export async function processSocialPublishItem(
