@@ -464,7 +464,7 @@ for (const [provider, callbackSource] of [
   const manageGuard = callbackSource.indexOf('requireAdminApi("social.manage")');
   const publishGuard = callbackSource.indexOf('requireAdminStepUpApi("social.publish"');
   assert.ok(manageGuard >= 0 && publishGuard > manageGuard, provider + " OAuth callback must re-check social.manage before social.publish step-up");
-  assert.match(callbackSource, /permission: ["']social\\.manage["']/);
+  assert.match(callbackSource, /permission: ["']social\.manage["']/);
   assert.match(callbackSource, /requireAdminStepUpApi\(["']social\.publish["']/);
   assert.ok(
     callbackSource.includes(`verifySignedOAuthState(state, auth.profile.id, "${provider}")`),
