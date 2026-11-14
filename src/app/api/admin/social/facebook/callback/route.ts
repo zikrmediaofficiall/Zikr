@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 
   const auth = await requireAdminStepUpApi("social.publish", "/admin/social");
   if (!auth.ok) {
-    if (auth.error === "step_up_required" && "nextPath" in auth) return redirectToStepUp(auth.nextPath);
+    if (auth.error === "step_up_required" && typeof auth.nextPath === "string") return redirectToStepUp(auth.nextPath);
     return redirectResult("admin_session_missing");
   }
   if (manageAuth.profile.id !== auth.profile.id) return redirectResult("state_mismatch");

@@ -466,6 +466,7 @@ for (const [provider, callbackSource] of [
   assert.ok(manageGuard >= 0 && publishGuard > manageGuard, provider + " OAuth callback must re-check social.manage before social.publish step-up");
   assert.match(callbackSource, /permission: ["']social\.manage["']/);
   assert.match(callbackSource, /requireAdminStepUpApi\(["']social\.publish["']/);
+  assert.match(callbackSource, /typeof auth\.nextPath === "string"/);
   assert.ok(
     callbackSource.includes(`verifySignedOAuthState(state, auth.profile.id, "${provider}")`),
     provider + " OAuth callback must bind the returned state to the authenticated admin and provider",
