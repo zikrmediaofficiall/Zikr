@@ -88,6 +88,7 @@ async function callDirectSdk(
   for (let attempt = 0; attempt < attempts; attempt++) {
     const key = getNextApiKey();
     if (!key) break;
+    let sawTransientFailure = false;
     try {
       const client = new GoogleGenerativeAI(key);
       for (const modelId of getDirectModels()) {
@@ -103,6 +104,7 @@ async function callDirectSdk(
           if (text) return text;
         } catch (err: unknown) {
           if (isTransientGeminiError(err)) {
+            sawTransientFailure = true;
             console.warn(`[gemini] transient failure on model ${modelId}; trying fallback model/key`);
             continue;
           }
@@ -119,6 +121,7 @@ async function callDirectSdk(
       console.error('[gemini] Direct SDK error:', err instanceof Error ? err.message : err);
       break;
     }
+    if (sawTransientFailure) await backoff(attempt + 1);
   }
   return null;
 }
@@ -176,6 +179,7 @@ export async function generateGeminiFromAudio(
   for (let attempt = 0; attempt < attempts; attempt++) {
     const key = getNextApiKey();
     if (!key) break;
+    let sawTransientFailure = false;
     try {
       const client = new GoogleGenerativeAI(key);
       for (const modelId of getDirectModels()) {
@@ -198,6 +202,7 @@ export async function generateGeminiFromAudio(
           if (text) return text;
         } catch (err: unknown) {
           if (isTransientGeminiError(err)) {
+            sawTransientFailure = true;
             console.warn(`[gemini] transient audio failure on model ${modelId}; trying fallback model/key`);
             continue;
           }
@@ -214,6 +219,7 @@ export async function generateGeminiFromAudio(
       console.error('[gemini] Audio generation failed:', err instanceof Error ? err.message : err);
       break;
     }
+    if (sawTransientFailure) await backoff(attempt + 1);
   }
   return null;
 }
