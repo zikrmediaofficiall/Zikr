@@ -54,6 +54,8 @@ assert.match(ageReviewAction, /updated\[0\][?]\.published !== reviewPatch[.]publ
 assert.match(ageReviewAction, /publishedAfterReview: reviewPatch[.]published/);
 assert.ok(ageReviewAction.includes('revalidatePath("/api/kids/social-posts")') && ageReviewAction.includes('revalidatePath("/sitemap-index.xml")'),
   "age review must invalidate Kids social and sitemap caches after publication changes");
+assert.match(ageReviewAction, /revalidatePath\(["']\/sitemap-content\/\[id\]["'],\s*["']page["']\)/,
+  "age review must invalidate the dynamic sitemap shard route pattern");
 assert.match(ageReviewAction, /recordAdminAuditEvent/);
 assert.match(ageReviewAction, /metadataValue !== null && \(typeof metadataValue !== "object" \|\| Array\.isArray\(metadataValue\)\)/,
   "age review must fail closed instead of replacing non-object metadata");

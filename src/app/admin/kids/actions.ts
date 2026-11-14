@@ -340,7 +340,7 @@ export async function reviewKidsStoryAgeSuitabilityAction(formData: FormData) {
   revalidatePath(`/kids/${current.slug}`);
   revalidatePath("/sitemap.xml");
   revalidatePath("/sitemap-index.xml");
-  revalidatePath("/sitemap-content/[id]");
+  revalidatePath("/sitemap-content/[id]", "page");
 
   if (auditError) {
     console.warn("[admin/kids] age-review audit event unavailable after metadata update:", auditError);

@@ -290,7 +290,9 @@ assert.doesNotMatch(kidsVideosApi, /status=in\.\(published,partial\)/, "queued, 
 
 
 assert.equal(isKidsVideoGenerationRequestContent({ audience: "kids", type: "kids_story_episode" }), true);
-assert.equal(isKidsVideoGenerationRequestContent({ sourceType: "story", type: "story" }), true, "the validated legacy story source contract must remain supported");
+assert.equal(isKidsVideoGenerationRequestContent({ sourceType: "story", type: "story" }), true, "the validated legacy story source contract must remain supported when no audience is recorded");
+assert.equal(isKidsVideoGenerationRequestContent({ audience: "general", sourceType: "story", type: "story" }), false, "an explicitly general story must never be treated as Kids content");
+assert.equal(isKidsVideoGenerationRequestContent({ audience: "adult", sourceType: "story", type: "story" }), false, "an explicitly non-Kids audience must fail closed");
 assert.equal(isKidsVideoGenerationRequestContent({ audience: "general", sourceType: "article", type: "article" }), false);
 assert.equal(isKidsVideoGenerationRequestContent(null), false);
 assert.equal(isPublicKidsVideoSocialQueueRow({ content_type: "kids_video", status: "published", target_platforms: ["youtube"], published_at: "2026-11-11T12:00:00.000Z", metadata: { audience: "kids" } }), true);
