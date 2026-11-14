@@ -72,6 +72,7 @@ export function SiteAudioManager() {
         }),
       });
       const signed = await presign.json();
+      if (!presign.ok && signed.error === "step_up_required" && redirectToAdminStepUp(signed.nextPath)) return;
       if (!presign.ok) throw new Error(signed.error ?? "تعذر تجهيز الرفع.");
       const presignAuditRecorded = signed.auditRecorded !== false;
 
@@ -94,6 +95,10 @@ export function SiteAudioManager() {
         }),
       });
       const payload = await save.json();
+      if (!save.ok && payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) {
+        setStatus("انتهت جلسة التحقق أثناء الرفع. أعد اختيار الملف بعد إكمال التحقق.");
+        return;
+      }
       if (!save.ok) throw new Error(payload.error ?? "تعذر حفظ المقطع.");
 
       setAssets(current => [payload.asset, ...current]);
@@ -119,6 +124,7 @@ export function SiteAudioManager() {
         body: JSON.stringify({ id: asset.id, kind: asset.kind }),
       });
       const payload = await response.json();
+      if (!response.ok && payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return;
       if (!response.ok) throw new Error(payload.error ?? "تعذر تفعيل المقطع.");
       setAssets(current => current.map(item => ({
         ...item,
