@@ -428,6 +428,7 @@ jobs:
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.ZIKR_VERCEL_TOKEN || secrets.VERCEL_DEPLOY_TOKEN || secrets.VERCEL_TOKEN }}
+          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           url="$(vercel deploy --prebuilt --prod --yes --scope "${VERCEL_ORG_ID}")"
@@ -437,8 +438,10 @@ jobs:
       - name: Verify Vercel deployment reached READY
         env:
           VERCEL_TOKEN: ${{ secrets.ZIKR_VERCEL_TOKEN || secrets.VERCEL_DEPLOY_TOKEN || secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+          EXPECTED_COMMIT_SHA: ${{ github.sha }}
+          EXPECTED_VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
         run: node scripts/verify-vercel-deployment-ready.mjs
 
       - name: Verify deployed Supabase health Edge Function

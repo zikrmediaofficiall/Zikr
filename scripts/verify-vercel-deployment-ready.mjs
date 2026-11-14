@@ -8,14 +8,19 @@ export async function waitForVercelDeploymentReady({
   deploymentUrl,
   token,
   teamId,
+  expectedSha,
+  expectedProjectId,
   fetchImpl = fetch,
   sleep = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds)),
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
   intervalMs = DEFAULT_INTERVAL_MS,
   logger = console,
 }) {
-  if (!deploymentUrl || !token || !teamId) {
-    throw new Error("DEPLOYMENT_URL, VERCEL_TOKEN, and VERCEL_ORG_ID are required.");
+  if (!deploymentUrl || !token || !teamId || !expectedSha || !expectedProjectId) {
+    throw new Error("DEPLOYMENT_URL, VERCEL_TOKEN, VERCEL_ORG_ID, EXPECTED_COMMIT_SHA, and EXPECTED_VERCEL_PROJECT_ID are required.");
+  }
+  if (!/^[a-f0-9]{40}$/i.test(expectedSha)) {
+    throw new Error("EXPECTED_COMMIT_SHA must be a full 40-character Git SHA.");
   }
 
   let parsedDeploymentUrl;
@@ -72,7 +77,25 @@ export async function waitForVercelDeploymentReady({
     ).toUpperCase();
     lastState = state || "UNKNOWN";
     if (state === "READY") {
-      logger.log?.("PASS: Vercel deployment reached READY.");
+      const actualProjectId = payload.projectId ?? payload.project?.id ?? "";
+      if (actualProjectId !== expectedProjectId) {
+        throw new Error("Vercel deployment project ID does not match the approved project.");
+      }
+      const actualSha = String(
+        payload.gitSource?.sha ??
+        payload.meta?.githubCommitSha ??
+        payload.meta?.githubCommitSha1 ??
+        payload.meta?.gitCommitSha ??
+        "",
+      ).toLowerCase();
+      const expected = expectedSha.toLowerCase();
+      const shaMatches =
+        actualSha.length >= 7 &&
+        (expected.startsWith(actualSha) || actualSha.startsWith(expected));
+      if (!shaMatches) {
+        throw new Error("Vercel deployment commit SHA does not match the approved Git SHA.");
+      }
+      logger.log?.("PASS: Vercel deployment reached READY for the approved project and commit.");
       return payload;
     }
     if (state === "ERROR" || state === "CANCELED") {
@@ -91,6 +114,8 @@ async function main() {
     deploymentUrl: process.env.DEPLOYMENT_URL,
     token: process.env.VERCEL_TOKEN,
     teamId: process.env.VERCEL_ORG_ID,
+    expectedSha: process.env.EXPECTED_COMMIT_SHA,
+    expectedProjectId: process.env.EXPECTED_VERCEL_PROJECT_ID,
   });
 }
 

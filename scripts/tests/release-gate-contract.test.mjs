@@ -136,3 +136,7 @@ assert.ok(supabaseHealthIndex > vercelReadyIndex, "the deployed Supabase health 
 assert.ok(productionSmokeIndex > supabaseHealthIndex, "public production smoke must run after deployment and Edge Function health checks");
 assert.ok(releaseWorkflow.includes("NEXT_PUBLIC_SUPABASE_URL="));
 assert.ok(releaseWorkflow.includes("SUPABASE_URL must point to the approved ZIKR production project"));
+
+assert.ok(releaseWorkflow.includes("VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}"), "Vercel readiness must use the approved team ID");
+assert.ok(releaseWorkflow.includes("EXPECTED_COMMIT_SHA: ${{ github.sha }}"), "Vercel readiness must verify the exact approved commit");
+assert.ok(releaseWorkflow.includes("EXPECTED_VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}"), "Vercel readiness must verify the production project");

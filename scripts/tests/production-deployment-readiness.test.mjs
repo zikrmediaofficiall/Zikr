@@ -11,6 +11,8 @@ test("Vercel deployment readiness waits for READY and uses the exact deployment 
     deploymentUrl: "https://zikr-audit-abc123.vercel.app",
     token: "test-token",
     teamId: "team_test",
+    expectedSha: "a".repeat(40),
+    expectedProjectId: "prj_test",
     maxAttempts: 3,
     intervalMs: 25,
     sleep: async (milliseconds) => waits.push(milliseconds),
@@ -22,6 +24,8 @@ test("Vercel deployment readiness waits for READY and uses the exact deployment 
       assert.equal(init.headers.Authorization, "Bearer test-token");
       return new Response(JSON.stringify({
         readyState: calls === 1 ? "BUILDING" : "READY",
+        projectId: "prj_test",
+        gitSource: { sha: "a".repeat(40) },
       }), { status: 200, headers: { "content-type": "application/json" } });
     },
   });
@@ -39,6 +43,8 @@ test("Vercel readiness rejects terminal deployment failures and non-deployment U
       deploymentUrl: "https://zikr-audit-abc123.vercel.app",
       token: "test-token",
       teamId: "team_test",
+      expectedSha: "a".repeat(40),
+      expectedProjectId: "prj_test",
       maxAttempts: 1,
       fetchImpl: async () => new Response(JSON.stringify({ readyState: "ERROR" }), { status: 200 }),
     }),
@@ -46,13 +52,15 @@ test("Vercel readiness rejects terminal deployment failures and non-deployment U
   );
   await assert.rejects(
     waitForVercelDeploymentReady({
-      deploymentUrl: "https://zikrmediaofficial.vercel.app",
+      deploymentUrl: "https://example.com",
       token: "test-token",
       teamId: "team_test",
+      expectedSha: "a".repeat(40),
+      expectedProjectId: "prj_test",
       maxAttempts: 1,
-      fetchImpl: async () => new Response(JSON.stringify({ readyState: "READY" }), { status: 200 }),
+      fetchImpl: async () => new Response(JSON.stringify({ readyState: "READY", projectId: "prj_test", gitSource: { sha: "a".repeat(40) } }), { status: 200 }),
     }),
-    /exact Vercel deployment hostname/,
+    /Vercel-hosted deployment URL/,
   );
 });
 
@@ -123,5 +131,38 @@ test("Supabase health smoke fails closed on bad health, CORS, or cache headers",
       }),
     }),
     /non-cacheable/,
+  );
+});
+
+test("Vercel readiness rejects a deployment for the wrong project or commit", async () => {
+  const base = {
+    deploymentUrl: "https://zikr-audit-abc123.vercel.app",
+    token: "test-token",
+    teamId: "team_test",
+    expectedSha: "a".repeat(40),
+    expectedProjectId: "prj_test",
+    maxAttempts: 1,
+  };
+  await assert.rejects(
+    waitForVercelDeploymentReady({
+      ...base,
+      fetchImpl: async () => new Response(JSON.stringify({
+        readyState: "READY",
+        projectId: "prj_other",
+        gitSource: { sha: "a".repeat(40) },
+      }), { status: 200 }),
+    }),
+    /project ID does not match/,
+  );
+  await assert.rejects(
+    waitForVercelDeploymentReady({
+      ...base,
+      fetchImpl: async () => new Response(JSON.stringify({
+        readyState: "READY",
+        projectId: "prj_test",
+        gitSource: { sha: "b".repeat(40) },
+      }), { status: 200 }),
+    }),
+    /commit SHA does not match/,
   );
 });
