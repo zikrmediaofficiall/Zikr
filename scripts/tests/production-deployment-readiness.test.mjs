@@ -166,3 +166,29 @@ test("Vercel readiness rejects a deployment for the wrong project or commit", as
     /commit SHA does not match/,
   );
 });
+
+test("Vercel readiness rejects abbreviated and overlong commit SHAs", async () => {
+  const base = {
+    deploymentUrl: "https://zikr-audit-abc123.vercel.app",
+    token: "test-token",
+    teamId: "team_test",
+    expectedSha: "a".repeat(40),
+    expectedProjectId: "prj_test",
+    maxAttempts: 1,
+  };
+
+  for (const actualSha of ["a".repeat(7), "a".repeat(40) + "b"]) {
+    await assert.rejects(
+      waitForVercelDeploymentReady({
+        ...base,
+        fetchImpl: async () => new Response(JSON.stringify({
+          readyState: "READY",
+          projectId: "prj_test",
+          gitSource: { sha: actualSha },
+        }), { status: 200 }),
+      }),
+      /commit SHA does not match/,
+      "only the exact full deployment commit SHA may pass release readiness",
+    );
+  }
+});
