@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdminApi } from "@/features/admin/services/admin";
 import { requireAdminStepUpApi } from "@/features/admin/services/security";
 import { verifySignedOAuthState } from "@/features/social/services/oauth-state";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
@@ -92,11 +93,17 @@ function scopeFlags(scopes: string[]) {
 }
 
 export async function GET(request: NextRequest) {
+  const manageAuth = await requireAdminApi("social.manage");
+  if (!manageAuth.ok) {
+    return redirectResult(manageAuth.status === 403 ? "permission_missing" : "admin_session_missing");
+  }
+
   const auth = await requireAdminStepUpApi("social.publish", "/admin/social");
   if (!auth.ok) {
     if (auth.error === "step_up_required" && "nextPath" in auth) return redirectToStepUp(auth.nextPath);
     return redirectResult("admin_session_missing");
   }
+  if (manageAuth.profile.id !== auth.profile.id) return redirectResult("state_mismatch");
 
   const state = request.nextUrl.searchParams.get("state") ?? "";
   const expectedState = request.cookies.get(STATE_COOKIE)?.value ?? "";
@@ -227,7 +234,7 @@ export async function GET(request: NextRequest) {
     try {
       await recordAdminAuditEvent({
         action: "social.youtube.oauth.connect",
-        permission: "social.publish",
+        permission: "social.manage",
         resourceType: "youtube_channel",
         resourceId: channelId,
         metadata: {
@@ -237,6 +244,7 @@ export async function GET(request: NextRequest) {
           analyticsRead: true,
           upload: true,
           delete: false,
+          stepUpPermission: "social.publish",
         },
       });
     } catch {
