@@ -5,7 +5,7 @@ import { recordAdminAuditEvent } from '@/features/admin/services/audit';
 import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
 import { supabaseServerAdminRequest } from '@/lib/supabase/server';
 import { readBoundedJsonBody } from '@/lib/request/bounded-json-body';
-import { buildVideoApprovalSnapshotHash, hasCompleteVideoApprovalChecklist, REQUIRED_VIDEO_APPROVAL_CHECKS } from '@/features/videos/services/video-publish-approval';
+import { buildVideoApprovalSnapshotHash, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, REQUIRED_VIDEO_APPROVAL_CHECKS } from '@/features/videos/services/video-publish-approval';
 
 export const dynamic = 'force-dynamic';
 

@@ -124,13 +124,22 @@ for (const token of [
 }
 
 const kidsWorker = read("scripts/jobs/template-video-automation.ts");
+const videoApproval = read("src/features/videos/services/video-publish-approval.ts");
 for (const token of [
   "storyText: kidsStoryText",
   "socialCaption: kidsSocialCaption",
   'audience: content.audience === "kids" ? "kids" : "general"',
-  'kidsContentQaStatus: content.audience === "kids" ? "passed" : null',
+  "kidsContentQaStatus: isKidsVideo ? content.kidsVideoQaStatus : null",
 ]) {
   if (!kidsWorker.includes(token)) failures.push("Kids generation must persist story/social copy with an explicit Kids QA audience: " + token);
+}
+if (
+  !kidsWorker.includes("const kidsVideoQaStatus = isKidsVideo") ||
+  !kidsWorker.includes("REQUIRED_VIDEO_APPROVAL_CHECKS.every((key) => qaChecks[key] === true)") ||
+  !kidsWorker.includes("createAutomatedVideoQaApproval") ||
+  !videoApproval.includes('...(input.snapshot.audience === "kids" ? { kidsVideoQaStatus: "passed" } : {})')
+) {
+  failures.push("Kids videos must persist the reviewed kidsVideoQaStatus only after the complete automated QA checklist passes");
 }
 
 const socialWorker = read("src/features/social/services/social-publishing.ts");

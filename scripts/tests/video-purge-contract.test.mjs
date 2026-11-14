@@ -91,7 +91,7 @@ for (const marker of [
   "const assets = includeFiles ? await listGeneratedVideos()",
   "const storagePaths = includeFiles ? await listAutomatedStorageObjects()",
   "const processingAfterPreflight = await getActiveVideoWork()",
-  "if (processingAfterPreflight.generation > 0)",
+  "if (processingAfterPreflight.generation > 0 || processingAfterPreflight.publications > 0)",
 ]) {
   const position = route.indexOf(marker);
   assert.ok(
@@ -136,6 +136,15 @@ assert.ok(purgePost.includes('requireAdminStepUpApi("video.delete", "/admin/medi
 assert.ok(purgePost.includes('nextPath: "nextPath" in auth ? auth.nextPath : undefined'), "the purge API must return the step-up redirect target to the admin UI.");
 assert.ok(control.includes('payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)'), "the purge UI must complete the server-enforced step-up flow.");
 assert.ok(route.includes("getVideoAutomationEnabled") && route.includes("restoreVideoAutomation(automationWasEnabled)"), "cleanup must restore the previous automation state after the temporary lock");
+const automationSettingActionStart = adminSystemActions.indexOf("export async function saveVideoAutomationSettingAction");
+const automationSettingActionEnd = adminSystemActions.indexOf("export async function requestVideoAutomationRunAction", automationSettingActionStart);
+const automationSettingAction = adminSystemActions.slice(automationSettingActionStart, automationSettingActionEnd);
+assert.ok(automationSettingActionStart >= 0 && automationSettingActionEnd > automationSettingActionStart, "the guarded automation settings action must remain present");
+assert.match(
+  videoGenerationRoute,
+  /deleteFailed\s*=\s*\(body as \{\s*deleteFailed\?: unknown\s*\}\)\.deleteFailed === true/,
+  "bulk deletion must require an explicit boolean true, not truthy strings such as \"false\"",
+);
 assert.ok(
   route.includes("async function acquirePurgeLock(token: string)") &&
     route.includes("async function releasePurgeLock(token: string)") &&
@@ -172,6 +181,49 @@ assert.ok(
 assert.match(route, /Invalid purge scope/);
 assert.doesNotMatch(route, /const scope = body\.scope ===[\s\S]*?:\s*"both"/, "an invalid scope must never silently widen to a combined destructive purge");
 
+const filePurgeGuardPosition = route.indexOf("if (includeFiles) {");
+const filePurgeGuardEnd = route.indexOf("const cloudinary = includeFiles ? cloudinaryConfig()", filePurgeGuardPosition);
+const purgeLockAfterGuard = route.indexOf("const lockToken = randomUUID()", filePurgeGuardPosition);
+assert.ok(
+  filePurgeGuardPosition > scopeValidationPosition &&
+    filePurgeGuardEnd > filePurgeGuardPosition &&
+    purgeLockAfterGuard > filePurgeGuardPosition &&
+    filePurgeGuardPosition < route.indexOf("const assets = includeFiles ? await listGeneratedVideos()") &&
+    filePurgeGuardPosition < route.indexOf("const cloudinaryErrors = includeFiles"),
+  "file purge must fail closed before Cloudinary configuration, lock acquisition, inventories, or destructive work",
+);
+const filePurgeGuard = route.slice(filePurgeGuardPosition, filePurgeGuardEnd);
+assert.ok(
+  filePurgeGuard.includes("complete cross-table reference inventory") &&
+    filePurgeGuard.includes("filesPurgeAvailable: false") &&
+    filePurgeGuard.includes("deletionStarted: false") &&
+    filePurgeGuard.includes("status: 409"),
+  "file purge must return a non-destructive conflict until every external and Storage reference can be proven safe",
+);
+const memoryPurgeGuardPosition = route.indexOf("if (includeMemory) {", filePurgeGuardPosition);
+const memoryPurgeLockPosition = route.indexOf("const lockToken = randomUUID()", memoryPurgeGuardPosition);
+const memoryPurgeGuard = route.slice(memoryPurgeGuardPosition, memoryPurgeLockPosition);
+assert.ok(
+  memoryPurgeGuardPosition > filePurgeGuardPosition &&
+    memoryPurgeGuardPosition < filePurgeGuardEnd &&
+    memoryPurgeLockPosition > memoryPurgeGuardPosition &&
+    memoryPurgeGuard.includes("video-catalog metadata") &&
+    memoryPurgeGuard.includes("social-queue") &&
+    memoryPurgeGuard.includes("audit-event") &&
+    memoryPurgeGuard.includes("memoryPurgeAvailable: false") &&
+    memoryPurgeGuard.includes("deletionStarted: false") &&
+    memoryPurgeGuard.includes("No database rows were changed") &&
+    memoryPurgeGuard.includes("status: 409"),
+  "memory purge must fail closed before lock acquisition or request-row deletion until every soft reference is safely preserved or detached",
+);
+assert.ok(
+  control.includes('<option value="files" disabled>') &&
+    control.includes('<option value="memory" disabled>') &&
+    control.includes('<option value="both" disabled>') &&
+    control.includes("حذف الملفات والذاكرة معطّل"),
+  "the admin UI must disable every purge scope while file and memory reference inventories remain incomplete",
+);
+
 assert.ok(route.includes("includeFiles") && route.includes("includeMemory"), "the cleanup endpoint must honor the selected scope");
 assert.ok(route.includes("automation_key=not.is.null"), "project-memory cleanup must only delete automated generation requests");
 assert.ok(socialWorker.includes("isVideoPurgeInProgress"));
@@ -187,13 +239,37 @@ const claimStatement = videoQueueSource.indexOf("const claimed = await", claimLo
 const preClaimLockCheck = videoQueueSource.indexOf("if (await isVideoGenerationPaused())", claimLoopStart);
 const postClaimLockCheck = videoQueueSource.indexOf("if (await isVideoGenerationPaused())", claimStatement);
 const claimRestore = videoQueueSource.indexOf("status: request.status", postClaimLockCheck);
-const renderStart = videoQueueSource.indexOf("await renderVideo(request)", claimStatement);
+const renderStart = videoQueueSource.indexOf("const rendered = await withLeaseHeartbeat((signal) => renderVideo(request, signal));", claimStatement);
+const renderCallback = videoQueueSource.indexOf("(signal) => renderVideo(request, signal)", renderStart);
 assert.ok(
   queueStartLockCheck >= 0 && queueStartLockCheck < staleRecoveryStart &&
     preClaimLockCheck >= claimLoopStart && preClaimLockCheck < claimStatement &&
     postClaimLockCheck > claimStatement && postClaimLockCheck < renderStart &&
-    claimRestore > postClaimLockCheck && claimRestore < renderStart,
+    claimRestore > postClaimLockCheck && claimRestore < renderStart &&
+    renderCallback > renderStart,
   "video queue processing must stop before claim and release any claim if the purge lock activates during the claim race.",
+);
+const persistedMediaHandoffPosition = videoQueueSource.indexOf('socialQueueEnqueueStatus: "processing"');
+const socialQueueEnqueuePosition = videoQueueSource.indexOf("queueSocialItems(request, rendered.videoUrl, signal)");
+const pendingHandoffPosition = videoQueueSource.indexOf('socialQueueEnqueueStatus: "pending"', socialQueueEnqueuePosition);
+const failedHandoffContinuePosition = videoQueueSource.indexOf("continue;", pendingHandoffPosition);
+const completedRequestPatchPosition = videoQueueSource.indexOf('status: "completed"', failedHandoffContinuePosition);
+assert.ok(
+  persistedMediaHandoffPosition >= 0 &&
+    socialQueueEnqueuePosition > persistedMediaHandoffPosition &&
+    pendingHandoffPosition > socialQueueEnqueuePosition &&
+    failedHandoffContinuePosition > pendingHandoffPosition &&
+    completedRequestPatchPosition > failedHandoffContinuePosition &&
+    videoWorker.includes("recoverPendingVideoSocialQueueEnqueues(") &&
+    videoWorker.includes("content->>socialQueueEnqueueStatus=eq.pending") &&
+    videoWorker.includes("content->>socialQueueEnqueueStatus=eq.processing"),
+  "the generated media pointer and processing lease must protect purge while social enqueue is pending; failed or interrupted handoffs must remain recoverable instead of being marked completed.",
+);
+assert.ok(
+  videoQueueSource.includes("const withLeaseHeartbeat = <T>(operation: (signal: AbortSignal) => Promise<T>)") &&
+    videoWorker.includes("throwIfVideoLeaseAborted(signal)") &&
+    videoWorker.includes("...(signal ? { signal } : {})"),
+  "lease loss must abort in-flight media registration and social queue REST requests before they can continue as a stale worker.",
 );
 assert.ok(videoQueuePage.includes("PurgeGeneratedVideosControl"));
 assert.ok(generationStudio.includes("PurgeGeneratedVideosControl"));

@@ -85,7 +85,7 @@
     },
     "kids": {
       "path": "/offline-content/v1/kids.json",
-      "count": 65,
+      "count": 45,
       "source": "supabase",
       "stale": false
     },
@@ -109,7 +109,7 @@
     },
     "companion_stories": {
       "path": "/offline-content/v1/companion_stories.json",
-      "count": 22,
+      "count": 21,
       "source": "supabase",
       "stale": false
     },

@@ -102,22 +102,34 @@ if (!adsenseSlot.includes('Capacitor.isNativePlatform()') || !articlePage.includ
 }
 if (
   !adsenseSlot.includes('import { PRODUCTION_URL } from "@/lib/site";') ||
-  !adsenseSlot.includes("isCanonicalProductionHost") ||
-  !adsenseSlot.includes("setIsWebRuntime(!Capacitor.isNativePlatform() && isCanonicalProductionHost())")
+  !adsenseSlot.includes("isCanonicalProductionOrigin") ||
+  !adsenseSlot.includes("setIsWebRuntime(!Capacitor.isNativePlatform() && isCanonicalProductionOrigin())")
 ) {
   fail('The AdSense slot markup and queue must be excluded from Preview aliases and non-canonical hosts.');
 }
 if (
   !webAdvertisingRuntime.includes('import { PRODUCTION_URL } from "@/lib/site";') ||
-  !webAdvertisingRuntime.includes("isCanonicalProductionHost") ||
-  !webAdvertisingRuntime.includes("if (!isCanonicalProductionHost())") ||
+  !webAdvertisingRuntime.includes("isCanonicalProductionOrigin") ||
+  !webAdvertisingRuntime.includes("if (!isCanonicalProductionOrigin())") ||
   !read('src/components/layout/runtime-effects.tsx').includes('import { PRODUCTION_URL } from "@/lib/site";') ||
-  !read('src/components/layout/runtime-effects.tsx').includes("window.location.hostname.toLowerCase()")
+  !read('src/components/layout/runtime-effects.tsx').includes("window.location.origin === new URL(PRODUCTION_URL).origin") ||
+  read('src/components/layout/runtime-effects.tsx').includes("window.location.hostname")
 ) {
   fail('Monetization scripts must load only on the canonical production host, never on Vercel Preview aliases.');
 }
-if (!layout.includes('requestNonPersonalizedAds = 1')) {
-  fail('AdSense requests must default to non-personalized before the Google tag is loaded.');
+const nativeGuardIndex = webAdvertisingRuntime.indexOf('if (Capacitor.isNativePlatform())');
+const canonicalOriginGuardIndex = webAdvertisingRuntime.indexOf('if (!isCanonicalProductionOrigin())');
+const consentDefaultsIndex = webAdvertisingRuntime.indexOf('installConsentModeDefaults();');
+const adsenseMetaCreateIndex = webAdvertisingRuntime.indexOf('meta.name = "google-adsense-account"');
+if (
+  !webAdvertisingRuntime.includes('requestNonPersonalizedAds = 1') ||
+  !webAdvertisingRuntime.includes('installConsentModeDefaults') ||
+  nativeGuardIndex < 0 ||
+  canonicalOriginGuardIndex < nativeGuardIndex ||
+  consentDefaultsIndex < canonicalOriginGuardIndex ||
+  adsenseMetaCreateIndex < consentDefaultsIndex
+) {
+  fail('Consent Mode and AdSense publisher metadata must be installed only after native/canonical-origin guards, with non-personalized defaults before publisher scripts.');
 }
 
 const robotsSource = read('src/app/robots.ts');

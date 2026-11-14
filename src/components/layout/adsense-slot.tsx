@@ -19,9 +19,9 @@ declare global {
 }
 
 
-function isCanonicalProductionHost(): boolean {
+function isCanonicalProductionOrigin(): boolean {
   try {
-    return window.location.hostname.toLowerCase() === new URL(PRODUCTION_URL).hostname.toLowerCase();
+    return window.location.origin === new URL(PRODUCTION_URL).origin;
   } catch {
     return false;
   }
@@ -33,7 +33,7 @@ export function AdSenseSlot({ isEnglish }: { isEnglish: boolean }) {
   const slotRef = useRef<HTMLModElement | null>(null);
 
   useEffect(() => {
-    setIsWebRuntime(!Capacitor.isNativePlatform() && isCanonicalProductionHost());
+    setIsWebRuntime(!Capacitor.isNativePlatform() && isCanonicalProductionOrigin());
   }, []);
 
   useEffect(() => {

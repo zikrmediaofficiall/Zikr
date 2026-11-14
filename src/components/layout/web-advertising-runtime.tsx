@@ -26,12 +26,35 @@ function appendScript(id: string, src: string, options?: { cfasync?: boolean }) 
   document.head.appendChild(script);
 }
 
-function isCanonicalProductionHost(): boolean {
+function isCanonicalProductionOrigin(): boolean {
   try {
-    return window.location.hostname.toLowerCase() === new URL(PRODUCTION_URL).hostname.toLowerCase();
+    return window.location.origin === new URL(PRODUCTION_URL).origin;
   } catch {
     return false;
   }
+}
+
+function installConsentModeDefaults() {
+  if (document.getElementById("google-consent-mode-default")) return;
+
+  const script = document.createElement("script");
+  script.id = "google-consent-mode-default";
+  script.textContent = `window.dataLayer = window.dataLayer || [];
+function gtag(){window.dataLayer.push(arguments);}
+window.adsbygoogle = window.adsbygoogle || [];
+window.adsbygoogle.requestNonPersonalizedAds = 1;
+gtag('consent', 'default', {
+  ad_storage: 'denied',
+  analytics_storage: 'denied',
+  ad_user_data: 'denied',
+  ad_personalization: 'denied',
+  personalization_storage: 'denied',
+  functionality_storage: 'granted',
+  security_storage: 'granted',
+  wait_for_update: 500
+});
+gtag('set', 'ads_data_redaction', true);`;
+  document.head.appendChild(script);
 }
 
 function removeAdvertisingElements() {
@@ -81,11 +104,12 @@ export function WebAdvertisingRuntime() {
 
     // Vercel Preview deployments are production builds too. Never inject
     // publisher scripts outside the canonical origin.
-    if (!isCanonicalProductionHost()) {
+    if (!isCanonicalProductionOrigin()) {
       removeAdvertisingElements();
       return;
     }
 
+    installConsentModeDefaults();
     setCanonicalWebRuntime(true);
 
     const monetagMeta = document.querySelector('meta[name="monetag"]');

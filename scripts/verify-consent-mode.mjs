@@ -33,9 +33,6 @@ if (
     "Consent Mode and AdSense publisher globals must not be emitted in the server-rendered native layout",
   );
 }
-if (!layout.includes('id="google-consent-mode-default"') || !layout.includes('strategy="beforeInteractive"')) {
-  throw new Error("Google Consent Mode defaults must execute before interactive client runtimes can load GA4");
-}
 for (const token of [
   "ad_storage: 'denied'",
   "analytics_storage: 'denied'",
@@ -62,10 +59,14 @@ for (const index of [nativeGuard, canonicalOriginGuard]) {
     );
   }
 }
-const canonicalHostGuard = advertisingRuntime.indexOf("if (!isCanonicalProductionHost())");
-if (analytics < 0 || consentDefault < 0 || canonicalHostGuard < 0 || analytics < canonicalHostGuard) {
+if (
+  consentDefaultCall > cmpScript ||
+  consentDefaultCall > tagManager ||
+  analytics < 0 ||
+  consentDefaultCall > analytics
+) {
   throw new Error(
-    "Google Analytics must load only after the denied-by-default consent state and canonical production-host guard are established",
+    "Consent Mode defaults must be installed after both guards and before Funding Choices, GTM, and GA4",
   );
 }
 if (!advertisingRuntime.includes('script#google-consent-mode-default')) {

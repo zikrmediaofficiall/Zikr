@@ -22,9 +22,11 @@ function isNativeGoogleCallback(rawUrl: string): boolean {
       url.port === "";
     const isHttpsBridge =
       url.protocol === "https:" &&
-      url.hostname === "zikrmediaofficial.vercel.app" &&
+      url.origin === new URL(PRODUCTION_URL).origin &&
       url.pathname === "/auth/callback" &&
-      url.searchParams.get("native") === "1";
+      url.searchParams.get("native") === "1" &&
+      url.username === "" &&
+      url.password === "";
     return isAppDeepLink || isHttpsBridge;
   } catch {
     return false;

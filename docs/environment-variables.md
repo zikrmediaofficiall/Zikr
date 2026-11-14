@@ -48,8 +48,11 @@ YouTube:
 - `YOUTUBE_CHANNEL_ID`
 - `YOUTUBE_CLIENT_ID`
 - `YOUTUBE_CLIENT_SECRET`
+- `YOUTUBE_UPLOAD_PRIVACY` — visibility for automatic video uploads (`public`, `unlisted`, or `private`; defaults to `public`).
 
 `YOUTUBE_REFRESH_TOKEN` is a legacy environment name retained for compatibility only. The current runtime does **not** read it and does not use it as a fallback. YouTube analytics and publishing use scope-verified credentials stored server-side in Supabase's `youtube_oauth_credentials` table. Connect or reconnect the channel through Admin → Social; the OAuth callback stores the granted scopes and channel identity. Do not copy refresh tokens into Vercel variables or GitHub Actions.
+
+YouTube remote deletion is not supported by the current integration.
 
 The standard Admin connection requests upload, channel-read, and analytics-read scopes. Remote YouTube deletion requires a separate destructive scope (`youtube.force-ssl`, `youtube`, or `youtubepartner`) that the standard connection does not request. Remote deletion therefore remains fail-closed until a separately approved, explicit-consent flow is implemented. Never broaden the standard publishing credential to include destructive scopes.
 
