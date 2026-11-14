@@ -53,6 +53,12 @@ public = false
 file_size_limit = "20MiB"
 allowed_mime_types = ["application/pdf"]
 
+# Video bucket — bounded by the current Supabase Free plan per-file ceiling.
+[storage.buckets.videos]
+public = true
+file_size_limit = "50MiB"
+allowed_mime_types = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"]
+
 [functions.health]
 verify_jwt = false
 
