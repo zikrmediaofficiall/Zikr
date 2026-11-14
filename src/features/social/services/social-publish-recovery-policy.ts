@@ -115,6 +115,10 @@ export function clearRevalidatedSocialApprovalDeferrals(
     kidsSourceApprovalPending: false,
     writtenArticlePublicationBlocked: false,
     writtenArticlePublicationPending: false,
+    videoCatalogApprovalBlocked: false,
+    videoCatalogPublicationPending: false,
+    videoCatalogApprovalReason: null,
+    videoCatalogPublicationRetryAt: null,
   };
 }
 
