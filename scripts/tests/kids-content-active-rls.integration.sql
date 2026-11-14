@@ -7,13 +7,13 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.kids_content;
-  IF visible_rows <> 1 THEN
-    RAISE EXCEPTION 'anon must read exactly one active published Kids row, found %', visible_rows;
+  IF visible_rows <> 2 THEN
+    RAISE EXCEPTION 'anon must read the active published game and age-approved story only, found %', visible_rows;
   END IF;
   IF EXISTS (
-    SELECT 1 FROM public.kids_content WHERE slug <> 'active-published'
+    SELECT 1 FROM public.kids_content WHERE slug NOT IN ('active-published', 'age-approved-story')
   ) THEN
-    RAISE EXCEPTION 'anon can read inactive or unpublished Kids content';
+    RAISE EXCEPTION 'anon can read inactive, unpublished, unapproved, or legacy Kids stories';
   END IF;
 END
 $anon_read$;
@@ -26,13 +26,13 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.kids_content;
-  IF visible_rows <> 1 THEN
-    RAISE EXCEPTION 'authenticated non-admin must read exactly one active published Kids row, found %', visible_rows;
+  IF visible_rows <> 2 THEN
+    RAISE EXCEPTION 'authenticated non-admin must read the active published game and age-approved story only, found %', visible_rows;
   END IF;
   IF EXISTS (
-    SELECT 1 FROM public.kids_content WHERE slug <> 'active-published'
+    SELECT 1 FROM public.kids_content WHERE slug NOT IN ('active-published', 'age-approved-story')
   ) THEN
-    RAISE EXCEPTION 'authenticated non-admin can read inactive or unpublished Kids content';
+    RAISE EXCEPTION 'authenticated non-admin can read inactive, unpublished, unapproved, or legacy Kids stories';
   END IF;
 END
 $authenticated_read$;
@@ -69,6 +69,24 @@ BEGIN
   IF changed_rows <> 0 THEN
     RAISE EXCEPTION 'unpublished Kids content accepted a share increment';
   END IF;
+
+  SELECT count(*) INTO changed_rows
+  FROM public.increment_kids_content_shares('age-approved-story');
+  IF changed_rows <> 1 THEN
+    RAISE EXCEPTION 'age-approved published Kids story did not accept a share increment';
+  END IF;
+
+  SELECT count(*) INTO changed_rows
+  FROM public.increment_kids_content_shares('unapproved-story');
+  IF changed_rows <> 0 THEN
+    RAISE EXCEPTION 'unapproved published Kids story accepted a share increment';
+  END IF;
+
+  SELECT count(*) INTO changed_rows
+  FROM public.increment_kids_content_shares('legacy-story');
+  IF changed_rows <> 0 THEN
+    RAISE EXCEPTION 'legacy unreviewed Kids story accepted a share increment';
+  END IF;
 END
 $share_rpc$;
 COMMIT;
@@ -90,8 +108,9 @@ BEGIN
 
   IF policy_qual IS NULL
      OR policy_qual NOT ILIKE '%published%'
-     OR policy_qual NOT ILIKE '%is_active%' THEN
-    RAISE EXCEPTION 'Kids public-read policy must require both published and is_active';
+     OR policy_qual NOT ILIKE '%is_active%'
+     OR policy_qual NOT ILIKE '%age_appropriate%' THEN
+    RAISE EXCEPTION 'Kids public-read policy must require published, active, and age-approved stories';
   END IF;
   IF policy_roles NOT ILIKE '%anon%' OR policy_roles NOT ILIKE '%authenticated%' OR policy_roles ILIKE '%public%' THEN
     RAISE EXCEPTION 'Kids public-read policy must target only anon and authenticated roles, found %', policy_roles;

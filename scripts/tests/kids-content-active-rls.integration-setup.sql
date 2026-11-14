@@ -23,6 +23,8 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
 CREATE TABLE public.kids_content (
   slug text PRIMARY KEY,
+  type text NOT NULL DEFAULT 'game',
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   published boolean NOT NULL DEFAULT false,
   is_active boolean NOT NULL DEFAULT true,
   shares integer NOT NULL DEFAULT 0,
@@ -60,12 +62,15 @@ $function$;
 
 GRANT EXECUTE ON FUNCTION public.increment_kids_content_shares(text) TO PUBLIC, anon, authenticated, service_role;
 
-INSERT INTO public.kids_content (slug, published, is_active, shares)
+INSERT INTO public.kids_content (slug, type, metadata, published, is_active, shares)
 VALUES
-  ('active-published', true, true, 0),
-  ('inactive-published', true, false, 0),
-  ('unpublished-active', false, true, 0),
-  ('inactive-unpublished', false, false, 0);
+  ('active-published', 'game', '{}'::jsonb, true, true, 0),
+  ('inactive-published', 'game', '{}'::jsonb, true, false, 0),
+  ('unpublished-active', 'game', '{}'::jsonb, false, true, 0),
+  ('inactive-unpublished', 'game', '{}'::jsonb, false, false, 0),
+  ('age-approved-story', 'story', '{"age_appropriate": true}'::jsonb, true, true, 0),
+  ('unapproved-story', 'story', '{"age_appropriate": false}'::jsonb, true, true, 0),
+  ('legacy-story', 'story', '{}'::jsonb, true, true, 0);
 
 DO $legacy_fixture$
 BEGIN
