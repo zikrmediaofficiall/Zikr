@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import {
+  buildSocialInsightsQueueCursorFilter,
+  readSocialInsightsScanCursor,
+  writeSocialInsightsScanCursor,
+  type SocialInsightsScanRequest,
+} from "../../src/features/social/services/social-insights-scan-cursor";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const youtube = read("src/features/social/services/youtube-post-insights.ts");
@@ -13,12 +19,23 @@ const stories = read("src/app/stories/page.tsx");
 const videos = read("src/app/videos/page.tsx");
 
 assert.match(youtube, /social_post_insights/);
-assert.match(youtube, /offset=/);
-assert.match(youtube, /order=created_at\.asc/);
+assert.match(youtube, /buildSocialInsightsQueueCursorFilter\(queryCursor\)/);
+assert.match(youtube, /created_at=gte\./);
+assert.doesNotMatch(youtube, /offset=/);
+assert.match(youtube, /order=created_at\.asc,id\.asc/);
+assert.match(youtube, /requireSocialQueueRows<QueueRow>/);
+assert.match(youtube, /requireSocialQueueRows<ExistingInsightRow>/);
+assert.doesNotMatch(youtube, /\.catch\(\(\) => \[\]\)/, "YouTube freshness query failures must not trigger redundant provider API calls");
+assert.match(youtube, /readSocialInsightsScanCursor\("youtube"\)/);
+assert.match(youtube, /writeSocialInsightsScanCursor\("youtube", nextCursor\)/);
 assert.doesNotMatch(youtube, /PATCH[\s\S]*social_publish_queue/);
 assert.doesNotMatch(youtube, /status=eq\.published/);
 assert.match(facebook, /social_post_insights/);
-assert.match(facebook, /order=created_at\.asc/);
+assert.match(facebook, /order=created_at\.asc,id\.asc/);
+assert.match(facebook, /buildSocialInsightsQueueCursorFilter\(queryCursor\)/);
+assert.match(facebook, /created_at=gte\./);
+assert.match(facebook, /readSocialInsightsScanCursor\("facebook_reels"\)/);
+assert.match(facebook, /writeSocialInsightsScanCursor\("facebook_reels", nextCursor\)/);
 assert.doesNotMatch(facebook, /status=eq\.published/);
 assert.doesNotMatch(facebook, /PATCH[\s\S]*social_publish_queue/);
 assert.match(worker, /syncSocialInsights/);
@@ -43,4 +60,49 @@ assert.match(integration, /safeYoutubeErrorMessage/);
 assert.doesNotMatch(integration, /YouTube API failed \(\$\{response\.status\}\):/);
 assert.match(stories, /export const dynamic = 'force-dynamic'/);
 assert.match(videos, /export const dynamic = ["\']force-dynamic["\']/);
-console.log("✅ Historical social-insights storage is isolated; the external social API remains retired.");
+
+const cursorState = new Map<string, unknown>();
+const cursorCalls: Array<{ path: string; init?: RequestInit }> = [];
+const cursorRequest: SocialInsightsScanRequest = async <T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> => {
+  cursorCalls.push({ path, init });
+  if (init?.method === "POST") {
+    const body = JSON.parse(String(init.body)) as { key: string; value: unknown };
+    cursorState.set(body.key, body.value);
+    return undefined as unknown as T;
+  }
+  const key = path.match(/key=eq\.([^&]+)/)?.[1] ?? "";
+  const value = cursorState.get(key);
+  return (value === undefined ? [] : [{ key, value }]) as unknown as T;
+};
+
+const scanCursor = {
+  createdAt: "2026-11-14T00:00:00.000Z",
+  id: "60000000-0000-4000-8000-000000000001",
+};
+assert.equal(await readSocialInsightsScanCursor("youtube", cursorRequest), null);
+await writeSocialInsightsScanCursor("youtube", scanCursor, cursorRequest);
+assert.deepEqual(await readSocialInsightsScanCursor("youtube", cursorRequest), scanCursor);
+assert.equal(
+  buildSocialInsightsQueueCursorFilter(scanCursor),
+  "&or=" + encodeURIComponent("(created_at.gt." + scanCursor.createdAt + ",and(created_at.eq." + scanCursor.createdAt + ",id.gt." + scanCursor.id + "))"),
+  "social insights pagination must use a stable timestamp-and-ID keyset cursor",
+);
+assert.ok(cursorCalls.some(call => call.path.includes("key=eq.social_insights_scan_cursor_youtube")));
+assert.ok(cursorCalls.some(call => call.init?.method === "POST" && String(call.init.body).includes("social_insights_scan_cursor_youtube")));
+await writeSocialInsightsScanCursor("youtube", null, cursorRequest);
+assert.equal(await readSocialInsightsScanCursor("youtube", cursorRequest), null);
+cursorState.set("social_insights_scan_cursor_youtube", { createdAt: "not-a-date", id: scanCursor.id });
+await assert.rejects(
+  () => readSocialInsightsScanCursor("youtube", cursorRequest),
+  /Stored social insights cursor is invalid/,
+  "corrupt scan state must fail closed instead of restarting and repeatedly consuming provider quota",
+);
+await assert.rejects(
+  () => writeSocialInsightsScanCursor("facebook_reels", { createdAt: "invalid", id: scanCursor.id }, cursorRequest),
+  /Refusing to persist an invalid social insights cursor/,
+);
+
+console.log("✅ Social insights storage is isolated and bounded keyset cursor state is validated.");

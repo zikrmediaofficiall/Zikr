@@ -2,6 +2,13 @@ import { getServerEnv } from "@/lib/env";
 import { readStoredFacebookCredential } from "@/features/social/services/facebook-credentials";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 import { requireSocialQueueRows } from "@/features/social/services/social-queue-selection";
+import { resolveSocialPublishCutoff } from "@/features/social/services/facebook-queue-recovery-policy";
+import {
+  buildSocialInsightsQueueCursorFilter,
+  readSocialInsightsScanCursor,
+  writeSocialInsightsScanCursor,
+  type SocialInsightsScanCursor,
+} from "@/features/social/services/social-insights-scan-cursor";
 
 type QueueRow = {
   id: string;
@@ -270,49 +277,108 @@ async function fetchReelInsights(videoId: string, pageAccessToken: string): Prom
  */
 type ExistingFacebookInsightRow = { queue_id: string; captured_at: string };
 
-async function getFacebookReelCandidates(limit: number): Promise<Array<{ queueId: string; videoId: string }>> {
+async function getFacebookReelCandidates(limit: number): Promise<{
+  candidates: Array<{ queueId: string; videoId: string }>;
+  nextCursor: SocialInsightsScanCursor | null;
+}> {
   const candidates: Array<{ queueId: string; videoId: string }> = [];
   const now = Date.now();
   const pageSize = 250;
-  const maxPages = 20;
+  const maxRows = 5_000;
+  const publishAfter = resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER);
+  const startCursor = await readSocialInsightsScanCursor("facebook_reels");
+  let queryCursor = startCursor;
+  let nextCursor = startCursor;
+  let wrapped = false;
+  let scannedRows = 0;
 
-  for (let page = 0; page < maxPages && candidates.length < limit; page += 1) {
+  while (scannedRows < maxRows && candidates.length < limit) {
+    const cursorFilter = buildSocialInsightsQueueCursorFilter(queryCursor);
     const rows = await supabaseServerAdminRequest<QueueRow[]>(
-      "/rest/v1/social_publish_queue?content_type=like.*_video&select=id,title,metadata,created_at&order=created_at.asc,id.asc&limit=" +
-        pageSize + "&offset=" + page * pageSize,
+      "/rest/v1/social_publish_queue?content_type=like.*_video&created_at=gte." +
+        encodeURIComponent(publishAfter) +
+        "&select=id,title,metadata,created_at&order=created_at.asc,id.asc&limit=" +
+        pageSize + cursorFilter,
     );
     const batch = requireSocialQueueRows<QueueRow>(rows, "Facebook Reels queue candidate query");
-    if (batch.length === 0) break;
+    if (batch.length === 0) {
+      if (startCursor && !wrapped) {
+        queryCursor = null;
+        wrapped = true;
+        continue;
+      }
+      break;
+    }
+    for (const row of batch) {
+      if (
+        !row ||
+        typeof row.id !== "string" ||
+        !row.id.trim() ||
+        typeof row.created_at !== "string" ||
+        !Number.isFinite(Date.parse(row.created_at))
+      ) {
+        throw new Error("Facebook Reels queue candidate page contains an invalid cursor row.");
+      }
+    }
 
     const withVideoIds = batch.flatMap((row) => {
       const videoId = facebookReelId(row.metadata);
       return videoId ? [{ row, videoId }] : [];
     });
-    if (withVideoIds.length > 0) {
-      const queueIds = withVideoIds.map((item) => item.row.id);
-      const existing = await supabaseServerAdminRequest<ExistingFacebookInsightRow[]>(
-        "/rest/v1/social_post_insights?platform=eq.facebook_reels&queue_id=in.(" +
-          queueIds.join(",") + ")&select=queue_id,captured_at",
-      );
-      const validatedExisting = requireSocialQueueRows<ExistingFacebookInsightRow>(
-        existing,
-        "Facebook Reels insight freshness query",
-      );
-      const capturedAtByQueueId = new Map(
-        validatedExisting.map((row) => [row.queue_id, row.captured_at]),
-      );
+    const existing = withVideoIds.length > 0
+      ? await supabaseServerAdminRequest<ExistingFacebookInsightRow[]>(
+          "/rest/v1/social_post_insights?platform=eq.facebook_reels&queue_id=in.(" +
+            withVideoIds.map((item) => item.row.id).join(",") +
+            ")&select=queue_id,captured_at",
+        )
+      : [];
+    const validatedExisting = requireSocialQueueRows<ExistingFacebookInsightRow>(
+      existing,
+      "Facebook Reels insight freshness query",
+    );
+    const capturedAtByQueueId = new Map(
+      validatedExisting.map((row) => [row.queue_id, row.captured_at]),
+    );
+    const videoIdByQueueId = new Map(
+      withVideoIds.map((item) => [item.row.id, item.videoId]),
+    );
 
-      for (const item of withVideoIds) {
-        const capturedAt = capturedAtByQueueId.get(item.row.id);
-        const timestamp = capturedAt ? Date.parse(capturedAt) : Number.NaN;
-        if (Number.isFinite(timestamp) && now - timestamp < REFRESH_INTERVAL_MS) continue;
-        candidates.push({ queueId: item.row.id, videoId: item.videoId });
-        if (candidates.length >= limit) break;
+    for (const row of batch) {
+      const rowCursor = { createdAt: row.created_at, id: row.id };
+      if (
+        wrapped &&
+        startCursor &&
+        rowCursor.createdAt === startCursor.createdAt &&
+        rowCursor.id === startCursor.id
+      ) {
+        return { candidates, nextCursor };
+      }
+      scannedRows += 1;
+      nextCursor = rowCursor;
+      const videoId = videoIdByQueueId.get(row.id);
+      if (!videoId) continue;
+      const capturedAt = capturedAtByQueueId.get(row.id);
+      const timestamp = capturedAt ? Date.parse(capturedAt) : Number.NaN;
+      if (Number.isFinite(timestamp) && now - timestamp < REFRESH_INTERVAL_MS) continue;
+      candidates.push({ queueId: row.id, videoId });
+      if (candidates.length >= limit || scannedRows >= maxRows) {
+        return { candidates, nextCursor };
       }
     }
-    if (batch.length < pageSize) break;
+
+    if (batch.length < pageSize) {
+      if (startCursor && !wrapped) {
+        queryCursor = null;
+        wrapped = true;
+        continue;
+      }
+      break;
+    }
+    const last = batch[batch.length - 1];
+    queryCursor = { createdAt: last.created_at, id: last.id };
   }
-  return candidates;
+
+  return { candidates, nextCursor };
 }
 
 /**
@@ -339,8 +405,10 @@ export async function syncFacebookReelsInsights(limit = MAX_BATCH): Promise<Face
   }
 
   const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit) || 1));
-  const candidates = await getFacebookReelCandidates(boundedLimit);
+  const scan = await getFacebookReelCandidates(boundedLimit);
+  const { candidates, nextCursor } = scan;
   if (!candidates.length) {
+    await writeSocialInsightsScanCursor("facebook_reels", nextCursor);
     return { configured: true, candidates: 0, fetched: 0, updated: 0, failed: 0 };
   }
 
@@ -421,6 +489,7 @@ export async function syncFacebookReelsInsights(limit = MAX_BATCH): Promise<Face
     }
   }
 
+  await writeSocialInsightsScanCursor("facebook_reels", nextCursor);
   return { configured: true, candidates: candidates.length, fetched, updated, failed };
 }
 

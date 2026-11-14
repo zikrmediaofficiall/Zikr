@@ -1,5 +1,13 @@
 import { getServerEnv } from "@/lib/env";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
+import { requireSocialQueueRows } from "@/features/social/services/social-queue-selection";
+import { resolveSocialPublishCutoff } from "@/features/social/services/facebook-queue-recovery-policy";
+import {
+  buildSocialInsightsQueueCursorFilter,
+  readSocialInsightsScanCursor,
+  writeSocialInsightsScanCursor,
+  type SocialInsightsScanCursor,
+} from "@/features/social/services/social-insights-scan-cursor";
 
 type QueueRow = {
   id: string;
@@ -64,45 +72,106 @@ function shouldRefresh(capturedAt: string | null | undefined, now: number): bool
   return !Number.isFinite(timestamp) || now - timestamp >= INSIGHTS_REFRESH_MS;
 }
 
-async function getCandidates(limit: number): Promise<Array<{ queueId: string; videoId: string }>> {
+async function getCandidates(limit: number): Promise<{
+  candidates: Array<{ queueId: string; videoId: string }>;
+  nextCursor: SocialInsightsScanCursor | null;
+}> {
   const candidates: Array<{ queueId: string; videoId: string }> = [];
   const now = Date.now();
+  const pageSize = INSIGHTS_PAGE_SIZE;
+  const maxRows = MAX_SCAN_PAGES * INSIGHTS_PAGE_SIZE;
+  const publishAfter = resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER);
+  const startCursor = await readSocialInsightsScanCursor("youtube");
+  let queryCursor = startCursor;
+  let nextCursor = startCursor;
+  let wrapped = false;
+  let scannedRows = 0;
 
-  for (let page = 0; page < MAX_SCAN_PAGES && candidates.length < limit; page += 1) {
-    const offset = page * INSIGHTS_PAGE_SIZE;
+  while (scannedRows < maxRows && candidates.length < limit) {
+    const cursorFilter = buildSocialInsightsQueueCursorFilter(queryCursor);
     const rows = await supabaseServerAdminRequest<QueueRow[]>(
-      "/rest/v1/social_publish_queue?content_type=like.*_video&select=id,metadata,created_at&order=created_at.asc,id.asc&limit=" +
-        INSIGHTS_PAGE_SIZE + "&offset=" + offset,
+      "/rest/v1/social_publish_queue?content_type=like.*_video&created_at=gte." +
+        encodeURIComponent(publishAfter) +
+        "&select=id,metadata,created_at&order=created_at.asc,id.asc&limit=" +
+        pageSize + cursorFilter,
     );
-    const batch = Array.isArray(rows) ? rows : [];
-    if (batch.length === 0) break;
+    const batch = requireSocialQueueRows<QueueRow>(rows, "YouTube insights queue candidate query");
+    if (batch.length === 0) {
+      if (startCursor && !wrapped) {
+        queryCursor = null;
+        wrapped = true;
+        continue;
+      }
+      break;
+    }
+    for (const row of batch) {
+      if (
+        !row ||
+        typeof row.id !== "string" ||
+        !row.id.trim() ||
+        typeof row.created_at !== "string" ||
+        !Number.isFinite(Date.parse(row.created_at))
+      ) {
+        throw new Error("YouTube insights queue candidate page contains an invalid cursor row.");
+      }
+    }
 
     const withVideoIds = batch.flatMap((row) => {
       const videoId = remoteYoutubeId(row.metadata);
       return videoId ? [{ row, videoId }] : [];
     });
+    const existing = withVideoIds.length > 0
+      ? await supabaseServerAdminRequest<ExistingInsightRow[]>(
+          "/rest/v1/social_post_insights?platform=eq.youtube&queue_id=in.(" +
+            withVideoIds.map((item) => item.row.id).join(",") +
+            ")&select=queue_id,captured_at",
+        )
+      : [];
+    const validatedExisting = requireSocialQueueRows<ExistingInsightRow>(
+      existing,
+      "YouTube insights freshness query",
+    );
+    const capturedAtByQueueId = new Map(
+      validatedExisting.map((row) => [row.queue_id, row.captured_at]),
+    );
+    const videoIdByQueueId = new Map(
+      withVideoIds.map((item) => [item.row.id, item.videoId]),
+    );
 
-    if (withVideoIds.length > 0) {
-      const queueIds = withVideoIds.map((item) => item.row.id);
-      const existing = await supabaseServerAdminRequest<ExistingInsightRow[]>(
-        "/rest/v1/social_post_insights?platform=eq.youtube&queue_id=in.(" +
-          queueIds.join(",") + ")&select=queue_id,captured_at",
-      ).catch(() => []);
-      const capturedAtByQueueId = new Map(
-        (existing ?? []).map((row) => [row.queue_id, row.captured_at]),
-      );
-
-      for (const item of withVideoIds) {
-        if (!shouldRefresh(capturedAtByQueueId.get(item.row.id), now)) continue;
-        candidates.push({ queueId: item.row.id, videoId: item.videoId });
-        if (candidates.length >= limit) break;
+    for (const row of batch) {
+      const rowCursor = { createdAt: row.created_at, id: row.id };
+      if (
+        wrapped &&
+        startCursor &&
+        rowCursor.createdAt === startCursor.createdAt &&
+        rowCursor.id === startCursor.id
+      ) {
+        return { candidates, nextCursor };
+      }
+      scannedRows += 1;
+      nextCursor = rowCursor;
+      const videoId = videoIdByQueueId.get(row.id);
+      if (!videoId) continue;
+      if (!shouldRefresh(capturedAtByQueueId.get(row.id), now)) continue;
+      candidates.push({ queueId: row.id, videoId });
+      if (candidates.length >= limit || scannedRows >= maxRows) {
+        return { candidates, nextCursor };
       }
     }
 
-    if (batch.length < INSIGHTS_PAGE_SIZE) break;
+    if (batch.length < pageSize) {
+      if (startCursor && !wrapped) {
+        queryCursor = null;
+        wrapped = true;
+        continue;
+      }
+      break;
+    }
+    const last = batch[batch.length - 1];
+    queryCursor = { createdAt: last.created_at, id: last.id };
   }
 
-  return candidates;
+  return { candidates, nextCursor };
 }
 
 /**
@@ -117,8 +186,10 @@ export async function syncYoutubePublishedPostInsights(
   if (!apiKey) return { configured: false, candidates: 0, fetched: 0, updated: 0, failed: 0 };
 
   const boundedLimit = Math.max(1, Math.min(250, Math.floor(limit) || 1));
-  const candidates = await getCandidates(boundedLimit);
+  const scan = await getCandidates(boundedLimit);
+  const { candidates, nextCursor } = scan;
   if (candidates.length === 0) {
+    await writeSocialInsightsScanCursor("youtube", nextCursor);
     return { configured: true, candidates: 0, fetched: 0, updated: 0, failed: 0 };
   }
 
@@ -185,5 +256,6 @@ export async function syncYoutubePublishedPostInsights(
     }
   }
 
+  await writeSocialInsightsScanCursor("youtube", nextCursor);
   return { configured: true, candidates: candidates.length, fetched, updated, failed: 0 };
 }
