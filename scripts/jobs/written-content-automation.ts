@@ -104,7 +104,7 @@ const WRITTEN_CONTENT_SYSTEM_INSTRUCTION = [
   "لجميع الأنواع: لا تخترع حقائق أو أقوالًا أو اقتباسات أو أحكامًا، ولا تنسب كلامًا إلى الله أو النبي أو العلماء. إذا كان المصدر غير كافٍ أو غير آمن فأعد eligible=false.",
   "أعد JSON فقط بالمفاتيح eligible boolean, title, hook, reflection, question. العنوان 8-90 حرفًا، المقدمة 12-260، reflection 70-900، والسؤال اختياري بحد أقصى 240 حرفًا.",
   "لا تضع نص المصدر داخل reflection؛ سيضاف كما هو في موضع مستقل."
-].join("\\n");
+].join("\n");
 
 async function makeDraft(source:WrittenContentSource,key:string):Promise<WrittenPostDraft>{
  const model=process.env.GEMINI_MODEL?.trim()||"gemini-3.1-flash-lite";
@@ -129,9 +129,10 @@ async function makeDraft(source:WrittenContentSource,key:string):Promise<Written
  }),signal:AbortSignal.timeout(60000)});
  if(!res.ok)throw new Error("Gemini HTTP "+res.status+": "+(await res.text().catch(()=>"")).slice(0,350));
  const payload=await res.json() as {candidates?:Array<{content?:{parts?:Array<{text?:string}>}}>} ;
- const generatedText=payload.candidates?.[0]?.content?.parts?.map(x=>x.text||"").join("\\n").trim()||"";
+ const generatedText=payload.candidates?.[0]?.content?.parts?.map(x=>x.text||"").join("\n").trim()||"";
  if(!generatedText)throw new Error("Gemini returned empty text.");
- const draft=JSON.parse(generatedText.replace(/^\`\`\`(?:json)?\\s*/i,"").replace(/\\s*\`\`\`$/,"")) as WrittenPostDraft;
+ const normalizedText = generatedText.replace(/^\x60{3}(?:json)?\s*/i, "").replace(/\s*\x60{3}$/, "");
+ const draft=JSON.parse(normalizedText) as WrittenPostDraft;
  const valid=validateWrittenPostDraft(draft);if(!valid.ok)throw new Error("Quality gate: "+valid.reason);
  if(source.kind==="kids_story"&&containsKidsPersonalDataSolicitation([draft.title,draft.hook,draft.reflection,draft.question||""].join(" ")))throw new Error("Kids safety gate: personal-data solicitation or unsafe contact language.");
  return draft;

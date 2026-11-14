@@ -297,7 +297,7 @@ if (!worker.includes("wordsPerSecond")) failures.push("Video worker missing spea
 
 if (!worker.includes("VIDEO_PLAN_SYSTEM_INSTRUCTION") ||
     !worker.includes("systemInstruction: { parts: [{ text: systemInstruction }] }") ||
-    !worker.includes("JSON.stringify(userPayload)") ||
+    !worker.includes('contents: [{ role: "user", parts: [{ text: userPayload }] }]') ||
     !worker.includes("sourceText,")) {
   failures.push("video planning must isolate fixed editorial policy from untrusted source data in the Gemini system-instruction channel");
 }

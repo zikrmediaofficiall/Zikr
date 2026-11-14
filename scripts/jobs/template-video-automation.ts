@@ -991,7 +991,7 @@ const VIDEO_PLAN_SYSTEM_INSTRUCTION = [
   "scene: اختر قيمة واحدة فقط من calm|dawn|night|gold|emerald|paper|rose.",
   "motion: اختر fade أو slow فقط.",
   "إذا كان audience=kids فاستخدم لغة مناسبة للأطفال، ولا تطلب أي بيانات شخصية أو تواصل خاص أو أسرار، ولا تضف أحداثًا غير موجودة في المصدر."
-].join("\\n");
+].join("\n");
 
 async function generateAiVideoPlan(request: GeneratedRequest, signal?: AbortSignal): Promise<AiVideoPlan> {
   if (request.category === "other" && request.content?.audience !== "kids") return { ...DEFAULT_AI_VIDEO_PLAN };
@@ -1000,7 +1000,7 @@ async function generateAiVideoPlan(request: GeneratedRequest, signal?: AbortSign
   if (!sourceText) return { ...DEFAULT_AI_VIDEO_PLAN };
 
   const model = (process.env.GEMINI_MODEL || "gemini-3.8-flash").trim();
-  const systemInstruction = [VIDEO_PLAN_SYSTEM_INSTRUCTION, aiVisualPolicyPromptLine()].join("\\n\\n");
+  const systemInstruction = [VIDEO_PLAN_SYSTEM_INSTRUCTION, aiVisualPolicyPromptLine()].join("\n\n");
   const userPayload = JSON.stringify({
     task: "Create a short source-locked vertical video plan.",
     category: request.category,

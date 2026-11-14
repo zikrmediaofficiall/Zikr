@@ -574,7 +574,7 @@ assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example
 
 assert.ok(worker.includes("WRITTEN_CONTENT_SYSTEM_INSTRUCTION"));
 assert.ok(worker.includes("systemInstruction:{parts:[{text:WRITTEN_CONTENT_SYSTEM_INSTRUCTION}]}"));
-assert.ok(worker.includes("JSON.stringify(userPayload)"));
+assert.ok(worker.includes('contents:[{role:"user",parts:[{text:userPayload}]}]'));
 assert.ok(worker.includes("sourceText:source.sourceText"));
 assert.ok(!worker.includes("النص المعتمد:"), "source text must not be concatenated into the instruction prompt");
 

@@ -29,7 +29,7 @@ const ARTICLE_TRANSLATION_SYSTEM_INSTRUCTION = [
   "Preserve meaning exactly. Do not add facts, opinions, citations, rulings, claims, or religious attributions not present in the Arabic source.",
   "Preserve Quran and hadith quotations, Arabic devotional phrases, URLs, references, numbers, names, and book titles exactly when present. Translate only the editorial prose around source quotations.",
   "Keep the paragraph structure and intent. Return only valid JSON with title_en, summary_en, content_en; do not use markdown fences."
-].join("\\n");
+].join("\n");
 
 async function generateGeminiTextForJob(prompt: string, maxOutputTokens = 6000): Promise<string | null> {
   const configured = (process.env.GEMINI_MODEL?.replace(/^google\//, "").trim() || "gemini-3.1-flash-lite");
