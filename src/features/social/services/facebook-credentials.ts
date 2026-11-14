@@ -72,6 +72,7 @@ function siteGraphVersion() {
  */
 type FacebookCredentialRequest = <T>(path: string) => Promise<T>;
 type FacebookCredentialReader = () => Promise<StoredFacebookCredential | null>;
+type FacebookQueueRecoveryRequest = <T>(path: string, init?: RequestInit) => Promise<T>;
 
 export function isMissingFacebookReelsCooldownColumnError(error: unknown): boolean {
   const message = (error instanceof Error ? error.message : String(error)).toLowerCase();
@@ -607,8 +608,12 @@ type FacebookAuthBlockedQueueRow = {
   created_at: string | null;
 };
 
-export async function unblockFacebookAuthBlockedQueue(): Promise<number> {
+export async function unblockFacebookAuthBlockedQueue(
+  request: FacebookQueueRecoveryRequest = supabaseServerAdminRequest,
+  publishAfterValue = process.env.SOCIAL_PUBLISH_AFTER,
+): Promise<number> {
   const pageSize = 250;
+  const publishAfter = resolveSocialPublishCutoff(publishAfterValue);
   let cursor: string | null = null;
   let released = 0;
 
@@ -616,14 +621,16 @@ export async function unblockFacebookAuthBlockedQueue(): Promise<number> {
   // a row removes it from this query, so offset pagination would skip later rows.
   while (true) {
     const cursorFilter: string = cursor === null ? "" : "&id=gt." + encodeURIComponent(cursor);
-    const publishAfter = resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER);
-    const rows: FacebookAuthBlockedQueueRow[] = await supabaseServerAdminRequest<FacebookAuthBlockedQueueRow[]>(
+    const rows = await request<FacebookAuthBlockedQueueRow[]>(
       "/rest/v1/social_publish_queue?status=in.(failed,partial)&metadata->>authBlocked=eq.true&created_at=gte." +
         encodeURIComponent(publishAfter) +
         "&select=id,target_platforms,metadata,status,updated_at,created_at&order=id.asc&limit=" +
         pageSize + cursorFilter,
     );
-    if (!Array.isArray(rows) || rows.length === 0) break;
+    if (!Array.isArray(rows)) {
+      throw new Error("Facebook queue recovery inventory was not an array.");
+    }
+    if (rows.length === 0) break;
 
     for (const item of rows as FacebookAuthBlockedQueueRow[]) {
       cursor = item.id;
@@ -631,7 +638,7 @@ export async function unblockFacebookAuthBlockedQueue(): Promise<number> {
       const patch = buildFacebookQueueRecoveryPatch(item.metadata, item.target_platforms ?? [], now);
       const filter = buildFacebookQueueRecoveryFilter(item, publishAfter);
       if (!patch || !filter) continue;
-      const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(
+      const updated = await request<Array<{ id: string }>>(
         "/rest/v1/social_publish_queue?" + filter,
         {
           method: "PATCH",

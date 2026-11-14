@@ -16,6 +16,7 @@ import {
 import {
   buildFacebookCredentialValidationFilter,
   readStoredFacebookCredential,
+  unblockFacebookAuthBlockedQueue,
 } from "../../src/features/social/services/facebook-credentials";
 
 const publishOnlyScopes = ["pages_show_list", "pages_read_engagement", "pages_manage_posts"];
@@ -260,5 +261,30 @@ assert.doesNotMatch(
   /(?:website|cover_url|followers_count|likes_count|following_count):\s*null/,
   "YouTube sync must omit profile fields it does not fetch so existing values survive upserts",
 );
+
+const recoveryCutoff = "2026-11-01T00:00:00.000Z";
+const malformedRecoveryPaths: string[] = [];
+const malformedRecoveryRequest = async <T,>(path: string): Promise<T> => {
+  malformedRecoveryPaths.push(path);
+  return { unexpected: true } as T;
+};
+await assert.rejects(
+  unblockFacebookAuthBlockedQueue(malformedRecoveryRequest, recoveryCutoff),
+  /Facebook queue recovery inventory was not an array/,
+  "a malformed Facebook recovery inventory must fail closed rather than look like an empty queue",
+);
+assert.equal(malformedRecoveryPaths.length, 1, "a malformed inventory must stop before any queue-row mutation");
+
+let emptyRecoveryCalls = 0;
+const emptyRecoveryRequest = async <T,>(_path: string): Promise<T> => {
+  emptyRecoveryCalls += 1;
+  return [] as unknown as T;
+};
+assert.equal(
+  await unblockFacebookAuthBlockedQueue(emptyRecoveryRequest, recoveryCutoff),
+  0,
+  "a valid empty Facebook recovery inventory must remain a successful no-op",
+);
+assert.equal(emptyRecoveryCalls, 1);
 
 console.log("Facebook credential row-shape and validation CAS checks passed.");
