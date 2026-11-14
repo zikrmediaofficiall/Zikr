@@ -339,7 +339,7 @@ jobs:
           EXPECTED_PROJECT_REF: zqtssvlvmkzeeyqghqfk
         run: |
           set -euo pipefail
-          # Both changed functions are deployed under the same approved-SHA preflight.
+          # Deploy every changed function and every consumer of the changed shared auth/CORS modules.
           supabase functions deploy prayer-notification-worker --project-ref "${EXPECTED_PROJECT_REF}"
 
       - name: Recheck approved main SHA immediately before source-agent deployment
@@ -362,6 +362,46 @@ jobs:
           set -euo pipefail
           supabase functions deploy source-verified-content-agent --project-ref "${EXPECTED_PROJECT_REF}"
 
+
+      - name: Recheck approved main SHA immediately before spiritual AI deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          current_main="$(git rev-parse origin/main)"
+          if [[ "${current_main}" != "${GITHUB_SHA}" ]]; then
+            echo "::error::Refusing stale spiritual-ai deployment. Approved SHA ${GITHUB_SHA}; current main ${current_main}."
+            exit 1
+          fi
+
+      - name: Deploy spiritual-ai Edge Function
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          EXPECTED_PROJECT_REF: zqtssvlvmkzeeyqghqfk
+        run: |
+          set -euo pipefail
+          supabase functions deploy spiritual-ai --project-ref "${EXPECTED_PROJECT_REF}"
+
+      - name: Recheck approved main SHA immediately before health function deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          current_main="$(git rev-parse origin/main)"
+          if [[ "${current_main}" != "${GITHUB_SHA}" ]]; then
+            echo "::error::Refusing stale health function deployment. Approved SHA ${GITHUB_SHA}; current main ${current_main}."
+            exit 1
+          fi
+
+      - name: Deploy health Edge Function
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          EXPECTED_PROJECT_REF: zqtssvlvmkzeeyqghqfk
+        run: |
+          set -euo pipefail
+          supabase functions deploy health --project-ref "${EXPECTED_PROJECT_REF}"
 
       - name: Recheck approved main SHA immediately before production deployment
         shell: bash

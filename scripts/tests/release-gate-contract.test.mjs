@@ -88,6 +88,18 @@ const releaseRestoreIndex = releaseWorkflow.indexOf("Restore source-verified Qur
 assert.ok(releasePreflightIndex >= 0, "production deployment must run the CODEOWNER preflight");
 assert.ok(releaseMigrationIndex > releasePreflightIndex, "CODEOWNER preflight must run before database migrations");
 assert.ok(releaseFunctionDeployIndex > releasePreflightIndex, "CODEOWNER preflight must run before Edge Function deployment");
+for (const functionName of [
+  "prayer-notification-worker",
+  "source-verified-content-agent",
+  "spiritual-ai",
+  "health",
+]) {
+  assert.ok(
+    releaseWorkflow.includes(`supabase functions deploy ${functionName} --project-ref`),
+    `the approved production release must deploy ${functionName}, including consumers of changed shared Edge Function modules`,
+  );
+}
+
 assert.ok(releaseVercelDeployIndex > releasePreflightIndex, "CODEOWNER preflight must run before Vercel deployment");
 assert.ok(releaseRestoreIndex > releasePreflightIndex, "CODEOWNER preflight must run before production corpus restoration");
 
