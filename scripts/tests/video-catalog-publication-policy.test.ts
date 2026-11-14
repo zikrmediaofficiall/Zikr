@@ -91,13 +91,13 @@ assert.equal(cleared.videoCatalogPublicationRetryAt, null);
 const socialSource = readFileSync("src/features/social/services/social-publishing.ts", "utf8");
 const processStart = socialSource.indexOf("async function processSocialPublishItem");
 const processCatalogGate = socialSource.indexOf("const videoCatalogApproval = await checkVideoCatalogPublication(item);", processStart);
-const processProviderCall = socialSource.indexOf("await publishToFacebook", processStart);
-assert.ok(processStart >= 0 && processCatalogGate > processStart && processCatalogGate < processProviderCall,
-  "the queue must verify catalog publication before any provider side effect");
+const processSourceApproval = socialSource.indexOf("const sourceApproval = await checkWrittenPostSourceApproval(item);", processStart);
+assert.ok(processStart >= 0 && processCatalogGate > processStart && processCatalogGate < processSourceApproval,
+  "the queue must verify catalog publication before continuing to source checks and platform dispatch");
 const platformStart = socialSource.indexOf("async function publishPlatform");
 const platformCatalogGate = socialSource.indexOf("const catalogApproval = await checkVideoCatalogPublication(item);", platformStart);
-const platformProviderCall = socialSource.indexOf("await publishToFacebook", platformStart);
+const platformProviderCall = socialSource.indexOf("const publication =", platformStart);
 assert.ok(platformStart >= 0 && platformCatalogGate > platformStart && platformCatalogGate < platformProviderCall,
-  "each platform must revalidate catalog publication immediately before upload");
+  "each platform must revalidate catalog publication immediately before provider dispatch");
 assert.match(socialSource, /row\.published !== true/);
 console.log("Social video catalog publication and Kids QA gates passed.");
