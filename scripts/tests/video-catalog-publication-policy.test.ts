@@ -89,6 +89,10 @@ assert.equal(cleared.videoCatalogApprovalReason, null);
 assert.equal(cleared.videoCatalogPublicationRetryAt, null);
 
 const socialSource = readFileSync("src/features/social/services/social-publishing.ts", "utf8");
+const availabilitySource = readFileSync("src/features/social/services/platform-availability.ts", "utf8");
+assert.match(availabilitySource, /videoCatalogApprovalBlocked === true/);
+assert.match(socialSource, /videoCatalogApprovalBlocked: true/);
+assert.match(socialSource, /videoCatalogPublicationPending: true/);
 const processStart = socialSource.indexOf("async function processSocialPublishItem");
 const processCatalogGate = socialSource.indexOf("const videoCatalogApproval = await checkVideoCatalogPublication(item);", processStart);
 const processSourceApproval = socialSource.indexOf("const sourceApproval = await checkWrittenPostSourceApproval(item);", processStart);

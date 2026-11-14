@@ -757,6 +757,10 @@ export async function POST(request: NextRequest) {
           writtenArticlePublicationPending: false,
           kidsSourceApprovalBlocked: false,
           kidsSourceApprovalPending: false,
+          videoCatalogApprovalBlocked: false,
+          videoCatalogPublicationPending: false,
+          videoCatalogApprovalReason: null,
+          videoCatalogPublicationRetryAt: null,
         };
         const eligiblePlatforms = retryPlatforms(
           { ...item, metadata: retryMetadata },
@@ -872,6 +876,10 @@ export async function POST(request: NextRequest) {
                 writtenArticlePublicationPending: false,
                 kidsSourceApprovalBlocked: false,
                 kidsSourceApprovalPending: false,
+                videoCatalogApprovalBlocked: false,
+                videoCatalogPublicationPending: false,
+                videoCatalogApprovalReason: null,
+                videoCatalogPublicationRetryAt: null,
                 // A retry must never clear a scholarly/editorial approval gate.
                 approvalDeferredPlatforms: preservedApprovalDeferredPlatforms,
                 nextRetryAt: null,

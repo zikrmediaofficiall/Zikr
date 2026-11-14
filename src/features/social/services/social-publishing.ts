@@ -57,6 +57,9 @@ type PlatformResult = {
   error?: string;
   requiresReconciliation?: boolean;
   approvalBlocked?: boolean;
+  providerCallSkipped?: boolean;
+  videoCatalogApprovalBlocked?: boolean;
+  videoCatalogPublicationPending?: boolean;
 };
 
 function siteUrl() {
@@ -1197,7 +1200,7 @@ export async function processSocialPublishItem(
   const hasNonAuthFailure = operationalFailures.some(failure => !isAuthBlocked(failure.platform, failure.error));
   const hasTransientFailure = operationalFailures.some(failure => {
     const message = failure.error?.toLowerCase() || "";
-    return /http\s+(408|425|429|500|502|503|504)|timeout|timed out|fetch failed|temporar|rate limit|overloaded|quota/i.test(message);
+    return /http\s+(408|425|429|500|502|503|504)|timeout|timed out|fetch failed|temporar|rate limit|overloaded|quota|video catalog publication is pending/i.test(message);
   });
   const facebookReelsNextAllowedAt = failures
     .filter(failure => failure.platform === "facebook_reels")
@@ -1210,10 +1213,10 @@ export async function processSocialPublishItem(
       : {}),
   };
   for (const result of results) {
-    if (result.approvalBlocked) continue;
+    if (result.approvalBlocked || result.providerCallSkipped) continue;
     maxAttemptsByPlatform[result.platform] = (normalizeSocialAttemptCount(maxAttemptsByPlatform[result.platform] ?? 0) ?? 0) + 1;
   }
-  const attemptedProviderCalls = results.filter(result => !result.approvalBlocked).length;
+  const attemptedProviderCalls = results.filter(result => !result.approvalBlocked && !result.providerCallSkipped).length;
   const attempts = (normalizeSocialAttemptCount(previousMetadata.attempts ?? 0) ?? 0) + (facebookReelsNextAllowedAt ? 0 : attemptedProviderCalls > 0 ? 1 : 0);
   const retryableOperationalFailures = operationalFailures.some(failure => {
     const currentPlatformAttempts = normalizeSocialAttemptCount(maxAttemptsByPlatform[failure.platform] ?? 0);
@@ -1222,12 +1225,15 @@ export async function processSocialPublishItem(
       !isAuthBlocked(failure.platform, failure.error) &&
       !isPermanentSocialFailure(failure.error);
   });
+  const videoCatalogApprovalBlocked = results.some(result => result.videoCatalogApprovalBlocked === true);
+  const videoCatalogPublicationPending = results.some(result => result.videoCatalogPublicationPending === true);
+  const videoCatalogApprovalReason = results.find(result => result.videoCatalogApprovalBlocked === true || result.videoCatalogPublicationPending === true)?.error ?? null;
   const hasDeferredTargets = unavailablePlatforms.length > 0 || approvalDeferredPlatforms.length > 0 || deferredFailures.length > 0;
-  const shouldRetry = Boolean(facebookReelsNextAllowedAt) || hasDeferredTargets ||
+  const shouldRetry = Boolean(facebookReelsNextAllowedAt) || hasDeferredTargets || videoCatalogPublicationPending ||
     (retryableOperationalFailures && (hasTransientFailure || successes.length > 0));
   const retryDelayMinutes = hasAuthFailure ? 15 : socialRetryDelayMinutes(attempts, item.id);
   const nextRetryAt = facebookReelsNextAllowedAt ?? (shouldRetry
-    ? new Date(Date.now() + (hasDeferredTargets ? 15 : retryDelayMinutes) * 60_000).toISOString()
+    ? new Date(Date.now() + (hasDeferredTargets || videoCatalogPublicationPending ? 15 : retryDelayMinutes) * 60_000).toISOString()
     : null);
 
   const nextStatus: SocialQueueStatus = allTargetsSucceeded
@@ -1272,6 +1278,10 @@ export async function processSocialPublishItem(
     permanentFailurePlatforms,
     unavailablePlatforms,
     approvalDeferredPlatforms,
+    videoCatalogApprovalBlocked,
+    videoCatalogPublicationPending,
+    videoCatalogApprovalReason,
+    videoCatalogPublicationRetryAt: videoCatalogPublicationPending ? nextRetryAt : null,
     facebookReelsNextAllowedAt,
     deferredPlatforms: deferredFailures.map(failure => failure.platform),
     platformResults: mergedResults,

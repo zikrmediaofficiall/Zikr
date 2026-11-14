@@ -238,6 +238,25 @@ const missingMediaSelection = selectEligibleSocialPublishItems([missingSourceMed
 });
 assert.deepEqual(missingMediaSelection, [], "source-media-missing videos must stay out of the worker queue even when QA approval exists");
 
+const catalogBlockedVideo = {
+  id: "catalog-blocked-video",
+  content_type: "video",
+  target_platforms: ["youtube"] as const,
+  metadata: { videoCatalogApprovalBlocked: true },
+};
+const catalogBlockedSelection = selectEligibleSocialPublishItems([catalogBlockedVideo], {
+  enabledPlatforms,
+  approvedVideoQueueItemIds: new Set([catalogBlockedVideo.id]),
+  maxAttemptsFor: () => 5,
+  limit: 1,
+});
+assert.deepEqual(catalogBlockedSelection, [], "catalog-blocked videos must not be retried automatically");
+assert.deepEqual(
+  getRetryableSocialPlatforms(["youtube"], catalogBlockedVideo.metadata),
+  ["youtube"],
+  "an explicit administrator retry may release the hold, after which the worker rechecks catalog approval",
+);
+
 const boundedHeldVideos = Array.from({ length: 125 }, (_, index) => ({
   id: `held-video-${index}`,
   content_type: "video",

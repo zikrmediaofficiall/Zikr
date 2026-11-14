@@ -15,6 +15,8 @@ export type SocialPlatformMetadata = {
   sourceMediaMissing?: unknown;
   writtenArticlePublicationBlocked?: unknown;
   writtenArticlePublicationPending?: unknown;
+  videoCatalogApprovalBlocked?: unknown;
+  videoCatalogPublicationPending?: unknown;
   kidsSourceApprovalBlocked?: unknown;
   kidsSourceApprovalPending?: unknown;
   attempts?: unknown;
@@ -215,7 +217,7 @@ export function canAttemptSocialPlatform(input: {
   maxAttempts: number;
 }): boolean {
   const { platform, enabledPlatforms, metadata, maxAttempts } = input;
-  if (metadata?.sourceMediaMissing === true) return false;
+  if (metadata?.sourceMediaMissing === true || metadata?.videoCatalogApprovalBlocked === true) return false;
   if (
     metadata?.kidsSourceApprovalBlocked === true ||
     metadata?.writtenArticlePublicationBlocked === true
