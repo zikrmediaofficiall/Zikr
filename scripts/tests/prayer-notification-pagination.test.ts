@@ -924,12 +924,12 @@ for (const policy of [
 }
 assert.match(
   pushSubscriptionAccessMigration,
-  /REVOKE ALL PRIVILEGES ON TABLE public\\.push_subscriptions\\s+FROM PUBLIC, anon, authenticated/i,
+  /REVOKE ALL PRIVILEGES ON TABLE public\.push_subscriptions\s+FROM PUBLIC, anon, authenticated/i,
   "authenticated users must not be able to bypass the push endpoint validator through PostgREST",
 );
 assert.match(
   pushSubscriptionAccessMigration,
-  /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\\.push_subscriptions\\s+TO service_role/i,
+  /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\.push_subscriptions\s+TO service_role/i,
   "only the server-side API and Edge worker may manage push subscriptions",
 );
 assert.doesNotMatch(
@@ -939,7 +939,7 @@ assert.doesNotMatch(
 );
 const pushSubscriptionRoute = readFileSync("src/app/api/push/subscription/route.ts", "utf8");
 const pushWorkerSource = readFileSync("supabase/functions/prayer-notification-worker/index.ts", "utf8");
-assert.match(pushSubscriptionRoute, /createAdminClient\\(\\)/, "the subscription API must use the service-role client");
+assert.match(pushSubscriptionRoute, /createAdminClient\(\)/, "the subscription API must use the service-role client");
 assert.match(pushSubscriptionRoute, /isAllowedPushEndpoint/, "the API must validate endpoint hosts before storing them");
 assert.match(pushWorkerSource, /isAllowedPushEndpoint/, "the worker must validate legacy endpoints before outbound push requests");
 
