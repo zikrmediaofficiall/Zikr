@@ -48,7 +48,7 @@ const PURPOSE_CONFIG: Record<StorageObjectPurpose, StoragePurposeConfig> = {
   },
   video: {
     bucket: 'videos',
-    maxBytes: 512 * 1024 * 1024,
+    maxBytes: 50 * 1024 * 1024,
     isPublic: true,
     allowedContentTypes: ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'],
   },
