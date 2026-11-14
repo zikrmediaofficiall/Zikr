@@ -45,15 +45,22 @@ assert.match(ageReviewAction, /confirm_review/);
 assert.match(ageReviewAction, /decision === "rejected" && reviewNote[.]length < 10/);
 assert.match(ageReviewAction, /&updated_at=eq[.]" \+ encodeURIComponent\(current[.]updated_at\)/,
   "age-review writes must compare-and-set the exact story version");
-assert.match(ageReviewAction, /body: JSON[.]stringify\(\{ metadata: nextMetadata, updated_at: nextUpdatedAt \}\)/,
-  "age review may change only the metadata approval flag and row version");
+assert.match(ageReviewAction, /buildKidsStoryAgeReviewPatch/);
+assert.match(ageReviewAction, /select=id,slug,type,age_group,content_ar,metadata,published,updated_at/);
+assert.match(ageReviewAction, /body: JSON[.]stringify\(reviewPatch\)/,
+  "age review must persist the tested publication-state transition with its metadata and row version");
+assert.match(ageReviewAction, /updated\[0\][?]\.published !== reviewPatch[.]published/,
+  "age review must verify the persisted publication state before reporting success");
+assert.match(ageReviewAction, /publishedAfterReview: reviewPatch[.]published/);
+assert.ok(ageReviewAction.includes('revalidatePath("/api/kids/social-posts")') && ageReviewAction.includes('revalidatePath("/sitemap-index.xml")'),
+  "age review must invalidate Kids social and sitemap caches after publication changes");
 assert.match(ageReviewAction, /recordAdminAuditEvent/);
 assert.match(ageReviewAction, /metadataValue !== null && \(typeof metadataValue !== "object" \|\| Array\.isArray\(metadataValue\)\)/,
   "age review must fail closed instead of replacing non-object metadata");
-const ageReviewWritePayload = ageReviewAction.match(/body: JSON[.]stringify\(\{ metadata: nextMetadata, updated_at: nextUpdatedAt \}\)/)?.[0] ?? "";
-assert.ok(ageReviewWritePayload.length > 0, "age review must persist only its metadata approval decision and row version");
-assert.doesNotMatch(ageReviewWritePayload, /published|is_active|content_ar/,
-  "age review must not silently publish, hide, or rewrite story content");
+const ageReviewWritePayload = ageReviewAction.match(/body: JSON[.]stringify\(reviewPatch\)/)?.[0] ?? "";
+assert.ok(ageReviewWritePayload.length > 0, "age review must persist its tested metadata, publication, and row-version patch");
+assert.doesNotMatch(ageReviewWritePayload, /is_active|content_ar/,
+  "age review must not deactivate or rewrite the story body");
 
 const ageApprovalInput = kidsManager.indexOf('name="age_appropriate"');
 const ageApprovalGate = kidsManager.lastIndexOf("{canPublish ?", ageApprovalInput);
