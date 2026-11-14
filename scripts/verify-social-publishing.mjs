@@ -258,7 +258,7 @@ const retentionSummary = retentionSummaryStart >= 0 && retentionSummaryEnd > ret
   ? socialPublishingService.slice(retentionSummaryStart, retentionSummaryEnd)
   : "";
 if (!retentionSummary.includes("markedForRetention") ||
-    /\\bcleaned\\b/.test(retentionSummary) ||
+    retentionSummary.includes("cleaned") ||
     !socialWorker.includes("Published video staging-retention markers refreshed")) {
   failures.push("published-video staging retention must report metadata markers, not claim media has been deleted");
 }

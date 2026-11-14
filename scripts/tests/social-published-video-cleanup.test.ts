@@ -82,7 +82,7 @@ const retentionSummaryStart = socialPublishingSource.indexOf("export async funct
 const retentionSummaryEnd = socialPublishingSource.indexOf("export async function processSocialPublishItem(", retentionSummaryStart);
 const retentionSummary = socialPublishingSource.slice(retentionSummaryStart, retentionSummaryEnd);
 assert.match(retentionSummary, /markedForRetention/, "the worker result must report retention markers rather than completed media deletion");
-assert.doesNotMatch(retentionSummary, /\\bcleaned\\b/, "metadata-only retention must not be reported as media cleaned");
+assert.ok(!retentionSummary.includes("cleaned"), "metadata-only retention must not be reported as media cleaned");
 assert.match(socialWorkerSource, /Published video staging-retention markers refreshed/, "worker logs must state that only retention markers were refreshed");
 
 assert.equal(
