@@ -1,6 +1,5 @@
 import { getPublicEnv, getServerEnv } from '@/lib/env';
 import { assertSupabaseConnection } from '@/lib/supabase/server';
-import { generateGeminiText } from '@/features/spiritual-ai/services/gemini-client';
 import { getYoutubeSyncHealth } from '@/features/videos/integrations/youtube';
 
 import { createSupabaseHealthCheck, type ApiHealthCheck } from "@/lib/services/api-health-status";
@@ -25,9 +24,18 @@ export async function runApiHealthChecks(): Promise<ApiHealthCheck[]> {
       return createSupabaseHealthCheck(connected);
     }),
     timed('Gemini Quran/Voice AI', async () => {
-      if (!serverEnv.GEMINI_API_KEY) return { name: 'Gemini Quran/Voice AI', status: 'warning', message: 'GEMINI_API_KEY is not configured; AI falls back to static responses.' };
-      const text = await generateGeminiText('Return the single Arabic word: جاهز');
-      return { name: 'Gemini Quran/Voice AI', status: text ? 'ok' : 'warning', message: text ? 'Gemini responded successfully.' : 'Gemini key exists but no text was returned.' };
+      const hasGeminiKey = Boolean(
+        serverEnv.GEMINI_API_KEY?.trim() ||
+        process.env.GEMINI_API_KEY?.trim() ||
+        Array.from({ length: 30 }, (_, index) => process.env[`GEMINI_API_KEY_${index + 1}`]?.trim()).some(Boolean),
+      );
+      return {
+        name: 'Gemini Quran/Voice AI',
+        status: 'warning',
+        message: hasGeminiKey
+          ? 'A Gemini API key is configured. Live generation is intentionally not invoked by health checks to avoid quota consumption.'
+          : 'No Gemini API key is configured; AI features may use static fallback responses.',
+      };
     }),
     timed('YouTube channel API', async () => {
       const health = await getYoutubeSyncHealth();

@@ -101,10 +101,14 @@ assert.equal(isCrisisMessage('عايز أنتحر'), true,
 const action = readFileSync('src/app/spiritual-ai/actions.ts', 'utf8');
 const rateLimitIndex = action.indexOf('consumeSpiritualAiRateLimit(clientAddress)');
 const retrievalIndex = action.indexOf('retrieveSpiritualSources(normalizedMessage)');
-const geminiIndex = action.indexOf('generateGeminiText(prompt, 1500)');
+const geminiIndex = action.indexOf('generateGeminiText(prompt, 1500, systemInstruction)');
 assert.ok(rateLimitIndex >= 0, 'public Spiritual AI action must consume a shared server-side rate limit');
 assert.ok(rateLimitIndex < retrievalIndex, 'rate limit must run before database source retrieval');
 assert.ok(rateLimitIndex < geminiIndex, 'rate limit must run before any Gemini request');
+assert.match(action, /function buildSystemInstruction/);
+assert.match(action, /return JSON\.stringify\(payload\)/, 'user input, conversation history and retrieved sources must be serialized as data');
+const geminiClientSource = readFileSync('src/features/spiritual-ai/services/gemini-client.ts', 'utf8');
+assert.match(geminiClientSource, /systemInstruction: systemInstruction\.trim\(\)/, 'the Gemini client must pass safety rules through the provider system-instruction channel');
 assert.match(action, /sanitizeChatHistory\(history\)/, 'client-supplied history must be bounded server-side');
 assert.match(action, /typeof userMessage === 'string'/, 'server action must validate runtime message type');
 assert.match(action, /normalizedMessage.length < 3/, 'short messages must not trigger retrieval or Gemini');

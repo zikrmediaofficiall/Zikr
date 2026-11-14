@@ -76,7 +76,11 @@ async function backoff(attempt: number): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 350 * attempt + jitter));
 }
 
-async function callDirectSdk(prompt: string, maxOutputTokens = 1500): Promise<string | null> {
+async function callDirectSdk(
+  prompt: string,
+  maxOutputTokens = 1500,
+  systemInstruction?: string,
+): Promise<string | null> {
   const keys = getAvailableKeys();
   if (keys.length === 0) return null;
 
@@ -92,6 +96,7 @@ async function callDirectSdk(prompt: string, maxOutputTokens = 1500): Promise<st
             model: modelId,
             safetySettings,
             generationConfig: { ...generationConfig, maxOutputTokens },
+            ...(systemInstruction?.trim() ? { systemInstruction: systemInstruction.trim() } : {}),
           });
           const result = await model.generateContent(prompt);
           const text = result.response.text().trim();
@@ -118,8 +123,12 @@ async function callDirectSdk(prompt: string, maxOutputTokens = 1500): Promise<st
   return null;
 }
 
-export async function generateGeminiText(prompt: string, maxTokens = 1500): Promise<string | null> {
-  return callDirectSdk(prompt, maxTokens);
+export async function generateGeminiText(
+  prompt: string,
+  maxTokens = 1500,
+  systemInstruction?: string,
+): Promise<string | null> {
+  return callDirectSdk(prompt, maxTokens, systemInstruction);
 }
 
 export async function* streamGeminiText(prompt: string): AsyncGenerator<string, void, unknown> {
@@ -156,6 +165,7 @@ export async function* streamGeminiText(prompt: string): AsyncGenerator<string, 
 export async function generateGeminiFromAudio(
   prompt: string,
   audio: { data: string; mimeType: string },
+  systemInstruction?: string,
 ): Promise<string | null> {
   const keys = getAvailableKeys();
   const attempts = Math.min(Math.max(keys.length, 3), 6);
@@ -174,6 +184,7 @@ export async function generateGeminiFromAudio(
               maxOutputTokens: 2000,
               responseMimeType: 'application/json',
             } as GenerationConfig,
+            ...(systemInstruction?.trim() ? { systemInstruction: systemInstruction.trim() } : {}),
           });
           const result = await model.generateContent([
             prompt,

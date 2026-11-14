@@ -70,6 +70,20 @@ assert.match(poetryRoute, /status: 503/);
 
 const poetryService = readFileSync('src/features/poetry/services/poetry-insight.ts', 'utf8');
 assert.match(poetryService, /import ['"]server-only['"]/);
+assert.match(poetryService, /POETRY_SYSTEM_INSTRUCTION/);
+assert.match(poetryService, /generateGeminiText\(prompt, 1500, POETRY_SYSTEM_INSTRUCTION\)/);
+
+assert.match(memorizationAction, /MEMORIZATION_SYSTEM_INSTRUCTION/);
+assert.match(memorizationAction, /generateGeminiFromAudio\(audioPrompt, \{ data: bytes, mimeType: audio\.type \|\| 'audio\/webm' \}, MEMORIZATION_SYSTEM_INSTRUCTION\)/);
+assert.match(memorizationAction, /generateGeminiText\(textFallbackPrompt, 1600, MEMORIZATION_SYSTEM_INSTRUCTION\)/);
+
+const apiHealthSource = readFileSync('src/lib/services/api-health.ts', 'utf8');
+assert.doesNotMatch(apiHealthSource, /generateGeminiText|generateGeminiFromAudio/,
+  'health checks must never trigger live Gemini generation');
+assert.match(apiHealthSource, /Live generation is intentionally not invoked by health checks/);
+
+const geminiClientSource = readFileSync('src/features/spiritual-ai/services/gemini-client.ts', 'utf8');
+assert.match(geminiClientSource, /systemInstruction: systemInstruction\.trim\(\)/);
 
 const nextConfig = readFileSync('next.config.ts', 'utf8');
 assert.match(nextConfig, /serverActions:\s*\{\s*bodySizeLimit:\s*'4mb'/);
