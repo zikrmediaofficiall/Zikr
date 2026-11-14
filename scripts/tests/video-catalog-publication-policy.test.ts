@@ -100,4 +100,5 @@ const platformProviderCall = socialSource.indexOf("const publication =", platfor
 assert.ok(platformStart >= 0 && platformCatalogGate > platformStart && platformCatalogGate < platformProviderCall,
   "each platform must revalidate catalog publication immediately before provider dispatch");
 assert.match(socialSource, /row\.published !== true/);
+assert.match(socialSource, /published=eq\\.true/);
 console.log("Social video catalog publication and Kids QA gates passed.");

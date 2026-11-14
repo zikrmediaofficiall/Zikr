@@ -174,9 +174,11 @@ async function checkVideoCatalogPublication(item: SocialPublishQueueItem): Promi
 
 function hasPriorSuccessfulSocialPlatform(metadata: Record<string, unknown> | null): boolean {
   const results = normalizeSocialPlatformResults(metadata?.platformResults);
-  return Object.values(results).some((result) =>
-    result?.ok === true && typeof result.remoteId === "string" && result.remoteId.trim().length > 0,
-  );
+  return Object.values(results).some((result) => {
+    if (!result || typeof result !== "object" || Array.isArray(result)) return false;
+    const record = result as Record<string, unknown>;
+    return record.ok === true && typeof record.remoteId === "string" && record.remoteId.trim().length > 0;
+  });
 }
 
 type WrittenPostSourceApproval = "not_applicable" | "approved" | "blocked" | "unavailable";
@@ -709,7 +711,7 @@ async function syncKidsSocialPublicationToCatalog(
       },
     };
     const query = "/rest/v1/videos?id=eq." + encodeURIComponent(row.id) +
-      "&updated_at=eq." + encodeURIComponent(row.updated_at);
+      "&published=eq.true&updated_at=eq." + encodeURIComponent(row.updated_at);
     const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(query, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Prefer: "return=representation" },
