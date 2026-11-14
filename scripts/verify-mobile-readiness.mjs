@@ -63,7 +63,7 @@ const androidCapacitorSettings = read("android/capacitor.settings.gradle");
 const androidCapacitorBuild = read("android/app/capacitor.build.gradle");
 const capacitorCoreVersion = packageDependencies["@capacitor/core"];
 const capacitorAndroidVersion = packageDependencies["@capacitor/android"];
-const socialLoginLock = pnpmLock.match(/^      '@capgo\\/capacitor-social-login':\\n        specifier: [^\\n]+\\n        version: ([^(]+)\\(@capacitor\\/core@([^)]+)\\)/m);
+const socialLoginLock = pnpmLock.match(/^      '@capgo\/capacitor-social-login':\n        specifier: [^\n]+\n        version: ([^(]+)\(@capacitor\/core@([^)]+)\)/m);
 if (!socialLoginLock) {
   failures.push("pnpm-lock.yaml must resolve @capgo/capacitor-social-login against the installed @capacitor/core version");
 } else {
@@ -77,7 +77,7 @@ if (!capacitorCoreVersion || !capacitorAndroidVersion ||
     !androidCapacitorSettings.includes(`@capacitor+android@${capacitorAndroidVersion}_@capacitor+core@${capacitorCoreVersion}`)) {
   failures.push("Android Capacitor settings must use the exact @capacitor/android and @capacitor/core versions from package.json");
 }
-const linkedCoreVersions = [...androidCapacitorSettings.matchAll(/@capacitor\\+core@([0-9]+\\.[0-9]+\\.[0-9]+)/g)].map(match => match[1]);
+const linkedCoreVersions = [...androidCapacitorSettings.matchAll(/@capacitor\+core@([0-9]+\.[0-9]+\.[0-9]+)/g)].map(match => match[1]);
 if (!capacitorCoreVersion || linkedCoreVersions.length === 0 || linkedCoreVersions.some(version => version !== capacitorCoreVersion)) {
   failures.push("Android Capacitor plugin paths must all use the locked @capacitor/core version");
 }

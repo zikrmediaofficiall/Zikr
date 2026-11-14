@@ -81,7 +81,7 @@ assert.ok(pkg.dependencies?.["@capgo/capacitor-social-login"], "Capgo Social Log
 assert.ok(lock.includes("@capgo/capacitor-social-login@7.20.0"), "pnpm lockfile must include the resolved native plugin");
 const androidCapacitorSettings = read("android/capacitor.settings.gradle");
 const androidCapacitorBuild = read("android/app/capacitor.build.gradle");
-const socialLoginLock = lock.match(/^      '@capgo\\/capacitor-social-login':\\n        specifier: [^\\n]+\\n        version: ([^(]+)\\(@capacitor\\/core@([^)]+)\\)/m);
+const socialLoginLock = lock.match(/^      '@capgo\/capacitor-social-login':\n        specifier: [^\n]+\n        version: ([^(]+)\(@capacitor\/core@([^)]+)\)/m);
 assert.ok(socialLoginLock, "pnpm lockfile must resolve Capgo Social Login with the installed Capacitor core");
 const expectedSocialLoginPath = `../node_modules/.pnpm/@capgo+capacitor-social-login@${socialLoginLock[1]}_@capacitor+core@${socialLoginLock[2]}/node_modules/@capgo/capacitor-social-login/android`;
 assert.ok(androidCapacitorSettings.includes("include ':capgo-capacitor-social-login'"), "Android settings must include the Capgo Social Login project");
@@ -91,7 +91,7 @@ assert.ok(androidCapacitorBuild.includes("implementation project(':capgo-capacit
 const coreVersion = pkg.dependencies?.["@capacitor/core"];
 const androidVersion = pkg.dependencies?.["@capacitor/android"];
 assert.ok(androidCapacitorSettings.includes(`@capacitor+android@${androidVersion}_@capacitor+core@${coreVersion}`), "Android platform project must match the installed Capacitor versions");
-assert.doesNotMatch(androidCapacitorSettings, /@capacitor\\+core@7\\.4\\.3/, "Generated Android plugin paths must not retain the stale Capacitor 7.4.3 peer paths");
+assert.doesNotMatch(androidCapacitorSettings, /@capacitor\+core@7\.4\.3/, "Generated Android plugin paths must not retain the stale Capacitor 7.4.3 peer paths");
 
 
 assert.ok(button.includes('Capacitor.getPlatform() === "android"'), "Android must have a dedicated native login branch");
