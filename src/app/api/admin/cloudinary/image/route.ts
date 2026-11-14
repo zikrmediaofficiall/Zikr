@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { requireAdminApi } from '@/features/admin/services/admin';
+import { readBoundedRequestBytes } from '@/lib/request/bounded-json-body';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
 import { uploadCloudinaryImage } from '@/features/media/services/cloudinary';
 
@@ -8,6 +9,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_REQUEST_BYTES = MAX_IMAGE_BYTES + 64 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const ALLOWED_FOLDERS = new Set(['homepage', 'stories', 'articles', 'videos', 'competitions', 'branding', 'kids', 'media']);
 
@@ -25,7 +27,21 @@ export async function POST(request: NextRequest) {
   if (!guard.ok) return errorResponse(guard.error, guard.status);
 
   try {
-    const formData = await request.formData();
+    const contentType = request.headers.get('content-type') ?? '';
+    if (!contentType.toLowerCase().startsWith('multipart/form-data;')) {
+      return errorResponse('Invalid multipart image upload.', 400);
+    }
+    const bodyResult = await readBoundedRequestBytes(request, MAX_IMAGE_REQUEST_BYTES);
+    if (!bodyResult.ok) return errorResponse(bodyResult.error, bodyResult.status);
+
+    let formData: FormData;
+    try {
+      formData = await new Response(bodyResult.bytes, {
+        headers: { 'Content-Type': contentType },
+      }).formData();
+    } catch {
+      return errorResponse('Invalid multipart image upload.', 400);
+    }
     const file = formData.get('file');
     const folder = safeFolder(formData.get('folder'));
     const requestedPublicId = typeof formData.get('publicId') === 'string' ? String(formData.get('publicId')).trim() : '';
