@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const cursorService = readFileSync(
   "src/features/social/services/social-insights-scan-cursor.ts",
@@ -12,6 +14,7 @@ assert.doesNotMatch(
   "the shared social insights cursor is imported by Node background workers and must remain Node-safe",
 );
 
+const workerUrl = pathToFileURL(resolve("scripts/jobs/social-publishing.ts")).href;
 const workerImport = spawnSync(
   process.execPath,
   [
@@ -19,7 +22,7 @@ const workerImport = spawnSync(
     "tsx",
     "--input-type=module",
     "-e",
-    'await import("./scripts/jobs/social-publishing.ts")',
+    `await import(${JSON.stringify(workerUrl)})`,
   ],
   { cwd: process.cwd(), encoding: "utf8" },
 );
