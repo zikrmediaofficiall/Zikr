@@ -5,6 +5,7 @@ const service = readFileSync("src/features/admin/services/traffic-revenue.ts", "
 const panel = readFileSync("src/features/admin/components/traffic-revenue-panel.tsx", "utf8");
 const page = readFileSync("src/app/admin/analytics/page.tsx", "utf8");
 const metricsHelper = readFileSync("src/features/admin/services/traffic-revenue-metrics.ts", "utf8");
+const permissions = readFileSync("src/features/admin/services/permissions.ts", "utf8");
 
 assert.match(service, /select\("id", \{ count: "exact", head: true \}\)/);
 assert.match(service, /video_generation_requests/);
@@ -39,9 +40,12 @@ assert.match(panel, /ربط YouTube للنشر والتحليلات/);
 assert.match(panel, /youtube\.upload/);
 assert.doesNotMatch(panel, /قراءة فقط|إعادة ربط القراءة/);
 assert.match(page, /requireAdminPermission\("analytics\.read"\)/);
-assert.match(page, /hasAdminPermission\(admin\.role, "social\\.manage"\)/);
-assert.match(page, /hasAdminPermission\(admin\.role, "social\\.publish"\)/);
+assert.match(page, /hasAdminPermission\(admin\.role, "social\.manage"\)/);
+assert.match(page, /hasAdminPermission\(admin\.role, "social\.publish"\)/);
 assert.match(page, /<TrafficRevenuePanel\s+canManageYouTubeConnection=\{canManageYouTubeConnection\}\s*\/>/);
+const analystPermissions = permissions.match(/analyst:\s*\[([\s\S]*?)\]/)?.[1] ?? "";
+assert.match(analystPermissions, /analytics\.read/);
+assert.doesNotMatch(analystPermissions, /social\.manage|social\.publish/);
 assert.doesNotMatch(page, /YOUTUBE_REDIRECT|api\/admin\/social\/youtube\/connect/);
 
 assert.match(service, /videoRetryPending/);
