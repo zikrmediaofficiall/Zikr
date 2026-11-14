@@ -126,7 +126,7 @@
 {"path":"CLAUDE.md","type":"blob","mode":"100644","sha":"43c994c2d3617f947bcb5adf1933e21dabe46bb5","size":11}
 {"path":"components.json","type":"blob","mode":"100644","sha":"723b14b8df19bab4c3696be5a96f8177783581f9","size":398}
 {"path":"DEPLOYMENT_CHECKLIST.md","type":"blob","mode":"100644","sha":"c7fb700b9f3750df36ba34609e812be3d58f0232","size":6124}
-{"path":"docs","type":"tree","mode":"040000","sha":"b28837775e05a33635426ca77f8783329c6cc701","size":null}
+{"path":"docs","type":"tree","mode":"040000","sha":"8e1275c72721d50ac5a38aa2910551e9ee41d3af","size":null}
 {"path":"docs/admin","type":"tree","mode":"040000","sha":"df79836535480044bb07e19b029241aefe54a753","size":null}
 {"path":"docs/ADMIN_REORGANIZATION_PLAN_2026-10-30.md","type":"blob","mode":"100644","sha":"f3f87e9dc72259020340d2059a951e95ae8ec7a3","size":30349}
 {"path":"docs/admin/ADMIN_API_PERMISSION_MATRIX_2026-11-06.md","type":"blob","mode":"100644","sha":"31b8034202241533da231c9216ec32f14eaaed4a","size":7561}
@@ -169,7 +169,7 @@
 {"path":"docs/assets-guide.md","type":"blob","mode":"100644","sha":"496abc40539f922b9896298c53e698901b0ea1b9","size":4066}
 {"path":"docs/audio","type":"tree","mode":"040000","sha":"8d1a137e06e3ed9edc1c2c1634599e9da3e373ea","size":null}
 {"path":"docs/audio/HUMAN_AUDIO_LIBRARY_2026-10-02.md","type":"blob","mode":"100644","sha":"2430ff9df2ee3bb081180d8fd9e41b4fe37c30b1","size":1635}
-{"path":"docs/audits","type":"tree","mode":"040000","sha":"ccf0fa5e6902a0e936e90bf0047fb2b17d45428a","size":null}
+{"path":"docs/audits","type":"tree","mode":"040000","sha":"5143a49961fc29eff85dfb3c71f9af8db28f303b","size":null}
 {"path":"docs/audits/ADMIN_CONSOLE_CLOSEOUT_2026-11-10.md","type":"blob","mode":"100644","sha":"c71ffe9eb270543c05431f7d188b002d11d0aa9e","size":8069}
 {"path":"docs/audits/ADMIN_CONTROL_CENTER_2.0_AUDIT_PLAN_2026-11-06.md","type":"blob","mode":"100644","sha":"7387af5d46907272037520b104f42b79b513ba48","size":19574}
 {"path":"docs/audits/ADMIN_CONTROL_CENTER_2.0_EXECUTION_2026-11-06.md","type":"blob","mode":"100644","sha":"645787f9652f1f2368c54d127e798f2ad2da7c58","size":10603}
@@ -182,7 +182,7 @@
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-12.md","type":"blob","mode":"100644","sha":"db70e3574a7f2bc45c1c654bd20e509f58a9a4b7","size":45782}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-13T2058Z.md","type":"blob","mode":"100644","sha":"03a6eef13ff63a440553047cdc7267b28842d6f8","size":55521}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-13T2326Z.md","type":"blob","mode":"100644","sha":"b3e65a97981157b2a9c616e2856d8ca9827ce40c","size":52184}
-{"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14.md","type":"blob","mode":"100644","sha":"8b89be4349000d545831f7c6bd52bc5b6bef94b1","size":156040}
+{"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14.md","type":"blob","mode":"100644","sha":"4e214bca9761a09ecacc0130a233e9c80e0fe539","size":156040}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14T0508Z.md","type":"blob","mode":"100644","sha":"c28a9471bed691f4154ae8f2076aab8234d9a738","size":89986}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14T0536Z.md","type":"blob","mode":"100644","sha":"75ea06c5ea05ee6b016c76814d42a2ba7eb70953","size":89144}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14T0605Z.md","type":"blob","mode":"100644","sha":"7b28622d2fb0e652c859cb5345d81a512fba13bf","size":91266}
