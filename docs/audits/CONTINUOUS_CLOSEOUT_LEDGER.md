@@ -1823,3 +1823,32 @@ Request current CODEOWNERS review, finish the 45 pending-trace and 205 review-re
 - No storage object, media, index, secret, release, or production resource was deleted or changed. No content generation, Gemini request, social publishing, push delivery, Android/iOS release, merge, or deployment was triggered.
 - Remaining owner/device work: CODEOWNERS review; approval and controlled application of the 22 pending migrations; iOS App ID/AASA configuration; physical Android/iOS deep-link, OAuth, notification, and signing acceptance; Kids editorial decisions; diagnosis of the main-only English-content-sync failure without invoking Gemini; and post-merge Vercel READY plus production smoke verification.
 - **Audit status: OPEN / IN PROGRESS.** Do not certify the repository as error-free or closed.
+
+## 2026-11-14 — audit repair and evidence checkpoint
+
+### Exact repository state
+
+- Base `main`: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- Code/test head: `bc1f0dd9fc9a0d324221633569ea45ae034757e8` on `audit/zikr-kids-daily-priority-20261110` / PR #320.
+- Inventory: 2,395 entries (1,896 blobs, 499 trees); PR delta 553 paths before the reconciled overlay and manifest, no deletions. The new overlay has 553 rows; the paired manifest records the pre-manifest tree and excludes itself.
+- Overlay totals: 278 content-read/tested pass; 190 review required; 55 content-read/pending trace; 26 fixed/tested/pending live apply; 4 superseded snapshots.
+
+### Repairs made
+
+1. **Video Storage limit mismatch.** Live organization plan is Free; live bucket metadata was `videos=536870912` (512 MiB), while `android-releases=52428800` (50 MiB), and the project config defaults to 50 MiB. Updated `src/lib/services/storage-contract.ts`, `src/app/api/admin/videos/upload/route.ts`, `src/features/admin/components/video-upload-field.tsx`, `supabase/config.toml`, and `scripts/tests/storage-service-contract.test.ts` to enforce 50 MiB. Added forward migration `supabase/migrations/20261114100000_videos_bucket_free_tier_limit.sql`. The route returns 413 before issuing a signed capability. The migration remains pending owner approval; production bucket settings were not changed.
+2. **Gemini transient retry backoff.** `callDirectSdk` and `generateGeminiFromAudio` previously handled transient errors inside the per-model catch and skipped the existing backoff. Added a transient-failure flag and backoff between key-rotation attempts, plus static regression assertions in `scripts/tests/public-ai-cost-guard.test.ts`. Tests read source only; no Gemini request was issued.
+
+### Verification evidence
+
+- GitHub Quality Gate run `43639327334`: `success`; audit branch enabled `QUALITY_GATE_FULL_SCOPE=true`, so `pnpm verify` ran, including local migration replay/build and all 13 PostgreSQL 17 integration checks.
+- CircleCI `source-verify`: `success`; `application-build-docs`: `success`; `config-guard`: `success`.
+- Android Debug APK run `43639327306`: `success`; debug-only, no signed release or store upload.
+- Live Supabase reads: organization `Zikrofficial` plan `free`; project `ACTIVE_HEALTHY`, PostgreSQL 17.11; remote migration table 418 versions, latest `20261110170000`; local 441 unique migrations, 23 local-only, no remote-only or duplicate versions.
+- Live Storage reads: `videos=536870912`, `android-releases=52428800`. No storage object or media was modified/deleted.
+- Vercel production deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu`: `READY`, commit `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; preceding 50-minute runtime query had no error/fatal/warning entries.
+
+### Safety and open gates
+
+- No content generation, Gemini calls, social publishing, production database mutation, storage upload/deletion, release creation, or Android release was triggered.
+- PR #320 has no owner review; CODEOWNERS principal permission is unavailable. Merge and production deploy remain blocked by owner/protected-branch gates.
+- The audit is not closed: 190 paths remain `REVIEW_REQUIRED`, 55 remain `CONTENT_READ_PENDING_TRACE`, and 26 fixes still await owner-approved live migration application. Device/iOS/OAuth/editorial/social end-to-end acceptance remains manual.

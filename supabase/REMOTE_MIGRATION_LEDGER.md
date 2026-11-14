@@ -238,3 +238,35 @@ The atomic prayer-location migration `20261114040000_save_default_prayer_locatio
 - Advisor snapshot: health clean; one `auth_leaked_password_protection` security warning; 78 unused-index notices. No index was removed or altered.
 - The 22 local-only migrations remain owner-review gated. No DDL or data mutation was performed.
 
+## 2026-11-14 — current remote/local reconciliation (read-only)
+
+- Connected Supabase organization: `Zikrofficial`, plan `free`; project `zqtssvlvmkzeeyqghqfk` is `ACTIVE_HEALTHY` on PostgreSQL `17.11.0.018`.
+- Live `supabase_migrations.schema_migrations`: **418** unique versions; latest `20261110170000`.
+- Local audit branch at code/test head `bc1f0dd9fc9a0d324221633569ea45ae034757e8`: **441** migration files, 441 unique versions, zero duplicate versions; **23 local-only pending**, zero remote-only. No migration was pushed to production.
+- Local-only pending versions:
+  - `20261110212000`
+  - `20261111000000`
+  - `20261111003000`
+  - `20261111010000`
+  - `20261111020000`
+  - `20261111030000`
+  - `20261111040000`
+  - `20261111050000`
+  - `20261111153000`
+  - `20261111170000`
+  - `20261112103200`
+  - `20261113000000`
+  - `20261113190000`
+  - `20261113200000`
+  - `20261113210000`
+  - `20261113220000`
+  - `20261113230000`
+  - `20261114000000`
+  - `20261114010000`
+  - `20261114020000`
+  - `20261114030000`
+  - `20261114040000`
+  - `20261114100000`
+- Live Storage metadata: `videos.file_size_limit = 536870912` (512 MiB); `android-releases.file_size_limit = 52428800` (50 MiB). The connected organization is on the Free plan and the repository's global Storage default is 50 MiB. The existing Android release bucket migration and the 2026-10-09 413 incident record establish the 50 MiB project ceiling.
+- Audit repair: `20261114100000_videos_bucket_free_tier_limit.sql` aligns the existing `videos` bucket to 50 MiB. API validation, storage purpose contract, admin upload field and local Supabase config are aligned to the same ceiling. This forward migration is local-only and remains pending owner approval.
+- No production SQL was executed beyond read-only SELECTs; no bucket setting was changed, no object or media was deleted, and no upload was performed.
