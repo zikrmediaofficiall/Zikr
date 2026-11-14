@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
-import { requireAdminApi } from '@/features/admin/services/admin';
+import { requireAdminStepUpApi } from '@/features/admin/services/security';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
 import { createAdminClient, supabaseServerAdminRequest } from '@/lib/supabase/server';
 import { sanitizeStorageSegment, SIGNED_UPLOAD_URL_TTL_SECONDS } from '@/lib/services/storage';
@@ -10,8 +10,13 @@ const ALLOWED_TYPES = new Set<string>(SITE_AUDIO_ALLOWED_MIME_TYPES);
 const MAX_BYTES = SITE_AUDIO_MAX_BYTES;
 
 export async function POST(request: NextRequest) {
-  const guard = await requireAdminApi('audio.manage');
-  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
+  const guard = await requireAdminStepUpApi('audio.manage', '/admin/site-audio');
+  if (!guard.ok) {
+    return NextResponse.json(
+      { error: guard.error, nextPath: 'nextPath' in guard ? guard.nextPath : undefined },
+      { status: guard.status, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 
   const parsedBody = await readBoundedJsonBody(request);
   if (!parsedBody.ok) {
