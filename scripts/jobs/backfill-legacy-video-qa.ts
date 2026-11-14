@@ -7,6 +7,8 @@ import {
   AUTOMATED_VIDEO_QA_VERSION,
   REQUIRED_VIDEO_APPROVAL_CHECKS,
   createAutomatedVideoQaApproval,
+  hasCompleteKidsVideoSeriesMetadata,
+  hasCompleteVideoApprovalChecklist,
 } from "../../src/features/videos/services/video-publish-approval";
 import {
   assertKidsStoryContract,
@@ -177,6 +179,7 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
     const missingChecks = REQUIRED_VIDEO_APPROVAL_CHECKS.filter((key) => reviewChecks[key] !== true);
     const blockedContent: RecordValue = {
       ...originalContent,
+      ...(originalContent.audience === "kids" || revalidatingKidsClassification ? { kidsVideoQaStatus: "blocked" } : {}),
       approvalStatus: "qa_failed",
       approvalReviewerId: null,
       approvalReviewedAt: null,
@@ -289,6 +292,12 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
       templateVersion: request.template_version,
     },
   );
+  const isKidsVideo = validatedContent.audience === "kids";
+  const kidsVideoQaStatus = isKidsVideo
+    ? hasCompleteKidsVideoSeriesMetadata(validatedContent) && hasCompleteVideoApprovalChecklist(checks)
+      ? "passed"
+      : "blocked"
+    : null;
   const approval = createAutomatedVideoQaApproval({
     snapshot: {
       category: request.category,
@@ -296,6 +305,8 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
       contentHash: request.content_hash,
       templateVersion: request.template_version,
       videoUrl: request.video_url,
+      audience: isKidsVideo ? "kids" : "general",
+      ...(isKidsVideo ? { kidsVideoQaStatus } : {}),
     },
     checks,
     reviewedAt: checkedAt,

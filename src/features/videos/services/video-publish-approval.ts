@@ -36,6 +36,8 @@ export type VideoApprovalSnapshot = {
   contentHash: string | null;
   templateVersion: string | null;
   videoUrl: string | null;
+  audience?: string | null;
+  kidsVideoQaStatus?: string | null;
 };
 
 export function buildVideoApprovalSnapshotHash(snapshot: VideoApprovalSnapshot): string | null {
@@ -44,12 +46,14 @@ export function buildVideoApprovalSnapshotHash(snapshot: VideoApprovalSnapshot):
   const videoUrl = snapshot.videoUrl?.trim();
   const category = snapshot.category.trim();
   if (!sourceHash || !contentHash || !videoUrl || !category) return null;
+  if (snapshot.audience === "kids" && snapshot.kidsVideoQaStatus !== "passed") return null;
   const canonical = JSON.stringify([
     category,
     sourceHash,
     contentHash,
     snapshot.templateVersion?.trim() ?? "",
     videoUrl,
+    ...(snapshot.audience === "kids" ? ["kids", snapshot.kidsVideoQaStatus] : []),
   ]);
   return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
@@ -81,6 +85,7 @@ export function createAutomatedVideoQaApproval(input: {
     approvalReviewedAt: reviewedAt,
     approvalSnapshotHash: snapshotHash,
     qualityReview,
+    ...(input.snapshot.audience === "kids" ? { kidsVideoQaStatus: "passed" } : {}),
     automatedVideoQa: {
       status: "passed",
       engine: AUTOMATED_VIDEO_QA_ENGINE,
@@ -161,10 +166,13 @@ export function inspectVideoQueueItemApproval(input: {
   const reviewData = record(content?.qualityReview);
   const missingChecks = REQUIRED_VIDEO_APPROVAL_CHECKS.filter((key) => reviewData?.[key] !== true);
   const approvalStatus = typeof content?.approvalStatus === "string" ? content.approvalStatus : null;
-  if (content?.audience === "kids" && !hasCompleteKidsVideoSeriesMetadata(content)) {
+  if (content?.audience === "kids" && (
+    !hasCompleteKidsVideoSeriesMetadata(content) ||
+    content.kidsVideoQaStatus !== "passed"
+  )) {
     return {
       approved: false,
-      reason: "بيانات سلسلة الأطفال غير مكتملة؛ تم إيقاف النشر الخارجي.",
+      reason: "فحص أمان فيديو الأطفال أو بيانات السلسلة غير مكتملة؛ تم إيقاف النشر الخارجي.",
       missingChecks: [...REQUIRED_VIDEO_APPROVAL_CHECKS],
       approvalStatus,
     };
@@ -175,6 +183,8 @@ export function inspectVideoQueueItemApproval(input: {
     contentHash: input.request.content_hash,
     templateVersion: input.request.template_version,
     videoUrl: input.request.video_url,
+    audience: content?.audience === "kids" ? "kids" : "general",
+    kidsVideoQaStatus: typeof content?.kidsVideoQaStatus === "string" ? content.kidsVideoQaStatus : null,
   });
   const approved = isVideoApprovalRecorded(content, snapshotHash);
   if (approved) return { approved: true, reason: null, missingChecks: [], approvalStatus };

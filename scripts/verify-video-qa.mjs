@@ -62,6 +62,8 @@ for (const token of [
   "captionTiming: \"page-weighted-audio-duration\"",
   "buildAutomatedVideoQaChecklist",
   "createAutomatedVideoQaApproval",
+  "request.content.kidsVideoQaStatus === \"passed\"",
+  "content.kidsVideoQaStatus === \"passed\"",
   "automatedQa.status !== \"passed\"",
   "rightsReviewed",
   "automatedVideoQa: request.content.automatedVideoQa ?? null",
@@ -108,6 +110,8 @@ for (const token of [
   "AUTOMATED_VIDEO_QA_REVIEWER_ID",
   "createAutomatedVideoQaApproval",
   "buildVideoApprovalSnapshotHash",
+  'snapshot.audience === "kids" && snapshot.kidsVideoQaStatus !== "passed"',
+  'content.kidsVideoQaStatus !== "passed"',
 ]) {
   if (!approvalService.includes(token)) failures.push(`automated QA approval service missing integrity contract: ${token}`);
 }

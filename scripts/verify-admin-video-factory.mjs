@@ -34,6 +34,14 @@ if (!approvalHelper.includes("sourceHash") || !approvalHelper.includes("contentH
 if (!approvalHelper.includes("buildVideoApprovalSnapshotHash")) {
   failures.push("video approval snapshot hashing helper is missing");
 }
+if (!approvalHelper.includes('snapshot.audience === "kids" && snapshot.kidsVideoQaStatus !== "passed"') ||
+    !approvalHelper.includes('content.kidsVideoQaStatus !== "passed"')) {
+  failures.push("Kids audience and safety QA status must be bound to the video approval snapshot");
+}
+if (!generation.includes("currentContent.kidsVideoQaStatus !== 'passed'") ||
+    !generation.includes("hasCompleteKidsVideoSeriesMetadata(currentContent)")) {
+  failures.push("manual video approval must not bypass the Kids safety QA gate");
+}
 if (!socialPublishing.includes("source_hash,content_hash,template_version")) {
   failures.push("social publisher must fetch current video source/content/template hashes before sending");
 }

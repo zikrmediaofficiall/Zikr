@@ -38,9 +38,15 @@ assert.equal(isVideoApprovalRecorded(content, "different-snapshot-hash"), false)
 assert.equal(buildVideoApprovalSnapshotHash({ ...snapshot, sourceHash: null }), null);
 assert.equal(isVideoQueueItemApprovedForPublishing(queueItem), true);
 
+const kidsSnapshot = { ...snapshot, audience: "kids", kidsVideoQaStatus: "passed" };
+const kidsSnapshotHash = buildVideoApprovalSnapshotHash(kidsSnapshot);
+assert.equal(typeof kidsSnapshotHash, "string");
+assert.equal(buildVideoApprovalSnapshotHash({ ...kidsSnapshot, kidsVideoQaStatus: "blocked" }), null);
 const completeKidsContent = {
   ...content,
+  approvalSnapshotHash: kidsSnapshotHash,
   audience: "kids",
+  kidsVideoQaStatus: "passed",
   contentFormat: "series_episode",
   aiMode: "original_kids_story",
   sourceType: "original_kids_fiction",
@@ -56,6 +62,22 @@ const kidsQueueItem = {
   request: { ...request, content: completeKidsContent },
 };
 assert.equal(isVideoQueueItemApprovedForPublishing(kidsQueueItem), true);
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: { ...completeKidsContent, kidsVideoQaStatus: "blocked" } },
+}), false, "Kids video with blocked safety QA must fail closed");
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: { ...completeKidsContent, kidsVideoQaStatus: undefined } },
+}), false, "Kids video without a recorded safety QA result must fail closed");
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: { ...completeKidsContent, audience: "general" } },
+}), false, "changing the audience after approval must invalidate the Kids snapshot");
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: { ...completeKidsContent, approvalSnapshotHash: snapshotHash } },
+}), false, "a general-audience approval hash must not authorize a Kids video");
 assert.equal(
   isVideoQueueItemApprovedForPublishing({
     ...kidsQueueItem,
@@ -185,6 +207,18 @@ assert.equal(isVideoQueueItemApprovedForPublishing({
     },
   },
 }), false);
+const kidsAutomatedApproval = createAutomatedVideoQaApproval({
+  snapshot: kidsSnapshot,
+  checks,
+  reviewedAt: now,
+});
+assert.equal(kidsAutomatedApproval?.kidsVideoQaStatus, "passed");
+assert.equal(kidsAutomatedApproval?.approvalSnapshotHash, kidsSnapshotHash);
+assert.equal(createAutomatedVideoQaApproval({
+  snapshot: { ...kidsSnapshot, kidsVideoQaStatus: "blocked" },
+  checks,
+  reviewedAt: now,
+}), null);
 assert.equal(createAutomatedVideoQaApproval({
   snapshot,
   checks: { ...checks, rightsReviewed: false },

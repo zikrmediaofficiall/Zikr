@@ -1853,7 +1853,9 @@ async function registerGeneratedVideoOnSite(
   const kidsSeriesMetadataComplete = isKidsVideo && hasCompleteKidsVideoSeriesMetadata(request.content);
   const kidsVideoQaStatus = !isKidsVideo
     ? null
-    : kidsSeriesMetadataComplete && qaSnapshot.status === "passed"
+    : kidsSeriesMetadataComplete &&
+      request.content.kidsVideoQaStatus === "passed" &&
+      qaSnapshot.status === "passed"
       ? "passed"
       : "blocked";
   const kidsStoryText = isKidsVideo
@@ -2103,7 +2105,10 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
     return "not_required";
   }
   const isKidsVideo = content.audience === "kids";
-  const kidsSocialStoryContractPassed = !isKidsVideo || hasCompleteKidsVideoSeriesMetadata(content);
+  const kidsSocialStoryContractPassed = !isKidsVideo || (
+    hasCompleteKidsVideoSeriesMetadata(content) &&
+    content.kidsVideoQaStatus === "passed"
+  );
   if (!kidsSocialStoryContractPassed) {
     console.warn(`[template-video] Kids story contract did not pass for ${request.id}; no Kids social post was queued.`);
     return "not_required";
@@ -2161,7 +2166,7 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
       nextRetryAt: null,
       ai: content.ai && typeof content.ai === "object" ? content.ai : null,
       audience: content.audience === "kids" ? "kids" : "general",
-      kidsContentQaStatus: content.audience === "kids" ? "passed" : null,
+      kidsContentQaStatus: isKidsVideo ? content.kidsVideoQaStatus : null,
       automatedVideoQa: content.automatedVideoQa,
       automatedVideoQaVersion: AUTOMATED_VIDEO_QA_VERSION,
     },
@@ -2634,6 +2639,13 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
       const rendered = await withLeaseHeartbeat((signal) => renderVideo(request, signal));
       const qaChecks = buildAutomatedVideoQaChecklist(request, rendered);
       const qaReviewedAt = new Date().toISOString();
+      const isKidsVideo = request.content.audience === "kids";
+      const kidsVideoQaStatus = isKidsVideo
+        ? hasCompleteKidsVideoSeriesMetadata(request.content) &&
+          REQUIRED_VIDEO_APPROVAL_CHECKS.every((key) => qaChecks[key] === true)
+          ? "passed"
+          : "blocked"
+        : null;
       const qaApproval = createAutomatedVideoQaApproval({
         snapshot: {
           category: request.category,
@@ -2641,6 +2653,8 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
           contentHash: rendered.contentHash,
           templateVersion: rendered.templateVersion,
           videoUrl: rendered.videoUrl,
+          audience: isKidsVideo ? "kids" : "general",
+          ...(isKidsVideo ? { kidsVideoQaStatus } : {}),
         },
         checks: qaChecks,
         reviewedAt: qaReviewedAt,
@@ -2660,6 +2674,7 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
         ? {
             ...request.content,
             ...qaApproval,
+            ...(isKidsVideo ? { kidsVideoQaStatus } : {}),
             automatedVideoQa: {
               ...(qaApproval.automatedVideoQa as Record<string, unknown>),
               engagement,
@@ -2667,6 +2682,7 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
           }
         : {
             ...request.content,
+            ...(isKidsVideo ? { kidsVideoQaStatus: "blocked" } : {}),
             approvalStatus: "qa_failed",
             approvalReviewerId: null,
             approvalReviewedAt: null,

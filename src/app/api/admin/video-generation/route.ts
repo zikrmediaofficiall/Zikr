@@ -141,6 +141,17 @@ export async function PATCH(request: NextRequest) {
       }
       const currentContent = current.content && typeof current.content === 'object' && !Array.isArray(current.content)
         ? current.content as Record<string, unknown> : {};
+      const isKidsVideo = currentContent.audience === 'kids';
+      const automatedQa = currentContent.automatedVideoQa && typeof currentContent.automatedVideoQa === 'object' && !Array.isArray(currentContent.automatedVideoQa)
+        ? currentContent.automatedVideoQa as Record<string, unknown>
+        : {};
+      if (isKidsVideo && (
+        currentContent.kidsVideoQaStatus !== 'passed' ||
+        automatedQa.status !== 'passed' ||
+        !hasCompleteKidsVideoSeriesMetadata(currentContent)
+      )) {
+        return NextResponse.json({ error: 'فحص أمان فيديو الأطفال أو بيانات السلسلة غير مكتملة؛ لا يمكن اعتماد النشر.' }, { status: 409 });
+      }
       if (new Set(['quran', 'hadith', 'story', 'dua', 'adhkar']).has(current.category)) {
         const sourceUrl = typeof currentContent.sourceUrl === 'string' ? currentContent.sourceUrl : '';
         const sourceLabel = typeof currentContent.sourceLabel === 'string' ? currentContent.sourceLabel.trim() : '';
@@ -158,6 +169,8 @@ export async function PATCH(request: NextRequest) {
         contentHash: current.content_hash,
         templateVersion: current.template_version,
         videoUrl: current.video_url,
+        audience: isKidsVideo ? 'kids' : 'general',
+        kidsVideoQaStatus: isKidsVideo ? String(currentContent.kidsVideoQaStatus) : null,
       });
       if (!approvalSnapshotHash) {
         return NextResponse.json({ error: 'بصمة المصدر أو المحتوى أو ملف الفيديو غير مكتملة؛ أعد تجهيز الفيديو قبل اعتماده.' }, { status: 422 });
