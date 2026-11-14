@@ -81,6 +81,7 @@ const linkedCoreVersions = [...androidCapacitorSettings.matchAll(/@capacitor\\+c
 if (!capacitorCoreVersion || linkedCoreVersions.length === 0 || linkedCoreVersions.some(version => version !== capacitorCoreVersion)) {
   failures.push("Android Capacitor plugin paths must all use the locked @capacitor/core version");
 }
+if (androidCapacitorSettings.includes("include ':capacitor-cli'")) failures.push("Capacitor CLI must not be registered as an Android native plugin project");
 if (!androidCapacitorBuild.includes("implementation project(':capgo-capacitor-social-login')")) {
   failures.push("Android Capacitor build must depend on capgo-capacitor-social-login for native Google login");
 }
