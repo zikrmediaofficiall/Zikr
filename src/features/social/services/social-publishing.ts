@@ -610,10 +610,22 @@ async function publishPlatform(
     }
     const catalogApproval = await checkVideoCatalogPublication(item);
     if (catalogApproval.status === "blocked") {
-      return { platform, ok: false, error: "Video catalog approval is blocked: " + catalogApproval.reason };
+      return {
+        platform,
+        ok: false,
+        providerCallSkipped: true,
+        videoCatalogApprovalBlocked: true,
+        error: "Video catalog approval is blocked: " + catalogApproval.reason,
+      };
     }
     if (catalogApproval.status === "pending") {
-      return { platform, ok: false, approvalBlocked: true, error: "Video catalog publication is pending: " + catalogApproval.reason };
+      return {
+        platform,
+        ok: false,
+        providerCallSkipped: true,
+        videoCatalogPublicationPending: true,
+        error: "Video catalog publication is pending: " + catalogApproval.reason,
+      };
     }
     const publication =
       platform === "facebook"
