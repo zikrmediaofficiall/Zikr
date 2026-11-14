@@ -140,8 +140,18 @@ const automationSettingActionStart = adminSystemActions.indexOf("export async fu
 const automationSettingActionEnd = adminSystemActions.indexOf("export async function requestVideoAutomationRunAction", automationSettingActionStart);
 const automationSettingAction = adminSystemActions.slice(automationSettingActionStart, automationSettingActionEnd);
 assert.ok(automationSettingActionStart >= 0 && automationSettingActionEnd > automationSettingActionStart, "the guarded automation settings action must remain present");
-  /deleteFailed\s*=\s*body\?\.deleteFailed === true/,
-  "bulk deletion must require an explicit boolean true, not truthy strings such as \"false\"",
+assert.ok(
+  automationSettingAction.includes('requireAdminStepUp("system.manage", "/admin/automation")'),
+  "video automation settings must remain protected by the system-manage MFA step-up action.",
+);
+assert.ok(
+  videoGenerationRoute.includes("const deleteFailed = (body as { deleteFailed?: unknown }).deleteFailed === true;"),
+  "bulk video-request deletion must require an explicit boolean true, not truthy strings such as \"false\".",
+);
+assert.ok(
+  videoGenerationRoute.includes("requireAdminStepUpApi('video.delete', '/admin/video/requests')"),
+  "bulk video-request deletion must enforce the server-side video.delete step-up guard.",
+);
 assert.ok(
   route.includes("async function acquirePurgeLock(token: string)") &&
     route.includes("async function releasePurgeLock(token: string)") &&
