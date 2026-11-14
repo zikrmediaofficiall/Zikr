@@ -906,4 +906,41 @@ assert.match(sourceAgentCronMigration, /cron\.alter_job/);
 assert.match(sourceAgentCronMigration, /cron\.schedule\(/);
 assert.match(sourceAgentCronMigration, /zikr-source-verified-content-agent/);
 
+const pushSubscriptionAccessMigration = readFileSync(
+  "supabase/migrations/20261114200000_restrict_push_subscriptions_to_service_role.sql",
+  "utf8",
+);
+for (const policy of [
+  "push_subscriptions_select_own",
+  "push_subscriptions_insert_own",
+  "push_subscriptions_update_own",
+  "push_subscriptions_delete_own",
+]) {
+  assert.match(
+    pushSubscriptionAccessMigration,
+    new RegExp(`DROP POLICY IF EXISTS ${policy} ON public\\.push_subscriptions`, "i"),
+    `browser policy ${policy} must be removed from the server-managed push table`,
+  );
+}
+assert.match(
+  pushSubscriptionAccessMigration,
+  /REVOKE ALL PRIVILEGES ON TABLE public\\.push_subscriptions\\s+FROM PUBLIC, anon, authenticated/i,
+  "authenticated users must not be able to bypass the push endpoint validator through PostgREST",
+);
+assert.match(
+  pushSubscriptionAccessMigration,
+  /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\\.push_subscriptions\\s+TO service_role/i,
+  "only the server-side API and Edge worker may manage push subscriptions",
+);
+assert.doesNotMatch(
+  pushSubscriptionAccessMigration,
+  /DELETE FROM|TRUNCATE TABLE|DROP TABLE/i,
+  "push subscription hardening must preserve existing rows",
+);
+const pushSubscriptionRoute = readFileSync("src/app/api/push/subscription/route.ts", "utf8");
+const pushWorkerSource = readFileSync("supabase/functions/prayer-notification-worker/index.ts", "utf8");
+assert.match(pushSubscriptionRoute, /createAdminClient\\(\\)/, "the subscription API must use the service-role client");
+assert.match(pushSubscriptionRoute, /isAllowedPushEndpoint/, "the API must validate endpoint hosts before storing them");
+assert.match(pushWorkerSource, /isAllowedPushEndpoint/, "the worker must validate legacy endpoints before outbound push requests");
+
 console.log("Prayer notification subscription pagination and delivery lease contracts passed.");
