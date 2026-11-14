@@ -133,6 +133,31 @@ for (const token of [
 ]) {
   if (!approvalService.includes(token)) failures.push(`automated QA approval service missing integrity contract: ${token}`);
 }
+const kidsVideoPublicReadMigration = read(
+  "supabase/migrations/20261114210000_restrict_public_kids_video_read_to_qa_passed.sql",
+);
+for (const token of [
+  "DROP POLICY IF EXISTS videos_public_read ON public.videos;",
+  "CREATE POLICY videos_public_read",
+  "ON public.videos",
+  "FOR SELECT",
+  "TO anon, authenticated",
+  "published IS TRUE",
+  "lower(btrim(coalesce(metadata->>'audience', ''))) <> 'kids'",
+  "metadata->>'generator' = 'zikr_internal_video_factory'",
+  "metadata->>'kidsVideoQaStatus' = 'passed'",
+  "metadata->'automatedVideoQa'->>'status' = 'passed'",
+  "BEGIN;",
+  "COMMIT;",
+]) {
+  if (!kidsVideoPublicReadMigration.includes(token)) {
+    failures.push("Kids video public-read migration missing QA-gated RLS contract: " + token);
+  }
+}
+if (/DELETE FROM|TRUNCATE TABLE|DROP TABLE|DISABLE ROW LEVEL SECURITY/i.test(kidsVideoPublicReadMigration)) {
+  failures.push("Kids video public-read migration must not mutate video data or disable RLS");
+}
+
 const youtubePublisher = read("src/features/videos/services/video-automation.ts");
 if (!youtubePublisher.includes("containsSyntheticMedia: options.containsSyntheticMedia === true")) {
   failures.push("YouTube upload must carry the synthetic-media disclosure flag when realistic AI video is used");
