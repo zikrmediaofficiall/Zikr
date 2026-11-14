@@ -1011,13 +1011,13 @@ const kidsGameHierarchyMigration = readFileSync(
   "supabase/migrations/20261114220000_restrict_public_kids_game_hierarchy.sql",
   "utf8",
 );
-assert.match(kidsGameHierarchyMigration, /DROP POLICY IF EXISTS kids_game_levels_public_read ON public\\.kids_game_levels/i);
-assert.match(kidsGameHierarchyMigration, /CREATE POLICY kids_game_levels_public_read[\\s\\S]*?TO anon[\\s\\S]*?published IS TRUE/i);
-assert.match(kidsGameHierarchyMigration, /EXISTS[\\s\\S]*?FROM public\\.kids_games AS game[\\s\\S]*?game\\.id = kids_game_levels\\.game_id[\\s\\S]*?game\\.published IS TRUE/i);
-assert.match(kidsGameHierarchyMigration, /DROP POLICY IF EXISTS kids_game_questions_public_read ON public\\.kids_game_questions/i);
-assert.match(kidsGameHierarchyMigration, /CREATE POLICY kids_game_questions_public_read[\\s\\S]*?TO anon[\\s\\S]*?published IS TRUE/i);
-assert.match(kidsGameHierarchyMigration, /FROM public\\.kids_game_levels AS level[\\s\\S]*?JOIN public\\.kids_games AS game ON game\\.id = level\\.game_id[\\s\\S]*?level\\.id = kids_game_questions\\.level_id[\\s\\S]*?level\\.published IS TRUE[\\s\\S]*?game\\.published IS TRUE/i);
-assert.doesNotMatch(kidsGameHierarchyMigration, /DELETE FROM public\\.kids_game_levels|DELETE FROM public\\.kids_game_questions|TRUNCATE TABLE|DROP TABLE/i, "Kids game hierarchy hardening must preserve all game, level and question rows");
+assert.match(kidsGameHierarchyMigration, /DROP POLICY IF EXISTS kids_game_levels_public_read ON public\.kids_game_levels/i);
+assert.match(kidsGameHierarchyMigration, /CREATE POLICY kids_game_levels_public_read[\s\S]*?TO anon[\s\S]*?published IS TRUE/i);
+assert.match(kidsGameHierarchyMigration, /EXISTS[\s\S]*?FROM public\.kids_games AS game[\s\S]*?game\.id = kids_game_levels\.game_id[\s\S]*?game\.published IS TRUE/i);
+assert.match(kidsGameHierarchyMigration, /DROP POLICY IF EXISTS kids_game_questions_public_read ON public\.kids_game_questions/i);
+assert.match(kidsGameHierarchyMigration, /CREATE POLICY kids_game_questions_public_read[\s\S]*?TO anon[\s\S]*?published IS TRUE/i);
+assert.match(kidsGameHierarchyMigration, /FROM public\.kids_game_levels AS level[\s\S]*?JOIN public\.kids_games AS game ON game\.id = level\.game_id[\s\S]*?level\.id = kids_game_questions\.level_id[\s\S]*?level\.published IS TRUE[\s\S]*?game\.published IS TRUE/i);
+assert.doesNotMatch(kidsGameHierarchyMigration, /DELETE FROM public\.kids_game_levels|DELETE FROM public\.kids_game_questions|TRUNCATE TABLE|DROP TABLE/i, "Kids game hierarchy hardening must preserve all game, level and question rows");
 
 const publicVideoService = readFileSync("src/features/videos/services/videos.ts", "utf8");
 assert.match(publicVideoService, /metadata->>audience=eq\.kids/);
