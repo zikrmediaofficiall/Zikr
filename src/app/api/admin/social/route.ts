@@ -462,7 +462,7 @@ export async function GET() {
             : "النشر متوقف؛ لا يتم تشغيل العامل ما لم تُفعّل صلاحيات القنوات وإعداد النشر.",
         },
       },
-      { headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=120" } }
+      { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (error) {
     console.error("[api/admin/social] GET:", error);

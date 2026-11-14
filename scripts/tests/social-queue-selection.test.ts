@@ -422,6 +422,14 @@ const adminRoute = readFileSync("src/app/api/admin/social/route.ts", "utf8");
 assert.ok(adminRoute.includes('id=eq.${encodeURIComponent(item.id)}&status=eq.${encodeURIComponent(item.status)}'));
 assert.ok(adminRoute.includes('Prefer: "return=representation"'));
 assert.ok(adminRoute.includes("if (Array.isArray(updated) && updated[0]) affected += 1"));
+assert.ok(
+  adminRoute.includes('"Cache-Control": "private, no-store"'),
+  "the authenticated social queue response must not be browser-cached across admin session changes",
+);
+assert.ok(
+  !adminRoute.includes("private, max-age="),
+  "admin social queue data must not use a positive browser cache lifetime",
+);
 
 console.log("Social queue starvation regression checks passed.");
 
