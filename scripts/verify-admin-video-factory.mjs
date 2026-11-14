@@ -38,10 +38,6 @@ if (!approvalHelper.includes('snapshot.audience === "kids" && snapshot.kidsVideo
     !approvalHelper.includes('content.kidsVideoQaStatus !== "passed"')) {
   failures.push("Kids audience and safety QA status must be bound to the video approval snapshot");
 }
-if (!generation.includes("currentContent.kidsVideoQaStatus !== 'passed'") ||
-    !generation.includes("hasCompleteKidsVideoSeriesMetadata(currentContent)")) {
-  failures.push("manual video approval must not bypass the Kids safety QA gate");
-}
 if (!socialPublishing.includes("source_hash,content_hash,template_version")) {
   failures.push("social publisher must fetch current video source/content/template hashes before sending");
 }
@@ -50,6 +46,10 @@ if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)")) {
 }
 
 const generation = read("src/app/api/admin/video-generation/route.ts");
+if (!generation.includes("currentContent.kidsVideoQaStatus !== 'passed'") ||
+    !generation.includes("hasCompleteKidsVideoSeriesMetadata(currentContent)")) {
+  failures.push("manual video approval must not bypass the Kids safety QA gate");
+}
 const generationGet = generation.match(/export async function GET\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
 const generationDelete = generation.match(/export async function DELETE\([\s\S]*?(?=export async function PATCH|$)/)?.[0] ?? "";
 const generationPatch = generation.match(/export async function PATCH\([\s\S]*$/)?.[0] ?? "";
