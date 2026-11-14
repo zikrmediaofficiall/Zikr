@@ -1,14 +1,13 @@
 # ZIKR file status matrix — latest PR #320 overlay
 
-## Latest reconciliation — 2026-11-14T20:59:55Z
+## Latest reconciliation — 2026-11-14T21:34:00Z
 
-- Exact code/test head: `96c36d5e5bff32d8f8283643f09606fbea5dc005`; base main: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
-- PR changed files: 557; 555 reconciled non-snapshot paths plus the current overlay and manifest.
-- Current overlay: `docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14.md` covers 555 paths: 190 REVIEW_REQUIRED; 282 CONTENT_READ_TESTED_PASS; 53 CONTENT_READ_PENDING_TRACE; 4 SUPERSEDED_SNAPSHOT; 26 FIXED_TESTED_PENDING_LIVE_APPLY.
-- Repository tree at code/test head: 2399 entries (1900 blobs, 499 directories). The manifest is regenerated after the status/ledger update and excludes only itself.
-- The legacy video QA backfill now uses an updated-at compare-and-set, confirms exactly one returned row, and reports stale races without overwriting concurrent edits; regression tests and the full Quality Gate passed.
+- Exact code/test head: `47b35b7598f5287c97f07dcde623359060966e04`; base main: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- PR changed files: 559; current overlay covers 557 paths plus the overlay and manifest artifacts.
+- Statuses: 188 REVIEW_REQUIRED; 286 CONTENT_READ_TESTED_PASS; 53 CONTENT_READ_PENDING_TRACE; 4 SUPERSEDED_SNAPSHOT; 26 FIXED_TESTED_PENDING_LIVE_APPLY.
+- Repository tree: 2399 entries (1900 blobs; 499 directories). The manifest is regenerated after this update and excludes only itself.
+- Android generated Gradle files now match `cap sync` and the lockfile; the final debug build/diff check and full Quality Gate passed.
 - The 2026-11-01 baseline remains historical with 1,525 review-required rows. The audit is not closed.
-
 ---
 
 ZIKR file status matrix — refreshed 2026-11-14T1443Z

@@ -1,5 +1,19 @@
 # ZIKR Continuous Closeout Ledger
 
+## 2026-11-14T21:34:00Z — PR #320 Android Gradle sync repair and full verification
+
+- Exact code/test head: `47b35b7598f5287c97f07dcde623359060966e04`; base: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; PR changed files: 559; overlay rows: 557.
+- Status counts: REVIEW_REQUIRED=188, CONTENT_READ_TESTED_PASS=286, CONTENT_READ_PENDING_TRACE=53, SUPERSEDED_SNAPSHOT=4, FIXED_TESTED_PENDING_LIVE_APPLY=26.
+- Fixed stale Capacitor Android generated files: all pnpm peer paths now use locked core 7.6.9; the Android project and app build include `capgo-capacitor-social-login` 7.20.0. The mobile verifier and OAuth regression test enforce this contract; the Android debug workflow runs a post-sync `git diff --exit-code`.
+- One intermediate diff check failed only because of a trailing blank line; the file was aligned with the actual `cap sync` output in `47b35b7`. The latest post-sync diff check passed.
+- Quality Gate `43643147440`: success (Deno, 13 PostgreSQL 17 checks, canonical verification). Android Debug APK `43643147491`: success (debug only). CircleCI config validation `43643147495` and the three required CircleCI contexts: success.
+- Native ad-free verifier passed: Monetag/SmartLink/GTM/Funding Choices/AdSense are blocked in Capacitor; no content or ads were generated.
+- iOS uses browser PKCE, so no iOS SocialLogin pod was added. Apple Team ID and AASA app ID remain owner/device acceptance.
+- Production Supabase remains read-only: 23 migrations pending, missing schema/RPC contracts, Kids RLS and Storage policy issues, and stale deployed Edge Functions remain as recorded in the migration ledger. Vercel production remains READY on main `c4560d9`; audit branch not deployed.
+- CODEOWNERS approval absent; branch-protection API inaccessible (403). No merge or deploy. No production mutation, Gemini request, content generation, social publish, storage/media/index/secret deletion, or Android release.
+
+---
+
 ## 2026-11-14T20:59:55Z — PR #320 checkpoint, production contract audit and backfill CAS repair
 
 ### Exact Git state

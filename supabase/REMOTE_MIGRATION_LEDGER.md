@@ -349,3 +349,12 @@ The older `public.plan_background_reminder_deliveries(timestamptz)` function exi
 - Performance advisor: 78 unused-index notices. No indexes were dropped.
 - Health advisor: no lints.
 - This was read-only inspection. No production DDL/DML, Storage object mutation, content generation, Gemini call, social publish, secret change or release was performed.
+
+## 2026-11-14 mobile/Capacitor repository reconciliation — code/test head 47b35b7598f5287c97f07dcde623359060966e04
+
+- Android package uses `@capgo/capacitor-social-login` 7.20.0 for native Google login. The committed `android/capacitor.settings.gradle` previously had stale Capacitor 7.4.3 pnpm paths and omitted the social-login Gradle project even though `MainActivity` references its plugin. The debug workflow's `cap sync` regenerated the correct project and had masked this repository drift.
+- Fixed the tracked generated files to match lockfile Capacitor core 7.6.9/platform 7.6.10 and plugin 7.20.0; added the app dependency; the readiness verifier and native OAuth regression test assert exact lockfile paths; the Android workflow now fails if `cap sync` changes either committed Gradle file.
+- Final verification: Quality Gate `43643147440` success; Android Debug APK `43643147491` success including post-sync diff check; CircleCI config validation `43643147495` success and required CircleCI contexts success. Debug artifact only; no release.
+- iOS deliberately uses HTTPS PKCE through the system browser; the Android-only SocialLogin plugin is not required in the iOS Podfile. Xcode project has no `DEVELOPMENT_TEAM`; the AASA route requires `IOS_ASSOCIATED_DOMAIN_APP_ID`. Owner must configure signing/app association and perform physical-device acceptance. The Vercel environment-variable listing was not available in this pass, so no claim is made that the AASA variable is currently configured.
+- Native advertising contract was read and verified: Capacitor runtime exits before Monetag, SmartLink, GTM, Funding Choices and AdSense injection; native service-worker mode skips Monetag. The mobile ad-free verification passed in Quality Gate `43643147440`.
+- No production deployment, app-store release, Gemini request, social publishing, or production data/storage mutation was triggered.
