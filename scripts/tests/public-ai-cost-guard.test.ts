@@ -85,6 +85,19 @@ assert.match(apiHealthSource, /Live generation is intentionally not invoked by h
 const geminiClientSource = readFileSync('src/features/spiritual-ai/services/gemini-client.ts', 'utf8');
 assert.match(geminiClientSource, /systemInstruction: systemInstruction\.trim\(\)/);
 assert.match(geminiClientSource, /streamGeminiText\([\s\S]*systemInstruction\?: string/);
+const directGeminiRetryStart = geminiClientSource.indexOf('async function callDirectSdk');
+const directGeminiRetryEnd = geminiClientSource.indexOf('export async function generateGeminiText', directGeminiRetryStart);
+const directGeminiRetrySource = geminiClientSource.slice(directGeminiRetryStart, directGeminiRetryEnd);
+assert.match(directGeminiRetrySource, /let sawTransientFailure = false/);
+assert.match(directGeminiRetrySource, /if \(isTransientGeminiError\(err\)\) \{\s*sawTransientFailure = true/);
+assert.match(directGeminiRetrySource, /if \(sawTransientFailure\) await backoff\(attempt \+ 1\)/,
+  'transient text-generation failures must back off before rotating to the next API key');
+const audioGeminiRetryStart = geminiClientSource.indexOf('export async function generateGeminiFromAudio');
+const audioGeminiRetrySource = geminiClientSource.slice(audioGeminiRetryStart);
+assert.match(audioGeminiRetrySource, /let sawTransientFailure = false/);
+assert.match(audioGeminiRetrySource, /if \(isTransientGeminiError\(err\)\) \{\s*sawTransientFailure = true/);
+assert.match(audioGeminiRetrySource, /if \(sawTransientFailure\) await backoff\(attempt \+ 1\)/,
+  'transient audio-generation failures must back off before rotating to the next API key');
 const aiHelpersSource = readFileSync('src/features/spiritual-ai/services/ai.ts', 'utf8');
 assert.match(aiHelpersSource, /ISLAMIC_AI_HELPER_SYSTEM_INSTRUCTION/);
 assert.match(aiHelpersSource, /generateGeminiText\(prompt, 1500, ISLAMIC_AI_HELPER_SYSTEM_INSTRUCTION\)/,
