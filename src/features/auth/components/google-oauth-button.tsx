@@ -7,7 +7,7 @@ import { SocialLogin } from "@capgo/capacitor-social-login";
 import { Button } from "@/components/ui/button";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { PRODUCTION_URL, isV0PreviewHost } from "@/lib/site";
-import { sanitizeInternalPath } from "@/lib/safe-redirect";
+import { getSafeInternalPath } from "@/lib/safe-relative-path";
 
 type GoogleOAuthButtonProps = {
   next?: string;
@@ -15,10 +15,6 @@ type GoogleOAuthButtonProps = {
 };
 
 let nativeGoogleInitialization: Promise<void> | null = null;
-
-function getSafeNextPath(next?: string): string {
-  return sanitizeInternalPath(next);
-}
 
 function getCanonicalBrowserOrigin(): string {
   if (typeof window !== "undefined") {
@@ -179,7 +175,7 @@ export function GoogleOAuthButton({ next, label }: GoogleOAuthButtonProps) {
     setLoading(true);
     setError(null);
     setBrowserFallbackAvailable(false);
-    const safeNext = getSafeNextPath(next);
+    const safeNext = getSafeInternalPath(next, window.location.origin);
 
     try {
       const isNative = Capacitor.isNativePlatform();
@@ -250,7 +246,7 @@ export function GoogleOAuthButton({ next, label }: GoogleOAuthButtonProps) {
     try {
       await startBrowserGoogleOAuth(
         createBrowserSupabaseClient(),
-        getSafeNextPath(next),
+        getSafeInternalPath(next, window.location.origin),
         true,
         false,
       );

@@ -62,6 +62,10 @@ if (!trustedOriginBody.includes("new URL(request.url).origin") || /x-forwarded-(
 requireText("browser Google button", button, "provider: \"google\"");
 requireText("browser Google button", button, "redirectTo");
 requireText("native Google handler", native, 'url.pathname === "/callback"');
+requireText("native Google handler", native, 'url.searchParams.get("native") === "1"');
+requireText("browser Google button", button, "getSafeInternalPath(next, window.location.origin)");
+requireText("native Google handler", native, "getSafeInternalPath(parsed.searchParams.get(\"next\"), window.location.origin)");
+requireText("auth-safe-path", read("src/lib/safe-relative-path.ts"), "target.origin !== base.origin");
 requireText("callback route", callback, "exchangeCodeForSession");
 requireText("callback route", callback, "extractNextPath");
 requireText("callback route", callback, "getTrustedAuthOrigin");

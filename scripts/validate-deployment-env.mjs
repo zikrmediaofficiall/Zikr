@@ -75,6 +75,9 @@ for (const name of REQUIRED) {
 for (const name of OPTIONAL) {
   if (!env(name)) add("warn", name, "optional integration is not configured");
 }
+if (env("YOUTUBE_REFRESH_TOKEN")) {
+  add("warn", "Legacy YouTube refresh token", "The current runtime ignores YOUTUBE_REFRESH_TOKEN; analytics and publishing require a scope-verified credential stored through Admin → Social in Supabase.");
+}
 
 const googleWebClientId = env("NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID");
 if (googleWebClientId && !/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.test(googleWebClientId)) {

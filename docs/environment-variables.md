@@ -48,13 +48,12 @@ YouTube:
 - `YOUTUBE_CHANNEL_ID`
 - `YOUTUBE_CLIENT_ID`
 - `YOUTUBE_CLIENT_SECRET`
-- `YOUTUBE_UPLOAD_PRIVACY` — visibility for automatic video uploads (`public`, `unlisted`, or `private`; defaults to `public`).
-- `YOUTUBE_REFRESH_TOKEN` — legacy/ignored by active workers; do not provision it.
- 
-YouTube remote deletion is not supported by the current integration. The Admin OAuth callback and stored credential reader intentionally reject delete-capable scopes; do not add them to the publishing token or `youtube_oauth_credentials`. A separate owner-approved delete-only credential store and OAuth flow is required before enabling remote YouTube deletion. The legacy `YOUTUBE_REFRESH_TOKEN` environment variable is ignored by the production reader. Never expose refresh tokens to the browser or copy them into Vercel/GitHub Actions environment variables.
 
+`YOUTUBE_REFRESH_TOKEN` is a legacy environment name retained for compatibility only. The current runtime does **not** read it and does not use it as a fallback. YouTube analytics and publishing use scope-verified credentials stored server-side in Supabase's `youtube_oauth_credentials` table. Connect or reconnect the channel through Admin → Social; the OAuth callback stores the granted scopes and channel identity. Do not copy refresh tokens into Vercel variables or GitHub Actions.
 
-The channel connection check prefers OAuth. If the refresh token lacks YouTube channel-read scope, it can still read public channel name/statistics using the server-only `YOUTUBE_API_KEY` and exact `YOUTUBE_CHANNEL_ID`. This public fallback does not grant private YouTube Analytics access; 28-day owner analytics requires reauthorizing OAuth with `youtube.readonly` and `yt-analytics.readonly` scopes, then reconnecting from Admin so the server-only Supabase credential is updated.
+The standard Admin connection requests upload, channel-read, and analytics-read scopes. Remote YouTube deletion requires a separate destructive scope (`youtube.force-ssl`, `youtube`, or `youtubepartner`) that the standard connection does not request. Remote deletion therefore remains fail-closed until a separately approved, explicit-consent flow is implemented. Never broaden the standard publishing credential to include destructive scopes.
+
+The channel connection check can read public channel name/statistics using the server-only `YOUTUBE_API_KEY` and exact `YOUTUBE_CHANNEL_ID`. This public fallback does not grant private YouTube Analytics access; owner analytics requires the stored credential to include `youtube.readonly` and `yt-analytics.readonly` scopes, then reconnecting through Admin → Social so Supabase stores the new scope set.
 
 Facebook / Meta:
 

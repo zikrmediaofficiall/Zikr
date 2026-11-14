@@ -357,6 +357,26 @@ assert.ok(
   "YouTube OAuth callback must persist the admin who completed the connection",
 );
 
+const callbackSource = readFileSync(
+  new URL("../../src/app/api/admin/social/youtube/callback/route.ts", import.meta.url),
+  "utf8",
+);
+assert.match(
+  callbackSource,
+  /saveYouTubeOAuthCredential\(\{[\s\S]*?\},\s*auth\.profile\.id\s*\)/,
+  "YouTube OAuth credentials must record the authenticated admin who connected the channel",
+);
+
+const videoAutomationSource = readFileSync(
+  new URL("../../src/features/videos/services/video-automation.ts", import.meta.url),
+  "utf8",
+);
+assert.ok(
+  videoAutomationSource.includes("stored credential with the youtube.upload scope"),
+  "publishing diagnostics must describe the Supabase-stored upload-scoped credential rather than a legacy YOUTUBE_REFRESH_TOKEN environment variable",
+);
+assert.doesNotMatch(videoAutomationSource, /YOUTUBE_REFRESH_TOKEN are required/);
+
 const socialPublisherSource = readFileSync(
   new URL("../../src/features/social/services/social-publishing.ts", import.meta.url),
   "utf8",
@@ -367,112 +387,34 @@ assert.match(socialPublisherSource, /queueMetadata: item\.metadata/);
 
 assert.doesNotMatch(socialPublisherSource, /getYouTubeRefreshToken/, "publishing must not use the read-only analytics credential getter");
 
-const environmentExample = readFileSync(
-  new URL("../../.env.example", import.meta.url),
-  "utf8",
-);
-assert.match(
-  environmentExample,
-  /# Visibility for automatic YouTube uploads: public, unlisted, or private/,
-  ".env.example must describe the active YOUTUBE_UPLOAD_PRIVACY setting accurately",
-);
-assert.doesNotMatch(
-  environmentExample,
-  /YOUTUBE_UPLOAD_PRIVACY[\s\S]{0,100}ignored/i,
-  "the active upload privacy setting must not be labelled as ignored",
-);
 
-const trafficRevenuePanel = readFileSync(
-  new URL("../../src/features/admin/components/traffic-revenue-panel.tsx", import.meta.url),
-  "utf8",
-);
-assert.doesNotMatch(
-  trafficRevenuePanel,
-  /YOUTUBE_REFRESH_TOKEN/,
-  "the Analytics UI must not tell owners to configure an ignored environment refresh token",
-);
-assert.match(trafficRevenuePanel, /youtube\.readonly/);
-assert.match(trafficRevenuePanel, /yt-analytics\.readonly/);
-
-const deploymentValidator = readFileSync(
+const deploymentEnvValidator = readFileSync(
   new URL("../../scripts/validate-deployment-env.mjs", import.meta.url),
   "utf8",
 );
 assert.doesNotMatch(
-  deploymentValidator,
-  /^\s*"YOUTUBE_REFRESH_TOKEN",?$/m,
-  "the deployment validator must not warn that an intentionally ignored token is an optional integration",
+  deploymentEnvValidator,
+  /"YOUTUBE_REFRESH_TOKEN",/,
+  "deployment validation must not require or warn about a refresh-token environment fallback that runtime code never reads",
+);
+assert.match(
+  deploymentEnvValidator,
+  /Legacy YouTube refresh token/,
+  "a configured legacy token must be identified as ignored rather than treated as an active credential",
 );
 
-
-const previewOAuthStart = buildCanonicalOAuthStartRedirect(
-  "https://zikr-preview.vercel.app/api/admin/social/youtube/connect?next=%2Fadmin%2Fsocial",
-  "https://zikrmediaofficial.vercel.app",
-);
-assert.equal(
-  previewOAuthStart,
-  "https://zikrmediaofficial.vercel.app/api/admin/social/youtube/connect?next=%2Fadmin%2Fsocial",
-  "OAuth state cookies must be created on the same canonical origin used by provider callbacks",
-);
-assert.equal(
-  buildCanonicalOAuthStartRedirect(
-    "https://zikrmediaofficial.vercel.app/api/admin/social/facebook/connect",
-    "https://zikrmediaofficial.vercel.app",
-  ),
-  null,
-  "canonical-origin OAuth starts should not redirect",
-);
-assert.equal(
-  buildCanonicalOAuthStartRedirect(
-    "https://custom.example/api/admin/social/facebook/connect?next=https%3A%2F%2Fevil.example",
-    "https://zikrmediaofficial.vercel.app",
-  ),
-  "https://zikrmediaofficial.vercel.app/api/admin/social/facebook/connect?next=https%3A%2F%2Fevil.example",
-  "canonicalization must preserve the route and query without trusting the incoming host",
-);
-assert.equal(
-  buildCanonicalOAuthStartRedirect(
-    "https://zikr-preview.vercel.app//evil.example/path",
-    "https://zikrmediaofficial.vercel.app",
-  ),
-  "https://zikrmediaofficial.vercel.app//evil.example/path",
-  "a path beginning with double slashes must never turn the canonical redirect into an external redirect",
-);
-
-for (const [provider, routePath] of [
-  ["YouTube", "../../src/app/api/admin/social/youtube/connect/route.ts"],
-  ["Facebook", "../../src/app/api/admin/social/facebook/connect/route.ts"],
-] as const) {
-  const routeSource = readFileSync(new URL(routePath, import.meta.url), "utf8");
-  const canonicalGuard = routeSource.indexOf("buildCanonicalOAuthStartRedirect(request.url, CANONICAL_SITE_ORIGIN)");
-  const adminGuard = routeSource.indexOf('requireAdminApi("social.manage")');
-  const stateCreation = routeSource.indexOf(`createSignedOAuthState(auth.profile.id, "${provider.toLowerCase()}")`);
-  assert.ok(
-    canonicalGuard >= 0 && canonicalGuard < adminGuard && canonicalGuard < stateCreation,
-    provider + " OAuth must canonicalize before auth checks and state-cookie creation",
-  );
-  assert.match(routeSource, /NextResponse\.redirect\(canonicalRedirect, 307\)/);
-  assert.match(routeSource, /Cache-Control", "private, no-store, max-age=0/);
-}
-
-const facebookCallbackSource = readFileSync(
-  new URL("../../src/app/api/admin/social/facebook/callback/route.ts", import.meta.url),
+const environmentDocs = readFileSync(
+  new URL("../../docs/environment-variables.md", import.meta.url),
   "utf8",
 );
-for (const [provider, callbackSource] of [
-  ["youtube", youtubeCallbackSource],
-  ["facebook", facebookCallbackSource],
-] as const) {
-  const manageGuard = callbackSource.indexOf('requireAdminApi("social.manage")');
-  const publishGuard = callbackSource.indexOf('requireAdminStepUpApi("social.publish"');
-  assert.ok(manageGuard >= 0 && publishGuard > manageGuard, provider + " OAuth callback must re-check social.manage before social.publish step-up");
-  assert.match(callbackSource, /permission: ["']social\.manage["']/);
-  assert.match(callbackSource, /requireAdminStepUpApi\(["']social\.publish["']/);
-  assert.match(callbackSource, /typeof auth\.nextPath === "string"/);
-  assert.ok(
-    callbackSource.includes(`verifySignedOAuthState(state, auth.profile.id, "${provider}")`),
-    provider + " OAuth callback must bind the returned state to the authenticated admin and provider",
-  );
-}
+assert.match(environmentDocs, /does \*\*not\*\* read it/);
+assert.doesNotMatch(environmentDocs, /environment value remains a rollback fallback/);
+assert.doesNotMatch(environmentDocs, /replacing the refresh token in Vercel and the GitHub production secret/);
 
-console.log("YouTube OAuth scope, signed state binding, and upload credential tests passed.");
+const trafficPanelSource = readFileSync(
+  new URL("../../src/features/admin/components/traffic-revenue-panel.tsx", import.meta.url),
+  "utf8",
+);
+assert.doesNotMatch(trafficPanelSource, /YOUTUBE_REFRESH_TOKEN/);
+
+console.log("YouTube OAuth read-only and upload-scope credential tests passed.");

@@ -7,7 +7,7 @@
 
 import { getServerEnv } from "@/lib/env";
 import { PRODUCTION_URL, isV0PreviewHost } from "@/lib/site";
-import { sanitizeInternalPath } from "@/lib/safe-redirect";
+import { getSafeInternalPath } from "@/lib/safe-relative-path";
 
 /**
  * Build OAuth redirect URI
@@ -141,7 +141,5 @@ export function getTrustedAuthOrigin(request: Request): string {
  * Validates against open-redirect: only same-origin relative paths are allowed.
  */
 export function extractNextPath(searchParams: URLSearchParams): string {
-  const safePath = sanitizeInternalPath(searchParams.get("next"));
-  const hashIndex = safePath.indexOf("#");
-  return hashIndex === -1 ? safePath : safePath.slice(0, hashIndex);
+  return getSafeInternalPath(searchParams.get("next"), "http://localhost");
 }
