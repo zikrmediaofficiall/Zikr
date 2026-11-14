@@ -1,5 +1,51 @@
 # ZIKR Project Status
 
+## Latest verified checkpoint — 2026-11-14T20:59:55Z
+
+**State: IN PROGRESS — NOT MERGE-READY OR DEPLOYED.**
+
+- PR: [#320](https://github.com/zikrofficial-X/Zikr/pull/320), branch `audit/zikr-kids-daily-priority-20261110`.
+- Exact code/test head: `96c36d5e5bff32d8f8283643f09606fbea5dc005`; base main: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- PR changed files: 557 (555 reconciled paths plus the current overlay and manifest).
+- Current file-status overlay: `docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14.md` (555 rows). Statuses: REVIEW_REQUIRED: 190; CONTENT_READ_TESTED_PASS: 282; CONTENT_READ_PENDING_TRACE: 53; SUPERSEDED_SNAPSHOT: 4; FIXED_TESTED_PENDING_LIVE_APPLY: 26.
+- Repository tree at code/test head: 2399 entries (1900 blobs; 499 directories). The paired manifest is regenerated after this status update and excludes only its own blob.
+- The 2026-11-01 baseline file-status matrix remains historical and reports 1,525 review-required rows; this audit does not claim repository-wide closure.
+
+### Verification at the exact code/test head
+
+- GitHub Actions **ZIKR Quality Gate** run [43640413903](https://github.com/zikrofficial-X/Zikr/actions/runs/43640413903): success. The full gate completed Deno Edge Function type-checking, 13 PostgreSQL 17 integration checks, the canonical source/architecture gate and the full verification path.
+- Android Native Login Debug APK run [43640413950](https://github.com/zikrofficial-X/Zikr/actions/runs/43640413950): success; debug artifact only, no signed release or Play upload.
+- CircleCI Config Validation run [43640413897](https://github.com/zikrofficial-X/Zikr/actions/runs/43640413897): success. CircleCI `source-verify`, `application-build-docs`, and `config-guard` contexts: success.
+- No failed or pending check was bypassed. PR checks are green; CODEOWNERS approval is still absent.
+
+### Repair batch completed at this head
+
+- Fixed a compare-and-set race in `scripts/jobs/backfill-legacy-video-qa.ts`: the script previously patched the entire JSON content using only status/QA-state guards and ignored a zero-row PATCH response. It now selects and filters on the original `updated_at`, requests `return=representation`, requires exactly one updated row, and reports a zero-row race as `stale` rather than success.
+- Added `src/features/videos/services/video-qa-backfill-policy.ts` and `scripts/tests/video-qa-backfill-policy.test.ts`; regression tests cover one-row success, zero-row stale CAS, and malformed/multiple-row fail-closed results. The canonical source gate also checks the CAS contract.
+- The backfill workflow/script was not run; no production row was changed.
+
+### Read-only production Supabase findings
+
+- Project: `zqtssvlvmkzeeyqghqfk` (active/healthy). Remote migration history: 418 versions; repository: 441 migration files; 23 local migrations remain unapplied, latest remote version `20261110170000`. No remote-only version was found. The complete pending list and per-migration review are in `supabase/REMOTE_MIGRATION_LEDGER.md`.
+- Production contracts still missing: `background_reminder_preferences.timezone`, `youtube_sync_state.playlists`, `site_audio_upload_intents`, RPCs `save_default_prayer_location`, `admin_update_user_role`, `video_storage_retention_contract_ready`, and `update_video_storage_retention`. `plan_background_reminder_deliveries` exists in its older deployed form. Dependent routes/actions are not deploy-safe until their migrations are owner-reviewed and applied.
+- Kids RLS: anonymous SELECT currently uses only `published = true` on `kids_content`; read-only counts show 20 published+active stories whose `metadata.age_appropriate` is absent/false. Application filtering does not prevent direct anonymous Supabase REST reads. Migration `20261110212000` fixes this but is pending.
+- Kids game policies: anonymous published-question SELECT can expose `correct_index`; there are currently 0 published questions, so this is latent rather than a present row leak. Published levels under unpublished games currently count 0, but the current level policy lacks the parent-publication condition. Migrations `20261111170000` and `20261111040000` address these contracts.
+- Storage RLS: production still has `video_assets_admin_insert/update/delete` policies using `profiles.role = 'admin'` without the intended owner-prefix/role-assignment restriction; direct writes can bypass the audited step-up signed-upload route. The `site_audio_admin_insert/delete` policies also permit direct authenticated writes for full admins, bypassing upload intents. `public_assets_admin_write` remains despite no application consumer found. Migrations `20261114030000` and `20261113220000` remove these browser write paths but are pending.
+- The `site_audio_upload_intents` table is absent, so the new site-audio upload/registration/delete-intent flow cannot work until its migration is applied. The current videos bucket limit is 512 MiB; migration `20261114100000` lowers it to the 50 MiB application cap. No bucket settings or objects were changed.
+- Background jobs: `zikr-prayer-push-dispatch` and `zikr-source-verified-content-agent` are active; `zikr-youtube-facebook-sync` is inactive. No media-cleanup cron exists. Deployed Edge Functions are `prayer-notification-worker` v77, `source-verified-content-agent` v14, `spiritual-ai` v2, and `health` v2. The deployed prayer worker and source agent are older than the repository sources. No Edge Function was deployed.
+- The legacy `cleanup-media` route is unscheduled, the `youtube-facebook-media` bucket is absent, and no cleanup Edge Function is deployed. The sync cron is inactive. No cleanup was triggered.
+- Supabase security advisor: leaked-password protection is disabled (owner setting). Performance advisor: 78 unused-index notices; no index was dropped. Health advisor: no lints.
+
+### Vercel, governance and remaining acceptance
+
+- Current production Vercel deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu` is READY on main commit `c4560d9`; the public homepage returned HTML. The audit branch has not been deployed. Robots, sitemap, health, AASA and assetlinks responses were not confirmed by the web crawler in this pass, so no smoke-pass claim is made for them.
+- `vercel.json` disables automatic Git deployments; production deployment requires the owner-approved manual deploy path.
+- CODEOWNERS requires `@Zikrmediaofficial`; PR #320 has no reviews and no requested reviewers. The branch-protection endpoint returned 403, so its current settings could not be verified. No merge was attempted.
+- The main-branch `english-content-sync` failure remains an owner-only acceptance item; it was not rerun because that workflow calls Gemini and writes production Supabase.
+- Remaining: 190 review-required paths, 53 pending trace, 26 fixed-but-pending-live-apply items, and 4 superseded snapshots; owner review; safe migration application; approved Edge Function deployment; manual Vercel deployment and smoke checks; Apple Team ID/bundle ID and physical iOS acceptance; physical Android acceptance and any release signing. No production DB mutation, content generation, Gemini request, social publish, storage/media/index/secret deletion, Android release, merge or deployment was performed.
+
+---
+
 ## Latest verified checkpoint — 2026-11-14T18:38:18Z
 
 **State: IN PROGRESS — NOT MERGE-READY OR DEPLOYED.**

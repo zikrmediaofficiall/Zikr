@@ -1,5 +1,46 @@
 # ZIKR Continuous Closeout Ledger
 
+## 2026-11-14T20:59:55Z — PR #320 checkpoint, production contract audit and backfill CAS repair
+
+### Exact Git state
+
+- Repository: `zikrofficial-X/Zikr`
+- PR: [#320](https://github.com/zikrofficial-X/Zikr/pull/320)
+- Branch: `audit/zikr-kids-daily-priority-20261110`
+- Base main SHA: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`
+- Verified code/test head: `96c36d5e5bff32d8f8283643f09606fbea5dc005`
+- PR changed files: 557; current overlay covers 555 paths and the paired manifest is self-excluding.
+- Overlay statuses: REVIEW_REQUIRED=190, CONTENT_READ_TESTED_PASS=282, CONTENT_READ_PENDING_TRACE=53, SUPERSEDED_SNAPSHOT=4, FIXED_TESTED_PENDING_LIVE_APPLY=26.
+- Repository tree at code/test head: 2399 entries (1900 blobs, 499 directories).
+
+### Repair and regression evidence
+
+- Legacy video QA backfill now uses an `updated_at` compare-and-set and `Prefer: return=representation`; it confirms exactly one row was changed. A concurrent edit returns a stale result rather than being overwritten or reported as success.
+- Added the pure backfill response classifier and tests for one-row success, zero-row stale, and malformed/multiple-row failure. The verifier now checks the CAS contract.
+- Quality Gate run `43640413903`: success, including Deno type checks, 13 PostgreSQL 17 integration checks and the canonical source/architecture gate.
+- Android Native Login Debug APK run `43640413950`: success (debug only).
+- CircleCI Config Validation run `43640413897`: success; CircleCI `source-verify`, `application-build-docs`, and `config-guard`: success.
+- The backfill itself was not run.
+
+### Production preflight — read-only only
+
+- Supabase project `zqtssvlvmkzeeyqghqfk`: 418 remote migrations vs 441 local; 23 pending; latest remote `20261110170000`. The full list and migration-by-migration review are in `supabase/REMOTE_MIGRATION_LEDGER.md`.
+- Missing deployed contracts: `background_reminder_preferences.timezone`, `youtube_sync_state.playlists`, `site_audio_upload_intents`, `save_default_prayer_location`, `admin_update_user_role`, `video_storage_retention_contract_ready`, `update_video_storage_retention`. Existing `plan_background_reminder_deliveries` is older than the local timezone-aware migration.
+- Current Kids public RLS allows direct anonymous reads of 20 active/published stories without age approval. Published game questions currently count 0, but the anonymous policy would expose `correct_index` when questions are published. Published levels under unpublished games currently count 0; the policy still lacks the parent-published condition.
+- Video and site-audio Storage policies still permit direct browser writes; the new migrations that remove those policies are pending. The videos bucket is currently 512 MiB while the local migration/application cap is 50 MiB.
+- Active cron jobs include prayer push and source-verified content agent; YouTube/Facebook sync is inactive; no media-cleanup cron or cleanup Edge Function is deployed. Deployed prayer worker v77 and source agent v14 are older than repository sources. No functions were deployed.
+- Security advisor: leaked-password protection disabled. Performance advisor: 78 unused-index notices; no index deletion. Health advisor: no lints.
+
+### Vercel and owner gates
+
+- Production Vercel deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu` remains READY on main `c4560d9`; the audit branch is not deployed. Homepage HTML was reachable; other smoke endpoints were not confirmed by the web crawler.
+- Git deployments are disabled in `vercel.json`; manual owner-approved deploy required.
+- CODEOWNERS requires `@Zikrmediaofficial`; PR has no review and no requested reviewer. Branch-protection API access returned 403; no merge was attempted.
+- Main `english-content-sync` remains failed from the prior verified checkpoint and was not rerun due Gemini/production-write side effects.
+- No production mutation, content generation, Gemini request, social publish, storage/media/index/secret deletion, Android release, merge or deploy occurred.
+
+---
+
 ## 2026-11-14T18:38:18Z — PR #320 full-scope verification and production contract preflight
 
 ### Exact Git state

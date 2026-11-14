@@ -270,3 +270,82 @@ The atomic prayer-location migration `20261114040000_save_default_prayer_locatio
 - Live Storage metadata: `videos.file_size_limit = 536870912` (512 MiB); `android-releases.file_size_limit = 52428800` (50 MiB). The connected organization is on the Free plan and the repository's global Storage default is 50 MiB. The existing Android release bucket migration and the 2026-10-09 413 incident record establish the 50 MiB project ceiling.
 - Audit repair: `20261114100000_videos_bucket_free_tier_limit.sql` aligns the existing `videos` bucket to 50 MiB. API validation, storage purpose contract, admin upload field and local Supabase config are aligned to the same ceiling. This forward migration is local-only and remains pending owner approval.
 - No production SQL was executed beyond read-only SELECTs; no bucket setting was changed, no object or media was deleted, and no upload was performed.
+
+
+## 2026-11-14 read-only production contract preflight — code/test head 96c36d5e5bff32d8f8283643f09606fbea5dc005
+
+### Migration inventory
+
+- Live project: `zqtssvlvmkzeeyqghqfk`, status ACTIVE_HEALTHY.
+- Remote migration versions: 418.
+- Repository migration files: 441.
+- Local-only pending versions: 23.
+- Remote-only versions: 0.
+- Latest remote version: `20261110170000`.
+- No migration was applied during this audit.
+
+Pending local migrations (all reviewed from their actual SQL contents):
+
+1. `20261110212000_kids_content_public_read_respects_active_state.sql`
+2. `20261111000000_revoke_anon_public_admin_predicate.sql`
+3. `20261111003000_expand_kids_content_supported_types.sql`
+4. `20261111010000_background_reminders_respect_quiet_hours_timezone.sql`
+5. `20261111020000_admin_role_update_blocks_self_demotion.sql`
+6. `20261111030000_prophet_sections_public_read_requires_published_parent.sql`
+7. `20261111040000_kids_game_levels_require_published_game.sql`
+8. `20261111050000_admin_role_assignments_service_role_only.sql`
+9. `20261111153000_harden_video_storage_retention_rpc.sql`
+10. `20261111170000_kids_game_questions_require_published_parent.sql`
+11. `20261112103200_revoke_client_non_dml_table_privileges.sql`
+12. `20261113000000_background_reminder_intervals_allow_disabled.sql`
+13. `20261113190000_harden_admin_managed_content_write_permissions.sql`
+14. `20261113200000_youtube_sync_state_playlist_cache.sql`
+15. `20261113210000_reconcile_source_agent_cron_project_ref.sql`
+16. `20261113220000_remove_direct_site_audio_storage_write_policies.sql`
+17. `20261113230000_content_publish_queue_one_active_item.sql`
+18. `20261114000000_site_audio_upload_intents.sql`
+19. `20261114010000_social_publish_queue_target_platform_contract.sql`
+20. `20261114020000_revoke_client_default_function_execute.sql`
+21. `20261114030000_scope_video_storage_writes.sql`
+22. `20261114040000_save_default_prayer_location_atomically.sql`
+23. `20261114100000_videos_bucket_free_tier_limit.sql`
+
+### Missing production schema/function contracts
+
+Read-only catalog checks found these contracts absent:
+
+- Column `public.background_reminder_preferences.timezone`.
+- Column `public.youtube_sync_state.playlists`.
+- Table `public.site_audio_upload_intents`.
+- RPC `public.save_default_prayer_location(text,text,double precision,double precision,text)`.
+- RPC `public.admin_update_user_role(uuid,uuid,text,text)`.
+- RPC `public.video_storage_retention_contract_ready()`.
+- RPC `public.update_video_storage_retention(uuid,jsonb)`.
+
+The older `public.plan_background_reminder_deliveries(timestamptz)` function exists, but its deployed definition predates the local timezone-aware planner migration. Application routes/actions that depend on the missing contracts must not be deployed before owner-reviewed migration application and post-apply verification.
+
+### Current production RLS/Storage findings
+
+- `kids_content_public_read` currently permits anonymous SELECT using only `published = true`. A read-only count found 20 published, active story rows whose `metadata.age_appropriate` is absent or not true. These rows are reachable through direct anonymous Supabase REST despite application-level filtering. Migration `20261110212000` fixes the policy; no content rows were edited.
+- `kids_game_questions_public_read` permits anonymous SELECT of published rows, including the `correct_index` answer-key column. There are currently 0 published question rows, so the issue is latent, but the policy is unsafe for future publication. Migration `20261111170000` removes public table reads.
+- `kids_game_levels_public_read` checks level publication but not parent-game publication. Current count of published levels under unpublished games is 0; migration `20261111040000` adds the parent condition.
+- Production Storage still has `video_assets_admin_insert`, `video_assets_admin_update`, and `video_assets_admin_delete` policies whose predicate uses `profiles.role = 'admin'` without the intended owner-prefix/role-assignment restrictions. This allows direct browser writes to bypass the audited step-up signed-upload route. Migration `20261114030000` removes these policies.
+- Production Storage still has `site_audio_admin_insert` and `site_audio_admin_delete` policies using `private.is_admin_user()`; this is limited to full admins but bypasses the upload-intent/audit path. Migration `20261113220000` removes these policies.
+- `public_assets_admin_write` remains on the public `public-assets` bucket; no application consumer was found. Migration `20261114030000` removes the legacy write policy.
+- The production videos bucket has a 512 MiB per-object limit; local migration `20261114100000` lowers it to 50 MiB to match the application cap. No bucket configuration or object was changed.
+- `site_audio_assets` and `social_sync_jobs` have RLS enabled; `social_sync_jobs_client_denied` denies browser access. `site_audio_upload_intents` does not exist until migration application.
+
+### Background jobs and deployed Edge Functions
+
+- Active cron jobs: `zikr-prayer-push-dispatch` (every minute), `zikr-source-verified-content-agent` (daily), and `zikr-cron-history-cleanup` (daily).
+- `zikr-youtube-facebook-sync` is inactive. No media-cleanup cron is present.
+- Deployed Edge Functions: `prayer-notification-worker` v77, `source-verified-content-agent` v14, `spiritual-ai` v2, and `health` v2. No `cleanup-youtube-facebook-media` function is deployed.
+- Deployed prayer-worker v77 contains an older single-file implementation and lacks the repository's current pagination, push-endpoint validation, timezone and delivery-lease helpers. Deployed source-agent v14 lacks the repository parser module; its inline parser returns no items. These are deployment-drift findings; no function was deployed.
+- The legacy Next route `/api/internal/youtube-facebook/cleanup-media` is unscheduled, and its `youtube-facebook-media` bucket is absent. The sync cron is inactive. No cleanup was run.
+
+### Advisor state and safety
+
+- Security advisor: leaked-password protection disabled; owner-side Auth setting.
+- Performance advisor: 78 unused-index notices. No indexes were dropped.
+- Health advisor: no lints.
+- This was read-only inspection. No production DDL/DML, Storage object mutation, content generation, Gemini call, social publish, secret change or release was performed.

@@ -3,22 +3,22 @@
 - Repository: `zikrofficial-X/Zikr`
 - Branch: `audit/zikr-kids-daily-priority-20261110`
 - Base: `main` at `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`
-- Exact code/test head reviewed: `bc1f0dd9fc9a0d324221633569ea45ae034757e8`
-- Repository tree at code/test head: 2,395 entries (1,896 blobs; 499 directories).
-- PR paths before this snapshot: 553; no deletions. This overlay and its paired manifest add two audit artifacts, bringing the PR delta to 555 paths.
-- The prior 18:38Z overlay had 31 stale blob SHAs and 13 unrepresented PR paths (the two prior snapshot artifacts plus 11 code/config/migration paths). Every PR path below is reconciled to the exact code/test tree SHA.
-- The manifest is self-excluding: it records the tree after this overlay and the status/ledger updates, immediately before the manifest blob is added.
+- Exact code/test head reviewed: `96c36d5e5bff32d8f8283643f09606fbea5dc005`
+- Repository tree at code/test head: 2399 entries (1900 blobs; 499 directories).
+- PR paths before this snapshot: 555; no deletions. This overlay and its paired manifest add two audit artifacts, bringing the PR delta to 557 paths.
+- This snapshot adds the two video-QA backfill regression files and refreshes every row's blob SHA from the exact code/test tree. Unchanged blobs retain their earlier content-read evidence; changed backfill/verifier files are explicitly re-reviewed below.
+- The paired manifest is self-excluding: it records the tree after this overlay and the status/ledger updates, immediately before the manifest blob is added (2,398 entries: 1,899 blobs and 499 directories).
 
 ## Status summary
 
 | Status | Count |
 |---|---:|
-| CONTENT_READ_TESTED_PASS | 278 |
+| CONTENT_READ_TESTED_PASS | 282 |
 | REVIEW_REQUIRED | 190 |
-| CONTENT_READ_PENDING_TRACE | 55 |
+| CONTENT_READ_PENDING_TRACE | 53 |
 | FIXED_TESTED_PENDING_LIVE_APPLY | 26 |
 | SUPERSEDED_SNAPSHOT | 4 |
-| **Total** | **553** |
+| **Total** | **555** |
 
 ## File-status matrix
 
@@ -44,12 +44,9 @@
 | `.github/workflows/supabase-restore-seed-data.yml` | `MODIFIED` | `243ac6a202d947273bf6438fbea426ce27bca34e` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `.github/workflows/sync-social-insights.yml` | `MODIFIED` | `902cb8890bebb9cb2ce02e7ae9e245fea01c7c70` | `CONTENT_READ_TESTED_PASS` | Read and traced the queue-selection/source-visibility contract; focused tests passed in full Quality Gate run 43627717182; no social publishing executed. |
 | `.gitignore` | `MODIFIED` | `12594eba3cb52a5de9723fee782804cba9a023d9` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
-| `PROJECT_STATUS.md` | `MODIFIED` | `c6ada14e7a0f574289fa09861522392214ef8fd5` | `CONTENT_READ_TESTED_PASS` | Reconciled with exact code/test head, CI evidence, read-only production findings and remaining owner/device gates; audit remains open. |
 | `android/app/src/main/AndroidManifest.xml` | `MODIFIED` | `4090657e7b7de1b16c0d653a0663e50d6846bcbb` | `CONTENT_READ_TESTED_PASS` | Read and traced at exact head a77b2d2; OAuth/safe-redirect checks passed; Android debug APK run 43627717118 succeeded; no physical device login or release. |
 | `android/app/src/main/res/xml/file_paths.xml` | `MODIFIED` | `591ff1ff6c38cad9405d22da57bb8e65430a8e67` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `capacitor.config.json` | `MODIFIED` | `a7e77c6caf9a31a90a590c78b0a4ad99a846db0f` | `CONTENT_READ_TESTED_PASS` | Read and traced at exact head a77b2d2; OAuth/safe-redirect checks passed; Android debug APK run 43627717118 succeeded; no physical device login or release. |
-| `docs/GITHUB_AI_VIDEO.md` | `MODIFIED` | `28e5d8bfbebca07b7d2a9801480b4dce31e345c4` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
-| `docs/MONETAG_SMARTLINK_PLACEMENT.md` | `MODIFIED` | `4516283b915e5ed06d60758ac0de2f4c6a70b359` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `docs/admin/ADMIN_API_PERMISSION_MATRIX_2026-11-06.md` | `MODIFIED` | `31b8034202241533da231c9216ec32f14eaaed4a` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `docs/admin/ADMIN_CONSOLE_GOVERNANCE.md` | `MODIFIED` | `d08ec5a72c7bd3016a2726bb7f6a0029e85b75ed` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `docs/admin/SITE_AUDIO_STORAGE_LIFECYCLE.md` | `ADDED` | `0f18a2382a171335181ae142ead277f7e32faeca` | `CONTENT_READ_PENDING_TRACE` | Targeted source inspection only; full file and caller/job trace remains open; no execution or external side effect. |
@@ -88,15 +85,18 @@
 | `docs/background-jobs.md` | `MODIFIED` | `ba7a0dd48794e6088948d41d1379b4d162376c5d` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `docs/circleci-supabase-environment.md` | `MODIFIED` | `035ebf928a747ebb78d4c256e442f99e25a1890d` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob changed since 06:05Z; old status reset pending re-read. |
 | `docs/environment-variables.md` | `MODIFIED` | `0a52a76f0a1729dd11e3e5154e2195a80941bae5` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
+| `docs/GITHUB_AI_VIDEO.md` | `MODIFIED` | `28e5d8bfbebca07b7d2a9801480b4dce31e345c4` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
+| `docs/MONETAG_SMARTLINK_PLACEMENT.md` | `MODIFIED` | `4516283b915e5ed06d60758ac0de2f4c6a70b359` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `docs/native-oauth-fix.md` | `MODIFIED` | `1325d2648ea323ca72c6da0aedb25186f3337e3b` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `ios/App/App.xcodeproj/project.pbxproj` | `MODIFIED` | `1cd37c2fc9e6f76b6045ce7aaeada9c2440d19e6` | `FIXED_TESTED_PENDING_LIVE_APPLY` | Contract/build checks only; IOS_ASSOCIATED_DOMAIN_APP_ID and Apple DEVELOPMENT_TEAM are not configured; owner/device acceptance pending. |
 | `ios/App/App/AppDebug.entitlements` | `ADDED` | `a2b0d7ebeeffcd04126f1e412761d7f2c469c6d6` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `ios/App/App/Info.plist` | `MODIFIED` | `f38153d83836f03e9afc60f312dcafcb63d09186` | `FIXED_TESTED_PENDING_LIVE_APPLY` | Contract/build checks only; IOS_ASSOCIATED_DOMAIN_APP_ID and Apple DEVELOPMENT_TEAM are not configured; owner/device acceptance pending. |
 | `ios/App/Podfile` | `MODIFIED` | `ddf8bb9a4f87fe6e6c05aa1ab1c5e734cf2c224b` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `mobile-shell/index.html` | `ADDED` | `2ebf7ae7b16b2d971cc009878b44be9d4b1b91ae` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
-| `mobile/README.md` | `MODIFIED` | `85505a12b81e0de40fae4cf4dc8e6bfb5d511de0` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `mobile/capacitor-dependencies.json` | `MODIFIED` | `dc9b7955207c96b7aadb8893cd23e9c67abe56e2` | `CONTENT_READ_TESTED_PASS` | Read and traced at exact head a77b2d2; OAuth/safe-redirect checks passed; Android debug APK run 43627717118 succeeded; no physical device login or release. |
-| `package.json` | `MODIFIED` | `5e865a13e18818a4d0c73550d8d0981a39a5baa2` | `CONTENT_READ_PENDING_TRACE` | Script graph and canonical verification commands inspected; dependency and consumer trace remains open. |
+| `mobile/README.md` | `MODIFIED` | `85505a12b81e0de40fae4cf4dc8e6bfb5d511de0` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
+| `package.json` | `MODIFIED` | `61553e1f60b62548d8c17bc57986426888c1bb8a` | `CONTENT_READ_PENDING_TRACE` | Script graph and canonical verification commands inspected; dependency and consumer trace remains open. |
+| `PROJECT_STATUS.md` | `MODIFIED` | `c6ada14e7a0f574289fa09861522392214ef8fd5` | `CONTENT_READ_TESTED_PASS` | Reconciled with exact code/test head, CI evidence, read-only production findings and remaining owner/device gates; audit remains open. |
 | `public/offline-content/v1/companion_stories.json` | `MODIFIED` | `ef1cad9d7db75ee6677edc9dba3387debb95695a` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `public/offline-content/v1/kids.json` | `MODIFIED` | `dc32c0bdbd722f0f920d7db2a690074de0194fcc` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `public/offline-content/v1/manifest.json` | `MODIFIED` | `9d95f4df6b9e85227aed64e171a207a89da787ad` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
@@ -105,7 +105,7 @@
 | `scripts/cleanup-supabase-storage.mjs` | `MODIFIED` | `bbb2a04f6b3d03eb692d85fe5fba099f384e51b8` | `CONTENT_READ_PENDING_TRACE` | Targeted source inspection only; full file and caller/job trace remains open; no execution or external side effect. |
 | `scripts/export-offline-content.mjs` | `MODIFIED` | `bae5e6a4e1892cc7490e4425953a839c8f9e9998` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `scripts/jobs/audit-video-media.ts` | `MODIFIED` | `2d3e32ab65ff7c1779279fa2bc33c73d2926f021` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
-| `scripts/jobs/backfill-legacy-video-qa.ts` | `MODIFIED` | `5e6632890ecd7d0a07e5f87396f5548077ff460c` | `CONTENT_READ_PENDING_TRACE` | Read dry-run/apply gate and Cloudinary host validation; not executed because it requires production service role and can mutate QA rows. |
+| `scripts/jobs/backfill-legacy-video-qa.ts` | `MODIFIED` | `440fc0fc56f52b6ffff307fa9d27190203e72235` | `CONTENT_READ_TESTED_PASS` | Read actual script; added updated_at compare-and-set, PostgREST return=representation and exact-one-row verification. Zero-row races are reported as stale and never as successful writes. Quality Gate run 43640413903 and CircleCI source-verify passed; script was not executed. |
 | `scripts/jobs/content-publishing.ts` | `MODIFIED` | `dbf6a1e994fa85b814d289c58e01f9c92d47cfc7` | `CONTENT_READ_PENDING_TRACE` | Targeted source inspection only; full file and caller/job trace remains open; no execution or external side effect. |
 | `scripts/jobs/hf-space-video.py` | `MODIFIED` | `f66f54abc1910db8d4ab79d557e21e9d5147a07a` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `scripts/jobs/social-publishing.ts` | `MODIFIED` | `1e2b06835e1c34839fd8509c13e520ad0d37b2ab` | `CONTENT_READ_PENDING_TRACE` | Targeted source inspection only; full file and caller/job trace remains open; no execution or external side effect. |
@@ -243,6 +243,7 @@
 | `scripts/tests/video-media-url.test.ts` | `ADDED` | `0f04f8dbeca8083773c2bd137b3e4a5d48dc7424` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob changed since 06:05Z; old status reset pending re-read. |
 | `scripts/tests/video-publish-approval.test.ts` | `MODIFIED` | `5c94db4985b0af464c443af80d045a64bcdbae7f` | `REVIEW_REQUIRED` | Changed approval test not fully read in this checkpoint; review remains open. |
 | `scripts/tests/video-purge-contract.test.mjs` | `MODIFIED` | `3f8e1fcbf12ede5dd33aed9ececeeb26496bcdad` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
+| `scripts/tests/video-qa-backfill-policy.test.ts` | `ADDED` | `580da900e7846110fb33a50642c98c8bccfb51ef` | `CONTENT_READ_TESTED_PASS` | New pure regression tests cover one-row success, zero-row stale CAS, and missing/multiple-row fail-closed outcomes. Included in pnpm test and full Quality Gate run 43640413903. |
 | `scripts/tests/video-queue-claim.test.ts` | `ADDED` | `d43147ee7e28c5add2cb967c56569b4e46b203f0` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `scripts/tests/video-storage-retention-contract.integration.sh` | `ADDED` | `7a26b2233803ef6d54d737cf84e4640c2e70b3e3` | `CONTENT_READ_TESTED_PASS` | Reviewed dry-run/manual-apply guards and regression tests; full Quality Gate run 43627717182 passed; no storage object was deleted. |
 | `scripts/tests/video-storage-retention-contract.integration.sql` | `ADDED` | `32d461da5c6ea0b45bae63d442402850ad04ba17` | `CONTENT_READ_TESTED_PASS` | Reviewed dry-run/manual-apply guards and regression tests; full Quality Gate run 43627717182 passed; no storage object was deleted. |
@@ -287,7 +288,7 @@
 | `scripts/verify-vercel-deployment-ready.mjs` | `ADDED` | `94716dbaf31f1d91236d9abf4f4b6397231fc34a` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `scripts/verify-video-factory.mjs` | `MODIFIED` | `c30d4b95bdeace52ae48c7e2b63062384bc60f01` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `scripts/verify-video-media-audit.mjs` | `MODIFIED` | `6ed81329d0de04813f5b033eb0d0987b1347fd65` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
-| `scripts/verify-video-qa.mjs` | `MODIFIED` | `9eafdfd74d709ff7dbf6c64e61e9d0d0796d8bb5` | `CONTENT_READ_PENDING_TRACE` | Read verifier sections; full input/output and consumer trace remains open. |
+| `scripts/verify-video-qa.mjs` | `MODIFIED` | `49dd934d397689c4c0c52da5b4335af9ef1c5d74` | `CONTENT_READ_TESTED_PASS` | Read actual verifier; now asserts the backfill updated_at CAS, return=representation, stale-result handling and regression test. Canonical source/architecture gate passed in run 43640413903. |
 | `scripts/verify-video-queue-priority.mjs` | `MODIFIED` | `df79f330a8e53b0770fc5b224030485d5d1d3380` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `src/app/.well-known/apple-app-site-association/route.ts` | `MODIFIED` | `8bf2faa7e4cc119ddba2deefcb28c50edbc703fd` | `FIXED_TESTED_PENDING_LIVE_APPLY` | Contract/build checks only; IOS_ASSOCIATED_DOMAIN_APP_ID and Apple DEVELOPMENT_TEAM are not configured; owner/device acceptance pending. |
 | `src/app/admin/analytics/page.tsx` | `MODIFIED` | `45398c57bf9a4160c9ec22a641ec8f33e3571203` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
@@ -510,6 +511,7 @@
 | `src/features/videos/services/video-media-contract.ts` | `MODIFIED` | `5f30b92cdf0d55a33aebe9e36827bdfdf39481d3` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `src/features/videos/services/video-media-url.ts` | `ADDED` | `1bee3a9b2ff103905c433696649982255d072873` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `src/features/videos/services/video-publish-approval.ts` | `MODIFIED` | `b09bee24364bf482d65ffdcdfc2bbb0f719fb82f` | `REVIEW_REQUIRED` | Changed approval service not fully read in this checkpoint; review remains open. |
+| `src/features/videos/services/video-qa-backfill-policy.ts` | `ADDED` | `c8d9285bba5f45fe8c305fd297100851f262cdaf` | `CONTENT_READ_TESTED_PASS` | New pure response classifier: exactly one returned row means updated, zero means stale, malformed/multiple rows fail closed. Covered by video-qa-backfill-policy.test.ts and Quality Gate run 43640413903. |
 | `src/features/videos/services/video-queue-claim.ts` | `ADDED` | `a7008672cc6be6cc4193d791031da1c8a3d2f21f` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `src/features/videos/services/videos.ts` | `MODIFIED` | `0eaf48da8eff0b2524ad43c0184d77fda8448479` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `src/features/wird/services/progress.ts` | `MODIFIED` | `5f1598cf5af9f0a7826c0d458a884812ceba2b2d` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
@@ -541,7 +543,6 @@
 | `src/lib/timezone.ts` | `ADDED` | `9092f78dcca95190b15712d00aa124c6be3de516` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `src/lib/types/supabase.ts` | `MODIFIED` | `062383cfb48873686c2dfd579408a32939273f1c` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `src/proxy.ts` | `MODIFIED` | `d619f906b16ad81cfe6fa03945db59eed66dc5c8` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
-| `supabase/REMOTE_MIGRATION_LEDGER.md` | `MODIFIED` | `d64c4e8bcb7bcecd2e2b484384ee220c8d8f7c0e` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `supabase/config.toml` | `MODIFIED` | `6cc36f584cef7f27221b5ce9574741d18b55a3e4` | `CONTENT_READ_TESTED_PASS` | Read config and aligned videos bucket to 50 MiB; storage contract test and full verification passed. |
 | `supabase/functions/_shared/auth.ts` | `MODIFIED` | `a4d54cc73dbbbb56fdabf2ab9ff7d7d1bef2ac12` | `CONTENT_READ_PENDING_TRACE` | Targeted source inspection only; full file and caller/job trace remains open; no execution or external side effect. |
 | `supabase/functions/_shared/cors.ts` | `MODIFIED` | `a33688b8e9d93aad3bb28b3b4cd742a55620740a` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. New PR path since 06:05Z; full read and trace required. |
@@ -577,3 +578,4 @@
 | `supabase/migrations/20261114030000_scope_video_storage_writes.sql` | `ADDED` | `def85d3135dd758da47c6c4e5e0210e991fb4bcd` | `FIXED_TESTED_PENDING_LIVE_APPLY` | Read storage policy changes; full verification passed; no storage object was changed and production apply remains pending. |
 | `supabase/migrations/20261114040000_save_default_prayer_location_atomically.sql` | `ADDED` | `21a110ea7e5081c4bbd58d913b56090918fd15b9` | `FIXED_TESTED_PENDING_LIVE_APPLY` | Code/tests pass; production apply or owner/device acceptance remains pending; no live mutation performed. |
 | `supabase/migrations/20261114100000_videos_bucket_free_tier_limit.sql` | `ADDED` | `a764f7c7832430dd685412cd49f9def265120e81` | `FIXED_TESTED_PENDING_LIVE_APPLY` | New idempotent forward migration caps the existing videos bucket at 50 MiB; full local migration verification passed; not applied to production. |
+| `supabase/REMOTE_MIGRATION_LEDGER.md` | `MODIFIED` | `d64c4e8bcb7bcecd2e2b484384ee220c8d8f7c0e` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
