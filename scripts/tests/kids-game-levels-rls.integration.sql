@@ -54,9 +54,12 @@ BEGIN
     FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'kids_game_levels'
-      AND policyname = 'kids_game_levels_admin_all'
+      AND policyname = 'kids_game_levels_admin_select'
+      AND cmd = 'SELECT'
+      AND roles = ARRAY['authenticated']::name[]
+      AND coalesce(qual, '') ILIKE '%private.is_admin_user%'
   ) <> 1 THEN
-    RAISE EXCEPTION 'Kids levels must retain exactly one admin ALL policy';
+    RAISE EXCEPTION 'Kids levels must retain exactly one authenticated admin SELECT policy';
   END IF;
 
   IF EXISTS (
@@ -66,13 +69,13 @@ BEGIN
       AND tablename = 'kids_game_levels'
       AND policyname IN (
         'admin_all_kids_game_levels_select',
-        'kids_game_levels_admin_select',
+        'kids_game_levels_admin_all',
         'kids_game_levels_admin_insert',
         'kids_game_levels_admin_update',
         'kids_game_levels_admin_delete'
       )
   ) THEN
-    RAISE EXCEPTION 'Legacy Kids levels policies must be removed in favor of the parent-scoped anon policy and admin ALL policy';
+    RAISE EXCEPTION 'Legacy Kids levels write policies must be removed in favor of parent-scoped anon SELECT and admin-only SELECT policies';
   END IF;
 
   IF (
@@ -118,11 +121,20 @@ BEGIN
     RAISE EXCEPTION 'Anonymous level access must be read-only and must not retain non-DML privileges';
   END IF;
 
-  IF has_table_privilege('authenticated', 'public.kids_game_levels', 'TRUNCATE')
+  IF has_table_privilege('authenticated', 'public.kids_game_levels', 'INSERT')
+    OR has_table_privilege('authenticated', 'public.kids_game_levels', 'UPDATE')
+    OR has_table_privilege('authenticated', 'public.kids_game_levels', 'DELETE')
+    OR has_table_privilege('authenticated', 'public.kids_game_levels', 'TRUNCATE')
     OR has_table_privilege('authenticated', 'public.kids_game_levels', 'REFERENCES')
     OR has_table_privilege('authenticated', 'public.kids_game_levels', 'TRIGGER')
     OR has_table_privilege('authenticated', 'public.kids_game_levels', 'MAINTAIN') THEN
-    RAISE EXCEPTION 'Authenticated level editors must not retain non-DML privileges that bypass RLS';
+    RAISE EXCEPTION 'Authenticated clients must not retain direct Kids level write or non-DML privileges';
+  END IF;
+
+  IF NOT has_table_privilege('service_role', 'public.kids_game_levels', 'INSERT')
+    OR NOT has_table_privilege('service_role', 'public.kids_game_levels', 'UPDATE')
+    OR NOT has_table_privilege('service_role', 'public.kids_game_levels', 'DELETE') THEN
+    RAISE EXCEPTION 'Server-admin operations must retain service-role write privileges for Kids levels';
   END IF;
 
   IF has_table_privilege('anon', 'public.kids_game_questions', 'SELECT')

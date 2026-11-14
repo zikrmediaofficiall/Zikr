@@ -12,6 +12,13 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END
 $roles$;
 
+DO $roles$
+BEGIN
+  CREATE ROLE service_role NOLOGIN;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END
+$roles$;
+
 CREATE SCHEMA IF NOT EXISTS private;
 
 CREATE OR REPLACE FUNCTION private.is_admin_user()
@@ -22,7 +29,7 @@ AS $function$
   SELECT COALESCE(current_setting('test.is_admin', true), 'false') = 'true';
 $function$;
 
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA private TO authenticated;
 GRANT EXECUTE ON FUNCTION private.is_admin_user() TO authenticated;
 
