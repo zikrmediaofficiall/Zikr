@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { redirectToAdminStepUp } from '@/features/admin/utils/step-up-client';
 
-const MAX_VIDEO_BYTES = 512 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const ACCEPTED_TYPES = 'video/mp4,video/webm,video/quicktime,video/x-m4v';
 
 export function VideoUploadField() {
@@ -23,7 +23,7 @@ export function VideoUploadField() {
 
     if (file.size <= 0 || file.size > MAX_VIDEO_BYTES) {
       setStatus('error');
-      setMessage('حجم الفيديو يجب أن يكون أكبر من صفر وألا يتجاوز 512 ميجابايت.');
+      setMessage('حجم الفيديو يجب أن يكون أكبر من صفر وألا يتجاوز 50 ميجابايت.');
       return;
     }
     if (!['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'].includes(file.type)) {
@@ -101,7 +101,7 @@ export function VideoUploadField() {
           {message}
         </span>
       ) : null}
-      <span className="text-xs text-brand-cream/45">الصيغ المدعومة MP4 وWebM وMOV، والحد الأقصى 512 ميجابايت.</span>
+      <span className="text-xs text-brand-cream/45">الصيغ المدعومة MP4 وWebM وMOV، والحد الأقصى 50 ميجابايت.</span>
     </div>
   );
 }
