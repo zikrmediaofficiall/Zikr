@@ -1907,3 +1907,34 @@ Request current CODEOWNERS review, finish the 45 pending-trace and 205 review-re
 - No content generation, Gemini calls, social publishing, production database mutation, storage upload/deletion, release creation, or Android release was triggered.
 - PR #320 has no owner review; CODEOWNERS principal permission is unavailable. Merge and production deploy remain blocked by owner/protected-branch gates.
 - The audit is not closed: 190 paths remain `REVIEW_REQUIRED`, 55 remain `CONTENT_READ_PENDING_TRACE`, and 26 fixes still await owner-approved live migration application. Device/iOS/OAuth/editorial/social end-to-end acceptance remains manual.
+
+
+## 2026-11-15 — PR #320 audit repair batch and verification
+
+**Verified code/test SHA:** `a6e19b66e7b6fb84f4da640922ec96c9a1bb8c12`  
+**Base SHA:** `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`  
+**PR:** #320 — `audit/zikr-kids-daily-priority-20261110`
+
+### Repairs and regression coverage
+- `666dc080a18f7f880abf9d7d6d10c08aef4ee9a0`: corrected `unblockFacebookAuthBlockedQueue` so a malformed/non-array PostgREST inventory throws and fails closed instead of being interpreted as an empty queue. Added dependency-injected regression cases for malformed and valid-empty responses.
+- `a6e19b66e7b6fb84f4da640922ec96c9a1bb8c12`: added an explicit verifier contract for the Kids-video public-read RLS migration; the existing Kids visibility test also covers that policy.
+
+### Exact verification evidence
+- GitHub Quality Gate run `43650394810`: **success** on `a6e19b66e7b6fb84f4da640922ec96c9a1bb8c12`; Supabase Edge Function type-check, PostgreSQL 17 integration checks, and canonical source/architecture verification all passed.
+- CircleCI `config-guard`, `application-build-docs`, and `source-verify`: **success**.
+- Android Native Login Debug APK workflow `43650394764`: **success**. No release was created.
+- Prior baseline run `43649657763` on `a1655defd6891124a6240323f7ec5d3b908ca153` also passed; the newer run above includes the Facebook recovery regression and video RLS verifier change.
+
+### Inventory and status matrix
+- Recursive tree at the verified code/test head: 2,401 entries, 1,902 blobs, 499 directories.
+- PR diff at that head: 561 paths — 240 added, 321 modified, zero deleted.
+- Current overlay: `docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-15.md` — 561 rows; 303 pass, 181 review required, 43 pending trace, 28 tested/pending live apply, 6 superseded snapshots.
+- Recursive manifest: `docs/audits/PR320_REPO_MANIFEST_2026-11-15.jsonl`; self-excludes its own blob and records the tree after the overlay/status/ledger snapshot.
+
+### Production and approval gates
+- Supabase remote migration history remains at `20261110170000` (418 versions). The push-subscription privilege hardening and Kids-video public-read RLS migrations are repository-tested but not applied. Live grants and RLS remain unchanged.
+- Vercel production remains **READY** on `main` commit `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; no production deployment was initiated from the audit branch.
+- PR #320 remains open; no owner review or review thread is present. CODEOWNERS/owner approval is still required.
+- No Gemini/content generation, social publishing, production DB writes, storage deletion, release, merge, or production deploy was triggered.
+
+**Status: OPEN.** Remaining work includes the review-required and pending-trace paths in the overlay, owner review, approved live migrations with rollback evidence, device/provider acceptance, and post-merge Vercel smoke checks. The automated Kids-video QA policy still has no human QA gate and requires owner acceptance.
