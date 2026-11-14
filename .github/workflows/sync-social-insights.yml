@@ -9,6 +9,7 @@ on:
       - "scripts/jobs/social-publishing.ts"
       - "scripts/run-background-jobs.ts"
       - "src/features/social/services/youtube-post-insights.ts"
+      - "src/features/social/services/social-insights-scan-cursor.ts"
       - "src/features/social/services/facebook-reels-insights.ts"
       - "src/features/social/integrations/facebook.ts"
       - "src/features/videos/services/video-automation.ts"

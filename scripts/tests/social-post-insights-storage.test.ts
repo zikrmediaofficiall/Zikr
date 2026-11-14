@@ -17,6 +17,7 @@ const migration = read("supabase/migrations/20261106090800_production_blockers_a
 const integration = read("src/features/videos/integrations/youtube.ts");
 const stories = read("src/app/stories/page.tsx");
 const videos = read("src/app/videos/page.tsx");
+const insightsWorkflow = read(".github/workflows/sync-social-insights.yml");
 
 assert.match(youtube, /social_post_insights/);
 assert.match(youtube, /buildSocialInsightsQueueCursorFilter\(queryCursor\)/);
@@ -36,6 +37,7 @@ assert.match(facebook, /buildSocialInsightsQueueCursorFilter\(queryCursor\)/);
 assert.match(facebook, /created_at=gte\./);
 assert.match(facebook, /readSocialInsightsScanCursor\("facebook_reels"\)/);
 assert.match(facebook, /writeSocialInsightsScanCursor\("facebook_reels", nextCursor\)/);
+assert.match(insightsWorkflow, /"src\/features\/social\/services\/social-insights-scan-cursor\.ts"/);
 assert.doesNotMatch(facebook, /status=eq\.published/);
 assert.doesNotMatch(facebook, /PATCH[\s\S]*social_publish_queue/);
 assert.match(worker, /syncSocialInsights/);

@@ -49,7 +49,11 @@ function MetricCard({
   );
 }
 
-export async function TrafficRevenuePanel() {
+export async function TrafficRevenuePanel({
+  canManageYouTubeConnection,
+}: {
+  canManageYouTubeConnection: boolean;
+}) {
   const snapshot = await getTrafficRevenueSnapshot();
   const metrics = snapshot.metrics;
 
@@ -174,9 +178,11 @@ export async function TrafficRevenuePanel() {
             <Badge variant="outline" className={snapshot.integrations.youtubeAnalyticsConnected ? "border-emerald-400/20 text-emerald-200/80" : "border-amber-300/20 text-amber-100/75"}>
               {snapshot.integrations.youtubeAnalyticsConnected ? "بيانات مالك القناة متصلة" : snapshot.youtubeAnalytics.status === "authorization_required" ? "تحتاج إعادة تفويض" : "غير متصلة"}
             </Badge>
-            <Link href="/api/admin/social/youtube/connect" className="rounded-lg border border-brand-gold/20 px-3 py-1.5 text-xs text-brand-gold hover:bg-brand-gold/10">
-              {snapshot.integrations.youtubeAnalyticsConnected ? "إعادة ربط القراءة" : "ربط YouTube — قراءة فقط"}
-            </Link>
+            {canManageYouTubeConnection ? (
+              <Link href="/api/admin/social/youtube/connect" className="rounded-lg border border-brand-gold/20 px-3 py-1.5 text-xs text-brand-gold hover:bg-brand-gold/10">
+                {snapshot.integrations.youtubeAnalyticsConnected ? "إعادة ربط YouTube" : "ربط YouTube للنشر والتحليلات"}
+              </Link>
+            ) : null}
           </div>
         </div>
         {snapshot.youtubeAnalytics.status === "connected" ? (
@@ -214,9 +220,13 @@ export async function TrafficRevenuePanel() {
           <Card className="p-5">
             <p className="text-sm leading-7 text-brand-cream/65">
               {snapshot.youtubeAnalytics.status === "authorization_required"
-                ? "بيانات YouTube العامة تعمل، لكن الاتصال المحفوظ لا يملك صلاحيات القراءة والتحليلات المطلوبة. اضغط «إعادة ربط القراءة» بالأعلى وامنح youtube.readonly وyt-analytics.readonly؛ سيتم حفظ الرمز في Supabase الآمن."
+                ? canManageYouTubeConnection
+                  ? "بيانات YouTube العامة تعمل، لكن الاتصال المحفوظ يحتاج إلى صلاحيات النشر وقراءة القناة والتحليلات. أعد ربط YouTube وامنح youtube.upload وyoutube.readonly وyt-analytics.readonly؛ سيتم حفظ الرمز في Supabase الآمن."
+                  : "اتصال YouTube يحتاج إلى إعادة تفويض بصلاحيات النشر والقراءة والتحليلات. اطلب من مسؤول يملك صلاحيتَي إدارة النشر وتنفيذه إعادة الربط."
                 : snapshot.youtubeAnalytics.status === "not_configured"
-                  ? "اتصال تقارير YouTube غير مُعد. تأكد من ضبط YOUTUBE_CLIENT_ID وYOUTUBE_CLIENT_SECRET في بيئة الإنتاج، ثم اضغط «ربط YouTube — قراءة فقط» بالأعلى لإكمال التفويض."
+                  ? canManageYouTubeConnection
+                    ? "اتصال YouTube غير مُعد. تأكد من ضبط YOUTUBE_CLIENT_ID وYOUTUBE_CLIENT_SECRET في بيئة الإنتاج، ثم استخدم «ربط YouTube للنشر والتحليلات» لإكمال التفويض."
+                    : "اتصال YouTube غير مُعد. يلزم مسؤول النشر إعداد YOUTUBE_CLIENT_ID وYOUTUBE_CLIENT_SECRET ثم إكمال الربط بالصلاحيات المطلوبة."
                   : "تعذر الوصول إلى تقارير YouTube Analytics حاليًا. لم يتم استبدال البيانات المفقودة بأصفار."}
             </p>
           </Card>

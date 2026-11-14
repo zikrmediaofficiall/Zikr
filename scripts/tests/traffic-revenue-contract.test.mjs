@@ -34,8 +34,14 @@ assert.match(panel, /غير متاح/);
 assert.match(panel, /لا يستخدم هذا المحرك تحديث الصفحات أو النقرات الاصطناعية/);
 assert.doesNotMatch(panel, /facebook|instagram|tiktok|pinterest|whatsapp|مركز النشر الاجتماعي|نتائج النشر لكل منصة/i);
 assert.match(panel, /api\/admin\/social\/youtube\/connect/);
+assert.match(panel, /canManageYouTubeConnection\s*\?/);
+assert.match(panel, /ربط YouTube للنشر والتحليلات/);
+assert.match(panel, /youtube\.upload/);
+assert.doesNotMatch(panel, /قراءة فقط|إعادة ربط القراءة/);
 assert.match(page, /requireAdminPermission\("analytics\.read"\)/);
-assert.match(page, /<TrafficRevenuePanel\s*\/>/);
+assert.match(page, /hasAdminPermission\(admin\.role, "social\\.manage"\)/);
+assert.match(page, /hasAdminPermission\(admin\.role, "social\\.publish"\)/);
+assert.match(page, /<TrafficRevenuePanel\s+canManageYouTubeConnection=\{canManageYouTubeConnection\}\s*\/>/);
 assert.doesNotMatch(page, /YOUTUBE_REDIRECT|api\/admin\/social\/youtube\/connect/);
 
 assert.match(service, /videoRetryPending/);
