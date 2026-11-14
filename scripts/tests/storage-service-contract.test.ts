@@ -44,7 +44,7 @@ const expectedConfig: Record<StorageObjectPurpose, {
   },
   video: {
     bucket: "videos",
-    maxBytes: 512 * 1024 * 1024,
+    maxBytes: 50 * 1024 * 1024,
     isPublic: true,
     allowedContentTypes: ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"],
   },
@@ -115,6 +115,8 @@ const storageServiceSource = readFileSync("src/lib/services/storage.ts", "utf8")
 const videoUploadRouteSource = readFileSync("src/app/api/admin/videos/upload/route.ts", "utf8");
 const videoUploadFieldSource = readFileSync("src/features/admin/components/video-upload-field.tsx", "utf8");
 const videoStorageMigration = readFileSync("supabase/migrations/20261114030000_scope_video_storage_writes.sql", "utf8");
+const videoBucketLimitMigration = readFileSync("supabase/migrations/20261114100000_videos_bucket_free_tier_limit.sql", "utf8");
+const supabaseConfig = readFileSync("supabase/config.toml", "utf8");
 
 assert.match(
   storageServiceSource,
@@ -125,6 +127,12 @@ assert.match(videoUploadRouteSource, /requireAdminStepUpApi\(['"]video\.manage['
 assert.match(videoUploadRouteSource, /purpose: ['"]video['"]/);
 assert.match(videoUploadFieldSource, /uploadToSignedUrl\(/);
 assert.doesNotMatch(videoUploadFieldSource, /\.upload\(/, "browser video uploads must use the short-lived signed capability");
+assert.match(videoUploadFieldSource, /MAX_VIDEO_BYTES = 50 \* 1024 \* 1024/);
+assert.match(videoUploadFieldSource, /50 ميجابايت/);
+assert.match(videoUploadRouteSource, /MAX_VIDEO_BYTES = 50 \* 1024 \* 1024/);
+assert.match(videoUploadRouteSource, /contentLength > MAX_VIDEO_BYTES[\s\S]*?jsonError\([\s\S]*?413/);
+assert.match(supabaseConfig, /\[storage\.buckets\.videos\][\s\S]*?file_size_limit = "50MiB"/);
+assert.match(videoBucketLimitMigration, /UPDATE storage\\.buckets[\\s\\S]*?SET file_size_limit = 52428800[\\s\\S]*?WHERE id = 'videos'/i);
 assert.match(videoStorageMigration, /DROP POLICY IF EXISTS video_assets_admin_insert/i);
 assert.doesNotMatch(videoStorageMigration, /CREATE POLICY ["']?video_assets_admin_insert/i, "authenticated users must not mint video upload capabilities directly through Storage RLS");
 
