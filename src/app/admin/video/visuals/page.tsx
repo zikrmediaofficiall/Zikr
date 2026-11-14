@@ -37,7 +37,7 @@ export default async function VideoFactoryVisualsPage() {
   );
 
   const enabled = new Set<VideoProviderName>([
-    ...config.customSpaces.map((entry) => entry.name),
+    ...(config.aiEnabled ? config.customSpaces.map((entry) => entry.name) : []),
     ...(config.aiEnabled && config.hfLtxFastEnabled ? ["hf_ltx_fast" as const] : []),
     ...(config.aiEnabled && config.hfWanEnabled ? ["hf_wan" as const] : []),
     ...(config.aiEnabled && config.comfyUiEnabled ? ["comfyui" as const] : []),
