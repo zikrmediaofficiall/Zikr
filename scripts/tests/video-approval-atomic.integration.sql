@@ -69,6 +69,94 @@ END;
 $atomic_success$;
 RESET ROLE;
 
+SET ROLE service_role;
+DO $kids_legacy_approval$
+DECLARE
+  v_request_id uuid := '50000000-0000-4000-8000-000000000005';
+  v_catalog_id uuid := '60000000-0000-4000-8000-000000000006';
+  v_reviewed_at timestamptz := '2026-11-15T15:45:00Z';
+  v_reviewer_id text := '70000000-0000-4000-8000-000000000007';
+  v_snapshot_hash text := repeat('4', 64);
+  v_review jsonb;
+  v_approved_content jsonb;
+  v_approved_metadata jsonb;
+  v_bad_content jsonb;
+  v_result record;
+  v_failed boolean := false;
+BEGIN
+  v_review := jsonb_build_object(
+    'sourceVerified', true, 'audioReviewed', true, 'visualsReviewed', true,
+    'captionsReviewed', true, 'rightsReviewed', true,
+    'reviewedAt', v_reviewed_at, 'mode', 'human', 'reviewerId', v_reviewer_id
+  );
+
+  SELECT content || jsonb_build_object(
+    'kidsVideoQaStatus', 'passed',
+    'approvalStatus', 'approved',
+    'approvalReviewerId', v_reviewer_id,
+    'approvalReviewedAt', v_reviewed_at,
+    'approvalSnapshotHash', v_snapshot_hash,
+    'qualityReview', v_review
+  )
+  INTO v_approved_content
+  FROM public.video_generation_requests WHERE id = v_request_id;
+
+  SELECT metadata || jsonb_build_object(
+    'contentFormat', 'series_episode',
+    'aiMode', 'original_kids_story',
+    'sourceType', 'original_kids_fiction',
+    'seriesId', 'legacy-series-1',
+    'seriesTitle', 'قصص القيم',
+    'learningObjective', 'تعلم الصدق والأمانة',
+    'seasonNumber', 1,
+    'episodeNumber', 2,
+    'approvalStatus', 'approved',
+    'approvalReviewerId', v_reviewer_id,
+    'approvalReviewedAt', v_reviewed_at,
+    'approvalSnapshotHash', v_snapshot_hash,
+    'qualityReview', v_review
+  )
+  INTO v_approved_metadata
+  FROM public.videos WHERE id = v_catalog_id;
+
+  v_bad_content := v_approved_content || jsonb_build_object('kidsVideoQaStatus', 'blocked');
+  BEGIN
+    PERFORM 1 FROM public.admin_approve_video_generation_request(
+      v_request_id, '2026-11-15T15:00:00Z', v_catalog_id,
+      'zikr-50000000-0000-4000-8000-000000000005', '2026-11-15T15:00:00Z',
+      v_reviewer_id::uuid, v_reviewed_at, v_snapshot_hash, v_bad_content, v_approved_metadata
+    );
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE 'VIDEO_APPROVAL_INVALID: Kids QA%' THEN RAISE; END IF;
+    v_failed := true;
+  END;
+
+  IF NOT v_failed THEN RAISE EXCEPTION 'blocked Kids QA must not be approved'; END IF;
+  IF (SELECT content->>'kidsVideoQaStatus' FROM public.video_generation_requests WHERE id = v_request_id) IS NOT NULL
+     OR (SELECT metadata->>'seriesId' FROM public.videos WHERE id = v_catalog_id) IS NOT NULL THEN
+    RAISE EXCEPTION 'rejected Kids approval changed request or catalog evidence';
+  END IF;
+
+  SELECT * INTO v_result
+  FROM public.admin_approve_video_generation_request(
+    v_request_id, '2026-11-15T15:00:00Z', v_catalog_id,
+    'zikr-50000000-0000-4000-8000-000000000005', '2026-11-15T15:00:00Z',
+    v_reviewer_id::uuid, v_reviewed_at, v_snapshot_hash, v_approved_content, v_approved_metadata
+  );
+
+  IF v_result.request_id IS DISTINCT FROM v_request_id
+     OR v_result.catalog_video_id IS DISTINCT FROM v_catalog_id
+     OR (SELECT content->>'kidsVideoQaStatus' FROM public.video_generation_requests WHERE id = v_request_id) IS DISTINCT FROM 'passed'
+     OR (SELECT content->>'approvalReviewerId' FROM public.video_generation_requests WHERE id = v_request_id) IS DISTINCT FROM v_reviewer_id
+     OR (SELECT metadata->>'seriesId' FROM public.videos WHERE id = v_catalog_id) IS DISTINCT FROM 'legacy-series-1'
+     OR (SELECT metadata->>'episodeNumber' FROM public.videos WHERE id = v_catalog_id) IS DISTINCT FROM '2'
+     OR (SELECT metadata->>'approvalReviewerId' FROM public.videos WHERE id = v_catalog_id) IS DISTINCT FROM v_reviewer_id THEN
+    RAISE EXCEPTION 'legacy Kids QA/series evidence was not atomically reconciled with human approval';
+  END IF;
+END;
+$kids_legacy_approval$;
+RESET ROLE;
+
 CREATE OR REPLACE FUNCTION public.reject_video_catalog_approval()
 RETURNS trigger
 LANGUAGE plpgsql
