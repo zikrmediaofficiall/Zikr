@@ -88,8 +88,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const parsed = parsePushSubscriptionRequestBody(parsedBody.value);
-  const prayerContext = parsePushPrayerContext(parsedBody.value);
+  const body = normalizePushSubscriptionRequestBody(parsedBody.value);
+  const parsed = parsePushSubscriptionRequestBody(body);
+  const prayerContext = parsePushPrayerContext(body);
   if (!parsed || !prayerContext) {
     return NextResponse.json(
       { error: "Invalid push subscription or prayer settings." },
