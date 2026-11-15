@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
 import { hasHumanKidsVideoApproval } from "./kids-video-publication";
 
 export const REQUIRED_VIDEO_APPROVAL_CHECKS = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"] as const;
@@ -17,10 +18,10 @@ export function isVideoContentType(contentType: string): boolean {
 }
 export function hasCompleteKidsVideoSeriesMetadata(value: unknown): boolean {
   const content = record(value);
-  if (content?.audience !== "kids") return false;
-  return content.contentFormat === "series_episode" &&
-    content.aiMode === "original_kids_story" &&
-    content.sourceType === "original_kids_fiction" &&
+  if (normalizeVideoAudience(content?.audience, false) !== "kids") return false;
+  return normalizeVideoMarker(content.contentFormat) === "series_episode" &&
+    normalizeVideoMarker(content.aiMode) === "original_kids_story" &&
+    normalizeVideoMarker(content.sourceType) === "original_kids_fiction" &&
     typeof content.seriesId === "string" && Boolean(content.seriesId.trim()) &&
     typeof content.seriesTitle === "string" && Boolean(content.seriesTitle.trim()) &&
     typeof content.learningObjective === "string" && Boolean(content.learningObjective.trim()) &&
@@ -47,14 +48,16 @@ export function buildVideoApprovalSnapshotHash(snapshot: VideoApprovalSnapshot):
   const videoUrl = snapshot.videoUrl?.trim();
   const category = snapshot.category.trim();
   if (!sourceHash || !contentHash || !videoUrl || !category) return null;
-  if (snapshot.audience === "kids" && snapshot.kidsVideoQaStatus !== "passed") return null;
+  const audience = normalizeVideoAudience(snapshot.audience);
+  if (!audience) return null;
+  if (audience === "kids" && normalizeVideoMarker(snapshot.kidsVideoQaStatus) !== "passed") return null;
   const canonical = JSON.stringify([
     category,
     sourceHash,
     contentHash,
     snapshot.templateVersion?.trim() ?? "",
     videoUrl,
-    ...(snapshot.audience === "kids" ? ["kids", snapshot.kidsVideoQaStatus] : []),
+    ...(audience === "kids" ? ["kids", "passed"] : []),
   ]);
   return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
@@ -86,7 +89,7 @@ export function createAutomatedVideoQaApproval(input: {
     approvalReviewedAt: reviewedAt,
     approvalSnapshotHash: snapshotHash,
     qualityReview,
-    ...(input.snapshot.audience === "kids" ? { kidsVideoQaStatus: "passed" } : {}),
+    ...(normalizeVideoAudience(input.snapshot.audience) === "kids" ? { kidsVideoQaStatus: "passed" } : {}),
     automatedVideoQa: {
       status: "passed",
       engine: AUTOMATED_VIDEO_QA_ENGINE,
@@ -123,7 +126,7 @@ export function buildVideoCatalogApprovalPatch(input: {
   const reviewerId = input.reviewerId.trim();
   const requestQa = record(requestContent?.automatedVideoQa);
   const metadataQa = record(metadata?.automatedVideoQa);
-  const audience = requestContent?.audience;
+  const audience = normalizeVideoAudience(requestContent?.audience, false);
 
   if (
     !metadata ||
@@ -153,8 +156,8 @@ export function buildVideoCatalogApprovalPatch(input: {
     !isVideoApprovalRecorded(requestContent, snapshotHash) ||
     requestQa?.status !== "passed" ||
      requestQa.snapshotHash !== snapshotHash ||
-    (audience !== "kids" && audience !== "general") ||
-    (metadata.audience != null && metadata.audience !== audience) ||
+    !audience ||
+    (metadata.audience != null && normalizeVideoAudience(metadata.audience, false) !== audience) ||
     (metadata.approvalStatus != null && metadata.approvalStatus !== "approved") ||
     (metadata.approvalSnapshotHash != null && metadata.approvalSnapshotHash !== snapshotHash) ||
     metadataQa?.status !== "passed" ||
@@ -166,8 +169,8 @@ export function buildVideoCatalogApprovalPatch(input: {
 
   if (audience === "kids") {
     if (
-      requestContent.kidsVideoQaStatus !== "passed" ||
-      metadata.kidsVideoQaStatus !== "passed" ||
+      normalizeVideoMarker(requestContent.kidsVideoQaStatus) !== "passed" ||
+      normalizeVideoMarker(metadata.kidsVideoQaStatus) !== "passed" ||
       !hasCompleteKidsVideoSeriesMetadata(requestContent) ||
       !hasCompleteKidsVideoSeriesMetadata(metadata)
     ) return null;
@@ -244,7 +247,7 @@ export function buildVideoApprovalSnapshotHashForRequest(request: VideoPublishRe
     contentHash: request.content_hash,
     templateVersion: request.template_version,
     videoUrl: request.video_url,
-    audience: content?.audience === "kids" ? "kids" : "general",
+    audience: normalizeVideoAudience(content?.audience),
     kidsVideoQaStatus: typeof content?.kidsVideoQaStatus === "string" ? content.kidsVideoQaStatus : null,
   });
 }
@@ -279,9 +282,14 @@ export function inspectVideoQueueItemApproval(input: {
   const reviewData = record(content?.qualityReview);
   const missingChecks = REQUIRED_VIDEO_APPROVAL_CHECKS.filter((key) => reviewData?.[key] !== true);
   const approvalStatus = typeof content?.approvalStatus === "string" ? content.approvalStatus : null;
-  if (content?.audience === "kids" && (
+  const audience = normalizeVideoAudience(content?.audience);
+  if (!audience) {
+    return { approved: false, reason: "فئة الجمهور غير معروفة؛ تم إيقاف النشر لحين مراجعة البيانات.", snapshotHash: null };
+  }
+
+  if (audience === "kids" && (
     !hasCompleteKidsVideoSeriesMetadata(content) ||
-    content.kidsVideoQaStatus !== "passed"
+    normalizeVideoMarker(content.kidsVideoQaStatus) !== "passed"
   )) {
     return {
       approved: false,
@@ -322,7 +330,7 @@ export function inspectVideoQueueItemExternalApproval(input: {
   if (!diagnostics.approved) return diagnostics;
 
   const content = record(input.request?.content);
-  if (content?.audience !== "kids" || !input.request) return diagnostics;
+  if (normalizeVideoAudience(content?.audience) !== "kids" || !input.request) return diagnostics;
 
   const snapshotHash = buildVideoApprovalSnapshotHashForRequest(input.request);
   if (!snapshotHash) return {

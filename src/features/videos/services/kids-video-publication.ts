@@ -1,4 +1,5 @@
 const REQUIRED_KIDS_VIDEO_HUMAN_REVIEW_CHECKS = [
+import { normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
   "sourceVerified",
   "audioReviewed",
   "visualsReviewed",
@@ -37,13 +38,13 @@ export function hasHumanKidsVideoApproval(value: unknown, expectedSnapshotHash?:
     ? /^[a-f0-9]{64}$/i.test(snapshotHash)
     : typeof expectedSnapshotHash === "string" && snapshotHash === expectedSnapshotHash;
 
-  return content?.audience === "kids" &&
-    content.approvalStatus === "approved" &&
+  return normalizeVideoAudience(content?.audience, false) === "kids" &&
+    normalizeVideoMarker(content.approvalStatus) === "approved" &&
     reviewerId.length > 0 &&
     reviewerId !== "system:zikr-video-factory" &&
     snapshotMatches &&
     Number.isFinite(approvalReviewedAt) &&
-    qualityReview?.mode === "human" &&
+    normalizeVideoMarker(qualityReview?.mode) === "human" &&
     qualityReview.reviewerId === reviewerId &&
     Number.isFinite(reviewReviewedAt) &&
     REQUIRED_KIDS_VIDEO_HUMAN_REVIEW_CHECKS.every((key) => qualityReview[key] === true);
