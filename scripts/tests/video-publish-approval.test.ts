@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
+import { normalizeVideoAudience } from "../../src/features/videos/services/video-audience-visibility";
 import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
 assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
@@ -10,6 +11,9 @@ assert.equal(hasSuspiciousReligiousAttribution("هذا نص تعليمي عام 
 assert.equal(hasSuspiciousReligiousAttribution("قالرسول الله"), false, "the phrase must not match when attached to a preceding Arabic word");
 assert.equal(hasSuspiciousReligiousAttribution("رسول اللهي"), false, "the phrase must not match when followed by another Arabic letter");
 assert.equal(hasSuspiciousReligiousAttribution(null), false);
+assert.equal(normalizeVideoAudience("family"), null, "unknown audience markers must be rejected at video creation");
+assert.equal(normalizeVideoAudience(" KIDS "), "kids", "recognized audience markers must be canonicalized");
+assert.equal(normalizeVideoAudience(undefined), "general", "legacy requests without an audience remain general");
 
 const checks: VideoApprovalChecklist = { sourceVerified: true, audioReviewed: true, visualsReviewed: true, captionsReviewed: true, rightsReviewed: true };
 const now = "2026-10-21T12:00:00.000Z";
@@ -430,5 +434,17 @@ assert.doesNotMatch(adminVideoGenerationRoute, /currentContent\.audience === ["'
 const adminVideoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
 assert.match(adminVideoCreateRoute, /normalizeVideoAudience\(content\.audience\)/);
 assert.doesNotMatch(adminVideoCreateRoute, /content\.audience === ["']kids["']/);
+const createAudienceGuardIndex = adminVideoCreateRoute.indexOf("const requestedAudience = normalizeVideoAudience(content.audience);");
+const createTemplateBranchIndex = adminVideoCreateRoute.indexOf('if (typeof content.templateVersionId === "string"');
+const createRequestIndex = adminVideoCreateRoute.indexOf("const result = await createVideoGenerationRequest({");
+assert.ok(
+  createAudienceGuardIndex >= 0 &&
+    createAudienceGuardIndex < createTemplateBranchIndex &&
+    createTemplateBranchIndex < createRequestIndex,
+  "unknown audience values must be rejected before optional template handling and before request persistence",
+);
+const createAudienceGuard = adminVideoCreateRoute.slice(createAudienceGuardIndex, createTemplateBranchIndex);
+assert.match(createAudienceGuard, /if \(!requestedAudience\)/);
+assert.match(createAudienceGuard, /audience: requestedAudience/);
 
 console.log("Video publishing approval contract passed.");
