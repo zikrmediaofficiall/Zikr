@@ -4,7 +4,6 @@ import { getAdminSnapshot } from "@/features/admin/services/platform";
 import { ADMIN_NAVIGATION } from "@/features/admin/config/navigation";
 import { getCurrentProfile } from "@/features/admin/services/admin";
 import { hasAdminPermission } from "@/features/admin/services/permissions";
-import { deleteFailedVideoGenerationAction } from "@/features/admin/actions/video";
 import { AdminModuleDirectory } from "@/features/admin/components/admin-module-directory";
 
 type AdminSnapshot = Awaited<ReturnType<typeof getAdminSnapshot>>;
@@ -322,14 +321,17 @@ export async function AdminPlatformCommandCenter() {
         <section className="rounded-3xl border border-red-500/15 bg-red-500/5 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-brand-cream">عمليات توليد فاشلة تحتاج إجراء</h2>
-              <p className="mt-1 text-sm text-brand-cream/45">يمكن حذف العمليات ذات الحالة failed فقط. عمليات pending وprocessing وcompleted محمية من هذا الإجراء.</p>
+              <h2 className="text-lg font-bold text-brand-cream">طلبات فيديو فاشلة تحتاج مراجعة</h2>
+              <p className="mt-1 text-sm leading-7 text-brand-cream/55">
+                الحذف الجماعي متوقف حتى اكتمال مراجعة مراجع الوسائط والفيديوهات المنشورة وطابور النشر الاجتماعي. تم الاحتفاظ بالسجلات لتجنب فقدان مراجع أو سجلات تدقيق.
+              </p>
+              <p className="mt-2 text-xs text-brand-cream/40">
+                عدد الطلبات الفاشلة: {failedVideoJobs.toLocaleString("ar-EG-u-nu-latn")}
+              </p>
             </div>
-            <form action={deleteFailedVideoGenerationAction}>
-              <button type="submit" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200">
-                حذف الفاشلة ({failedVideoJobs})
-              </button>
-            </form>
+            <span aria-disabled="true" className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2.5 text-sm font-semibold text-red-200/60">
+              الحذف معطّل مؤقتًا
+            </span>
           </div>
         </section>
       )}
