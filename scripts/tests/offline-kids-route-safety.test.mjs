@@ -106,6 +106,8 @@ assert.ok(
   "offline datasets must refresh from the network before falling back to Cache Storage",
 );
 assert.match(offlineContentHandler, /cache\.put\(request, copy\)/);
+assert.match(exporter, /assertCanonicalSupabaseProjectUrl\(rawSupabaseUrl\)/,
+  "offline snapshots must reject a non-canonical Supabase project before any dataset read");
 assert.match(exporter, /getBlockedKidsRoutes\(previousKidsRows, rows, previous\.routes\)/);
 assert.match(exporter, /const blockedRoutes = new Set\(\[\.\.\.blockedKidsRoutes, \.\.\.blockedPublishedContentRoutes\]\)/);
 assert.match(exporter, /previous\.routes\.filter\(\(route\) => !blockedRoutes\.has\(route\)\)/);
