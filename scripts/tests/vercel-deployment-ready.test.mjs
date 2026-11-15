@@ -51,9 +51,27 @@ await assert.rejects(
   () => waitForVercelDeploymentReady({ ...base, fetchImpl: fetchPayload({ ...readyPayload, gitSource: { sha: "b".repeat(40) } }) }),
   /commit SHA does not match/,
 );
+
+// A syntactically valid HTTP URL reaches the origin-policy branch; malformed
+// input reaches the URL parser branch. Keep both error contracts explicit.
 await assert.rejects(
   () => waitForVercelDeploymentReady({ ...base, expectedAliasUrl: "http://zikrmediaofficial.vercel.app", fetchImpl: fetchPayload(readyPayload) }),
+  /HTTPS origin without a path, query, or fragment/,
+);
+await assert.rejects(
+  () => waitForVercelDeploymentReady({ ...base, expectedAliasUrl: "not-a-valid-url", fetchImpl: fetchPayload(readyPayload) }),
   /absolute HTTPS origin/,
 );
+
+for (const expectedAliasUrl of [
+  "https://zikrmediaofficial.vercel.app/path",
+  "https://zikrmediaofficial.vercel.app?preview=1",
+  "https://zikrmediaofficial.vercel.app#preview",
+]) {
+  await assert.rejects(
+    () => waitForVercelDeploymentReady({ ...base, expectedAliasUrl, fetchImpl: fetchPayload(readyPayload) }),
+    /HTTPS origin without a path, query, or fragment/,
+  );
+}
 
 console.log("Vercel deployment readiness target, canonical alias, project, and exact SHA contracts passed.");
