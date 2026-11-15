@@ -180,7 +180,7 @@ const unavailableTextOnlyOutput = formatMemorizationEvaluationResponse("", false
 assert.match(unavailableTextOnlyOutput, /خطة مراجعة تعليمية/);
 assert.match(unavailableTextOnlyOutput, /لم يتم تقييم تسجيل صوتي/);
 assert.match(unavailableTextOnlyOutput, /قسّم المقرر/);
-assert.match(memorizationActionSource, /if \(!result\)[\s\S]*?formatMemorizationEvaluationResponse\("", false\)/,
+assert.match(memorizationActionSource, /if \(result\)[\s\S]*?return formatMemorizationEvaluationResponse\("", false\);/,
   "provider unavailability must retain the supported local text-only study plan");
 assert.doesNotMatch(malformedTextOnlyOutput, /99|100|الدرجة:|أخطاء التسميع|no errors were heard/i,
   "malformed text-only model prose must never be presented as an audio score or recitation finding");
