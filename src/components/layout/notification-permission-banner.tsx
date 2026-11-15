@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Bell, X } from 'lucide-react';
 import { getNotificationPermission, requestNotificationPermission } from '@/features/notifications/services/notifications';
-
-const DISMISSED_KEY = 'zikr_notif_banner_dismissed';
+import { hasDismissedNotificationBanner, persistNotificationBannerDismissal } from '@/features/notifications/services/notification-banner-storage';
 
 /**
  * Shows a one-time banner asking the user to allow notifications.
@@ -20,7 +19,7 @@ export function NotificationPermissionBanner() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const dismissed = sessionStorage.getItem(DISMISSED_KEY) === '1';
+    const dismissed = hasDismissedNotificationBanner(() => window.sessionStorage);
     if (dismissed) return;
 
     let disposed = false;
@@ -50,7 +49,7 @@ export function NotificationPermissionBanner() {
   };
 
   const dismiss = () => {
-    sessionStorage.setItem(DISMISSED_KEY, '1');
+    persistNotificationBannerDismissal(() => window.sessionStorage);
     setShow(false);
   };
 

@@ -4,6 +4,31 @@ import { resolve } from "node:path";
 import { DEFAULT_AUDIO_SETTINGS, getAudioChoice, getNativeAudio, normalizeAudioSettings, registerAudioChoices } from "../../src/lib/audio/config";
 import { ensureNativeNotificationChannels } from "../../src/features/notifications/services/native-notification-channels";
 import { getNotificationPermission, requestNotificationPermission } from "../../src/features/notifications/services/notifications";
+import { hasDismissedNotificationBanner, persistNotificationBannerDismissal } from "../../src/features/notifications/services/notification-banner-storage";
+
+let persistedDismissal: string | null = null;
+assert.equal(hasDismissedNotificationBanner(() => ({
+  getItem: () => persistedDismissal,
+  setItem: (_key, value) => { persistedDismissal = value; },
+})), false);
+persistNotificationBannerDismissal(() => ({
+  getItem: () => persistedDismissal,
+  setItem: (_key, value) => { persistedDismissal = value; },
+}));
+assert.equal(persistedDismissal, "1");
+assert.equal(hasDismissedNotificationBanner(() => ({
+  getItem: () => persistedDismissal,
+  setItem: () => undefined,
+})), true);
+assert.equal(
+  hasDismissedNotificationBanner(() => { throw new Error("session storage blocked"); }),
+  false,
+  "a blocked sessionStorage getter must not prevent the opt-in banner from rendering",
+);
+assert.doesNotThrow(
+  () => persistNotificationBannerDismissal(() => { throw new Error("session storage blocked"); }),
+  "a blocked sessionStorage getter must not prevent the banner from closing",
+);
 
 const iosPrayer = getNativeAudio("prayer", "ios");
 const iosDhikr = getNativeAudio("dhikr", "ios");
@@ -241,6 +266,10 @@ assert.match(
   "the native bridge must expose LocalNotifications.checkPermissions",
 );
 assert.match(notificationBannerSource, /getNotificationPermission/);
+assert.match(notificationBannerSource, /hasDismissedNotificationBanner/);
+assert.match(notificationBannerSource, /persistNotificationBannerDismissal/);
+assert.doesNotMatch(notificationBannerSource, /sessionStorage\.getItem|sessionStorage\.setItem/,
+  "the banner must route storage access through the failure-safe adapter");
 assert.match(notificationBannerSource, /requestNotificationPermission/);
 assert.doesNotMatch(notificationBannerSource, /Notification\.requestPermission/,
   "the permission banner must not bypass the native-aware permission service");

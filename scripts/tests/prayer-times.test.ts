@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { getCurrentPrayer, getNextPrayer, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
+import { getCurrentPrayer, getNextPrayer, parsePrayerTimeMinutes, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
 import { readFileSync } from "node:fs";
 import { parsePrayerCoordinate } from "../../src/features/prayer/services/prayer-location-validation";
 import {
@@ -20,6 +20,13 @@ assert.equal(parsePrayerCoordinate("0x10", -90, 90), null, "non-decimal coordina
 assert.equal(parsePrayerCoordinate("1e2", -90, 90), null, "exponential coordinate strings must be rejected");
 assert.equal(parsePrayerCoordinate(91, -90, 90), null);
 assert.equal(parsePrayerCoordinate(-181, -180, 180), null);
+
+assert.equal(parsePrayerTimeMinutes("05:07"), 307);
+assert.equal(parsePrayerTimeMinutes("05:07 (EET)"), 307, "provider timezone suffixes remain supported");
+assert.equal(parsePrayerTimeMinutes(" 5:07 "), 307, "single-digit hours and surrounding whitespace remain supported");
+for (const malformedTime of ["05:07malformed", "05:07(EET)", "24:00", "05:60", "not-a-time"]) {
+  assert.equal(parsePrayerTimeMinutes(malformedTime), null, "malformed prayer times must fail closed: " + malformedTime);
+}
 
 const timings: PrayerTime = {
   Fajr: "05:00",
@@ -114,6 +121,19 @@ assert.equal(
 );
 assert.equal(getZonedDateTime("invalid", "UTC", "12:00"), null);
 assert.equal(getZonedDateTime("2026-02-31", "UTC", "12:00"), null);
+assert.equal(getZonedDateTime("2026-06-15", "UTC", "05:07malformed"), null,
+  "native alarms must reject a valid-looking time followed by an unseparated suffix");
+assert.equal(
+  getZonedDateTime("2026-06-15", "UTC", "05:07 (EET)")?.toISOString(),
+  "2026-06-15T05:07:00.000Z",
+  "native alarms must retain valid provider timezone annotations",
+);
+const malformedFajrTimings = { ...timings, Fajr: "05:07malformed" };
+assert.deepEqual(
+  getNextPrayer(malformedFajrTimings, new Date(2026, 9, 28, 4, 0)),
+  { name: "Dhuhr", time: "12:00", minutesUntil: 480 },
+  "a malformed Fajr value must not be used in the next-prayer countdown",
+);
 assert.equal(addCalendarDays("2026-02-31", 1), null);
 
 assert.deepEqual(
@@ -163,6 +183,9 @@ assert.deepEqual(
 );
 
 const prayerAlertHook = readFileSync("src/features/prayer/hooks/use-prayer-alert.ts", "utf8");
+assert.match(prayerAlertHook, /parsePrayerTimeMinutes/);
+assert.doesNotMatch(prayerAlertHook, /function parsePrayerTime\(/,
+  "the live alert loop must use the same strict parser as the countdown and native schedule");
 const pushSubscription = readFileSync("src/lib/push-subscription.ts", "utf8");
 assert.match(prayerAlertHook, /loadLocalPrayerLocation/);
 assert.match(prayerAlertHook, /getSavedPrayerLocation/);

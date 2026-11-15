@@ -273,7 +273,8 @@ export function getMinutesOfDayInTimeZone(currentTime: Date, timeZone?: string):
 export const getPrayerTimesByCoordinates = getPrayerTimes;
 
 export function parsePrayerTimeMinutes(timeStr: string): number | null {
-  const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
+  if (typeof timeStr !== "string") return null;
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?:$|\s)/);
   if (!match) return null;
   const hours = Number(match[1]);
   const minutes = Number(match[2]);

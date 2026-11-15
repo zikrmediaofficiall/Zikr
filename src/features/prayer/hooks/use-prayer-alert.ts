@@ -20,7 +20,7 @@ import {
 } from "@/lib/push-subscription";
 import { getNativeAudio } from "@/lib/audio/config";
 import { getSavedPrayerLocation, loadLocalPrayerLocation } from "@/features/prayer/services/saved-prayer-location";
-import { getMinutesOfDayInTimeZone, getPrayerTimes } from "@/features/prayer/services/prayer-times";
+import { getMinutesOfDayInTimeZone, getPrayerTimes, parsePrayerTimeMinutes } from "@/features/prayer/services/prayer-times";
 import {
   addCalendarDays,
   getPrayerAlertDateKey,
@@ -77,17 +77,6 @@ function formatLocalDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function parsePrayerTime(
-  value: string
-): { hours: number; minutes: number } | null {
-  const match = /^(\d{1,2}):(\d{2})/.exec(value);
-  if (!match) return null;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (hours > 23 || minutes > 59) return null;
-  return { hours, minutes };
 }
 
 /** Dedup key: fires once per prayer per calendar day. */
@@ -430,11 +419,9 @@ export function usePrayerAlert(
 
       for (const prayer of PRAYERS) {
         if (!settings.enabledPrayers[prayer]) continue;
-        const parsed = parsePrayerTime(currentTimings[prayer] ?? "");
-        if (!parsed) continue;
-        const diff = Math.abs(
-          parsed.hours * 60 + parsed.minutes - currentMinutes,
-        );
+        const prayerMinutes = parsePrayerTimeMinutes(currentTimings[prayer] ?? "");
+        if (prayerMinutes === null) continue;
+        const diff = Math.abs(prayerMinutes - currentMinutes);
 
         if (diff <= 1 && !alreadyFired(prayer, timeZone)) {
           markFired(prayer, timeZone);
