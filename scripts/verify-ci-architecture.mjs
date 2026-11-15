@@ -135,8 +135,14 @@ assert.ok(
   androidRebuildWorkflow.includes("android-signing"),
   "the signed Android rebuild must retain its dedicated signing context",
 );
-const androidRebuildJob =
-  circle.match(/^  android-rebuild:\\n([\\s\\S]*?)(?=^  [a-z0-9_-]+:\\n|^workflows:\\n)/m)?.[1] ?? "";
+const circleJobLines = circle.split(/\r?\n/);
+const androidRebuildStart = circleJobLines.findIndex((line) => line === "  android-rebuild:");
+const androidRebuildEnd = circleJobLines.findIndex((line, index) =>
+  index > androidRebuildStart && (line === "workflows:" || /^  [a-z0-9_-]+:$/.test(line)),
+);
+const androidRebuildJob = androidRebuildStart >= 0
+  ? circleJobLines.slice(androidRebuildStart + 1, androidRebuildEnd >= 0 ? androidRebuildEnd : circleJobLines.length).join("\n")
+  : "";
 for (const secretName of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
   assert.ok(
     androidRebuildJob.includes(secretName + ': ""'),
