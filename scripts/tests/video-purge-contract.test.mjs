@@ -316,9 +316,18 @@ assert.ok(
     failedVideoDeleteAction.includes("No rows were changed."),
   "the legacy bulk-delete server action must return an explicit non-destructive hold result",
 );
+assert.match(
+  failedVideoDeleteAction,
+  /requireAdminStepUp\(["']video\.delete["']/,
+  "the legacy server action must retain its server-side video.delete step-up guard",
+);
+assert.ok(
+  failedVideoDeleteAction.indexOf("requireAdminStepUp") < failedVideoDeleteAction.indexOf("return {"),
+  "step-up authorization must complete before the safe hold result is returned",
+);
 assert.doesNotMatch(
   failedVideoDeleteAction,
-  /supabaseServerAdminRequest|method:\s*["']DELETE|recordAdminAuditEvent|revalidatePath|requireAdminStepUp/,
+  /supabaseServerAdminRequest|method:\s*["']DELETE|recordAdminAuditEvent|revalidatePath/,
   "the legacy bulk-delete server action must not perform database writes or destructive side effects",
 );
 assert.ok(
