@@ -319,6 +319,7 @@ assert.ok(
   "only validated UUIDs may be used for request and social queue lookups",
 );
 assert.ok(kidsVideosApi.includes("resolveKidsVideoSocialPublication"), "the Kids video feed must aggregate all original and supplemental social queue rows");
+assert.ok(kidsVideosApi.includes("socialPublicationReadStatus"), "the Kids feed must expose whether its social publication state was verified");
 assert.ok(kidsVideosApi.includes("socialQueueReadSucceeded = true"), "stored social badges must be used only after a successful live queue read");
 assert.ok(kidsVideosApi.includes("Promise.allSettled"), "a social queue read failure must be distinguishable from a legitimate empty result");
 assert.doesNotMatch(kidsVideosApi, /status=in\.\(published,partial\)/, "queued, processing and failed supplemental rows must participate in live publication reconciliation");
@@ -733,16 +734,19 @@ assert.match(kidsSocialPostsApi, /status: 503/, "a missing production service-ro
 assert.match(kidsSocialPostsApi, /return NextResponse\.json\(\[\]/, "preview and development may retain their intentional empty-feed fallback");
 const kidsHomePage = readFileSync("src/app/kids/page.tsx", "utf8");
 const kidsVideoService = readFileSync("src/features/videos/services/videos.ts", "utf8");
+const kidsVideoSocialDetailService = readFileSync("src/features/social/services/kids-video-social-detail.ts", "utf8");
 const kidsSocialQueryService = readFileSync("src/features/social/services/kids-video-social-query.ts", "utf8");
 assert.match(kidsVideoService, /resolveKidsVideoSocialPublicationForDetail/);
-assert.match(kidsVideoService, /loadKidsSocialQueueRows\(\[requestIdState\.id\], request\)/, "the Kids video detail route must reconcile every page of live social queue history using a validated request UUID");
+assert.match(kidsVideoSocialDetailService, /loadKidsSocialQueueRows\(\[requestIdState\.id\], request\)/, "the Kids video detail route must reconcile every page of live social queue history using a validated request UUID");
+assert.match(kidsVideoSocialDetailService, /reason: "queue_read_failed"/, "the Kids video detail must preserve an explicit unavailable state when the queue read fails");
 assert.match(kidsSocialQueryService, /metadata->>audience=eq\.kids/, "the shared Kids social queue reader must never use general-audience rows");
 assert.match(kidsSocialQueryService, /order=created_at\.desc,id\.desc/, "the shared Kids social queue reader must use a stable keyset order");
 assert.match(kidsSocialQueryService, /KIDS_SOCIAL_QUEUE_MAX_ROWS = 5_000/, "an oversized social history must fail closed instead of returning a truncated badge");
 assert.doesNotMatch(kidsVideoService, /limit=600/, "the Kids video detail must not silently truncate supplemental publication history");
-assert.match(kidsVideoService, /metadata:\s*\{\s*\.\.\.metadata,\s*socialPublication\s*\}/, "the Kids video detail response must replace stale catalog social badges with the live result");
+assert.match(kidsVideoService, /socialPublication:\s*socialPublicationResolution\.publication[\s\S]*socialPublicationReadStatus:\s*socialPublicationResolution\.status/, "the Kids video detail response must replace stale catalog badges and preserve read availability");
 assert.match(kidsVideoDetailPage, /نص منشور مُجهّز/, "unpublished generated copy must be labelled as prepared copy, not a published post");
 assert.match(kidsVideoDetailPage, /لم يتم نشره بعد/, "the Kids video detail page must state when a generated caption has no confirmed platform delivery");
+assert.match(kidsVideoDetailPage, /تعذر التحقق من حالة النشر/, "the Kids video detail page must not label an unavailable social queue as unpublished");
 const kidsGamesAdminPage = readFileSync("src/app/admin/kids/games/page.tsx", "utf8");
 const kidsLevelsAdminPage = readFileSync("src/app/admin/kids/levels/page.tsx", "utf8");
 const kidsContentData = readFileSync("src/features/kids/data/content.ts", "utf8");
