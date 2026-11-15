@@ -311,7 +311,7 @@ async function enqueueExistingWrittenArticlesForFacebook(limit=100) {
    const source=metadata.source&&typeof metadata.source==="object"&&!Array.isArray(metadata.source)?metadata.source as Row:{};
    const articleId=str(article.id),title=str(article.title),body=str(article.content);
    const publicPath=str(metadata.publicPath);
-   const sourceType=str(source.type),sourceId=str(source.id);
+   const sourceType=str(source.type).toLowerCase(),sourceId=str(source.id);
    if(article.published!==true||!articleId||title.length<8||!body||body.length>12000||quality.passed!==true||source.verified!==true||
       !sourceType||!sourceId||!publicPath.startsWith("/")||publicPath.startsWith("//")||!isSafeWrittenBackfillSource(sourceType,metadata))return [];
    return [{
