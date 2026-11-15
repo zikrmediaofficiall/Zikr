@@ -68,6 +68,9 @@ export default async function KidsVideoDetailPage({ params }: Props) {
   const socialPublication = metadata.socialPublication && typeof metadata.socialPublication === "object" && !Array.isArray(metadata.socialPublication)
     ? metadata.socialPublication as { status?: unknown; platforms?: unknown }
     : null;
+  const socialPublicationReadStatus = metadata.socialPublicationReadStatus === "unavailable"
+    ? "unavailable"
+    : "verified";
   const publishedPlatforms = Array.isArray(socialPublication?.platforms)
     ? socialPublication.platforms.filter((platform): platform is string => typeof platform === "string")
     : [];
@@ -120,7 +123,7 @@ export default async function KidsVideoDetailPage({ params }: Props) {
                   {publishedPlatforms.map((platform) => platform === "facebook_reels" ? "ريلز فيسبوك" : platform === "facebook" ? "فيسبوك" : platform === "youtube" ? "يوتيوب" : platform).join("، ")}
                 </span>
               ) : (
-                <span className="text-xs font-bold text-brand-cream/70">لم يتم نشره بعد</span>
+                <span className="text-xs font-bold text-brand-cream/70">{socialPublicationReadStatus === "unavailable" ? "تعذر التحقق من حالة النشر" : "لم يتم نشره بعد"}</span>
               )}
             </div>
             <p className="whitespace-pre-wrap text-sm leading-7 text-brand-cream/80">{socialCaption}</p>
