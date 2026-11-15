@@ -508,6 +508,16 @@ assert.ok(
 const createAudienceGuard = adminVideoCreateRoute.slice(createAudienceGuardIndex, createTemplateBranchIndex);
 assert.match(createAudienceGuard, /if \(!requestedAudience\)/);
 assert.match(createAudienceGuard, /audience: requestedAudience/);
+const createKidsPermissionGuardIndex = adminVideoCreateRoute.indexOf('if (requestedAudience === "kids")');
+assert.ok(
+  createKidsPermissionGuardIndex > createAudienceGuardIndex &&
+    createKidsPermissionGuardIndex < createTemplateBranchIndex &&
+    createKidsPermissionGuardIndex < createRequestIndex,
+  "Kids permission must be checked before template resolution and before request persistence",
+);
+const createKidsPermissionGuard = adminVideoCreateRoute.slice(createKidsPermissionGuardIndex, createRequestIndex);
+assert.match(createKidsPermissionGuard, /requireAdminApi\(["']kids\.manage["']\)/);
+assert.match(createKidsPermissionGuard, /kidsAuth\.profile\.id !== auth\.profile\.id/);
 
 assert.match(adminVideoGenerationRoute, /resolveKidsVideoQaStatusForApproval/);
 assert.match(adminVideoGenerationRoute, /requestContent: currentContent/);
