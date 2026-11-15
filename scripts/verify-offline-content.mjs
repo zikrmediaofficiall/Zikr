@@ -64,7 +64,13 @@ try {
         if (!Array.isArray(rows)) failures.push(`Dataset must be a JSON array: ${file}`);
         else if (rows.length !== definition.count) failures.push(`Dataset count mismatch: ${name} manifest=${definition.count} file=${rows.length}`);
         else if (name === 'kids') {
-          if (rows.some(row => row?.type === 'story' && row?.metadata?.age_appropriate !== true)) {
+          if (rows.some(row => row?.published !== true || row?.is_active !== true)) {
+            failures.push('Offline Kids dataset must contain only published and active rows');
+          }
+          if (rows.some(row => {
+            const type = typeof row?.type === 'string' ? row.type : row?.content_type;
+            return type === 'story' && row?.metadata?.age_appropriate !== true;
+          })) {
             failures.push('Offline Kids dataset must not contain stories without explicit age-appropriate approval');
           }
           const expectedKidsRoutes = getPublishedKidsRoutes(rows);

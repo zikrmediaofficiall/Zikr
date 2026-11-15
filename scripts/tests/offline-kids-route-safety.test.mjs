@@ -3,17 +3,17 @@ import { readFileSync } from "node:fs";
 import { getBlockedKidsRoutes, getPublishedKidsRoutes, isValidOfflineDatasetCount, resolveOfflineDatasetMinimum } from "../lib/offline-kids-route-safety.mjs";
 
 const previousRows = [
-  { type: "story", slug: "removed-approved-story", metadata: { age_appropriate: true } },
-  { type: "story", slug: "approval-withdrawn", metadata: { age_appropriate: true } },
-  { type: "game", slug: "removed-game", metadata: {} },
-  { type: "quiz", slug: "removed-quiz", metadata: {} },
+  { type: "story", slug: "removed-approved-story", metadata: { age_appropriate: true }, published: true, is_active: true },
+  { type: "story", slug: "approval-withdrawn", metadata: { age_appropriate: true }, published: true, is_active: true },
+  { type: "game", slug: "removed-game", metadata: {}, published: true, is_active: true },
+  { type: "quiz", slug: "removed-quiz", metadata: {}, published: true, is_active: true },
 ];
 const currentRows = [
-  { type: "story", slug: "current-approved-story", metadata: { age_appropriate: true } },
-  { type: "story", slug: "approval-withdrawn", metadata: { age_appropriate: false } },
-  { type: "game", slug: "current-game", metadata: {} },
-  { type: "activity", slug: "current-double--hyphen", metadata: {} },
-  { type: "activity", slug: "unsafe/slug", metadata: {} },
+  { type: "story", slug: "current-approved-story", metadata: { age_appropriate: true }, published: true, is_active: true },
+  { type: "story", slug: "approval-withdrawn", metadata: { age_appropriate: false }, published: true, is_active: true },
+  { type: "game", slug: "current-game", metadata: {}, published: true, is_active: true },
+  { type: "activity", slug: "current-double--hyphen", metadata: {}, published: true, is_active: true },
+  { type: "activity", slug: "unsafe/slug", metadata: {}, published: true, is_active: true },
 ];
 
 const blocked = getBlockedKidsRoutes(previousRows, currentRows, [
@@ -44,6 +44,25 @@ assert.deepEqual(
 assert.equal(blocked.has("/kids/current-approved-story"), false);
 assert.equal(blocked.has("/kids/current-game"), false);
 assert.equal(blocked.has("/kids/unsafe/slug"), true, "an unsafe current slug must not keep a stale nested route alive in the offline manifest");
+
+const visibilityRows = [
+  { type: "game", slug: "unpublished-game", published: false, is_active: true },
+  { type: "game", slug: "inactive-game", published: true, is_active: false },
+  { type: "unknown", slug: "unsupported-kind", published: true, is_active: true },
+  { content_type: "activity", slug: "legacy-activity", published: true, is_active: true },
+  { type: "story", slug: "unapproved-story", published: true, is_active: true, metadata: { age_appropriate: false } },
+  { type: "story", slug: "approved-story", published: true, is_active: true, metadata: { age_appropriate: true } },
+];
+assert.deepEqual(
+  getPublishedKidsRoutes(visibilityRows),
+  ["/kids/approved-story", "/kids/legacy-activity"],
+  "server-side offline export must use the same published, active, supported-type and story-approval gates as the client",
+);
+assert.deepEqual(
+  [...getBlockedKidsRoutes([], visibilityRows, ["/kids/unpublished-game", "/kids/inactive-game", "/kids/unsupported-kind"])].sort(),
+  ["/kids/inactive-game", "/kids/unpublished-game", "/kids/unsupported-kind"],
+  "unpublished, inactive and unsupported Kids rows must revoke previously cached detail routes",
+);
 assert.deepEqual(
   getPublishedKidsRoutes(currentRows),
   ["/kids/current-approved-story", "/kids/current-double--hyphen", "/kids/current-game"],
@@ -134,6 +153,14 @@ assert.match(exporter, /const apiKey = \(serviceRoleKey \|\| process\.env\.SUPAB
   "required offline exports must prefer the protected service-role key over any configured anonymous key");
 assert.ok(offlineVerifier.includes("getPublishedKidsRoutes(rows)"),
   "offline verification must reconcile Kids detail routes against the current exported dataset");
+
+const committedKidsRows = JSON.parse(readFileSync("public/offline-content/v1/kids.json", "utf8"));
+const committedOfflineManifest = JSON.parse(readFileSync("public/offline-content/v1/manifest.json", "utf8"));
+assert.deepEqual(
+  committedOfflineManifest.routes.filter(route => typeof route === "string" && route.startsWith("/kids/")).sort(),
+  getPublishedKidsRoutes(committedKidsRows),
+  "the committed offline manifest must include exactly the public Kids detail routes in the committed dataset",
+);
 const offlineWorkflow = readFileSync(".github/workflows/refresh-offline-content.yml", "utf8");
 assert.ok(offlineWorkflow.includes('"scripts/lib/offline-kids-route-safety.mjs"'),
   "changes to Kids route revocation policy must trigger a fresh offline snapshot workflow");
