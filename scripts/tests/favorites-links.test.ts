@@ -7,6 +7,18 @@ for (const itemType of FAVORITE_ITEM_TYPES) assert.equal(isFavoriteItemType(item
 for (const invalidType of ["article", "video", "unknown", null, 1]) {
   assert.equal(isFavoriteItemType(invalidType), false);
 }
+const favoritesEnumMigration = readFileSync("supabase/migrations/20260530000400_0004_phase2_auth_foundation.sql", "utf8");
+const favoritesEnumDefinition = favoritesEnumMigration.match(/CREATE TYPE favorite_item_type AS ENUM\s*\(([^)]+)\)/);
+assert.ok(favoritesEnumDefinition, "the database favorite_item_type enum must exist");
+const databaseFavoriteTypes = [...favoritesEnumDefinition[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
+assert.deepEqual([...FAVORITE_ITEM_TYPES], databaseFavoriteTypes, "runtime favorite types must match the database enum");
+
+const favoritesServiceSource = readFileSync("src/features/favorites/services/favorites.ts", "utf8");
+assert.equal(
+  (favoritesServiceSource.match(/if \(!isFavoriteItemType\(itemType\)\)/g) ?? []).length,
+  4,
+  "all favorite mutations and item-type reads must enforce the runtime enum guard",
+);
 
 assert.equal(getFavoriteHref("quran", "quran:2:255"), "/quran/2/255");
 assert.equal(getFavoriteHref("hadith", "hadith:sahih-bukhari:42"), "/hadith/sahih-bukhari/42");

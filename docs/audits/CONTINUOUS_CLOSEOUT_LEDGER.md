@@ -2014,3 +2014,18 @@ Request current CODEOWNERS review, finish the 45 pending-trace and 205 review-re
 - The branch overlay remains 569 rows with 218 `REVIEW_REQUIRED`, 281 `CONTENT_READ_TESTED_PASS`, 34 `CONTENT_READ_PENDING_TRACE`, 28 `FIXED_TESTED_PENDING_LIVE_APPLY`, and 8 `SUPERSEDED_SNAPSHOT`.
 
 **Status: OPEN.**
+
+
+## 2026-11-15 — exact code/test closeout checkpoint 748ba0b563a7b5885af7f6ffde406770065675e7
+
+- **Branch / PR:** `audit/zikr-kids-daily-priority-20261110`, PR #320 against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- **Inventory:** 585 changed paths (258 added, 327 modified, 0 deleted); repository tree 2,419 entries (1,920 blobs, 499 directories); refreshed file-status overlay 585 rows; refreshed self-excluding repository manifest 2,418 entries.
+- **Verification:** full-scope [Quality Gate 43690964376](https://github.com/zikrofficial-X/Zikr/actions/runs/43690964376) passed on exact head `748ba0b563a7b5885af7f6ffde406770065675e7`; CircleCI `config-guard`, `source-verify`, `application-build-docs` passed; [CircleCI Config Validation 43690964373](https://github.com/zikrofficial-X/Zikr/actions/runs/43690964373) passed; [Android Debug APK 43690964379](https://github.com/zikrofficial-X/Zikr/actions/runs/43690964379) passed. No signed Android release was produced.
+- **Fixes in this checkpoint:** preserved Supabase auth-refresh cookies on proxy redirects; aligned social publish cutoff; hardened push-subscription endpoint and ownership race; made Kids detail social state queue-derived and fail-closed; added safe prayer cron reconciliation with local PostgreSQL integration coverage; aligned Favorites runtime validation and labels with the production enum.
+- **Migration state:** 418 remote / 444 local / 26 pending; no production migration or function deployment performed. The current prayer/source-agent cron rows already target the canonical project and the new migration is a no-op for those inspected rows.
+- **Open production/security decisions:** enable leaked-password protection; decide whether destructive admin actions must require MFA (`require_mfa_for_destructive=false` currently); review public/unbounded `public-assets` bucket and obtain a conclusive object inventory before any policy/bucket action; reconcile the 78 unused-index notices without deleting indexes absent evidence.
+- **Open code/runtime items:** deployed prayer worker and spiritual-AI function still lag local hardened code; source-agent has no usable parser and can report zero-item success; pending RLS migrations are not applied; the scheduled video-media audit performs production metadata writes and should be treated as a writer, not a read-only audit.
+- **Mobile/hosting:** production Vercel remains READY on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; audit branch not deployed. `IOS_ASSOCIATED_DOMAIN_APP_ID` is missing, so Apple app association is not complete. Device acceptance, iOS signing, and owner configuration remain manual.
+- **Governance:** PR #320 is open/mergeable but has no recorded CODEOWNERS approval. `@Zikrmediaofficial` review and overlap reconciliation for PRs #321–#325 are still required. No merge/deploy gate was bypassed.
+- **Safety:** no content generation, Gemini request, social publishing, production DDL/DML, Storage/media deletion, index/secret change, Android/iOS release, merge, or deployment was triggered.
+- **Next checkpoint:** the documentation/manifest reconciliation is being committed as a child of this verified code/test head. The new documentation commit must receive a fresh exact-head Quality Gate and required checks before any merge decision.
