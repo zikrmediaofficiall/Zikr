@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { isVideoAiPlanningEnabled } from "../../src/features/videos/providers/types";
 import { CURRENT_VIDEO_RENDERER_VERSION } from "../../src/features/videos/services/video-template-version";
+import { filterGeneralStorySources, resolveKidsVideoPublicDisclosure, resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
 
 // Contract: TypeScript video status/category unions must match the latest DB check constraints.
 const migrations = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
@@ -119,6 +120,73 @@ assert.throws(
   () => resolveRenderDuration(59.3, 20),
   /59.3s > 60.0s max/,
   "content that cannot fit within the supported 60-second format must fail explicitly rather than be truncated",
+);
+
+
+const originalKidsDisclosure = resolveKidsVideoPublicDisclosure(
+  {
+    audience: "kids",
+    aiMode: "original_kids_story",
+    sourceLabel: "Source: Quran.com",
+  },
+  "Source: Quran.com",
+  "Based on a hadith from Sahih al-Bukhari",
+);
+assert.equal(
+  originalKidsDisclosure.sourceType,
+  "original_kids_fiction",
+  "original Kids fiction must retain its explicit fiction classification",
+);
+assert.equal(
+  originalKidsDisclosure.sourceLabel,
+  "قصة تربوية خيالية أصلية من ذِكر — ليست آية أو حديثًا أو واقعة تاريخية.",
+  "English source labels must not override the original-fiction disclosure",
+);
+assert.equal(originalKidsDisclosure.description, null, "English source labels must be removed from original Kids descriptions");
+assert.equal(originalKidsDisclosure.socialCaption, null, "English religious-source claims must be removed from original Kids social copy");
+
+const originalKidsCleanCopy = resolveKidsVideoPublicDisclosure(
+  { audience: "kids", sourceType: "original_kids_fiction" },
+  "A fictional story about kindness and patience.",
+  "A gentle lesson for today.",
+);
+assert.equal(originalKidsCleanCopy.description, "A fictional story about kindness and patience.");
+assert.equal(originalKidsCleanCopy.socialCaption, "A gentle lesson for today.");
+
+const editorialDisclosure = resolveKidsVideoPublicDisclosure(
+  { audience: "kids", sourceType: "editorial", sourceLabel: "Reference: Sahih al-Bukhari" },
+  "According to the Qur'an, this story is documented.",
+  "See https://example.com for the source.",
+);
+assert.equal(
+  editorialDisclosure.sourceLabel,
+  "محتوى تحريري أصلي من منصة ذِكر — غير منسوب إلى آية أو حديث.",
+  "editorial copy must not present an external religious citation as its own source label",
+);
+assert.equal(editorialDisclosure.description, null, "editorial descriptions must reject religious-source attribution");
+assert.equal(editorialDisclosure.socialCaption, null, "editorial social copy must reject external source URLs");
+
+assert.equal(
+  resolveVideoSourceDisclosureLine({ sourceType: "editorial", sourceLabel: "Source: Quran.com" }, "https://example.com"),
+  "محتوى تحريري أصلي من منصة ذِكر — غير منسوب إلى آية أو حديث.",
+  "the video worker must replace misleading editorial source labels with the canonical disclosure",
+);
+assert.equal(
+  resolveVideoSourceDisclosureLine({ sourceType: "editorial", sourceLabel: "محتوى أصلي من فريق ذِكر" }, ""),
+  "محتوى أصلي من فريق ذِكر",
+  "a safe editorial source label must remain visible",
+);
+
+const generalStorySources = filterGeneralStorySources([
+  { id: "kids-series:prophets", audience: "kids", generationMode: "manual", sourceType: "story" },
+  { id: "kids-series:fiction", audience: "general", generationMode: "manual", sourceType: "story" },
+  { id: "adult-original-fiction", audience: "general", generationMode: "manual", sourceType: "original_kids_fiction" },
+  { id: "general-story", audience: "general", generationMode: "manual", sourceType: "story" },
+]);
+assert.deepEqual(
+  generalStorySources.map((source) => source.id),
+  ["general-story"],
+  "the unattended general-story worker must exclude every Kids-only source marker",
 );
 
 console.log("video contract tests passed");
