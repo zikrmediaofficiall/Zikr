@@ -487,6 +487,8 @@ assert.equal(containsKidsPersonalDataSolicitation("Do not share your phone numbe
 assert.equal(containsKidsPersonalDataSolicitation("Never ask for your home address."), false, "English warnings against asking for personal data must remain publishable");
 assert.equal(containsKidsPersonalDataSolicitation("Don't ask what is your phone number."), false, "negative instructions must not be mistaken for direct questions");
 assert.equal(containsKidsPersonalDataSolicitation("Don't share your phone number, but tell me your school."), true, "a separate positive solicitation must still be blocked after a safety-warning clause");
+assert.equal(containsKidsPersonalDataSolicitation("Do not share your phone number and tell me your school."), true, "a positive solicitation must still be blocked when joined to a safety warning with and");
+assert.equal(containsKidsPersonalDataSolicitation("Do not share your phone number or home address with anyone."), false, "conjoined English safety warnings must remain allowed");
 assert.equal(containsKidsPersonalDataSolicitation("ما الدرس الذي تعلمته من القصة؟"), false, "ordinary educational questions must remain allowed");
 
 const worker = readFileSync("scripts/jobs/written-content-automation.ts", "utf8");
