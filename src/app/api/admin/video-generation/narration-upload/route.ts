@@ -120,7 +120,9 @@ export async function POST(request: NextRequest) {
       error?: { message?: string };
     };
     if (!upload.ok || !result.secure_url || result.public_id !== publicId) {
-      const recoveryRequired = upload.ok || typeof result.public_id === "string";
+      const recoveryRequired =
+        upload.ok ||
+        (typeof result.public_id === "string" && result.public_id.trim().length > 0);
       console.error("[api/admin/video-generation/narration-upload] Cloudinary response validation failed.", {
         requestedPublicId: publicId,
         returnedPublicId: result.public_id,
