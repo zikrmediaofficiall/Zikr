@@ -34,8 +34,9 @@ if (!approvalHelper.includes("sourceHash") || !approvalHelper.includes("contentH
 if (!approvalHelper.includes("buildVideoApprovalSnapshotHash")) {
   failures.push("video approval snapshot hashing helper is missing");
 }
-if (!approvalHelper.includes('snapshot.audience === "kids" && snapshot.kidsVideoQaStatus !== "passed"') ||
-    !approvalHelper.includes('content.kidsVideoQaStatus !== "passed"')) {
+if (!approvalHelper.includes("normalizeVideoAudience(snapshot.audience)") ||
+    !approvalHelper.includes('normalizeVideoMarker(snapshot.kidsVideoQaStatus) !== "passed"') ||
+    !approvalHelper.includes('normalizeVideoMarker(content.kidsVideoQaStatus) !== "passed"')) {
   failures.push("Kids audience and safety QA status must be bound to the video approval snapshot");
 }
 if (!socialPublishing.includes("source_hash,content_hash,template_version")) {
