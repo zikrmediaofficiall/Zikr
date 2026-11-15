@@ -58,9 +58,14 @@ if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)")) {
 }
 
 const generation = read("src/app/api/admin/video-generation/route.ts");
-if (!generation.includes("currentContent.kidsVideoQaStatus !== 'passed'") ||
-    !generation.includes("hasCompleteKidsVideoSeriesMetadata(currentContent)")) {
-  failures.push("manual video approval must not bypass the Kids safety QA gate");
+if (
+  !generation.includes("resolveKidsVideoQaStatusForApproval") ||
+  !generation.includes("verifiedKidsVideoQaStatus !== 'passed'") ||
+  !generation.includes("catalogMetadata: catalog.metadata") ||
+  !generation.includes("requestContent: currentContent") ||
+  !generation.includes("hasCompleteKidsVideoSeriesMetadata(currentContent)")
+) {
+  failures.push("manual video approval must bind Kids QA to the matching catalog fingerprint and complete series metadata");
 }
 const generationGet = generation.match(/export async function GET\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
 const generationDelete = generation.match(/export async function DELETE\([\s\S]*?(?=export async function PATCH|$)/)?.[0] ?? "";
@@ -438,8 +443,11 @@ for (const token of [
   "CREATE OR REPLACE FUNCTION public.admin_approve_video_generation_request",
   "FOR UPDATE",
   "VIDEO_APPROVAL_CONFLICT",
-  "p_approved_content - v_approval_fields",
-  "p_catalog_metadata - v_approval_fields",
+  "p_approved_content - v_request_approval_fields",
+  "p_catalog_metadata - v_catalog_approval_fields",
+  "kidsVideoQaStatus",
+  "seriesId",
+  "automatedVideoQa",
   "REVOKE ALL ON FUNCTION public.admin_approve_video_generation_request",
   "GRANT EXECUTE ON FUNCTION public.admin_approve_video_generation_request",
 ]) {
