@@ -149,9 +149,13 @@ for (const secretName of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
     "the signed Android rebuild must shadow project-level Supabase credentials: " + secretName,
   );
 }
-assert.doesNotMatch(
-  androidRebuildJob,
-  /^\\s*(?:SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY):\\s*(?!"")\\S.*$/m,
+const androidRebuildSupabaseCredentialLines = androidRebuildJob
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => /^(?:SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY):/.test(line));
+assert.deepEqual(
+  androidRebuildSupabaseCredentialLines.sort(),
+  ['SUPABASE_SERVICE_ROLE_KEY: ""', 'SUPABASE_URL: ""'],
   "the signed Android rebuild must not receive non-empty Supabase service credentials",
 );
 for (const contract of [
