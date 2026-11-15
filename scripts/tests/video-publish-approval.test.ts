@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
-import { normalizeVideoAudience } from "../../src/features/videos/services/video-audience-visibility";
+import { hasExplicitKidsVideoIntentMarker, isGeneralAudienceVideoMetadata, isKidsVideoContentMarker, normalizeVideoAudience } from "../../src/features/videos/services/video-audience-visibility";
+import { isKidsVideoGenerationRequestContent } from "../../src/features/kids/services/kids-video-request-visibility";
 import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, resolveKidsVideoQaStatusForApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
 assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
@@ -14,6 +15,21 @@ assert.equal(hasSuspiciousReligiousAttribution(null), false);
 assert.equal(normalizeVideoAudience("family"), null, "unknown audience markers must be rejected at video creation");
 assert.equal(normalizeVideoAudience(" KIDS "), "kids", "recognized audience markers must be canonicalized");
 assert.equal(normalizeVideoAudience(undefined), "general", "legacy requests without an audience remain general");
+assert.equal(hasExplicitKidsVideoIntentMarker({ audience: "general", sourceType: " ORIGINAL_KIDS_FICTION " }), true,
+  "explicit Kids provenance must remain a Kids marker even when the stored audience is mislabeled");
+assert.equal(isKidsVideoContentMarker({ audience: "general", sourceType: "original_kids_fiction" }), true);
+assert.equal(isKidsVideoContentMarker({ sourceType: "story", type: "story" }), true,
+  "legacy story requests without an audience must retain the existing Kids classification");
+assert.equal(isKidsVideoContentMarker({ audience: "general", sourceType: "story", type: "story" }), false,
+  "an explicitly general story must not be reclassified as Kids");
+assert.equal(isGeneralAudienceVideoMetadata({ audience: "general", sourceType: "original_kids_fiction" }), false,
+  "Kids-marked catalog metadata must never enter the general public feed");
+assert.equal(isGeneralAudienceVideoMetadata({ sourceType: "story", type: "story" }), false,
+  "legacy story metadata without an audience must remain outside the general public feed");
+assert.equal(isGeneralAudienceVideoMetadata({ audience: "general", sourceType: "story", type: "story" }), true);
+assert.equal(isKidsVideoGenerationRequestContent({ audience: "general", sourceType: "original_kids_fiction" }), true,
+  "Kids provenance must be recognized independently of a conflicting audience marker");
+assert.equal(isKidsVideoGenerationRequestContent({ audience: "general", sourceType: "story", type: "story" }), false);
 
 const checks: VideoApprovalChecklist = { sourceVerified: true, audioReviewed: true, visualsReviewed: true, captionsReviewed: true, rightsReviewed: true };
 const now = "2026-10-21T12:00:00.000Z";
@@ -88,6 +104,19 @@ assert.equal(
   "null Kids request content must fail closed without throwing",
 );
 assert.equal(isVideoQueueItemApprovedForPublishing(kidsQueueItem), true);
+const mismatchedKidsIntentRequest = {
+  ...request,
+  content: { ...content, audience: "general", sourceType: "original_kids_fiction", aiMode: "original_kids_story" },
+};
+assert.equal(buildVideoApprovalSnapshotHashForRequest(mismatchedKidsIntentRequest), null,
+  "a general audience hash must not be generated for content carrying explicit Kids provenance");
+const mismatchedKidsIntentApproval = inspectVideoQueueItemApproval({
+  ...queueItem,
+  request: mismatchedKidsIntentRequest,
+});
+assert.equal(mismatchedKidsIntentApproval.approved, false,
+  "Kids-marked requests with a general audience must fail closed before publishing");
+assert.match(mismatchedKidsIntentApproval.reason ?? "", /علامات محتوى الأطفال/);
 assert.equal(isVideoQueueItemApprovedForPublishing({
   ...kidsQueueItem,
   request: { ...request, content: { ...completeKidsContent, kidsVideoQaStatus: "blocked" } },
@@ -492,9 +521,18 @@ assert.equal(
 
 const adminVideoGenerationRoute = readFileSync("src/app/api/admin/video-generation/route.ts", "utf8");
 assert.match(adminVideoGenerationRoute, /normalizeVideoAudience\(currentContent\.audience\)/);
+assert.match(adminVideoGenerationRoute, /isKidsVideoContentMarker\(currentContent\)/);
+assert.ok(
+  adminVideoGenerationRoute.indexOf("isKidsVideoContentMarker(currentContent)") <
+    adminVideoGenerationRoute.indexOf("const catalogSlug"),
+  "conflicting Kids metadata must be rejected before catalog reads or approval mutations",
+);
 assert.doesNotMatch(adminVideoGenerationRoute, /currentContent\.audience === ["']kids["']/);
 const adminVideoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
 assert.match(adminVideoCreateRoute, /normalizeVideoAudience\(content\.audience\)/);
+assert.match(adminVideoCreateRoute, /hasExplicitKidsVideoIntentMarker/);
+assert.match(adminVideoCreateRoute, /submittedKidsIntent/);
+assert.match(adminVideoCreateRoute, /audience: source\.audience \?\? "general"/);
 assert.doesNotMatch(adminVideoCreateRoute, /content\.audience === ["']kids["']/);
 const createAudienceGuardIndex = adminVideoCreateRoute.indexOf("const requestedAudience = normalizeVideoAudience(content.audience);");
 const createTemplateBranchIndex = adminVideoCreateRoute.indexOf('if (typeof content.templateVersionId === "string"');
