@@ -124,3 +124,25 @@ administration is not available here.
 The production Supabase health gate now performs read-only GET checks only.
 The `consume_admin_rate_limit` RPC is state-mutating and is covered by local
 PostgreSQL integration tests; it must not be invoked as a production smoke probe.
+
+
+## CircleCI secret isolation — 2026-11-15
+
+Job-level empty environment overrides now shadow project-level production values
+in jobs that do not require them. This covers `config-guard`, `source-verify`,
+`application-build-docs`, `security-audit`, and the read-only
+`android-release-draft` verifier. The production Supabase gate receives only
+its Supabase credentials; the scheduled English sync receives only its
+Supabase/Gemini credentials; the Android dispatch job keeps its GitHub Actions
+token but shadows Supabase, Gemini, and keystore values. The signed Android
+rebuild remains the only job that receives the signing context.
+
+CircleCI's documented precedence places job-level `environment` values above
+context and project-level values, so these empty overrides prevent unrelated
+jobs from inheriting project-level secrets. This is containment, not a
+replacement for the owner action below: move `SUPABASE_SERVICE_ROLE_KEY` and
+`GEMINI_API_KEY` from project settings into dedicated least-privilege
+contexts for the production gate and scheduled English sync, move the Android
+dispatch token into a GH-token-only context, verify the affected jobs, then
+remove the project-level copies. The audit does not read, move, rotate, or
+delete any secret.

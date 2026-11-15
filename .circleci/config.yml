@@ -23,6 +23,15 @@ jobs:
     docker:
       - image: cimg/base:stable
     resource_class: small
+    environment:
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
     steps:
       - checkout
       - run:
@@ -44,6 +53,14 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxdHNzdmx2bWt6ZWV5cWdocWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5OTAzNDEsImV4cCI6MjEwOTU2NjM0MX0.jux_q16W3CL3lUFT3P4DvqmnjTYWXTlIF86g2j_AKhw
       NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID: 224706285284-fubdladk24v49v2lnq4p5jrk5ht1uqk8.apps.googleusercontent.com
       AUTH_CALLBACK_URL: https://zikrmediaofficial.vercel.app/auth/callback
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
     steps:
       - checkout
       - run:
@@ -101,6 +118,14 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxdHNzdmx2bWt6ZWV5cWdocWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5OTAzNDEsImV4cCI6MjEwOTU2NjM0MX0.jux_q16W3CL3lUFT3P4DvqmnjTYWXTlIF86g2j_AKhw
       AUTH_CALLBACK_URL: https://zikrmediaofficial.vercel.app/auth/callback
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
     steps:
       - checkout
       - run:
@@ -159,6 +184,12 @@ jobs:
     environment:
       SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
       SUPABASE_PUBLIC_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxdHNzdmx2bWt6ZWV5cWdocWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5OTAzNDEsImV4cCI6MjEwOTU2NjM0MX0.jux_q16W3CL3lUFT3P4DvqmnjTYWXTlIF86g2j_AKhw
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
     steps:
       - checkout
       - run:
@@ -180,6 +211,14 @@ jobs:
     resource_class: medium
     environment:
       NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
     steps:
       - checkout
       - run:
@@ -240,6 +279,11 @@ jobs:
       NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
       TRANSLATION_BATCH_SIZE: "5"
       HADITH_TRANSLATION_BATCH_SIZE: "25"
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
     steps:
       - checkout
       - run:
@@ -298,6 +342,15 @@ jobs:
     docker:
       - image: cimg/node:22.11.0
     resource_class: small
+    environment:
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
     steps:
       - checkout
       - run:
@@ -415,6 +468,7 @@ jobs:
         -Dorg.gradle.jvmargs=-Xmx2048m
         -XX:MaxMetaspaceSize=768m
         -Dfile.encoding=UTF-8
+      GEMINI_API_KEY: ""
     steps:
       - checkout
       - run:
@@ -678,6 +732,14 @@ jobs:
     docker:
       - image: cimg/node:22.11.0
     resource_class: small
+    environment:
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
     steps:
       - run:
           name: Dispatch guarded Android recovery after the signed build succeeds

@@ -7,6 +7,41 @@ const releaseWorkflow = readFileSync(".github/workflows/release-finalization.yml
 const androidReleaseWorkflow = readFileSync(".github/workflows/publish-android-release-assets.yml", "utf8");
 const gate = readFileSync("scripts/verify-release-gates.mjs", "utf8");
 
+const extractCircleCiJob = (name) => {
+  const start = circleCiConfig.indexOf(`  ${name}:\n`);
+  const tail = circleCiConfig.slice(start + 3);
+  const next = /\n  [a-z0-9-]+:\n/.exec(tail);
+  return start >= 0 ? circleCiConfig.slice(start, next ? start + 3 + next.index : undefined) : "";
+};
+const expectBlankCircleCiEnv = (jobName, names) => {
+  const block = extractCircleCiJob(jobName);
+  assert.ok(block, `CircleCI job ${jobName} must exist`);
+  for (const name of names) {
+    assert.match(block, new RegExp(`^      ${name}: ""import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { hasCurrentCodeOwnerApproval } from "../lib/release-gate-approval.mjs";
+
+const workflow = readFileSync(".github/workflows/release-vercel.yml", "utf8");
+const releaseWorkflow = readFileSync(".github/workflows/release-finalization.yml", "utf8");
+const androidReleaseWorkflow = readFileSync(".github/workflows/publish-android-release-assets.yml", "utf8");
+, "m"),
+      `${jobName} must explicitly shadow project/context secret ${name} when it does not need it`);
+  }
+};
+const secretNames = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY", "GH_TOKEN",
+  "ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"];
+for (const jobName of ["config-guard", "source-verify", "application-build-docs", "security-audit", "android-release-draft"]) {
+  expectBlankCircleCiEnv(jobName, secretNames);
+}
+expectBlankCircleCiEnv("supabase-production-gate", ["GEMINI_API_KEY", "GH_TOKEN",
+  "ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"]);
+expectBlankCircleCiEnv("english-content-sync", ["GH_TOKEN", "ANDROID_KEYSTORE_BASE64",
+  "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"]);
+expectBlankCircleCiEnv("android-rebuild", ["GEMINI_API_KEY"]);
+expectBlankCircleCiEnv("android-release-dispatch", ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY",
+  "GEMINI_API_KEY", "ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"]);
+
+
 const circleCiConfig = readFileSync(".circleci/config.yml", "utf8");
 const androidDraftStart = circleCiConfig.indexOf("  android-release-draft:");
 const androidRebuildStart = circleCiConfig.indexOf("  android-rebuild:", androidDraftStart);
