@@ -1989,3 +1989,28 @@ Request current CODEOWNERS review, finish the 45 pending-trace and 205 review-re
 - Remaining: run the exact-head full verification, continue the 218 review-required / 34 pending-trace paths, obtain owner approval, resolve the 28 pending live-apply items through owner-approved procedures, complete physical Android/iOS/OAuth/push/provider/Kids editorial acceptance, then merge/deploy and verify production smoke checks.
 
 **Status: OPEN / IN PROGRESS. Never certify the repository as error-free or closed on this evidence.**
+
+## 2026-11-15 — Kids social-publication state can become stale after catalog-sync failure
+
+**Source/test head reviewed:** `bef48c909e5709504937e6bcee8cc84e950c4612`  
+**Related files:** `src/features/social/services/social-publishing.ts`, `scripts/jobs/social-publishing.ts`, `scripts/verify-social-publishing.mjs`, `scripts/verify-kids-video-factory.mjs`, `src/app/kids/videos/[slug]/page.tsx`, `src/app/api/kids/videos/route.ts`, `src/features/social/services/kids-video-social-query.ts`, `src/features/social/services/kids-video-social-visibility.ts`, `scripts/tests/kids-social-queue-pagination.test.ts`, `scripts/tests/video-catalog-publication-policy.test.ts`.
+
+### Reproduced by code-path analysis (no live publishing)
+- `syncKidsSocialPublicationToCatalog` returns `void`; its catch and conditional-update failure paths only log a warning. Both the normal publishing path and the already-published recovery path ignore the sync outcome.
+- `scripts/jobs/social-publishing.ts` processes pending queue work and published-video cleanup; no retry/reconciliation scan for a failed Kids catalog sync was found.
+- `src/app/api/kids/videos/route.ts` correctly derives `socialPublication` from `social_publish_queue` using the keyset-paginated queue loader and visibility resolver.
+- `src/app/kids/videos/[slug]/page.tsx` does not use that queue-derived resolver; it reads `metadata.socialPublication` from the `videos` catalog only. If the best-effort sync fails after provider publication, the queue/API can show confirmed publication while the detail page displays stale “not published yet” state.
+- This is a user-visible consistency defect, not a failed provider publish. The audit did not call Facebook/YouTube, create content, or mutate production state.
+
+### Required repair
+- Make the Kids detail page derive publication status from the same authoritative queue resolver used by `/api/kids/videos`, with an explicit unavailable state if the queue read fails; alternatively, make catalog sync durable with a retry marker and a reconciliation job.
+- Add regression coverage for a published queue row with a stale/empty catalog `socialPublication`, and for queue-read failure (must not claim “not published yet”).
+- Extend the social verifier to assert the selected consistency contract. Do not trigger live social publishing as a test.
+
+### Verification and status
+- The Kids human approval helper, video catalog publication policy, and their focused test passed the prior full-scope Quality Gate at `829c80be969bfc482c154e9d7d127abb81def792`.
+- The social-sync failure path itself has no regression test and remains `REVIEW_REQUIRED`.
+- The current source/test head `bef48c9` has no Quality Gate, CircleCI, or Android debug result. No exact-head verification is claimed.
+- The branch overlay remains 569 rows with 218 `REVIEW_REQUIRED`, 281 `CONTENT_READ_TESTED_PASS`, 34 `CONTENT_READ_PENDING_TRACE`, 28 `FIXED_TESTED_PENDING_LIVE_APPLY`, and 8 `SUPERSEDED_SNAPSHOT`.
+
+**Status: OPEN.**

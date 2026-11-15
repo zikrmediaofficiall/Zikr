@@ -2358,3 +2358,11 @@ This section is a branch snapshot, not a change to the main-baseline matrix abov
 - Production remains on READY deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu` at `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; no audit branch deploy. Main-only `english-content-sync` remains failed and was not rerun.
 - PR #320 is open/unmerged with zero reviews and zero review threads. CODEOWNERS owner `@Zikrmediaofficial` remains an external approval gate. Physical Android/iOS and Apple AASA acceptance remains manual/device-only.
 - No content generation, Gemini, social publishing, production DB mutation, migration apply, storage/media/index deletion, secret rotation, release, merge, or audit deployment occurred.
+
+## Kids social-publication consistency — 2026-11-15T04:48Z
+
+- Reviewed the Kids video publication approval path, social queue worker, background job, queue pagination/visibility helpers, public Kids videos API, and Kids video detail page.
+- The API route derives publication state from `social_publish_queue`, but `src/app/kids/videos/[slug]/page.tsx` reads only `videos.metadata.socialPublication`. The best-effort catalog sync logs failure and does not persist a retry marker; the social job has no separate reconciliation scan. A failed sync can therefore leave the detail page showing stale “not published” state despite confirmed queue results.
+- Keep `social-publishing.ts`, `scripts/verify-social-publishing.mjs`, `scripts/jobs/social-publishing.ts`, `scripts/verify-kids-video-factory.mjs`, and the detail page `REVIEW_REQUIRED` until a queue-derived detail-page state or retryable sync fix and regression test are verified. Policy and human-approval helpers/tests passed the prior full-scope gate on 829c80b.
+- Current source/test head `bef48c909e5709504937e6bcee8cc84e950c4612` still has no exact-head Quality Gate/CircleCI result. No social publishing was run to reproduce the issue.
+
