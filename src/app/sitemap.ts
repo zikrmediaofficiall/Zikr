@@ -7,7 +7,6 @@ import { getDuas } from "@/features/dua/services/dua";
 import { getProphets } from "@/features/prophets/services/prophets";
 import { getPublicContentLibrary } from "@/features/content-library/services/content-library";
 import { getKidsContent } from "@/features/kids/services/kids-content";
-import { getKidsGeneratedVideos } from "@/features/videos/services/videos";
 import { surahs as fallbackSurahs } from "@/features/quran/data/fallback";
 import { supabaseServerAnonRequest } from "@/lib/supabase/server";
 import { appRoutes, isNoindexPath, siteConfig } from "@/lib/site";
@@ -58,7 +57,7 @@ export async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   }));
 
   try {
-    const [surahs, scholars, hadithBooks, stories, articles, prophets, battles, duas, companions, conquests, competitions, publicContent, kidsContentItems, kidsVideos] = await Promise.all([
+    const [surahs, scholars, hadithBooks, stories, articles, prophets, battles, duas, companions, conquests, competitions, publicContent, kidsContentItems] = await Promise.all([
       Promise.resolve(fallbackSurahs.map(surah => ({ number: surah.id, name: surah.nameAr, englishName: surah.nameEn, englishNameTranslation: "", numberOfAyahs: surah.ayahCount, revelationType: surah.revelationPlace === "meccan" ? "Meccan" : "Medinan" }) satisfies Surah)),
       getAllScholars().catch((error): Scholar[] => { console.error("[sitemap] Scholars fetch failed:", error); return []; }),
       getHadithBooks("ar").catch((error): HadithBook[] => { console.error("[sitemap] Hadith fetch failed:", error); return []; }),
@@ -72,7 +71,6 @@ export async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
       supabaseServerAnonRequest<{ id: string }[]>("/rest/v1/competitions?select=id&published=eq.true&limit=1").catch(() => []),
       getPublicContentLibrary(1000).catch(() => []),
       getKidsContent("ar").catch(() => []),
-      getKidsGeneratedVideos(100).catch((error) => { console.error("[sitemap] Kids videos fetch failed:", error); return []; }),
     ]);
 
     const dynamicRoutes: MetadataRoute.Sitemap = [
@@ -100,13 +98,6 @@ export async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
         .filter((item) => item.type === "story" && item.metadata?.age_appropriate === true &&
           (item.content_ar?.trim().length ?? 0) >= MIN_INDEXABLE_STORY_CHARS)
         .map((item) => route(`/kids/${item.slug}`, { lastModified: now, changeFrequency: "weekly", priority: 0.65 })),
-      ...kidsVideos
-        .filter((video) => typeof video.slug === "string" && video.slug.trim().length > 0)
-        .map((video) => route(`/kids/videos/${encodeURIComponent(video.slug)}`, {
-          lastModified: video.createdAt ? new Date(video.createdAt) : now,
-          changeFrequency: "monthly",
-          priority: 0.55,
-        })),
     ];
 
     const safeEntries = filterIndexableSitemapRoutes(
