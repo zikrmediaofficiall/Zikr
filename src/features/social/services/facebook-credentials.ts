@@ -632,6 +632,24 @@ export async function unblockFacebookAuthBlockedQueue(
     }
     if (rows.length === 0) break;
 
+    // Validate the whole page before mutating any row. The UUID cursor is only
+    // safe when PostgREST returns non-empty, strictly increasing IDs as ordered.
+    let previousId = cursor;
+    for (const candidate of rows as unknown[]) {
+      const id = candidate && typeof candidate === "object" && !Array.isArray(candidate)
+        ? (candidate as { id?: unknown }).id
+        : null;
+      if (
+        typeof id !== "string" ||
+        id.length === 0 ||
+        id.trim() !== id ||
+        (previousId !== null && id <= previousId)
+      ) {
+        throw new Error("Facebook queue recovery inventory contained an invalid or non-monotonic row ID.");
+      }
+      previousId = id;
+    }
+
     for (const item of rows as FacebookAuthBlockedQueueRow[]) {
       cursor = item.id;
       const now = new Date().toISOString();
