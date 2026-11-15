@@ -37,7 +37,7 @@
 {"path":"CLAUDE.md","type":"blob","mode":"100644","sha":"43c994c2d3617f947bcb5adf1933e21dabe46bb5","size":11}
 {"path":"DEPLOYMENT_CHECKLIST.md","type":"blob","mode":"100644","sha":"c7fb700b9f3750df36ba34609e812be3d58f0232","size":6124}
 {"path":"DOCUMENTATION_INDEX.md","type":"blob","mode":"100644","sha":"e35e031001e2d2f53a5378f995332e39101de204","size":2280}
-{"path":"PROJECT_STATUS.md","type":"blob","mode":"100644","sha":"4e63078a155805110f3a577056b833e93cdd1186","size":298163}
+{"path":"PROJECT_STATUS.md","type":"blob","mode":"100644","sha":"44ec7a5b6f41b8facb57ec7488139bced6c2d4e3","size":301911}
 {"path":"README.md","type":"blob","mode":"100644","sha":"e458476419e0b9f17f78b642ab351f2ea7cf5709","size":6272}
 {"path":"RELEASE_STATUS.md","type":"blob","mode":"100644","sha":"eb55791949000356a7723e993123b7fb92c71b40","size":7698}
 {"path":"SECURITY.md","type":"blob","mode":"100644","sha":"76b48b3cf1291ed25b069840586979de649c255b","size":1557}
@@ -211,8 +211,8 @@
 {"path":"docs/audits/ADMIN_CONTROL_CENTER_2.0_EXECUTION_2026-11-06.md","type":"blob","mode":"100644","sha":"645787f9652f1f2368c54d127e798f2ad2da7c58","size":10603}
 {"path":"docs/audits/ADMIN_CONTROL_CENTER_CLOSEOUT_2026-11-06.md","type":"blob","mode":"100644","sha":"400a77eab1cbb9db7f6f8ebfc5ac2e3f1794887f","size":6156}
 {"path":"docs/audits/ARCHITECTURE_MAP_2026-11-01.md","type":"blob","mode":"100644","sha":"b96835e6a1dc30d40568bbc9891d7d5278a4b2b0","size":20353}
-{"path":"docs/audits/CONTINUOUS_CLOSEOUT_LEDGER.md","type":"blob","mode":"100644","sha":"b060ecee120497a108a83624c0a64ac56f11250c","size":333868}
-{"path":"docs/audits/FILE_STATUS_MATRIX_2026-11-01.md","type":"blob","mode":"100644","sha":"580c0daf6d43385058bec9dab5a301e40fcd2990","size":703576}
+{"path":"docs/audits/CONTINUOUS_CLOSEOUT_LEDGER.md","type":"blob","mode":"100644","sha":"f3a99ee1bbc25c5726717cbdf67ca49f9489847e","size":337616}
+{"path":"docs/audits/FILE_STATUS_MATRIX_2026-11-01.md","type":"blob","mode":"100644","sha":"171b07b00b3830c2704d4af31b179d2179908dcf","size":707324}
 {"path":"docs/audits/PG_CRON_RUNTIME_AUDIT_2026-11-01.md","type":"blob","mode":"100644","sha":"ff7b66e92013a552b66739d82bbebe129e59dd87","size":2496}
 {"path":"docs/audits/PLATFORM_READINESS_2026-11-01.md","type":"blob","mode":"100644","sha":"5b27b9db34b7c8605da2cf25d4b2fed82d2cf0a6","size":9625}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-12.md","type":"blob","mode":"100644","sha":"db70e3574a7f2bc45c1c654bd20e509f58a9a4b7","size":45782}
@@ -225,7 +225,7 @@
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14T1150Z.md","type":"blob","mode":"100644","sha":"b844a5d989c99dabdc60c36e2e3670c05272f90f","size":125235}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14T1157Z.md","type":"blob","mode":"100644","sha":"797aa1a5222f3a980cc7494af1009565f71bd014","size":156060}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-15.md","type":"blob","mode":"100644","sha":"ac7d29d77a833df93c86acb7c2b8b56ee234835b","size":181909}
-{"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-16.md","type":"blob","mode":"100644","sha":"de09bc0b82348c01f6b822457e341af0fd3ff2ba","size":181182}
+{"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-16.md","type":"blob","mode":"100644","sha":"779c5cb995ccf67ed4aca1e46bd201d7a56dd4b3","size":181363}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1336Z.md","type":"blob","mode":"100644","sha":"34f0a6fcf665aa056ad4aef36ce24a725b03b6c4","size":156598}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1357Z.md","type":"blob","mode":"100644","sha":"c762b6ae6535214bb5f5693af6627bf2bf391b63","size":156734}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1421Z.md","type":"blob","mode":"100644","sha":"a165a403422d7ed44e04e94e55429d62f739500f","size":157358}
@@ -478,7 +478,7 @@
 {"path":"public/video/templates/night.svg","type":"blob","mode":"100644","sha":"6c36312bb51736bed33644df164afecb7ef1b282","size":1272}
 {"path":"public/video/templates/paper.svg","type":"blob","mode":"100644","sha":"e64d12fd855cb59d7b1095d8f01d711538409506","size":1001}
 {"path":"public/video/templates/rose.svg","type":"blob","mode":"100644","sha":"d7a38daf4f6b540656435500715840fc94e567d7","size":1069}
-{"path":"scripts","type":"tree","mode":"040000","sha":"b59d8c3fdc3efd7142f4eab6d86adfce534c035c"}
+{"path":"scripts","type":"tree","mode":"040000","sha":"a8dac7cea227cc9fd257b95c0d56b8892aa9ba28"}
 {"path":"scripts/cleanup-site-audio-orphans.mjs","type":"blob","mode":"100644","sha":"43095fed8ccb3c4ba2f8f21202730423cf0b2508","size":14123}
 {"path":"scripts/cleanup-supabase-storage.mjs","type":"blob","mode":"100644","sha":"eb40aaea3ee221a1b7b93d8560961e5fe419160b","size":53678}
 {"path":"scripts/ensure-ffmpeg.mjs","type":"blob","mode":"100644","sha":"0130b13b09fa88090f66435698f7623eed84ecdd","size":3245}
@@ -486,7 +486,7 @@
 {"path":"scripts/generate-arabic-voice.py","type":"blob","mode":"100644","sha":"cad5ab33cb41a0cd5179bdda400e486771547c52","size":4542}
 {"path":"scripts/generate-ci-build-report.mjs","type":"blob","mode":"100644","sha":"205ed64e450de5816ce8f9d73e74767210ee7af1","size":3016}
 {"path":"scripts/import-youtube-takeout-native-facebook.mjs","type":"blob","mode":"100644","sha":"dfd272f7fb43a0fc323755901821d78ead2493e8","size":9313}
-{"path":"scripts/jobs","type":"tree","mode":"040000","sha":"e8299350069b46ab4a1550bfc13ec89979ce9f6e"}
+{"path":"scripts/jobs","type":"tree","mode":"040000","sha":"f4ab6265565141740c2bdbd230bfe3a87dbda4c6"}
 {"path":"scripts/jobs/admin-queue-alerts.ts","type":"blob","mode":"100644","sha":"9276adf01706033e256fc35150f6be27fbb58d79","size":7236}
 {"path":"scripts/jobs/audit-video-media.ts","type":"blob","mode":"100644","sha":"2d3e32ab65ff7c1779279fa2bc33c73d2926f021","size":14558}
 {"path":"scripts/jobs/backfill-legacy-video-qa.ts","type":"blob","mode":"100644","sha":"6ef56de48ff52fa79327c5024052a70239c8e63a","size":19712}
@@ -494,7 +494,7 @@
 {"path":"scripts/jobs/hf-space-video.py","type":"blob","mode":"100644","sha":"f66f54abc1910db8d4ab79d557e21e9d5147a07a","size":10784}
 {"path":"scripts/jobs/social-publishing.ts","type":"blob","mode":"100644","sha":"1ff18fa8d59d9045713eabe2fdb823020f34d573","size":6133}
 {"path":"scripts/jobs/template-video-automation.ts","type":"blob","mode":"100644","sha":"a92dbb8b8b94cd74e01025cd804cc08079ae257f","size":142529}
-{"path":"scripts/jobs/written-content-automation.ts","type":"blob","mode":"100644","sha":"312c55b4efbce91667d42daf2ab05357dba48906","size":28263}
+{"path":"scripts/jobs/written-content-automation.ts","type":"blob","mode":"100644","sha":"b3935ba9fcd0c4f1ecc38d0a94312b5ca9d35e40","size":28277}
 {"path":"scripts/lib","type":"tree","mode":"040000","sha":"2c32c0d3dd565672f384ddd54b93d2a23754d7f9"}
 {"path":"scripts/lib/canonical-supabase-project.d.mts","type":"blob","mode":"100644","sha":"f84c627644664d783bd77696679eb22079e93bff","size":75}
 {"path":"scripts/lib/canonical-supabase-project.mjs","type":"blob","mode":"100644","sha":"69ae3bc7018cccd34482bc6043b8826da49fbd79","size":870}
@@ -509,7 +509,7 @@
 {"path":"scripts/restore-quran-tafsir.sh","type":"blob","mode":"100644","sha":"19005af5048fda3db88a1b2c866b3a48f5eb0858","size":5472}
 {"path":"scripts/run-background-jobs.ts","type":"blob","mode":"100644","sha":"2640dc91d485dae517fa8c27bf758e620835a3f0","size":19444}
 {"path":"scripts/sync-hadith-english.ts","type":"blob","mode":"100644","sha":"c02bba423632eb1ce0be46cb5bbf1f2430ca21bd","size":4886}
-{"path":"scripts/tests","type":"tree","mode":"040000","sha":"fda7ee0302d720149f56ee1da976825b8ec836f0"}
+{"path":"scripts/tests","type":"tree","mode":"040000","sha":"2839f9a55eb99cd729663bac7580e4b50b6675c4"}
 {"path":"scripts/tests/admin-api-body-limits.test.mjs","type":"blob","mode":"100644","sha":"61148dd7263e9b7c78e6d462b35b2e04ab47b5ae","size":2222}
 {"path":"scripts/tests/admin-content-write-safety.test.mjs","type":"blob","mode":"100644","sha":"096b2cbef674c0d20ea533acd7ac4d980a588800","size":7688}
 {"path":"scripts/tests/admin-dashboard-visibility.test.ts","type":"blob","mode":"100644","sha":"236b8c8e038883e136a5d0c47c616f660c9bc74b","size":4620}
@@ -684,7 +684,7 @@
 {"path":"scripts/tests/video-storage-retention-contract.integration.sh","type":"blob","mode":"100755","sha":"7a26b2233803ef6d54d737cf84e4640c2e70b3e3","size":1762}
 {"path":"scripts/tests/video-storage-retention-contract.integration.sql","type":"blob","mode":"100644","sha":"32d461da5c6ea0b45bae63d442402850ad04ba17","size":11061}
 {"path":"scripts/tests/video-template-studio.test.ts","type":"blob","mode":"100644","sha":"2f2a6ea385dd7d5030e8e127fa60f26d0135696c","size":10038}
-{"path":"scripts/tests/written-content-automation.test.ts","type":"blob","mode":"100644","sha":"751d7e2b49b41d5ca39286d3757f1f859c38b3c3","size":52011}
+{"path":"scripts/tests/written-content-automation.test.ts","type":"blob","mode":"100644","sha":"c974eb3ffff865fbb022175414244e123b42974c","size":54858}
 {"path":"scripts/tests/youtube-analytics-contract.test.mjs","type":"blob","mode":"100644","sha":"873eb52abb542b8449aad4103f457f38aab1d10e","size":1355}
 {"path":"scripts/tests/youtube-oauth-credentials.test.ts","type":"blob","mode":"100644","sha":"6482ee0fd87b5a9b523c049faa3ef2c4b1288d7c","size":22463}
 {"path":"scripts/tests/youtube-playlist-cache.test.ts","type":"blob","mode":"100644","sha":"315e86f75b65b732fa58535a577eba0ac9ff7cba","size":5277}
@@ -763,7 +763,7 @@
 {"path":"scripts/verify-video-queue-priority.mjs","type":"blob","mode":"100644","sha":"981537f1cfda2d8530d9b58f47a4f1d27ac90dc3","size":8955}
 {"path":"scripts/verify-voice-factory.mjs","type":"blob","mode":"100644","sha":"c8ed24a9e914b99cc575b286a3975a5f698e22eb","size":4833}
 {"path":"scripts/video-engine-check.mjs","type":"blob","mode":"100644","sha":"c7dc9156901847f4b7666ead969b0f1c4aee2040","size":3597}
-{"path":"src","type":"tree","mode":"040000","sha":"75692f8030363f5255dadde8318631e885cc3c00"}
+{"path":"src","type":"tree","mode":"040000","sha":"66f2cc18b4d7ae3780ac1f24fd13c70008da5699"}
 {"path":"src/app","type":"tree","mode":"040000","sha":"4fb4caf34fa75a33106311ccca7a7a437d72481d"}
 {"path":"src/app/.well-known","type":"tree","mode":"040000","sha":"dcb9fe013f06ef5cef5793ed0a93ed9dd9d64d98"}
 {"path":"src/app/.well-known/apple-app-site-association","type":"tree","mode":"040000","sha":"17603ee013fbf8a22408ca5bfd576ca0c8d3f140"}
@@ -1390,7 +1390,7 @@
 {"path":"src/components/ui/progress.tsx","type":"blob","mode":"100644","sha":"2a1686870e0ee7322df746927bd29a1fffbb2671","size":815}
 {"path":"src/components/ui/section-header.tsx","type":"blob","mode":"100644","sha":"14e6cfd227d14c275b95de09d967f58bbdfb5f97","size":444}
 {"path":"src/components/ui/share-button.tsx","type":"blob","mode":"100644","sha":"f6ca603a531c0911d995000e52409beb79941901","size":2334}
-{"path":"src/features","type":"tree","mode":"040000","sha":"40126c9771b9f91db8bb86752a03fc1cc7660f0b"}
+{"path":"src/features","type":"tree","mode":"040000","sha":"b596301363d87b37640709726cc166f05a3a01e6"}
 {"path":"src/features/adhkar","type":"tree","mode":"040000","sha":"ea5779d99a7f6e6f378a44396d7c62103d123bef"}
 {"path":"src/features/adhkar/components","type":"tree","mode":"040000","sha":"33462c6167c041b5b5aa76f836c448ba83a858f4"}
 {"path":"src/features/adhkar/components/adhkar-page.tsx","type":"blob","mode":"100644","sha":"c20b2c0866d4d3ff32d13951fc9d0a3f717f2cfa","size":14232}
@@ -1711,10 +1711,10 @@
 {"path":"src/features/site-content","type":"tree","mode":"040000","sha":"9a04e819d916c318c007ca18ea8743a1f9678b97"}
 {"path":"src/features/site-content/services","type":"tree","mode":"040000","sha":"66cf8ec1313e44ac840733ae534863407b37d5c8"}
 {"path":"src/features/site-content/services/site-content.ts","type":"blob","mode":"100644","sha":"04715d96c67acd09608ce687563320eb24a5b66c","size":7354}
-{"path":"src/features/social","type":"tree","mode":"040000","sha":"d810534738cf966824d5781f9185bd03dce5942e"}
+{"path":"src/features/social","type":"tree","mode":"040000","sha":"985d1d050e20973ac58a6de21de2a7e0be39bc9f"}
 {"path":"src/features/social/integrations","type":"tree","mode":"040000","sha":"09714ef885dcec4d1dae58931dd05e78cb59a9a0"}
 {"path":"src/features/social/integrations/facebook.ts","type":"blob","mode":"100644","sha":"b6928d30379d1c61d09ac74e5bafd67f3adea947","size":8248}
-{"path":"src/features/social/services","type":"tree","mode":"040000","sha":"34e798a9007d5a55c4cb5e50eda50d70c32d9b63"}
+{"path":"src/features/social/services","type":"tree","mode":"040000","sha":"ff3fc31984f166f836ba14f4fa9d42d447f82bd8"}
 {"path":"src/features/social/services/facebook-credentials.ts","type":"blob","mode":"100644","sha":"01f5a8e98e1726f80ea9ee3dc566bca41698264f","size":27247}
 {"path":"src/features/social/services/facebook-oauth-policy.ts","type":"blob","mode":"100644","sha":"8fcedd4c3823a6eef64a107bd59cec9fc6266fd0","size":5017}
 {"path":"src/features/social/services/facebook-post-insights.ts","type":"blob","mode":"100644","sha":"27319668f3d73f5fe12a27b55bfbd131e57891ee","size":7372}
@@ -1741,7 +1741,7 @@
 {"path":"src/features/social/services/social-queue-selection.ts","type":"blob","mode":"100644","sha":"b113be315987d0ed252dbd0797ee4fc510d757dd","size":9747}
 {"path":"src/features/social/services/social-worker-dispatch.ts","type":"blob","mode":"100644","sha":"0092e5561ca35facbb980921f184d5074002ede5","size":771}
 {"path":"src/features/social/services/video-catalog-publication-policy.ts","type":"blob","mode":"100644","sha":"09bedc9afc95fd28160ca8ed571e9aaa4ee8a290","size":6170}
-{"path":"src/features/social/services/written-content.ts","type":"blob","mode":"100644","sha":"4850e7940c4b6c834ac5f28b3f09af7ee426691e","size":25002}
+{"path":"src/features/social/services/written-content.ts","type":"blob","mode":"100644","sha":"febb17f762b49ac59a222b5f5f5a267567cec158","size":25830}
 {"path":"src/features/social/services/youtube-oauth-credentials.ts","type":"blob","mode":"100644","sha":"dd402db3d1fac9c5879dda6b4fe390d4775fe702","size":9031}
 {"path":"src/features/social/services/youtube-post-insights.ts","type":"blob","mode":"100644","sha":"141e0abf96b06463f9367aedfc65072a5830400e","size":9288}
 {"path":"src/features/social/services/youtube-publishing-health.ts","type":"blob","mode":"100644","sha":"78396afda9e305c0d6a85852daa284a6fd059199","size":10812}
@@ -1928,8 +1928,8 @@
 {"path":"src/styles/tokens.css","type":"blob","mode":"100644","sha":"f9fc69685b24f4b68db55c4e9540db627d0dc7ca","size":109}
 {"path":"src/types","type":"tree","mode":"040000","sha":"ed7beedbbd51d2876b6f8df51f0297b85064c17c"}
 {"path":"src/types/google-generative-ai.d.ts","type":"blob","mode":"100644","sha":"2d5ebb0892e545705089a6a66472ea0b3ca40ee6","size":816}
-{"path":"supabase","type":"tree","mode":"040000","sha":"1fd6234968e344876dd4c8e72276c8bee42f4f85"}
-{"path":"supabase/REMOTE_MIGRATION_LEDGER.md","type":"blob","mode":"100644","sha":"21e6af89d9e70dcaeef05e6da3f9a14468026aae","size":50759}
+{"path":"supabase","type":"tree","mode":"040000","sha":"c115ed5121d417800c05ff4db113643cbf487846"}
+{"path":"supabase/REMOTE_MIGRATION_LEDGER.md","type":"blob","mode":"100644","sha":"b6894ac28e6d6ea3ef273dc8eb7681e24767aa91","size":55367}
 {"path":"supabase/config.toml","type":"blob","mode":"100644","sha":"6cc36f584cef7f27221b5ce9574741d18b55a3e4","size":2412}
 {"path":"supabase/functions","type":"tree","mode":"040000","sha":"a717c75b47851af0a479361b74ac8a34cacd4b3e"}
 {"path":"supabase/functions/_shared","type":"tree","mode":"040000","sha":"f52ff4ade2244925ac7ca990c7d66347163cdb54"}
