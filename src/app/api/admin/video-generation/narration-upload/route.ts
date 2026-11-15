@@ -120,13 +120,38 @@ export async function POST(request: NextRequest) {
       error?: { message?: string };
     };
     if (!upload.ok || !result.secure_url || result.public_id !== publicId) {
-      console.error("[api/admin/video-generation/narration-upload] Cloudinary HTTP", upload.status, result.error?.message ?? "invalid upload response");
-      return jsonError("تعذر حفظ التسجيل في التخزين الخارجي.", 502);
+      const recoveryRequired = upload.ok || typeof result.public_id === "string";
+      console.error("[api/admin/video-generation/narration-upload] Cloudinary response validation failed.", {
+        requestedPublicId: publicId,
+        returnedPublicId: result.public_id,
+        status: upload.status,
+        recoveryRequired,
+      });
+      return NextResponse.json(
+        {
+          error: "فشل التحقق من استجابة Cloudinary؛ احتفظنا بمرجع الرفع للمراجعة اليدوية.",
+          ...(recoveryRequired ? { uploadReference: publicId, recoveryRequired: true } : {}),
+        },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
     }
-    const audioUrl = new URL(result.secure_url);
+    let audioUrl: URL;
+    try {
+      audioUrl = new URL(result.secure_url);
+    } catch (urlError) {
+      console.error("[api/admin/video-generation/narration-upload] Invalid Cloudinary secure URL; asset retained for reconciliation.", { publicId, urlError });
+      return NextResponse.json(
+        { error: "رابط التخزين الناتج غير صالح؛ احتفظنا بمرجع الرفع للمراجعة اليدوية.", uploadReference: publicId, recoveryRequired: true },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (audioUrl.protocol !== "https:" || audioUrl.hostname !== "res.cloudinary.com" ||
         !audioUrl.pathname.includes(`/${cloudName}/video/upload/`)) {
-      return jsonError("رابط التخزين الناتج غير صالح.", 502);
+      console.error("[api/admin/video-generation/narration-upload] Non-canonical Cloudinary URL; asset retained for reconciliation.", { publicId, secureUrl: result.secure_url });
+      return NextResponse.json(
+        { error: "رابط التخزين الناتج غير صالح؛ احتفظنا بمرجع الرفع للمراجعة اليدوية.", uploadReference: publicId, recoveryRequired: true },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     let mediaAssetId: string;
