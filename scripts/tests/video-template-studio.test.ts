@@ -101,6 +101,20 @@ assert.match(api, /requireAdminApi\("video\.manage"\)/);
 for (const action of ["create-version", "approve-version", "activate-version", "preview-version"]) {
   assert.ok(api.includes(action), `template API action ${action} missing`);
 }
+assert.equal(api.split('requireAdminApi("kids.manage")').length - 1, 4, "Every Kids template mutation and preview must require kids.manage");
+for (const [action, nextAction] of [
+  ["create-version", "approve-version"],
+  ["approve-version", "activate-version"],
+  ["activate-version", "preview-version"],
+  ["preview-version", null],
+] as const) {
+  const start = api.indexOf(`if (body.action === "${action}")`);
+  const end = nextAction ? api.indexOf(`if (body.action === "${nextAction}")`, start) : api.length;
+  const block = api.slice(start, end);
+  assert.ok(block.includes('template.audience === "kids"'), `${action} must resolve the template audience`);
+  assert.ok(block.includes('requireAdminApi("kids.manage")'), `${action} must require kids.manage for Kids templates`);
+  assert.ok(block.includes("kidsAuth.profile.id !== auth.profile.id"), `${action} must bind Kids permission to the authenticated admin`);
+}
 assert.match(api, /created_by === auth\.profile\.id/);
 assert.match(api, /skipSocialPublish: true/);
 assert.match(api, /templatePreview: true/);
