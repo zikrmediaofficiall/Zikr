@@ -79,42 +79,23 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   }
 }
 
-export async function DELETE(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  try {
-    const auth = await requireAdminStepUpApi('video.delete', '/admin/video/requests');
-    if (!auth.ok) return NextResponse.json({ error: auth.error, nextPath: 'nextPath' in auth ? auth.nextPath : undefined }, { status: auth.status, headers: { 'Cache-Control': 'no-store' } });
-    const { id } = await context.params;
-
-    const rows = await supabaseServerAdminRequest<Array<{ status: string }>>(
-      `/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(id)}&select=status&limit=1`,
+export async function DELETE() {
+  const auth = await requireAdminStepUpApi('video.delete', '/admin/video/requests');
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error, code: auth.error, nextPath: 'nextPath' in auth ? auth.nextPath : undefined },
+      { status: auth.status, headers: { 'Cache-Control': 'no-store' } },
     );
-    if (!rows?.[0]) return NextResponse.json({ error: 'Video request not found' }, { status: 404 });
-    if (rows[0].status !== 'failed') {
-      return NextResponse.json({ error: 'يمكن حذف عمليات التوليد الفاشلة فقط.' }, { status: 409 });
-    }
-
-    const deleted = await supabaseServerAdminRequest<Array<{ id: string }>>(
-      `/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(id)}&status=eq.failed`,
-      { method: 'DELETE', headers: { Prefer: 'return=representation' } },
-    );
-    if (!deleted.length) {
-      return NextResponse.json(
-        { error: 'تم تغيير حالة العملية؛ حدّث الصفحة ثم أعد المحاولة.' },
-        { status: 409 },
-      );
-    }
-    const auditRecorded = await runPostCommitAudit(
-      () => recordAdminAuditEvent({
-      action: 'video_generation.delete_failed',
-      permission: 'video.delete',
-      resourceType: 'video_generation_requests',
-      resourceId: id,
-      }),
-      (auditError) => console.error("[api/admin/videos/[id]] audit event failed after committed mutation:", auditError),
-    );
-    return NextResponse.json({ ok: true, auditRecorded });
-  } catch (error) {
-    console.error('[api/admin/videos/[id]] DELETE:', error);
-    return NextResponse.json({ error: 'تعذر حذف العملية الفاشلة.' }, { status: 500 });
   }
+
+  return NextResponse.json(
+    {
+      error: 'حذف سجلات طلبات التوليد معطل حتى اكتمال مراجعة مراجع الوسائط والطابور.',
+      code: 'VIDEO_REQUEST_DELETE_REQUIRES_REFERENCE_AUDIT',
+      deletionStarted: false,
+      recordsDeleted: 0,
+      message: 'No rows were changed.',
+    },
+    { status: 410, headers: { 'Cache-Control': 'no-store' } },
+  );
 }
