@@ -313,6 +313,17 @@ assert.equal(
 
 
 assert.equal(
+  zonedDateTime("2026-11-14", "UTC", "05:07malformed"),
+  null,
+  "cached prayer times with trailing non-whitespace text must fail closed",
+);
+assert.equal(
+  zonedDateTime("2026-11-14", "UTC", "05:07 (EET)")?.toISOString(),
+  "2026-11-14T05:07:00.000Z",
+  "provider timezone annotations after whitespace remain valid",
+);
+
+assert.equal(
   previousLocalDate(new Date("2026-11-12T12:00:00.000Z"), "Pacific/Kiritimati"),
   "2026-11-12",
   "previous local calendar advancement must respect UTC+14 without skipping a date",

@@ -91,7 +91,7 @@ export function zonedDateTime(
   time: string,
 ): Date | null {
   const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
-  const timeMatch = /^(\d{1,2}):(\d{2})/.exec(time.trim());
+  const timeMatch = /^(\d{1,2}):([0-5]\d)(?:\s|$)/.exec(time.trim());
   if (!dateMatch || !timeMatch) return null;
 
   const year = Number(dateMatch[1]);
