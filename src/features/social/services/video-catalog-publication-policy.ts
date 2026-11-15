@@ -77,7 +77,7 @@ export function evaluateVideoCatalogPublication(
   if (!metadata) return { status: "blocked", reason: "The public video catalog metadata is missing or invalid." };
 
   const audience = normalizeAudience(metadata.audience);
-  const requestAudience = normalizeAudience(input.requestAudience);
+  const requestAudience = input.requestAudience == null ? "general" : normalizeAudience(input.requestAudience);
   const queueAudience = input.queueAudience == null ? null : normalizeAudience(input.queueAudience);
   if (!audience || (input.queueAudience != null && !queueAudience)) {
     return { status: "blocked", reason: "The video catalog or queue audience is invalid." };
@@ -86,7 +86,7 @@ export function evaluateVideoCatalogPublication(
     return { status: "blocked", reason: "The generation request audience is missing or invalid." };
   }
   if (requestAudience !== audience) {
-    return { status: "blocked", reason: "request_audience_mismatch" };
+    return { status: "blocked", reason: "The generation request audience does not match the published video catalog audience." };
   }
   if (queueAudience && queueAudience !== requestAudience) {
     return { status: "blocked", reason: "The queue audience does not match the generation request audience." };
