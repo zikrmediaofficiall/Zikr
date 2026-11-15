@@ -250,8 +250,6 @@ const catalogMetadata = {
   audience: "kids",
   kidsVideoQaStatus: "passed",
   automatedVideoQa: { status: "passed" },
-  contentFormat: "series_episode",
-  aiMode: "original_kids_story",
   sourceType: "original_kids_fiction",
   seriesId: "series-1",
   seriesTitle: "قصص القيم",
@@ -259,10 +257,16 @@ const catalogMetadata = {
   seasonNumber: 1,
   episodeNumber: 2,
   approvalSnapshotHash: kidsSnapshotHash,
+  mediaState: "active",
   storyText: "قصة تعليمية محفوظة كما هي",
 };
-const catalogPatch = buildVideoCatalogApprovalPatch({
+const catalogRequestContent = {
+  ...completeKidsContent,
+  ...kidsAutomatedApproval,
+};
+const catalogApprovalInput = {
   metadata: catalogMetadata,
+  requestContent: catalogRequestContent,
   requestId: "request-1",
   videoUrl: snapshot.videoUrl,
   sourceHash: snapshot.sourceHash,
@@ -272,73 +276,58 @@ const catalogPatch = buildVideoCatalogApprovalPatch({
   reviewerId: "admin-user-1",
   reviewedAt: now,
   checks,
-});
-assert.ok(catalogPatch, "a matching Kids catalog record must accept an explicit admin approval");
-assert.equal(catalogPatch?.published, true, "manual approval must publish the internal catalog row");
+};
+const catalogPatch = buildVideoCatalogApprovalPatch(catalogApprovalInput);
+assert.ok(catalogPatch, "a matching, unpurged Kids catalog record must accept an explicit admin approval");
+assert.equal(Object.prototype.hasOwnProperty.call(catalogPatch, "published"), false, "manual approval must not bypass the scheduled internal content-publishing queue");
 assert.equal(catalogPatch?.metadata.approvalStatus, "approved");
 assert.equal(catalogPatch?.metadata.approvalReviewerId, "admin-user-1");
 assert.equal((catalogPatch?.metadata.qualityReview as Record<string, unknown>).mode, "human");
 assert.equal(catalogPatch?.metadata.storyText, "قصة تعليمية محفوظة كما هي", "catalog approval must preserve existing content metadata");
 assert.equal(Object.prototype.hasOwnProperty.call(catalogMetadata, "approvalStatus"), false, "catalog approval must not mutate the caller's metadata object");
 assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
   metadata: { ...catalogMetadata, videoGenerationRequestId: "different-request" },
-  requestId: "request-1",
-  videoUrl: snapshot.videoUrl,
-  sourceHash: snapshot.sourceHash,
-  contentHash: snapshot.contentHash,
-  templateVersion: snapshot.templateVersion,
-  snapshotHash: kidsSnapshotHash!,
-  reviewerId: "admin-user-1",
-  reviewedAt: now,
-  checks,
-}), null, "a different generation request must never publish this catalog row");
+}), null, "a different generation request must never update this catalog row");
 assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
   metadata: { ...catalogMetadata, generatedVideoUrl: "https://media.example.test/other.mp4" },
-  requestId: "request-1",
-  videoUrl: snapshot.videoUrl,
-  sourceHash: snapshot.sourceHash,
-  contentHash: snapshot.contentHash,
-  templateVersion: snapshot.templateVersion,
-  snapshotHash: kidsSnapshotHash!,
-  reviewerId: "admin-user-1",
-  reviewedAt: now,
-  checks,
 }), null, "a catalog row with a different rendered asset must fail closed");
 assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
   metadata: { ...catalogMetadata, sourceHash: "different-source" },
-  requestId: "request-1",
-  videoUrl: snapshot.videoUrl,
-  sourceHash: snapshot.sourceHash,
-  contentHash: snapshot.contentHash,
-  templateVersion: snapshot.templateVersion,
-  snapshotHash: kidsSnapshotHash!,
-  reviewerId: "admin-user-1",
-  reviewedAt: now,
-  checks,
 }), null, "a catalog row with a different source hash must fail closed");
 assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
   metadata: { ...catalogMetadata, kidsVideoQaStatus: "blocked" },
-  requestId: "request-1",
-  videoUrl: snapshot.videoUrl,
-  sourceHash: snapshot.sourceHash,
-  contentHash: snapshot.contentHash,
-  templateVersion: snapshot.templateVersion,
-  snapshotHash: kidsSnapshotHash!,
-  reviewerId: "admin-user-1",
-  reviewedAt: now,
-  checks,
-}), null, "Kids catalog publication must require a passed Kids QA result");
+}), null, "Kids catalog approval must require a passed catalog QA result");
 assert.equal(buildVideoCatalogApprovalPatch({
-  metadata: catalogMetadata,
-  requestId: "request-1",
-  videoUrl: snapshot.videoUrl,
-  sourceHash: snapshot.sourceHash,
-  contentHash: snapshot.contentHash,
-  templateVersion: snapshot.templateVersion,
-  snapshotHash: kidsSnapshotHash!,
+  ...catalogApprovalInput,
+  requestContent: { ...catalogRequestContent, kidsVideoQaStatus: "blocked" },
+}), null, "Kids catalog approval must require a passed request QA result");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, mediaState: "purged" },
+}), null, "manual approval must not restore or expose purged media");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, mediaState: "unlinked" },
+}), null, "manual approval must not expose unlinked media");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, sourceMediaMissing: true },
+}), null, "manual approval must not expose missing source media");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, approvalSnapshotHash: "different-hash" },
+}), null, "catalog approval must reject a stale approval fingerprint");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  requestContent: { ...catalogRequestContent, approvalStatus: "awaiting_human_review" },
+}), null, "manual review must not override a failed or missing automated QA approval");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
   reviewerId: "system:zikr-video-factory",
-  reviewedAt: now,
-  checks,
 }), null, "the system QA identity cannot impersonate an administrator approval");
 
 console.log("Video publishing approval contract passed.");

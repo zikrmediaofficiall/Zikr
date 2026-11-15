@@ -195,6 +195,7 @@ export async function PATCH(request: NextRequest) {
       };
       const catalogPatch = buildVideoCatalogApprovalPatch({
         metadata: catalog.metadata,
+        requestContent: currentContent,
         requestId: id,
         videoUrl: current.video_url,
         sourceHash: current.source_hash,
@@ -247,12 +248,12 @@ export async function PATCH(request: NextRequest) {
         permission: "video.manage",
         resourceType: "video_generation_requests",
         resourceId: id,
-        metadata: { category: current.category, approvalChecks: REQUIRED_VIDEO_APPROVAL_CHECKS.length, approvalSnapshotHash, catalogVideoId: catalog.id, publishedInternally: true },
+        metadata: { category: current.category, approvalChecks: REQUIRED_VIDEO_APPROVAL_CHECKS.length, approvalSnapshotHash, catalogVideoId: catalog.id, catalogApprovalRecorded: true },
         }),
         (auditError) => console.error("[api/admin/video-generation] audit event failed after committed mutation:", auditError),
       );
-      return NextResponse.json({ ok: true, auditRecorded, approvalStatus: 'approved', catalogPublished: true,
-        note: 'تم اعتماد الفيديو وإظهاره في مكتبة ZIKR الداخلية فقط؛ لا يتم نشره على منصات خارجية.' });
+      return NextResponse.json({ ok: true, auditRecorded, approvalStatus: 'approved', catalogApprovalRecorded: true,
+        note: 'تم تسجيل اعتماد الفيديو للمكتبة الداخلية؛ سيعالجه طابور النشر المجدول بعد التحقق من سلامة الوسائط. لا يتم نشره على منصات خارجية.' });
     }
 
     if (action === "retry_publish") {

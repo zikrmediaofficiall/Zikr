@@ -212,6 +212,8 @@ if (!templateApi.includes("recordAdminAuditEvent")) failures.push("template acti
 const worker = read("scripts/jobs/template-video-automation.ts");
 const approvalRoute = read("src/app/api/admin/video-generation/route.ts");
 const approvalService = read("src/features/videos/services/video-publish-approval.ts");
+const contentPublisher = read("scripts/jobs/content-publishing.ts");
+const backgroundRunner = read("scripts/run-background-jobs.ts");
 if (!worker.includes("async function bindTemplateVersion")) failures.push("video worker must bind requests to an immutable template version");
 if (!worker.includes("request.content.templatePreview === true")) failures.push("template preview mode must be recognized by the renderer");
 if (!worker.includes("if (!isTemplatePreview) aiPlan = await generateAiVideoPlan(request, signal)")) failures.push("internal template previews must avoid external generative planning");
@@ -313,19 +315,36 @@ for (const token of [
 ]) {
   if (!worker.includes(token)) failures.push("Video catalog row must retain the exact generation approval contract: " + token);
 }
-if (!approvalService.includes("buildVideoCatalogApprovalPatch") ||
-    !approvalService.includes("published: true") ||
-    !approvalService.includes("metadata.videoGenerationRequestId !== requestId")) {
-  failures.push("Manual video approval must have a source-locked catalog publication patch");
+const catalogApprovalHelper = approvalService.slice(
+  approvalService.indexOf("export function buildVideoCatalogApprovalPatch"),
+  approvalService.indexOf("export function isVideoApprovalRecorded"),
+);
+if (!catalogApprovalHelper.includes("metadata.videoGenerationRequestId !== requestId") ||
+    !catalogApprovalHelper.includes('metadata.mediaState === "purged"') ||
+    !catalogApprovalHelper.includes("requestContent.approvalStatus !== \"approved\"") ||
+    catalogApprovalHelper.includes("published: true")) {
+  failures.push("Manual video approval must be source-locked, reject purged media, and leave publication to the scheduled content queue");
 }
 for (const token of [
   "buildVideoCatalogApprovalPatch",
   "/rest/v1/videos?slug=eq.",
   "metadata->>videoGenerationRequestId=eq.",
-  "publishedInternally: true",
-  "catalogPublished: true",
+  "catalogApprovalRecorded: true",
 ]) {
-  if (!approvalRoute.includes(token)) failures.push("Admin approval must publish only the matching internal video catalog row: " + token);
+  if (!approvalRoute.includes(token)) failures.push("Admin approval must record approval only on the matching internal video catalog row: " + token);
+}
+if (approvalRoute.includes("publishedInternally: true") || approvalRoute.includes("catalogPublished: true")) {
+  failures.push("Admin approval must not claim that the internal content-publishing queue has already published the video");
+}
+if (!contentPublisher.includes("content_publish_queue") ||
+    !contentPublisher.includes("inspectVideoQueueItemApproval") ||
+    !contentPublisher.includes('metadata.mediaState === "purged"') ||
+    !contentPublisher.includes("row.published !== false")) {
+  failures.push("Internal video publication must remain behind the scheduled content queue's QA and media-state checks");
+}
+if (!backgroundRunner.includes("processScheduledContent(20)") ||
+    backgroundRunner.indexOf("processScheduledContent(20)") > backgroundRunner.indexOf("processSocialPublishQueue")) {
+  failures.push("Scheduled internal content publication must run before external social publishing");
 }
 
 if (!worker.includes("VIDEO_PLAN_SYSTEM_INSTRUCTION") ||

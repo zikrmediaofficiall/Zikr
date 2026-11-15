@@ -100,6 +100,7 @@ export function createAutomatedVideoQaApproval(input: {
 
 export function buildVideoCatalogApprovalPatch(input: {
   metadata: unknown;
+  requestContent: unknown;
   requestId: string;
   videoUrl: string;
   sourceHash: string | null;
@@ -109,8 +110,9 @@ export function buildVideoCatalogApprovalPatch(input: {
   reviewerId: string;
   reviewedAt: string;
   checks: VideoApprovalChecklist;
-}): { published: true; metadata: Record<string, unknown>; updated_at: string } | null {
+}): { metadata: Record<string, unknown>; updated_at: string } | null {
   const metadata = record(input.metadata);
+  const requestContent = record(input.requestContent);
   const requestId = input.requestId.trim();
   const videoUrl = input.videoUrl.trim();
   const sourceHash = input.sourceHash?.trim() ?? "";
@@ -118,8 +120,13 @@ export function buildVideoCatalogApprovalPatch(input: {
   const templateVersion = input.templateVersion?.trim() ?? "";
   const snapshotHash = input.snapshotHash.trim();
   const reviewerId = input.reviewerId.trim();
+  const requestQa = record(requestContent?.automatedVideoQa);
+  const metadataQa = record(metadata?.automatedVideoQa);
+  const audience = requestContent?.audience;
+
   if (
     !metadata ||
+    !requestContent ||
     metadata.generator !== "zikr_internal_video_factory" ||
     metadata.videoGenerationRequestId !== requestId ||
     typeof metadata.generatedVideoUrl !== "string" ||
@@ -140,15 +147,25 @@ export function buildVideoCatalogApprovalPatch(input: {
     reviewerId === AUTOMATED_VIDEO_QA_REVIEWER_ID ||
     !Number.isFinite(Date.parse(input.reviewedAt)) ||
     !hasCompleteVideoApprovalChecklist(input.checks) ||
-    (metadata.approvalSnapshotHash != null && metadata.approvalSnapshotHash !== snapshotHash)
+    requestContent.approvalStatus !== "approved" ||
+    requestContent.approvalSnapshotHash !== snapshotHash ||
+    !isVideoApprovalRecorded(requestContent, snapshotHash) ||
+    requestQa?.status !== "passed" ||
+    (audience !== "kids" && audience !== "general") ||
+    (metadata.audience != null && metadata.audience !== audience) ||
+    (metadata.approvalStatus != null && metadata.approvalStatus !== "approved") ||
+    (metadata.approvalSnapshotHash != null && metadata.approvalSnapshotHash !== snapshotHash) ||
+    metadataQa?.status !== "passed" ||
+    metadata.mediaState === "purged" ||
+    metadata.mediaState === "unlinked" ||
+    metadata.sourceMediaMissing === true
   ) return null;
 
-  if (metadata.audience !== "kids" && metadata.audience !== "general") return null;
-  if (metadata.audience === "kids") {
-    const automated = record(metadata.automatedVideoQa);
+  if (audience === "kids") {
     if (
+      requestContent.kidsVideoQaStatus !== "passed" ||
       metadata.kidsVideoQaStatus !== "passed" ||
-      automated?.status !== "passed" ||
+      !hasCompleteKidsVideoSeriesMetadata(requestContent) ||
       !hasCompleteKidsVideoSeriesMetadata(metadata)
     ) return null;
   }
@@ -160,7 +177,6 @@ export function buildVideoCatalogApprovalPatch(input: {
     reviewerId,
   };
   return {
-    published: true,
     metadata: {
       ...metadata,
       approvalStatus: "approved",
