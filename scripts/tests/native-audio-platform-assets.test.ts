@@ -168,6 +168,10 @@ const notificationBannerSource = readFileSync(
   resolve(process.cwd(), "src/components/layout/notification-permission-banner.tsx"),
   "utf8",
 );
+const profileSettingsSource = readFileSync(
+  resolve(process.cwd(), "src/features/profile/components/profile-local-settings.tsx"),
+  "utf8",
+);
 const prayerSource = readFileSync(
   resolve(process.cwd(), "src/features/prayer/hooks/use-prayer-alert.ts"),
   "utf8",
@@ -265,6 +269,8 @@ assert.match(
   /async checkNotificationPermission\(\) \{\s*return plugins\.LocalNotifications\?\.checkPermissions\?\.\(\);\s*\}/,
   "the native bridge must expose LocalNotifications.checkPermissions",
 );
+assert.match(profileSettingsSource, /zikr:show-notification-banner/);
+assert.match(notificationBannerSource, /zikr:show-notification-banner/);
 assert.match(notificationBannerSource, /getNotificationPermission/);
 assert.match(notificationBannerSource, /hasDismissedNotificationBanner/);
 assert.match(notificationBannerSource, /persistNotificationBannerDismissal/);
