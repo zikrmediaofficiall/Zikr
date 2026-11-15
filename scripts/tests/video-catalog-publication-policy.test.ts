@@ -39,6 +39,7 @@ const kidsMetadata = {
 const kidsRow = { published: true, metadata: kidsMetadata };
 const kidsInput = {
   contentId: "request-1",
+  requestAudience: "kids",
   queuedVideoUrl: videoUrl,
   queueAudience: "kids",
   queueKidsContentQaStatus: "passed",
@@ -47,6 +48,13 @@ const kidsInput = {
 };
 
 assert.equal(evaluateVideoCatalogPublication(kidsInput).status, "approved");
+const mismatchedRequestAudienceInput = { ...kidsInput, requestAudience: "general" };
+const requestAudienceMismatch = evaluateVideoCatalogPublication(mismatchedRequestAudienceInput);
+assert.equal(requestAudienceMismatch.status, "blocked",
+  "a general generation request must not be dispatched through a Kids queue/catalog row");
+if (requestAudienceMismatch.status === "blocked") {
+  assert.equal(requestAudienceMismatch.reason, "request_audience_mismatch");
+}
 assert.equal(evaluateVideoCatalogPublication({
   ...kidsInput,
   queueAudience: " children ",
@@ -126,14 +134,16 @@ delete generalMetadata.seriesTitle;
 delete generalMetadata.seasonNumber;
 delete generalMetadata.episodeNumber;
 delete generalMetadata.learningObjective;
-assert.equal(evaluateVideoCatalogPublication({
+const generalInput = {
   contentId: "request-1",
+  requestAudience: "general",
   queuedVideoUrl: videoUrl,
   queueAudience: "general",
   queueKidsContentQaStatus: null,
   expectedApprovalSnapshotHash: "a".repeat(64),
   row: { published: true, metadata: generalMetadata },
-}).status, "approved");
+};
+assert.equal(evaluateVideoCatalogPublication(generalInput).status, "approved");
 
 const cleared = clearRevalidatedSocialApprovalDeferrals({
   videoCatalogApprovalBlocked: true,
@@ -195,6 +205,8 @@ assert.match(socialSource, /videoCatalogPublicationPending: true/);
 assert.match(socialSource, /const operationalFailures = failures\.filter\(failure => !failure\.providerCallSkipped && !deferredFailures\.includes\(failure\)\);/);
 assert.match(socialSource, /if \(videoCatalogApprovalReason\) errorMessages\.push\(videoCatalogApprovalReason\);/);
 assert.match(socialSource, /shouldScheduleSocialPublishRetry\(\{/);
+assert.match(socialSource, /requestAudience:\s*requestContent\?\.audience/,
+  "catalog publication must compare the queue and catalog audience to the current generation request audience");
 
 const processStart = socialSource.indexOf("async function processSocialPublishItem");
 const processCatalogGate = socialSource.indexOf("const videoCatalogApproval = await checkVideoCatalogPublication(item);", processStart);
