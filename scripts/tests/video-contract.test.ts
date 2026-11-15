@@ -189,4 +189,37 @@ assert.deepEqual(
   "the unattended general-story worker must exclude every Kids-only source marker",
 );
 
+const normalizedKidsSources = filterGeneralStorySources([
+  { id: "general-story", audience: "general", generationMode: "manual", sourceType: "story" },
+  { id: "legacy-general-story", generationMode: "manual", sourceType: "story" },
+  { id: "kids-uppercase", audience: " KIDS ", generationMode: "manual", sourceType: "story" },
+  { id: "kids-children", audience: "Children", generationMode: "manual", sourceType: "story" },
+  { id: "kids-child", audience: "child", generationMode: "manual", sourceType: "story" },
+  { id: "kids-generation-mode", audience: "general", generationMode: " FREE_DETERMINISTIC_STORY_FACTORY ", sourceType: "story" },
+  { id: "kids-source-type", audience: "general", generationMode: "manual", sourceType: " ORIGINAL_KIDS_FICTION " },
+  { id: " KIDS-SERIES:fiction", audience: "general", generationMode: "manual", sourceType: "story" },
+]);
+assert.deepEqual(
+  normalizedKidsSources.map((source) => source.id),
+  ["general-story", "legacy-general-story"],
+  "general story automation must exclude normalized Kids markers and preserve legacy rows without an audience marker",
+);
+
+const normalizedKidsDisclosure = resolveKidsVideoPublicDisclosure(
+  { audience: " KIDS ", aiMode: " ORIGINAL_KIDS_STORY ", sourceLabel: "Source: Quran.com" },
+  "Source: Quran.com",
+  "Based on a hadith from Sahih al-Bukhari",
+);
+assert.equal(normalizedKidsDisclosure.sourceType, "original_kids_fiction");
+assert.equal(normalizedKidsDisclosure.sourceLabel, "قصة تربوية خيالية أصلية من ذِكر — ليست آية أو حديثًا أو واقعة تاريخية.");
+assert.equal(normalizedKidsDisclosure.description, null);
+assert.equal(normalizedKidsDisclosure.socialCaption, null,
+  "case and whitespace variants of Kids markers must retain the original-fiction disclosure");
+
+assert.equal(
+  resolveVideoSourceDisclosureLine({ sourceType: " EDITORIAL ", sourceLabel: "Source: Quran.com" }, "https://quran.com"),
+  "محتوى تحريري أصلي من منصة ذِكر — غير منسوب إلى آية أو حديث.",
+  "case and whitespace variants of editorial source types must not bypass the source disclosure",
+);
+
 console.log("video contract tests passed");

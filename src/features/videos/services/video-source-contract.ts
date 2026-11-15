@@ -11,9 +11,17 @@ function cleanString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function normalizeMarker(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function isKidsAudienceMarker(value: unknown): boolean {
+  return ["kids", "kid", "children", "child"].includes(normalizeMarker(value));
+}
+
 function isOriginalKidsFiction(content: Record<string, unknown>): boolean {
-  return content.sourceType === "original_kids_fiction" ||
-    (content.audience === "kids" && content.aiMode === "original_kids_story");
+  return normalizeMarker(content.sourceType) === "original_kids_fiction" ||
+    (isKidsAudienceMarker(content.audience) && normalizeMarker(content.aiMode) === "original_kids_story");
 }
 
 function hasMisleadingOriginalFictionAttribution(value: string | null): boolean {
@@ -46,18 +54,19 @@ export function filterGeneralStorySources<T extends {
   generationMode?: unknown;
   sourceType?: unknown;
 }>(sources: readonly T[]): T[] {
-  return sources.filter((source) =>
-    source.audience !== "kids" &&
-    source.generationMode !== "free_deterministic_story_factory" &&
-    source.sourceType !== "original_kids_fiction" &&
-    !source.id.toLowerCase().startsWith("kids-series:")
-  );
+  return sources.filter((source) => {
+    const id = normalizeMarker(source.id);
+    return !isKidsAudienceMarker(source.audience) &&
+      normalizeMarker(source.generationMode) !== "free_deterministic_story_factory" &&
+      normalizeMarker(source.sourceType) !== "original_kids_fiction" &&
+      !id.startsWith("kids-series:");
+  });
 }
 
 /** Keep original fiction/editorial copy from claiming an external source URL. */
 export function resolveVideoSourceDisclosureLine(content: unknown, fallbackSourceUrl: string): string {
   const record = asRecord(content);
-  const sourceType = cleanString(record.sourceType);
+  const sourceType = normalizeMarker(record.sourceType);
   const sourceLabel = cleanString(record.sourceLabel);
   if (isOriginalKidsFiction(record)) return resolveOriginalKidsFictionSourceLabel(sourceLabel);
   if (sourceType === "editorial") return resolveOriginalEditorialSourceLabel(sourceLabel);
@@ -77,8 +86,9 @@ export function resolveKidsVideoPublicDisclosure(
 } {
   const record = asRecord(metadata);
   const originalFiction = isOriginalKidsFiction(record);
-  const sourceType = originalFiction ? "original_kids_fiction" : cleanString(record.sourceType);
-  const editorial = cleanString(record.sourceType) === "editorial";
+  const normalizedSourceType = normalizeMarker(record.sourceType);
+  const sourceType = originalFiction ? "original_kids_fiction" : normalizedSourceType || cleanString(record.sourceType);
+  const editorial = normalizedSourceType === "editorial";
   const sourceLabel = originalFiction
     ? resolveOriginalKidsFictionSourceLabel(record.sourceLabel)
     : editorial
