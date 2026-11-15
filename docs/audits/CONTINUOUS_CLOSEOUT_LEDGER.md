@@ -1950,3 +1950,42 @@ Request current CODEOWNERS review, finish the 45 pending-trace and 205 review-re
 - Inventory: 2407 recursive tree entries (1908 blobs, 499 directories); PR delta 569 paths (246 added, 323 modified, 0 deleted). Matrix counts: REVIEW_REQUIRED=214, CONTENT_READ_TESTED_PASS=282, CONTENT_READ_PENDING_TRACE=37, SUPERSEDED_SNAPSHOT=8, FIXED_TESTED_PENDING_LIVE_APPLY=28.
 - Production safety: no production writes, migration application, generation, Gemini calls, social publishing, storage deletion, release, merge or deployment were executed.
 - Remaining owner/device gates: decide whether public Kids website publication also requires human review; approve CODEOWNERS review and merge; authorize any production migration with rollback evidence; perform device/OAuth/provider/Kids editorial acceptance and production smoke checks.
+
+## 2026-11-15 — storage-retention fail-closed repair and exact-head checkpoint
+
+**Repository:** `zikrofficial-X/Zikr`  
+**PR:** #320 — `audit/zikr-kids-daily-priority-20261110`  
+**Base:** `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`  
+**Current source/test head:** `bef48c909e5709504937e6bcee8cc84e950c4612`
+
+### Verified prior batch
+- Exact code/test SHA `829c80be969bfc482c154e9d7d127abb81def792`: full-scope Quality Gate run `43677234069` completed **success**. Deno Edge Function type-check, PostgreSQL 17 integration contracts, canonical source/architecture gate, lint, type-check, SEO/security/mobile checks, and production build passed.
+- CircleCI `config-guard`, `source-verify`, and `application-build-docs`: **success** on that prior head.
+- Android Native Login Debug APK run `43677234067`: **success**; debug validation only, no release.
+- The Kids approval fingerprint test was corrected to compare a persisted Kids request against the Kids snapshot and to reject a general-audience request fingerprint. The production helper was not changed by that test-fixture correction.
+
+### New safety defect and repair
+- **Finding:** the site-audio cleanup script and general Supabase Storage retention script used null-coalescing to convert a missing/null PostgREST response payload into an empty array. The site-audio DELETE route also treated a null reference-query result as no surviving reference. An incomplete inventory could therefore be mistaken for proof that no reference/object existed and allow a destructive path to continue.
+- **Repair commit:** `d6a49087bc0befecf971541aceae5b488a2799be`. Added explicit array-result guards for site-audio asset references, Storage listings, video-reference scans, content-library media, Android release settings, and paginated queue/request scans. The immediate site-audio DELETE path now defers Storage removal on an error or non-array reference result.
+- **Regression test commit:** `bef48c909e5709504937e6bcee8cc84e950c4612`. Added tests for null, undefined, and object-shaped inventory payloads, plus route/script contract assertions. Documentation now states that only an explicit empty array proves absence.
+- Read and traced the complete site-audio upload/registration/delete handlers, the `site_audio_upload_intents` migration, both cleanup scripts, `site-audio-orphan-retention.yml`, `storage-retention.yml`, the relevant test scripts, `package.json` commands, the retention RPC migration, and lifecycle documentation. Scheduled video/Android retention remains dry-run by default; site-audio cleanup remains manual-only.
+- The pause controls are operator attestations, not runtime locks. No destructive apply was executed. No storage object, media, bucket, database row, index, secret, release, or production resource was modified.
+
+### Exact-head verification status
+- Current head `bef48c9` has only the skipped Supabase Preview check; no Quality Gate, CircleCI, or Android debug workflow run was emitted for this exact SHA. **The storage hardening batch is not marked tested.** The successful 829c run is prior-head evidence only and must not be used to certify d6a490/bef48.
+- The GitHub integration did not provide a workflow-dispatch action for starting the canonical gate on this exact head. The current code/test changes must receive a full-scope Quality Gate and all required CircleCI contexts before merge; no check was bypassed or fabricated.
+
+### Inventory and remaining status
+- Branch tree at `bef48c9`: 2,407 entries (1,908 blobs, 499 directories); PR delta: 569 paths (246 added, 323 modified, zero deleted).
+- Reconciled overlay: 569 rows — 218 `REVIEW_REQUIRED`, 281 `CONTENT_READ_TESTED_PASS`, 34 `CONTENT_READ_PENDING_TRACE`, 28 `FIXED_TESTED_PENDING_LIVE_APPLY`, 8 `SUPERSEDED_SNAPSHOT`.
+- The paired manifest is regenerated from the reconciled tree, self-excludes its own blob, and sets `docs` / `docs/audits` directory hashes to null to avoid self-reference.
+- The 2026-11-01 main-baseline matrix remains historical at 1,525 review-required rows; no module is declared closed.
+
+### Production and approval gates
+- Latest Vercel production deployment remains `READY` on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; no audit deployment or production smoke run occurred.
+- Two handled `TypeError: fetch failed` runtime events were present in the last 24-hour aggregation (last observed 2026-11-14 22:01Z); the latest 50-minute runtime-log query had no error/fatal/warning entries. No source change was made without a reproducible failure.
+- `.github/CODEOWNERS` assigns all files to `@Zikrmediaofficial`. An earlier PR comment requested owner review, but formal collaborator permission is unavailable to the connected account and no approval is recorded.
+- PRs #321–#325 remain open and overlap the audit branch. No branch was merged, rebased destructively, or overwritten. Branch protection could not be read (403); no rule was bypassed.
+- Remaining: run the exact-head full verification, continue the 218 review-required / 34 pending-trace paths, obtain owner approval, resolve the 28 pending live-apply items through owner-approved procedures, complete physical Android/iOS/OAuth/push/provider/Kids editorial acceptance, then merge/deploy and verify production smoke checks.
+
+**Status: OPEN / IN PROGRESS. Never certify the repository as error-free or closed on this evidence.**

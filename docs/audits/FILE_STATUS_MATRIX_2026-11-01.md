@@ -1,5 +1,13 @@
 # ZIKR file status matrix — latest PR #320 overlay
 
+## PR #320 branch snapshot — 2026-11-15T04:45Z
+
+- Exact current source/test head: `bef48c909e5709504937e6bcee8cc84e950c4612`; base main: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- Recursive branch inventory: 2,407 entries (1,908 blobs, 499 directories); PR delta: 569 paths (246 added, 323 modified, zero removed).
+- Current overlay: 569 rows — 218 `REVIEW_REQUIRED`, 281 `CONTENT_READ_TESTED_PASS`, 34 `CONTENT_READ_PENDING_TRACE`, 28 `FIXED_TESTED_PENDING_LIVE_APPLY`, and 8 `SUPERSEDED_SNAPSHOT`.
+- The 829c code/test head passed the full Quality Gate and all three CircleCI contexts; the later storage hardening at d6a490/bef48 has **no exact-head CI result** and remains review-required until a full-scope run passes on the exact final code/test SHA.
+- The main-baseline matrix remains historical at 1,525 `REVIEW_REQUIRED` rows and zero closed modules. The branch overlay does not close the main-baseline backlog.
+
 ## Latest reconciliation — 2026-11-14T21:34:00Z
 
 - Exact code/test head: `47b35b7598f5287c97f07dcde623359060966e04`; base main: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
