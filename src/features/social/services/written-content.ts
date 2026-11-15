@@ -367,7 +367,8 @@ export function isKidsWrittenSourceReservation(value: unknown): boolean {
     typeof metadata.kidsContentId === "string" ||
     typeof metadata.kids_content_id === "string" ||
     sourceType === "kids_story" ||
-    isKidsPublicPath(metadata.publicPath ?? metadata.public_path);
+    isKidsPublicPath(metadata.publicPath) ||
+    isKidsPublicPath(metadata.public_path);
 }
 
 /** Reject a backfill row when any Kids marker conflicts with a non-Kids source type. */
