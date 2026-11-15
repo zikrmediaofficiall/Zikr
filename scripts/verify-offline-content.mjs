@@ -10,6 +10,7 @@ const offlineLibraryPath = 'src/app/offline-library/page.tsx';
 const offlineLibraryClientPath = 'src/app/offline-library/offline-library-client.tsx';
 const guardPath = 'src/components/layout/offline-navigation-guard.tsx';
 const exporterPath = 'scripts/export-offline-content.mjs';
+const previousSnapshotPath = 'scripts/lib/offline-previous-snapshot.mjs';
 const offlineWorkflowPath = '.github/workflows/refresh-offline-content.yml';
 const offlineDbPath = 'src/lib/offline-db.ts';
 const offlineAudioPath = 'src/features/quran/services/offline-audio.ts';
@@ -149,11 +150,13 @@ const offlinePack = read(offlinePackPath);
 const offlineDb = read(offlineDbPath);
 const offlineAudio = read(offlineAudioPath);
 const exporter = read(exporterPath);
+const previousSnapshot = read(previousSnapshotPath);
 const offlineWorkflow = read(offlineWorkflowPath);
 // Vercel intentionally excludes .github from deployment uploads; validate this workflow in repository CI when present.
 if (existsSync(offlineWorkflowPath) &&
     (!offlineWorkflow.includes('push:') || !offlineWorkflow.includes('branches: [main]') ||
       !offlineWorkflow.includes('"scripts/export-offline-content.mjs"') ||
+      !offlineWorkflow.includes('"scripts/lib/offline-previous-snapshot.mjs"') ||
       !offlineWorkflow.includes('pull-requests: write') ||
       !offlineWorkflow.includes('automation/offline-content-snapshot') ||
       !offlineWorkflow.includes('gh pr create') ||
@@ -172,6 +175,7 @@ for (const dataset of ['surahs','ayahs','tafsir','hadith_books','hadith','prophe
 }
 if (!exporter.includes('SUPABASE_SERVICE_ROLE_KEY') || !exporter.includes('assertCanonicalSupabaseProjectUrl(rawSupabaseUrl)') || !exporter.includes('NEXT_PUBLIC_SUPABASE_ANON_KEY') || !exporter.includes("params.set('limit'") || !exporter.includes('const minimumRecords = {') || !exporter.includes('select=id,slug,title,content,mood,category,created_at,updated_at,published,metadata,summary,is_approved')) failures.push('Offline exporter must use the canonical Supabase project, paginated reads, minimum safety floors, and explicit public story fields');
 if (!exporter.includes('previous-validated-snapshot') || !exporter.includes('staleDatasets') || !exporter.includes('previousRows.length !== previousDefinition.count')) failures.push('Offline exporter must preserve only an integrity-checked prior tafsir corpus when the live curated table is empty, and label it stale');
+if (!exporter.includes('loadPreviousOfflineSnapshot') || !previousSnapshot.includes('export async function loadPreviousOfflineSnapshot') || !previousSnapshot.includes('error.code === "ENOENT"')) failures.push('Offline exporter must distinguish a missing first-export snapshot from corrupt or unreadable prior state and fail closed');
 if (!exporter.includes("if (previousPath !== '/offline-content/v1/tafsir.json' ||")) failures.push('Offline Tafsir fallback must reject non-canonical snapshot paths before reading the previous file');
 if (!offlineDb.includes('DB_VERSION = 6')) failures.push('IndexedDB schema must be version 6');
 if (!offlineDb.includes('replaceAllMany(datasets: Record<string, unknown[]>')) failures.push('IndexedDB atomic full-pack replacement method is missing');
