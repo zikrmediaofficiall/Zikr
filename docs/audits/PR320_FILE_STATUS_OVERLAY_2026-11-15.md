@@ -1,13 +1,14 @@
 # PR #320 file-status overlay — 2026-11-15
 
-Verified code/test head: `2e1c3c9ce6b84aca3e2d3b7d5ba6a79336cf4c92` (full canonical Quality Gate run 43728160781 passed with `QUALITY_GATE=PASSED_FULL`; the following documentation reconciliation child head must receive its own exact-head verification).
+Verified code/test head: `2e1c3c9ce6b84aca3e2d3b7d5ba6a79336cf4c92` (full canonical Quality Gate run 43728160781 passed with `QUALITY_GATE=PASSED_FULL`).
+Verified documentation checkpoint: `59f69b7ee41a1dd6241b27a3290f2d383732eee1` (full canonical Quality Gate run 43730026736 passed with `QUALITY_GATE=PASSED_FULL`; CircleCI and Android debug checks also passed). This follow-up status/manifest-only child must receive its own exact-head verification.
 Base: `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
 PR changed paths: 597 (269 added, 328 modified, 0 deleted).
 Rows in this overlay: 595; it excludes this overlay file and the paired repository manifest to avoid self-reference.
-Status counts: CONTENT_READ_PENDING_TRACE=18, CONTENT_READ_TESTED_PASS=333, FIXED_TESTED_PENDING_LIVE_APPLY=28, REVIEW_REQUIRED=210, SUPERSEDED_SNAPSHOT=6.
+Status counts: CONTENT_READ_PENDING_TRACE=18, CONTENT_READ_TESTED_PASS=334, FIXED_TESTED_PENDING_LIVE_APPLY=28, REVIEW_REQUIRED=209, SUPERSEDED_SNAPSHOT=6.
 Repository inventory: 2,429 recursive tree entries (1,930 blobs, 499 directories); refreshed manifest target: 2,426 entries.
-Project status blob SHA: `1c9656831a13d25c6a2b137f7daeffd3f4b0af97`.
-Continuous closeout ledger blob SHA: `60e41abfb439a9bcc2af48e02e84f5d868e03b92`.
+Project status blob SHA: `ca103e9b1d040038b245de016e935dc4b8b38bbe`.
+Continuous closeout ledger blob SHA: `8864408278fea67586168fc24cdbfadcf6870b1a`.
 Remote migration ledger blob SHA: `2117731c256a0db50ec0264997a167a1210541a9`.
 Manifest self-reference handling: the manifest records this overlay's exact current blob SHA, excludes its own blob, and omits the `docs/` and `docs/audits/` ancestor tree entries because their tree hashes include the manifest itself.
 
@@ -43,7 +44,7 @@ Manifest self-reference handling: the manifest records this overlay's exact curr
 | `docs/admin/SITE_AUDIO_STORAGE_LIFECYCLE.md` | `A` | `798542177800e60b957e0a9383838af2a9a4dd67` | `REVIEW_REQUIRED` | Blob SHA changed since the previous evidence snapshot; re-read exact current contents, imports/consumers and focused tests before reclassification. No prior pass is carried forward. |
 | `docs/admin/SOCIAL_PUBLISHING_OPERATIONS.md` | `M` | `7d90d20976d709791e0e3ed33968d309c698a1fe` | `REVIEW_REQUIRED` | Added or changed since the previous overlay; review the actual file contents and trace consumers at this exact blob SHA. |
 | `docs/api/README.md` | `M` | `8a60ac707c9bb3e65e314e1ffca17dbe4f3b63d7` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
-| `docs/audits/CONTINUOUS_CLOSEOUT_LEDGER.md` | `M` | `60e41abfb439a9bcc2af48e02e84f5d868e03b92` | `CONTENT_READ_TESTED_PASS` | Reconciled against the current exact-head run, PR metadata, review state and repository inventory; this entry records the code/test head and leaves the documentation child pending its own gate. |
+| `docs/audits/CONTINUOUS_CLOSEOUT_LEDGER.md` | `M` | `8864408278fea67586168fc24cdbfadcf6870b1a` | `CONTENT_READ_TESTED_PASS` | Reconciled against the current exact-head run, PR metadata, review state and repository inventory; this entry records the code/test head and leaves the documentation child pending its own gate. |
 | `docs/audits/FILE_STATUS_MATRIX_2026-11-01.md` | `M` | `4e8e1b604cb1b7d66b47cec88b21fd2547a3f063` | `CONTENT_READ_TESTED_PASS` | Historical main baseline preserved; appended exact PR #320 branch inventory, overlay counts, pending verification and Kids social consistency finding. |
 | `docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-12.md` | `A` | `db70e3574a7f2bc45c1c654bd20e509f58a9a4b7` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-13T2058Z.md` | `A` | `03a6eef13ff63a440553047cdc7267b28842d6f8` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
@@ -90,7 +91,7 @@ Manifest self-reference handling: the manifest records this overlay's exact curr
 | `mobile/capacitor-dependencies.json` | `M` | `dc9b7955207c96b7aadb8893cd23e9c67abe56e2` | `CONTENT_READ_TESTED_PASS` | Read and traced at exact head a77b2d2; OAuth/safe-redirect checks passed; Android debug APK run 43627717118 succeeded; no physical device login or release. |
 | `mobile/README.md` | `M` | `85505a12b81e0de40fae4cf4dc8e6bfb5d511de0` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `package.json` | `M` | `5839e3355009fa6e86ab871213beca34503b4064` | `CONTENT_READ_TESTED_PASS` | Read the complete package manifest and verification script wiring; added the focused disclosure/provider/backfill tests to the canonical suite. Full Quality Gate 43728160781 passed on code/test head 2e1c3c9. |
-| `PROJECT_STATUS.md` | `M` | `1c9656831a13d25c6a2b137f7daeffd3f4b0af97` | `CONTENT_READ_TESTED_PASS` | Reconciled current PR/base/head, exact full-scope gate evidence, tree inventory, overlay counts and owner-only acceptance; historical checkpoints retained. |
+| `PROJECT_STATUS.md` | `M` | `ca103e9b1d040038b245de016e935dc4b8b38bbe` | `CONTENT_READ_TESTED_PASS` | Reconciled current PR/base/head, exact full-scope gate evidence, tree inventory, overlay counts and owner-only acceptance; historical checkpoints retained. |
 | `public/offline-content/v1/companion_stories.json` | `M` | `ef1cad9d7db75ee6677edc9dba3387debb95695a` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `public/offline-content/v1/kids.json` | `M` | `dc32c0bdbd722f0f920d7db2a690074de0194fcc` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `public/offline-content/v1/manifest.json` | `M` | `0bc61d22e28a31f008bac9f512c2073fcf9fe33e` | `REVIEW_REQUIRED` | Added or changed since the previous overlay; review the actual file contents and trace consumers at this exact blob SHA. |
@@ -301,7 +302,7 @@ Manifest self-reference handling: the manifest records this overlay's exact curr
 | `scripts/verify-video-qa-backfill.mjs` | `A` | `8f289edbc1d959e02bf38ffba1ec8c999f1d6706` | `CONTENT_READ_TESTED_PASS` | Added static checks for the canonical project guard, typed apply confirmation, workflow environment, and dry-run default; full Quality Gate 43728160781 passed. No apply executed. |
 | `scripts/verify-video-qa.mjs` | `M` | `6c9e037d989cd632e274916d2114422cb3ef526d` | `CONTENT_READ_TESTED_PASS` | Read the full automated QA contract verifier; full Quality Gate 43728160781 passed. |
 | `scripts/verify-video-queue-priority.mjs` | `M` | `981537f1cfda2d8530d9b58f47a4f1d27ac90dc3` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
-| `src/app/.well-known/apple-app-site-association/route.ts` | `M` | `b35b768f4dba1deb8b7dc619c5f450eeb0b7d004` | `REVIEW_REQUIRED` | Blob SHA changed since the previous evidence snapshot; re-read exact current contents, imports/consumers and focused tests before reclassification. No prior pass is carried forward. |
+| `src/app/.well-known/apple-app-site-association/route.ts` | `M` | `b35b768f4dba1deb8b7dc619c5f450eeb0b7d004` | `CONTENT_READ_TESTED_PASS` | Read the complete AASA route: it validates the configured app identifier and fails closed with 503 when IOS_ASSOCIATED_DOMAIN_APP_ID is absent; native OAuth contract test passed. Production Apple Team ID/App ID configuration and iOS device acceptance remain owner-only. |
 | `src/app/admin/analytics/page.tsx` | `M` | `45398c57bf9a4160c9ec22a641ec8f33e3571203` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `src/app/admin/android/actions.ts` | `M` | `ce1c20a9a85fed65c1835990f33f5aedf087b849` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
 | `src/app/admin/android/page.tsx` | `M` | `77986ccdffdada8aea36ff11b480f802820da23e` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
