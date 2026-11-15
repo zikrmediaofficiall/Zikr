@@ -14,6 +14,7 @@ import { getOptionalFacebookPageCredentials } from "../../src/features/social/se
 import { getYouTubeUploadRefreshToken } from "../../src/features/social/services/youtube-oauth-credentials";
 import { listVideoSources, resolveVideoSource } from "../../src/features/videos/services/video-sources";
 import { listCuratedVideoSources, resolveCuratedVideoSource } from "../../src/features/videos/data/curated-content";
+import { filterGeneralStorySources, resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
 import { buildKidsSeriesEpisode, validateCanonicalKidsEpisodeSnapshot, validateGeneratedKidsEpisode } from "../../src/features/videos/data/kids-story-factory";
 import { videoContentHash, sourceHash } from "../../src/features/videos/providers/content-hash";
 import { buildDuplicateVideoOwnerRecoveryFilter, canRecoverDuplicateVideoRender, resolveUniqueDuplicateVideoSiteRecord } from "../../src/features/videos/services/duplicate-video-recovery";
@@ -746,7 +747,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       key = `story:${day}:${slot}`;
       if (await findByAutomationKey("video_generation_requests", key)) continue;
       const sources = await listVideoSources("story");
-      const pool = sources.length ? sources : listCuratedVideoSources("story");
+      const pool = filterGeneralStorySources(sources.length ? sources : listCuratedVideoSources("story"));
       if (!pool.length) throw new Error("No verified story sources are available.");
       const row = pool[(day * 16 + slot) % pool.length];
       payload = {
@@ -1761,7 +1762,7 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
     callToAction[request.category] ?? callToAction.other,
     visualDisclosure,
     tags[request.category] ?? tags.other,
-    "المصدر: " + contentSourceUrl(request),
+    resolveVideoSourceDisclosureLine(content, contentSourceUrl(request)),
     publicUrl,
   ].filter((value, index, values): value is string =>
     typeof value === "string" && value.trim().length > 0 && values.indexOf(value) === index

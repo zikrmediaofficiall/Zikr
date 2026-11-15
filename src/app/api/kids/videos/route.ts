@@ -4,6 +4,7 @@ import { isKidsVideoGenerationRequestContent } from "@/features/kids/services/ki
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 import { classifyKidsVideoGenerationRequestId, getConfirmedPublicKidsVideoSocialPlatforms, resolveKidsVideoSocialPublication } from "@/features/social/services/kids-video-social-visibility";
 import { loadKidsSocialQueueRows, type KidsSocialQueueRow } from "@/features/social/services/kids-video-social-query";
+import { resolveKidsVideoPublicDisclosure } from "@/features/videos/services/video-source-contract";
 
 export const dynamic = "force-dynamic";
 
@@ -83,16 +84,19 @@ export async function GET() {
         : typeof socialQueueForCaption?.body === "string" && socialQueueForCaption.body.trim()
           ? socialQueueForCaption.body
           : null;
+      const disclosure = resolveKidsVideoPublicDisclosure(metadata, video.description, socialCaption);
 
       return {
         id: video.id,
         title: video.title,
         slug: video.slug,
-        description: video.description ?? null,
+        description: disclosure.description,
+        sourceLabel: disclosure.sourceLabel,
+        sourceType: disclosure.sourceType,
         thumbnailUrl: video.thumbnailUrl ?? null,
         createdAt: video.createdAt,
         storyText: storyText?.slice(0, 3000) ?? null,
-        socialCaption: socialCaption?.slice(0, 4500) ?? null,
+        socialCaption: disclosure.socialCaption?.slice(0, 4500) ?? null,
         seriesTitle: typeof metadata.seriesTitle === "string"
           ? metadata.seriesTitle
           : typeof requestContent.seriesTitle === "string" ? requestContent.seriesTitle : null,

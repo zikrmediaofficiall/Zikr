@@ -32,6 +32,8 @@ type KidsGeneratedItem = {
   title: string;
   slug: string;
   description: string | null;
+  sourceLabel: string | null;
+  sourceType: string | null;
   thumbnailUrl: string | null;
   createdAt: string;
   storyText: string | null;
@@ -286,6 +288,7 @@ export default function KidsPage() {
                       <div className="space-y-2 p-4">
                         <h3 className="font-bold text-brand-cream group-hover:text-brand-gold">{item.title}</h3>
                         {item.seriesTitle && <p className="text-xs text-brand-emerald">{item.seriesTitle}{item.seasonNumber ? " — " + (isEnglish ? "Season " : "الموسم ") + item.seasonNumber : ""}{item.episodeNumber ? " · " + (isEnglish ? "Episode " : "الحلقة ") + item.episodeNumber : ""}</p>}
+                        {item.sourceLabel ? <p className="text-xs leading-5 text-brand-gold/80">{isEnglish && item.sourceType === "original_kids_fiction" ? "Original educational fiction by ZIKR — not a verse, hadith, or historical event." : item.sourceLabel}</p> : null}
                         <p className="line-clamp-3 text-sm leading-7 text-brand-cream/65">{item.storyText || item.description || (isEnglish ? "An approved new Kids story." : "حكاية جديدة اجتازت فحص الجودة.")}</p>
                         {item.learningObjective && <p className="text-xs text-brand-cream/55">{isEnglish ? "We learn: " : "هنتعلم: "}{item.learningObjective}</p>}
                         <span className="inline-block pt-2 text-sm font-bold text-brand-gold">{isEnglish ? "Watch and read the story" : "شاهد الفيديو واقرأ الحكاية"} ←</span>

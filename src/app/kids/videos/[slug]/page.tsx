@@ -6,6 +6,7 @@ import { Container } from "@/components/ui/container";
 import { getKidsGeneratedVideoBySlug } from "@/features/videos/services/videos";
 import { pageMetadata } from "@/lib/site";
 import { resolveVideoMediaUrl } from "@/features/videos/services/video-media-contract";
+import { resolveKidsVideoPublicDisclosure } from "@/features/videos/services/video-source-contract";
 
 export const dynamic = "force-dynamic";
 type KidsVideoLookup =
@@ -27,9 +28,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const result = await loadVideo(slug);
   const video = result.status === "loaded" ? result.video : null;
+  const disclosure = video ? resolveKidsVideoPublicDisclosure(video.metadata, video.description, video.metadata?.socialCaption) : null;
   return pageMetadata({
     title: result.status === "error" ? "الفيديو غير متاح مؤقتًا" : video?.title ?? "فيديو أطفال غير موجود",
-    description: result.status === "error" ? "تعذر تحميل بيانات الفيديو مؤقتًا. حاول مرة أخرى لاحقًا." : video?.description ?? "فيديو من مكتبة الأطفال في ذِكر.",
+    description: result.status === "error" ? "تعذر تحميل بيانات الفيديو مؤقتًا. حاول مرة أخرى لاحقًا." : disclosure?.description ?? disclosure?.sourceLabel ?? "فيديو من مكتبة الأطفال في ذِكر.",
     path: "/kids/videos/" + slug,
     noindex: true,
     images: video?.thumbnailUrl ? [video.thumbnailUrl] : undefined,
@@ -64,7 +66,9 @@ export default async function KidsVideoDetailPage({ params }: Props) {
 
   const metadata = video.metadata ?? {};
   const storyText = typeof metadata.storyText === "string" ? metadata.storyText : "";
-  const socialCaption = typeof metadata.socialCaption === "string" ? metadata.socialCaption : "";
+  const rawSocialCaption = typeof metadata.socialCaption === "string" ? metadata.socialCaption : "";
+  const disclosure = resolveKidsVideoPublicDisclosure(metadata, video.description, rawSocialCaption);
+  const socialCaption = disclosure.socialCaption ?? "";
   const socialPublication = metadata.socialPublication && typeof metadata.socialPublication === "object" && !Array.isArray(metadata.socialPublication)
     ? metadata.socialPublication as { status?: unknown; platforms?: unknown }
     : null;
@@ -106,7 +110,8 @@ export default async function KidsVideoDetailPage({ params }: Props) {
         ) : (
           <Card className="p-6 text-center text-brand-cream/70">ملف الفيديو غير متاح حاليًا.</Card>
         )}
-        {video.description ? <Card className="p-6 leading-8 text-brand-cream/85">{video.description}</Card> : null}
+        {disclosure.sourceLabel ? <Card className="border-brand-gold/20 p-4 text-sm leading-7 text-brand-gold/90">{disclosure.sourceLabel}</Card> : null}
+        {disclosure.description ? <Card className="p-6 leading-8 text-brand-cream/85">{disclosure.description}</Card> : null}
         {storyText ? (
           <Card className="space-y-3 border-brand-gold/20 bg-brand-gold/[.04] p-6">
             <h2 className="text-xl font-black text-brand-gold">الحكاية كاملة</h2>
