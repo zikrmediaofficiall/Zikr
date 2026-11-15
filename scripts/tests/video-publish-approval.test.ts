@@ -506,7 +506,7 @@ assert.match(createAudienceGuard, /if \(!requestedAudience\)/);
 assert.match(createAudienceGuard, /audience: requestedAudience/);
 
 assert.match(adminVideoGenerationRoute, /resolveKidsVideoQaStatusForApproval/);
-assert.match(adminVideoGenerationRoute, /requestContent: reviewContent/);
+assert.match(adminVideoGenerationRoute, /requestContent: currentContent/);
 assert.match(adminVideoGenerationRoute, /kidsVideoQaStatus: verifiedKidsVideoQaStatus/);
 
 console.log("Video publishing approval contract passed.");

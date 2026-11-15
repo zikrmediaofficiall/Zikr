@@ -19,13 +19,10 @@ DECLARE
   v_request public.video_generation_requests%ROWTYPE;
   v_catalog public.videos%ROWTYPE;
   v_request_approval_fields text[] := ARRAY[
-    'approvalStatus', 'approvalReviewerId', 'approvalReviewedAt', 'approvalSnapshotHash', 'qualityReview',
-    'kidsVideoQaStatus'
+    'approvalStatus', 'approvalReviewerId', 'approvalReviewedAt', 'approvalSnapshotHash', 'qualityReview'
   ];
   v_catalog_approval_fields text[] := ARRAY[
-    'approvalStatus', 'approvalReviewerId', 'approvalReviewedAt', 'approvalSnapshotHash', 'qualityReview',
-    'contentFormat', 'aiMode', 'sourceType', 'seriesId', 'seriesTitle', 'learningObjective',
-    'seasonNumber', 'episodeNumber'
+    'approvalStatus', 'approvalReviewerId', 'approvalReviewedAt', 'approvalSnapshotHash', 'qualityReview'
   ];
   v_check text;
   v_request_rows integer;
@@ -41,6 +38,14 @@ BEGIN
      OR jsonb_typeof(p_catalog_metadata) IS DISTINCT FROM 'object' THEN
     RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: required approval fields are missing'
       USING ERRCODE = '22023';
+  END IF;
+
+  IF p_approved_content->>'audience' = 'kids' THEN
+    v_request_approval_fields := v_request_approval_fields || ARRAY['kidsVideoQaStatus'];
+    v_catalog_approval_fields := v_catalog_approval_fields || ARRAY[
+      'contentFormat', 'aiMode', 'sourceType', 'seriesId', 'seriesTitle', 'learningObjective',
+      'seasonNumber', 'episodeNumber'
+    ];
   END IF;
 
   IF p_approved_content->>'approvalStatus' IS DISTINCT FROM 'approved'
@@ -150,7 +155,9 @@ BEGIN
   END IF;
 
   IF p_approved_content->>'audience' = 'kids' THEN
-    IF p_approved_content->>'kidsVideoQaStatus' IS DISTINCT FROM 'passed'
+    IF v_catalog.metadata->>'audience' IS DISTINCT FROM 'kids'
+       OR p_catalog_metadata->>'audience' IS DISTINCT FROM 'kids'
+       OR p_approved_content->>'kidsVideoQaStatus' IS DISTINCT FROM 'passed'
        OR v_catalog.metadata->>'kidsVideoQaStatus' IS DISTINCT FROM 'passed'
        OR p_catalog_metadata->>'kidsVideoQaStatus' IS DISTINCT FROM 'passed'
        OR p_approved_content->>'kidsVideoQaStatus' IS DISTINCT FROM p_catalog_metadata->>'kidsVideoQaStatus'
@@ -160,110 +167,8 @@ BEGIN
        OR nullif(btrim(p_approved_content->>'seriesId'), '') IS NULL
        OR nullif(btrim(p_approved_content->>'seriesTitle'), '') IS NULL
        OR nullif(btrim(p_approved_content->>'learningObjective'), '') IS NULL
-       OR coalesce(p_approved_content->>'seasonNumber' ~ '^[1-9][0-9]*
-     IS DISTINCT FROM (v_catalog.metadata - v_catalog_approval_fields) THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: catalog metadata changed outside the approval fields'
-      USING ERRCODE = '22023';
-  END IF;
-
-  -- Qualify target columns because RETURNS TABLE exposes an output variable
-  -- named updated_at in this PL/pgSQL function.
-  UPDATE public.video_generation_requests AS request_row
-  SET content = p_approved_content, updated_at = p_reviewed_at
-  WHERE request_row.id = p_request_id
-    AND request_row.status = 'completed'
-    AND request_row.updated_at = p_expected_request_updated_at;
-
-  GET DIAGNOSTICS v_request_rows = ROW_COUNT;
-  IF v_request_rows <> 1 THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_CONFLICT: request compare-and-set failed'
-      USING ERRCODE = '40001';
-  END IF;
-
-  UPDATE public.videos AS catalog_row
-  SET metadata = p_catalog_metadata, updated_at = p_reviewed_at
-  WHERE catalog_row.id = p_catalog_video_id
-    AND catalog_row.slug = p_catalog_slug
-    AND catalog_row.updated_at = p_expected_catalog_updated_at
-    AND catalog_row.metadata->>'videoGenerationRequestId' = p_request_id::text;
-
-  GET DIAGNOSTICS v_catalog_rows = ROW_COUNT;
-  IF v_catalog_rows <> 1 THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_CONFLICT: catalog compare-and-set failed'
-      USING ERRCODE = '40001';
-  END IF;
-
-  RETURN QUERY SELECT p_request_id, p_catalog_video_id, p_reviewed_at;
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) FROM PUBLIC, anon, authenticated;
-
-GRANT EXECUTE ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) TO service_role;
-
-COMMENT ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) IS
-  'Atomically records a human approval on a completed video-generation request and its matching internal catalog row. Both compare-and-set updates roll back together on any conflict.';
-
-COMMIT;
-, false) IS NOT TRUE
-       OR coalesce(p_approved_content->>'episodeNumber' ~ '^[1-9][0-9]*
-     IS DISTINCT FROM (v_catalog.metadata - v_catalog_approval_fields) THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: catalog metadata changed outside the approval fields'
-      USING ERRCODE = '22023';
-  END IF;
-
-  -- Qualify target columns because RETURNS TABLE exposes an output variable
-  -- named updated_at in this PL/pgSQL function.
-  UPDATE public.video_generation_requests AS request_row
-  SET content = p_approved_content, updated_at = p_reviewed_at
-  WHERE request_row.id = p_request_id
-    AND request_row.status = 'completed'
-    AND request_row.updated_at = p_expected_request_updated_at;
-
-  GET DIAGNOSTICS v_request_rows = ROW_COUNT;
-  IF v_request_rows <> 1 THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_CONFLICT: request compare-and-set failed'
-      USING ERRCODE = '40001';
-  END IF;
-
-  UPDATE public.videos AS catalog_row
-  SET metadata = p_catalog_metadata, updated_at = p_reviewed_at
-  WHERE catalog_row.id = p_catalog_video_id
-    AND catalog_row.slug = p_catalog_slug
-    AND catalog_row.updated_at = p_expected_catalog_updated_at
-    AND catalog_row.metadata->>'videoGenerationRequestId' = p_request_id::text;
-
-  GET DIAGNOSTICS v_catalog_rows = ROW_COUNT;
-  IF v_catalog_rows <> 1 THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_CONFLICT: catalog compare-and-set failed'
-      USING ERRCODE = '40001';
-  END IF;
-
-  RETURN QUERY SELECT p_request_id, p_catalog_video_id, p_reviewed_at;
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) FROM PUBLIC, anon, authenticated;
-
-GRANT EXECUTE ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) TO service_role;
-
-COMMENT ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) IS
-  'Atomically records a human approval on a completed video-generation request and its matching internal catalog row. Both compare-and-set updates roll back together on any conflict.';
-
-COMMIT;
-, false) IS NOT TRUE
+       OR coalesce(p_approved_content->>'seasonNumber' ~ '^[1-9][0-9]*$', false) IS NOT TRUE
+       OR coalesce(p_approved_content->>'episodeNumber' ~ '^[1-9][0-9]*$', false) IS NOT TRUE
        OR p_catalog_metadata->>'contentFormat' IS DISTINCT FROM p_approved_content->>'contentFormat'
        OR p_catalog_metadata->>'aiMode' IS DISTINCT FROM p_approved_content->>'aiMode'
        OR p_catalog_metadata->>'sourceType' IS DISTINCT FROM p_approved_content->>'sourceType'
@@ -272,14 +177,19 @@ COMMIT;
        OR p_catalog_metadata->>'learningObjective' IS DISTINCT FROM p_approved_content->>'learningObjective'
        OR p_catalog_metadata->>'seasonNumber' IS DISTINCT FROM p_approved_content->>'seasonNumber'
        OR p_catalog_metadata->>'episodeNumber' IS DISTINCT FROM p_approved_content->>'episodeNumber'
+       OR v_request.content->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'
+       OR v_catalog.metadata->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'
        OR p_approved_content->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'
        OR p_catalog_metadata->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'
-       OR p_approved_content->'automatedVideoQa'->>'snapshotHash'
-          IS DISTINCT FROM p_catalog_metadata->'automatedVideoQa'->>'snapshotHash' THEN
+       OR coalesce(p_approved_content->'automatedVideoQa'->>'snapshotHash' ~ '^[a-f0-9]{64}$', false) IS NOT TRUE
+       OR p_approved_content->'automatedVideoQa'->>'snapshotHash' IS DISTINCT FROM v_request.content->'automatedVideoQa'->>'snapshotHash'
+       OR p_approved_content->'automatedVideoQa'->>'snapshotHash' IS DISTINCT FROM v_catalog.metadata->'automatedVideoQa'->>'snapshotHash'
+       OR p_approved_content->'automatedVideoQa'->>'snapshotHash' IS DISTINCT FROM p_catalog_metadata->'automatedVideoQa'->>'snapshotHash' THEN
       RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: Kids QA or series evidence does not match the approved catalog snapshot'
         USING ERRCODE = '22023';
     END IF;
   END IF;
+
   IF (p_catalog_metadata - v_catalog_approval_fields)
      IS DISTINCT FROM (v_catalog.metadata - v_catalog_approval_fields) THEN
     RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: catalog metadata changed outside the approval fields'

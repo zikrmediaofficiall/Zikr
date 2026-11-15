@@ -81,3 +81,40 @@ INSERT INTO public.videos (id, slug, metadata, updated_at) VALUES
     ),
     '2026-11-15T15:00:00Z'
   );
+
+
+-- Legacy Kids request: QA exists on the matching catalog row, while the
+-- request-level kidsVideoQaStatus marker is absent and must be derived safely.
+INSERT INTO public.video_generation_requests (
+  id, status, video_url, source_hash, content_hash, template_version, content, updated_at
+) VALUES (
+  '50000000-0000-4000-8000-000000000005',
+  'completed',
+  'https://res.cloudinary.com/zikr/video/upload/kids-video-1.mp4',
+  repeat('1', 64), repeat('2', 64), 'kids-template-v1',
+  jsonb_build_object(
+    'audience', 'kids', 'sourceHash', repeat('1', 64), 'contentHash', repeat('2', 64),
+    'templateVersion', 'kids-template-v1', 'approvalStatus', 'awaiting_human_review',
+    'approvalReviewerId', null, 'approvalReviewedAt', null, 'approvalSnapshotHash', null, 'qualityReview', null,
+    'automatedVideoQa', jsonb_build_object('status', 'passed', 'snapshotHash', repeat('3', 64)),
+    'contentFormat', 'series_episode', 'aiMode', 'original_kids_story', 'sourceType', 'original_kids_fiction',
+    'seriesId', 'series-1', 'seriesTitle', 'قصص القيم', 'learningObjective', 'تعلم الصدق والأمانة',
+    'seasonNumber', 1, 'episodeNumber', 2
+  ),
+  '2026-11-15T15:00:00Z'
+);
+
+INSERT INTO public.videos (id, slug, metadata, updated_at) VALUES (
+  '70000000-0000-4000-8000-000000000007',
+  'zikr-50000000-0000-4000-8000-000000000005',
+  jsonb_build_object(
+    'generator', 'zikr_internal_video_factory', 'videoGenerationRequestId', '50000000-0000-4000-8000-000000000005',
+    'generatedVideoUrl', 'https://res.cloudinary.com/zikr/video/upload/kids-video-1.mp4',
+    'sourceHash', repeat('1', 64), 'contentHash', repeat('2', 64), 'templateVersion', 'kids-template-v1',
+    'audience', 'kids', 'mediaState', 'available', 'sourceMediaMissing', false, 'kidsVideoQaStatus', 'passed',
+    'automatedVideoQa', jsonb_build_object('status', 'passed', 'snapshotHash', repeat('3', 64)),
+    'approvalStatus', 'awaiting_human_review', 'approvalReviewerId', null,
+    'approvalReviewedAt', null, 'approvalSnapshotHash', null, 'qualityReview', null
+  ),
+  '2026-11-15T15:00:00Z'
+);

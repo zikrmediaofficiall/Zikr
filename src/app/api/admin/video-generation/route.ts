@@ -127,7 +127,7 @@ export async function PATCH(request: NextRequest) {
         ? currentContent.automatedVideoQa as Record<string, unknown>
         : {};
       const verifiedKidsVideoQaStatus = isKidsVideo ? resolveKidsVideoQaStatusForApproval({
-        requestContent: reviewContent,
+        requestContent: currentContent,
         catalogMetadata: catalog.metadata,
         requestId: id,
         videoUrl: current.video_url,
