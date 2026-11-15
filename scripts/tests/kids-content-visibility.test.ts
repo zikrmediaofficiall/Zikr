@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { getKidsQuizQuestions, isKidsContentType, KIDS_CONTENT_TYPES, normalizeKidsVideoEmbedUrl, parseKidsQuizData } from "../../src/features/kids/services/kids-content-validation";
+import { requireSupabaseRows } from "../../src/lib/supabase/array-response";
 import { readFileSync } from "node:fs";
 import { classifyKidsVideoGenerationRequestId, getConfirmedPublicKidsVideoSocialPlatforms, isPublicKidsVideoSocialQueueRow, resolveKidsVideoSocialPublication } from "../../src/features/social/services/kids-video-social-visibility";
 import { loadKidsSocialQueueRows } from "../../src/features/social/services/kids-video-social-query";
@@ -53,6 +54,20 @@ for (const [publicStatus, visibilityStatus, expected] of [
   );
 }
 const kidsContentServiceSource = readFileSync("src/features/kids/services/kids-content.ts", "utf8");
+assert.deepEqual(requireSupabaseRows([], "valid empty query"), []);
+assert.deepEqual(requireSupabaseRows([{ id: "row-1" }], "valid query"), [{ id: "row-1" }]);
+for (const invalidPayload of [undefined, null, {}, "[]", 0]) {
+  assert.throws(
+    () => requireSupabaseRows(invalidPayload, "Kids query"),
+    /non-array response; refusing to treat it as an empty result/,
+    "an empty or malformed HTTP body must not be confused with a valid empty PostgREST row set",
+  );
+}
+assert.equal(
+  (kidsContentServiceSource.match(/requireSupabaseRows/g) ?? []).length,
+  4,
+  "Kids list and detail reads must validate both public rows and service-role visibility rows",
+);
 assert.equal(hasKidsEnglishContent({ title_en: "Wudu steps", content_en: "Original educational content prepared for families." }), false);
 assert.equal(hasKidsEnglishContent({ title_en: "Wudu steps", content_en: "Original educational content prepared for Zikr families." }), false);
 assert.equal(hasKidsEnglishContent({ title_en: "Kindness story", content_en: "A child invites a classmate to join a game." }), true);
@@ -732,6 +747,11 @@ const kidsSocialPostsApi = readFileSync("src/app/api/kids/social-posts/route.ts"
 assert.match(kidsSocialPostsApi, /process\.env\.VERCEL_ENV === "production"/, "a missing service-role key must be visible in production");
 assert.match(kidsSocialPostsApi, /status: 503/, "a missing production service-role key must not silently produce an empty Kids posts feed");
 assert.match(kidsSocialPostsApi, /return NextResponse\.json\(\[\]/, "preview and development may retain their intentional empty-feed fallback");
+assert.equal(
+  (kidsSocialPostsApi.match(/requireSupabaseRows/g) ?? []).length,
+  2,
+  "Kids social queue and source lookups must reject malformed/empty HTTP bodies instead of returning a false empty feed",
+);
 const kidsHomePage = readFileSync("src/app/kids/page.tsx", "utf8");
 const kidsVideoService = readFileSync("src/features/videos/services/videos.ts", "utf8");
 const kidsVideoSocialDetailService = readFileSync("src/features/social/services/kids-video-social-detail.ts", "utf8");

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isSupabaseConfigured, supabaseServerAdminRequest, supabaseServerAnonRequest } from "@/lib/supabase/server";
+import { requireSupabaseRows } from "@/lib/supabase/array-response";
 import {
   kidsContent,
   normalizeKidsContentRow,
@@ -47,15 +48,21 @@ async function getDatabaseKidsContent(): Promise<KidsDatabaseState> {
   if (!isSupabaseConfigured()) return { configured: false, items: [], knownSlugs: null };
 
   const [publicResult, visibilityResult] = await Promise.allSettled([
-    Promise.resolve().then(() => supabaseServerAnonRequest<KidsDbRow[]>(
-      `/rest/v1/kids_content?select=*&published=eq.true&is_active=eq.true&order=created_at.desc&limit=1000`,
-      { timeoutMs: 10_000, retries: 1 },
+    Promise.resolve().then(async () => requireSupabaseRows<KidsDbRow>(
+      await supabaseServerAnonRequest<unknown>(
+        `/rest/v1/kids_content?select=*&published=eq.true&is_active=eq.true&order=created_at.desc&limit=1000`,
+        { timeoutMs: 10_000, retries: 1 },
+      ),
+      "Kids public content query",
     )),
     // Defer the service-role call so missing Preview credentials are captured
     // as a rejected result instead of throwing before Promise.allSettled.
-    Promise.resolve().then(() => supabaseServerAdminRequest<KidsVisibilityDbRow[]>(
-      `/rest/v1/kids_content?select=slug&${FALLBACK_SLUG_FILTER}`,
-      { timeoutMs: 10_000, retries: 1 },
+    Promise.resolve().then(async () => requireSupabaseRows<KidsVisibilityDbRow>(
+      await supabaseServerAdminRequest<unknown>(
+        `/rest/v1/kids_content?select=slug&${FALLBACK_SLUG_FILTER}`,
+        { timeoutMs: 10_000, retries: 1 },
+      ),
+      "Kids fallback visibility query",
     )),
   ]);
 
@@ -71,14 +78,14 @@ async function getDatabaseKidsContent(): Promise<KidsDatabaseState> {
 
   const items = publicResult.status === "fulfilled"
     ? dedupeBySlug(
-        (publicResult.value ?? [])
+        publicResult.value
           .map((row) => normalizeKidsContentRow(row))
           .filter((item): item is KidsItem => item !== null && isKidsContentPubliclyVisible(item)),
       )
     : [];
   const knownSlugs = visibilityResult.status === "fulfilled"
     ? new Set(
-        (visibilityResult.value ?? [])
+        visibilityResult.value
           .map((row) => normalizeKidsContentSlug(row.slug))
           .filter(Boolean),
       )
@@ -96,13 +103,19 @@ async function getDatabaseKidsContentBySlug(slug: string): Promise<{
   const encodedSlug = encodeURIComponent(slug);
 
   const [publicResult, visibilityResult] = await Promise.allSettled([
-    Promise.resolve().then(() => supabaseServerAnonRequest<KidsDbRow[]>(
-      `/rest/v1/kids_content?select=*&slug=eq.${encodedSlug}&published=eq.true&is_active=eq.true&limit=1`,
-      { timeoutMs: 10_000, retries: 1 },
+    Promise.resolve().then(async () => requireSupabaseRows<KidsDbRow>(
+      await supabaseServerAnonRequest<unknown>(
+        `/rest/v1/kids_content?select=*&slug=eq.${encodedSlug}&published=eq.true&is_active=eq.true&limit=1`,
+        { timeoutMs: 10_000, retries: 1 },
+      ),
+      "Kids public content detail query",
     )),
-    Promise.resolve().then(() => supabaseServerAdminRequest<KidsVisibilityDbRow[]>(
-      `/rest/v1/kids_content?select=slug&slug=eq.${encodedSlug}&limit=1`,
-      { timeoutMs: 10_000, retries: 1 },
+    Promise.resolve().then(async () => requireSupabaseRows<KidsVisibilityDbRow>(
+      await supabaseServerAdminRequest<unknown>(
+        `/rest/v1/kids_content?select=slug&slug=eq.${encodedSlug}&limit=1`,
+        { timeoutMs: 10_000, retries: 1 },
+      ),
+      "Kids detail visibility query",
     )),
   ]);
 
@@ -124,7 +137,7 @@ async function getDatabaseKidsContentBySlug(slug: string): Promise<{
     : null;
   const knownSlugs = visibilityResult.status === "fulfilled"
     ? new Set(
-        (visibilityResult.value ?? [])
+        visibilityResult.value
           .map((row) => normalizeKidsContentSlug(row.slug))
           .filter(Boolean),
       )
