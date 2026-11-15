@@ -168,6 +168,13 @@ assert.ok(
   "offline verification must fail when an unapproved Kids story appears in the public snapshot",
 );
 
+const refreshWorkflow = readFileSync(".github/workflows/refresh-offline-content.yml", "utf8");
+assert.match(
+  refreshWorkflow,
+  /echo "::error::GitHub Actions token cannot create pull requests[\\s\\S]*?exit 1/,
+  "offline refresh must fail visibly when it cannot create the review PR instead of reporting a false-green snapshot",
+);
+
 const committedKidsRows = JSON.parse(readFileSync("public/offline-content/v1/kids.json", "utf8"));
 const committedOfflineManifest = JSON.parse(readFileSync("public/offline-content/v1/manifest.json", "utf8"));
 assert.deepEqual(
