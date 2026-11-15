@@ -208,6 +208,12 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    const requestedAudience = normalizeVideoAudience(content.audience);
+    if (!requestedAudience) {
+      return NextResponse.json({ error: "فئة الجمهور غير معروفة؛ تم إيقاف إنشاء الفيديو." }, { status: 422 });
+    }
+    content = { ...content, audience: requestedAudience };
+
     if (typeof content.templateVersionId === "string" && content.templateVersionId.trim()) {
       const versionId = content.templateVersionId.trim();
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(versionId)) {
@@ -231,10 +237,6 @@ export async function POST(request: NextRequest) {
       const config = parseVideoTemplateConfig(templateVersion.config);
       if (!template || !config || !isVideoTemplateAssetAllowedForAudience(config.assetKey, template.audience)) {
         return NextResponse.json({ error: "إعدادات القالب لا تجتاز تحقق محرك الرندر." }, { status: 422 });
-      }
-      const requestedAudience = normalizeVideoAudience(content.audience);
-      if (!requestedAudience) {
-        return NextResponse.json({ error: "فئة الجمهور غير معروفة؛ تم إيقاف إنشاء الفيديو." }, { status: 422 });
       }
       if (requestedAudience !== template.audience) {
         return NextResponse.json({ error: "القالب المختار لا يتوافق مع فئة الجمهور لهذا الفيديو." }, { status: 422 });
