@@ -107,10 +107,25 @@ const supabaseGateJob =
   circle.match(/^  supabase-production-gate:\n([\s\S]*?)(?=^  [a-z0-9_-]+:\n|^workflows:\n)/m)?.[1] ?? "";
 const supabaseGateWorkflow = circle.split("      - supabase-production-gate:")[1]?.split("\n      - android-rebuild:")[0] ?? "";
 assert.ok(
-  supabaseGateJob.includes("SUPABASE_SERVICE_ROLE_KEY") &&
-    !supabaseGateJob.includes("ANDROID_KEYSTORE"),
-  "Supabase production verification must require only its database credential, not Android signing material",
+  supabaseGateJob.includes("SUPABASE_SERVICE_ROLE_KEY"),
+  "Supabase production verification must validate its database credential",
 );
+assert.doesNotMatch(
+  supabaseGateJob,
+  /^\s*(?:ANDROID_KEYSTORE_BASE64|ANDROID_KEYSTORE_PASSWORD|ANDROID_KEY_ALIAS|ANDROID_KEY_PASSWORD):\s*(?!"")\S.*$/m,
+  "Supabase production verification must not receive non-empty Android signing material",
+);
+for (const secretName of [
+  "ANDROID_KEYSTORE_BASE64",
+  "ANDROID_KEYSTORE_PASSWORD",
+  "ANDROID_KEY_ALIAS",
+  "ANDROID_KEY_PASSWORD",
+]) {
+  assert.ok(
+    supabaseGateJob.includes(secretName + ': ""'),
+    "Supabase production verification must shadow inherited Android signing secrets with an empty value: " + secretName,
+  );
+}
 assert.ok(
   !supabaseGateWorkflow.includes("android-signing"),
   "the Supabase production gate must not inherit the Android signing context",
