@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
+import { isKidsVideoContentMarker, normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
 import { hasHumanKidsVideoApproval } from "./kids-video-publication";
 
 export const REQUIRED_VIDEO_APPROVAL_CHECKS = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"] as const;
@@ -315,7 +315,7 @@ export function buildVideoApprovalSnapshotHashForRequest(request: VideoPublishRe
   if (!request || request.status !== "completed" || !request.video_url) return null;
   const content = record(request.content);
   const audience = normalizeVideoAudience(content?.audience);
-  if (!audience) return null;
+  if (!audience || (content && isKidsVideoContentMarker(content) && audience !== "kids")) return null;
   return buildVideoApprovalSnapshotHash({
     category: request.category,
     sourceHash: request.source_hash,
@@ -363,6 +363,14 @@ export function inspectVideoQueueItemApproval(input: {
   const audience = normalizeVideoAudience(content.audience);
   if (!audience) {
     return { approved: false, reason: "فئة الجمهور غير معروفة؛ تم إيقاف النشر لحين مراجعة البيانات.", missingChecks: [...REQUIRED_VIDEO_APPROVAL_CHECKS], approvalStatus };
+  }
+  if (isKidsVideoContentMarker(content) && audience !== "kids") {
+    return {
+      approved: false,
+      reason: "علامات محتوى الأطفال لا تتوافق مع فئة الجمهور المسجلة؛ تم إيقاف النشر الخارجي.",
+      missingChecks: [...REQUIRED_VIDEO_APPROVAL_CHECKS],
+      approvalStatus,
+    };
   }
 
   if (audience === "kids" && (
