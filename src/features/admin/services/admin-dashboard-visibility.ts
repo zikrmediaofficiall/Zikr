@@ -57,42 +57,33 @@ export function getVisibleAdminDashboardCountSections<
     .filter((section) => section.values.length > 0);
 }
 
-export type AdminQueueStatusSnapshot = {
+export type AdminVideoQueueStatusSnapshot = {
   counts: Record<string, number>;
   available: boolean;
 } | null;
 
-export type AdminQueueOverview = {
+export type AdminVideoQueueOverview = {
   unavailable: string[];
   videoGeneration: Record<string, number>;
-  socialQueue: Record<string, number>;
   generatedAt: string;
 };
 
 /**
- * Keep the live overview API aligned with the same delegated-role boundaries
- * used by the dashboard count cards. Unauthorized or unavailable queues never
- * serialize their real counts into the browser response.
+ * The live admin overview exposes only the internal video queue. Delegated
+ * roles without video.manage receive no counts; the retired external social
+ * publishing queue is intentionally not part of this dashboard API.
  */
-export function buildAdminQueueOverview(
+export function buildAdminVideoQueueOverview(
   role: AdminRole,
-  video: AdminQueueStatusSnapshot,
-  social: AdminQueueStatusSnapshot,
+  video: AdminVideoQueueStatusSnapshot,
   generatedAt: string,
-): AdminQueueOverview {
+): AdminVideoQueueOverview {
   const canReadVideo = hasAdminPermission(role, "video.manage");
-  const canReadSocial = hasAdminPermission(role, "social.manage");
   const videoAvailable = canReadVideo && video?.available === true;
-  const socialAvailable = canReadSocial && social?.available === true;
-  const unavailable: string[] = [];
-
-  if (!videoAvailable) unavailable.push("video_generation_requests");
-  if (!socialAvailable) unavailable.push("social_publish_queue");
 
   return {
-    unavailable,
+    unavailable: videoAvailable ? [] : ["video_generation_requests"],
     videoGeneration: videoAvailable && video ? video.counts : {},
-    socialQueue: socialAvailable && social ? social.counts : {},
     generatedAt,
   };
 }
