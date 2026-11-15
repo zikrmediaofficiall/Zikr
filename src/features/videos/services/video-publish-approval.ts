@@ -18,7 +18,7 @@ export function isVideoContentType(contentType: string): boolean {
 }
 export function hasCompleteKidsVideoSeriesMetadata(value: unknown): boolean {
   const content = record(value);
-  if (normalizeVideoAudience(content?.audience, false) !== "kids") return false;
+  if (!content || normalizeVideoAudience(content.audience, false) !== "kids") return false;
   return normalizeVideoMarker(content.contentFormat) === "series_episode" &&
     normalizeVideoMarker(content.aiMode) === "original_kids_story" &&
     normalizeVideoMarker(content.sourceType) === "original_kids_fiction" &&
@@ -281,10 +281,13 @@ export function inspectVideoQueueItemApproval(input: {
   }
 
   const content = record(input.request.content);
-  const reviewData = record(content?.qualityReview);
+  if (!content) {
+    return { approved: false, reason: "بيانات طلب الفيديو غير مكتملة.", missingChecks: [...REQUIRED_VIDEO_APPROVAL_CHECKS], approvalStatus: null };
+  }
+  const reviewData = record(content.qualityReview);
   const missingChecks = REQUIRED_VIDEO_APPROVAL_CHECKS.filter((key) => reviewData?.[key] !== true);
-  const approvalStatus = typeof content?.approvalStatus === "string" ? content.approvalStatus : null;
-  const audience = normalizeVideoAudience(content?.audience);
+  const approvalStatus = typeof content.approvalStatus === "string" ? content.approvalStatus : null;
+  const audience = normalizeVideoAudience(content.audience);
   if (!audience) {
     return { approved: false, reason: "فئة الجمهور غير معروفة؛ تم إيقاف النشر لحين مراجعة البيانات.", missingChecks: [...REQUIRED_VIDEO_APPROVAL_CHECKS], approvalStatus };
   }
