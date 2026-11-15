@@ -103,6 +103,9 @@ export async function PATCH(request: NextRequest) {
       if (current.status !== 'completed' || !current.video_url) {
         return NextResponse.json({ error: 'يجب أن يكتمل توليد ملف الفيديو قبل اعتماده للنشر.' }, { status: 409 });
       }
+      if (!current.updated_at || !Number.isFinite(Date.parse(current.updated_at))) {
+        return NextResponse.json({ error: 'تاريخ تحديث طلب الفيديو غير صالح؛ حدّث التفاصيل ثم أعد المحاولة.' }, { status: 409 });
+      }
       const currentContent = current.content && typeof current.content === 'object' && !Array.isArray(current.content)
         ? current.content as Record<string, unknown> : {};
       const audience = normalizeVideoAudience(currentContent.audience);
@@ -186,27 +189,48 @@ export async function PATCH(request: NextRequest) {
         approvalSnapshotHash,
         qualityReview,
       };
-      const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(
-        '/rest/v1/video_generation_requests?id=eq.' + encodeURIComponent(id) + '&status=eq.completed&updated_at=eq.' + encodeURIComponent(current.updated_at),
-        { method: 'PATCH', headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-          body: JSON.stringify({ content: updatedContent, updated_at: reviewedAt }) },
-      );
-      if (!updated?.length) return NextResponse.json({ error: 'تغيرت حالة العملية أثناء المراجعة؛ حدّث التفاصيل ثم أعد الفحص.' }, { status: 409 });
-      const catalogUpdated = await supabaseServerAdminRequest<Array<{ id: string }>>(
-        '/rest/v1/videos?id=eq.' + encodeURIComponent(catalog.id) +
-          '&slug=eq.' + encodeURIComponent(catalogSlug) +
-          '&updated_at=eq.' + encodeURIComponent(catalog.updated_at) +
-          '&metadata->>videoGenerationRequestId=eq.' + encodeURIComponent(id) +
-          '&select=id',
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-          body: JSON.stringify(catalogPatch),
-        },
-      );
-      if (catalogUpdated?.length !== 1 || !catalogUpdated[0]?.id) {
+      let approvalRows: Array<{ request_id: string; catalog_video_id: string; updated_at: string }> | null = null;
+      try {
+        approvalRows = await supabaseServerAdminRequest<Array<{
+          request_id: string;
+          catalog_video_id: string;
+          updated_at: string;
+        }>>(
+          '/rest/v1/rpc/admin_approve_video_generation_request',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify({
+              p_request_id: id,
+              p_expected_request_updated_at: current.updated_at,
+              p_catalog_video_id: catalog.id,
+              p_catalog_slug: catalogSlug,
+              p_expected_catalog_updated_at: catalog.updated_at,
+              p_reviewed_at: reviewedAt,
+              p_approved_content: updatedContent,
+              p_catalog_metadata: catalogPatch.metadata,
+            }),
+          },
+        );
+      } catch (approvalError) {
+        const message = approvalError instanceof Error ? approvalError.message : String(approvalError);
+        if (message.includes('VIDEO_APPROVAL_CONFLICT')) {
+          return NextResponse.json(
+            { error: 'تغير سجل طلب الفيديو أو المكتبة أثناء المراجعة؛ حدّث التفاصيل ثم أعد الفحص.' },
+            { status: 409, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        throw approvalError;
+      }
+      if (
+        approvalRows?.length !== 1 ||
+        approvalRows[0]?.request_id !== id ||
+        approvalRows[0]?.catalog_video_id !== catalog.id ||
+        !Number.isFinite(Date.parse(approvalRows[0]?.updated_at ?? '')) ||
+        Date.parse(approvalRows[0].updated_at) !== Date.parse(reviewedAt)
+      ) {
         return NextResponse.json(
-          { error: 'تم حفظ الاعتماد، لكن سجل مكتبة الفيديو تغيّر قبل النشر الداخلي؛ حدّث الصفحة وأعد المحاولة.' },
+          { error: 'تعذر تأكيد اعتماد طلب الفيديو وسجل المكتبة معًا؛ حدّث الصفحة وأعد المحاولة.' },
           { status: 409, headers: { 'Cache-Control': 'no-store' } },
         );
       }

@@ -73,7 +73,19 @@ if (
   !generationDelete.includes("status: 410") ||
   generationDelete.includes("supabaseServerAdminRequest")
 ) failures.push("legacy video-generation DELETE must remain disabled until media, catalog, and social-queue references are safely inventoried");
-if (!generation.includes("updated_at=eq.") || !generation.includes("current.updated_at")) failures.push("admin publish retry must use optimistic concurrency");
+const approvalConcurrencyStart = generation.indexOf("if (action === 'approve_publish')");
+const approvalConcurrencyEnd = generation.indexOf('if (action === "retry_publish")', approvalConcurrencyStart);
+const approvalConcurrencyBlock = approvalConcurrencyStart >= 0 && approvalConcurrencyEnd > approvalConcurrencyStart
+  ? generation.slice(approvalConcurrencyStart, approvalConcurrencyEnd)
+  : "";
+if (
+  !approvalConcurrencyBlock.includes("p_expected_request_updated_at") ||
+  !approvalConcurrencyBlock.includes("p_expected_catalog_updated_at") ||
+  !approvalConcurrencyBlock.includes("current.updated_at") ||
+  !approvalConcurrencyBlock.includes("catalog.updated_at")
+) {
+  failures.push("admin video approval must use optimistic concurrency for both the request and catalog");
+}
 
 const retryPublishStart = generation.search(/if\s*\(\s*action\s*===\s*["']retry_publish["']\s*\)/);
 const retryPublishEnd = generation.indexOf("DIRECT_VIDEO_STATUS_MUTATION_RETIRED", retryPublishStart);
@@ -358,7 +370,6 @@ if (!catalogApprovalHelper.includes("metadata.videoGenerationRequestId !== reque
 for (const token of [
   "buildVideoCatalogApprovalPatch",
   "/rest/v1/videos?slug=eq.",
-  "metadata->>videoGenerationRequestId=eq.",
   "catalogApprovalRecorded: true",
 ]) {
   if (!approvalRoute.includes(token)) failures.push("Admin approval must record approval only on the matching internal video catalog row: " + token);
@@ -389,6 +400,42 @@ if (!worker.includes("VIDEO_PLAN_SYSTEM_INSTRUCTION") ||
     !worker.includes("sourceText,")) {
   failures.push("video planning must isolate fixed editorial policy from untrusted source data in the Gemini system-instruction channel");
 }
+
+const atomicVideoApprovalStart = approvalRoute.indexOf("if (action === 'approve_publish')");
+const atomicVideoApprovalEnd = approvalRoute.indexOf('if (action === "retry_publish")', atomicVideoApprovalStart);
+const atomicVideoApprovalBlock = atomicVideoApprovalStart >= 0 && atomicVideoApprovalEnd > atomicVideoApprovalStart
+  ? approvalRoute.slice(atomicVideoApprovalStart, atomicVideoApprovalEnd)
+  : "";
+if (
+  !atomicVideoApprovalBlock.includes("/rest/v1/rpc/admin_approve_video_generation_request") ||
+  !atomicVideoApprovalBlock.includes("p_expected_request_updated_at") ||
+  !atomicVideoApprovalBlock.includes("p_expected_catalog_updated_at") ||
+  !atomicVideoApprovalBlock.includes("p_approved_content") ||
+  !atomicVideoApprovalBlock.includes("p_catalog_metadata") ||
+  atomicVideoApprovalBlock.includes("method: 'PATCH'") ||
+  atomicVideoApprovalBlock.includes('method: "PATCH"')
+) {
+  failures.push("Human video approval must atomically compare-and-set the request and catalog through the service-only approval RPC");
+}
+const atomicVideoApprovalMigration = read("supabase/migrations/20261115153600_admin_video_approval_atomic.sql");
+for (const token of [
+  "CREATE OR REPLACE FUNCTION public.admin_approve_video_generation_request",
+  "FOR UPDATE",
+  "VIDEO_APPROVAL_CONFLICT",
+  "p_approved_content - v_approval_fields",
+  "p_catalog_metadata - v_approval_fields",
+  "REVOKE ALL ON FUNCTION public.admin_approve_video_generation_request",
+  "GRANT EXECUTE ON FUNCTION public.admin_approve_video_generation_request",
+]) {
+  if (!atomicVideoApprovalMigration.includes(token)) {
+    failures.push("Atomic human video approval migration is missing its concurrency, immutability, or service-role-only guard: " + token);
+  }
+}
+const atomicApprovalWorkflow = read(".github/workflows/quality-gate.yml");
+if (!atomicApprovalWorkflow.includes("scripts/tests/video-approval-atomic.integration.sh")) {
+  failures.push("Atomic video approval rollback regression must run in the canonical Quality Gate");
+}
+
 
 if (failures.length) {
   console.error("ADMIN_VIDEO_FACTORY_CHECK_FAILED");

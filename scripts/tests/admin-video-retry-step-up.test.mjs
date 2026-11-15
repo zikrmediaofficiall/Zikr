@@ -6,6 +6,7 @@ const read = (path) => readFileSync(path, "utf8");
 const route = read("src/app/api/admin/videos/[id]/retry/route.ts");
 const client = read("src/features/admin/video-requests/components/admin-video-requests-client.tsx");
 const verifier = read("scripts/verify-admin-api-guards.mjs");
+const videoFactoryVerifier = read("scripts/verify-admin-video-factory.mjs");
 const generationRoute = read("src/app/api/admin/video-generation/route.ts");
 const createRoute = read("src/app/api/admin/videos/create/route.ts");
 const templatesRoute = read("src/app/api/admin/video/templates/route.ts");
@@ -83,6 +84,11 @@ assert.match(studioClient, /redirectToAdminStepUp/);
 assert.match(studioClient, /payload\.error === ["']step_up_required["'][\s\S]*?redirectToAdminStepUp\(payload\.nextPath\)/);
 assert.match(templateClient, /payload\.error === ["']step_up_required["'][\s\S]*?redirectToAdminStepUp\(payload\.nextPath\)/);
 assert.match(uploadField, /presignData\.error === ["']step_up_required["'][\s\S]*?redirectToAdminStepUp\(presignData\.nextPath\)/);
+
+assert.match(videoFactoryVerifier, /p_expected_request_updated_at/);
+assert.match(videoFactoryVerifier, /p_expected_catalog_updated_at/);
+assert.doesNotMatch(videoFactoryVerifier, /metadata->>videoGenerationRequestId=eq\./,
+  "the atomic approval RPC replaces the former PostgREST catalog compare-and-set filter");
 
 const verifierRun = spawnSync(process.execPath, ["scripts/verify-admin-video-factory.mjs"], { encoding: "utf8" });
 assert.equal(
