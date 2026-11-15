@@ -542,13 +542,7 @@ assert.ok(
     kidsApprovalRpcPosition > kidsApprovalGatePosition,
   "Kids video human approval must require kids.manage after audience resolution and before the atomic approval RPC",
 );
-const videoManagerRoleStart = permissionService.indexOf("video_manager: [");
-const videoManagerRoleEnd = permissionService.indexOf("]", videoManagerRoleStart);
-const videoManagerRole = videoManagerRoleStart >= 0 && videoManagerRoleEnd > videoManagerRoleStart
-  ? permissionService.slice(videoManagerRoleStart, videoManagerRoleEnd)
-  : "";
-assert.match(videoManagerRole, /video\.manage/, "video managers retain general video review permission");
-assert.doesNotMatch(videoManagerRole, /kids\.manage/, "video managers do not implicitly receive Kids content management permission");
+// Role permissions are already asserted against the bounded videoManagerPermissions match above.
 
 const clientPrivilegeHardeningMigration = readFileSync(
   "supabase/migrations/20261112103200_revoke_client_non_dml_table_privileges.sql",
