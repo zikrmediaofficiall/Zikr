@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { requireAdminApi } from '@/features/admin/services/admin';
 import { readBoundedRequestBytes } from '@/lib/request/bounded-json-body';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
+import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
 import { uploadCloudinaryImage } from '@/features/media/services/cloudinary';
 
 export const runtime = 'nodejs';
@@ -58,19 +59,18 @@ export async function POST(request: NextRequest) {
       tags: ['zikr', 'admin', folder],
       maxBytes: MAX_IMAGE_BYTES,
     });
-    try {
-      await recordAdminAuditEvent({
+    const auditRecorded = await runPostCommitAudit(
+      () => recordAdminAuditEvent({
         action: "media.cloudinary.image.upload",
         permission: "media.manage",
         resourceType: "cloudinary_assets",
         resourceId: upload.publicId,
         metadata: { folder, bytes: upload.bytes, format: upload.format },
-      });
-    } catch (auditError) {
-      console.warn("[api/admin/cloudinary/image] audit event unavailable after upload:", auditError);
-    }
+      }),
+      (auditError) => console.warn("[api/admin/cloudinary/image] audit event unavailable after upload:", auditError),
+    );
 
-    return NextResponse.json(upload, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ...upload, auditRecorded }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[api/admin/cloudinary/image] POST error:', error);
     return errorResponse(error instanceof Error ? error.message : 'تعذر رفع الصورة إلى Cloudinary.', 500);
