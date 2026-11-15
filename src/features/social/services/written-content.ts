@@ -359,18 +359,33 @@ function isKidsPublicPath(value: unknown): boolean {
     pathname = candidate.split(/[?#]/, 1)[0];
   }
 
+  // Queue/backfill metadata can be legacy or malformed. Decode a bounded
+  // number of layers so double-encoded Kids routes cannot be relabeled as
+  // general content. Malformed or excessively nested paths fail closed.
+  for (let depth = 0; depth < 5; depth += 1) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(pathname);
+    } catch {
+      return true;
+    }
+    if (decoded === pathname) break;
+    pathname = decoded;
+  }
+  if (/%[0-9a-f]{2}/i.test(pathname)) return true;
+
+  const normalizedSeparators = pathname
+    .replace(/\\/g, "/")
+    .replace(/\/+/g, "/");
   try {
-    pathname = decodeURIComponent(pathname);
+    // Resolve dot segments only after decoding so encoded traversal cannot
+    // hide a Kids route from the source-reservation check.
+    pathname = new URL(normalizedSeparators, "https://zikr.invalid").pathname;
   } catch {
-    // Malformed paths containing a Kids marker are still reserved fail-closed.
-    return pathname.toLowerCase().includes("kids");
+    return true;
   }
 
-  pathname = pathname
-    .replace(/\\/g, "/")
-    .replace(/\/+/g, "/")
-    .replace(/\/+$/, "")
-    .toLowerCase();
+  pathname = pathname.replace(/\/+$/, "").toLowerCase();
   return pathname === "/kids" || pathname.startsWith("/kids/");
 }
 
