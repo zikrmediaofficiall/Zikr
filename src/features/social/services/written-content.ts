@@ -109,7 +109,6 @@ export function containsKidsPersonalDataSolicitation(value: string): boolean {
   asksEgyptianPersonalData.test(normalized) || asksEgyptianAge.test(normalized) ||
   asksEgyptianLocation.test(normalized) || asksForContact.test(normalized) ||
   asksForPrivateChannel.test(normalized) || asksEnglish;
-  asksEnglish;
 }
 
 export function validateWrittenPostDraft(value:unknown):{ok:boolean;reason?:string}{
