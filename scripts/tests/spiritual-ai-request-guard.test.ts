@@ -13,6 +13,10 @@ import {
 } from '../../src/features/spiritual-ai/services/rate-limit-identity';
 import { classifyQuestion, isCrisisMessage } from '../../src/features/spiritual-ai/services/policy';
 import { formatMemorizationEvaluation, formatMemorizationEvaluationResponse } from '../../src/features/memorization/evaluation';
+import {
+  normalizeMemorizationAudioMimeType,
+  hasMemorizationAudioSignature,
+} from '../../src/features/memorization/constants';
 
 assert.deepEqual(sanitizeChatHistory(null), []);
 assert.deepEqual(sanitizeChatHistory('not an array'), []);
@@ -153,7 +157,31 @@ assert.doesNotMatch(memorizationSubmitButton, /!audioBlob/,
 assert.match(memorizationSubmitButton, /إنشاء خطة مراجعة/,
   "the no-audio submit label must describe the study-plan action accurately");
 assert.match(memorizationConstantsSource, /MAX_MEMORIZATION_AUDIO_BYTES = 3 \* 1024 \* 1024/);
-assert.match(nextConfigSource, /serverActions:\s*\{\s*bodySizeLimit:\s*'4mb'\s*\}/,
+
+assert.equal(normalizeMemorizationAudioMimeType("audio/webm;codecs=opus"), "audio/webm");
+assert.equal(normalizeMemorizationAudioMimeType("audio/mp4"), "audio/mp4");
+assert.equal(normalizeMemorizationAudioMimeType("audio/ogg;codecs=opus"), "audio/ogg");
+assert.equal(normalizeMemorizationAudioMimeType("audio/x-wav"), "audio/wav");
+assert.equal(normalizeMemorizationAudioMimeType(""), null, "empty MIME metadata must not be guessed as WebM");
+assert.equal(normalizeMemorizationAudioMimeType("application/zip"), null, "non-audio MIME types must be rejected");
+
+const webmSignature = Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3, 0x00]);
+const oggSignature = Uint8Array.from([0x4f, 0x67, 0x67, 0x53]);
+const mp4Signature = Uint8Array.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]);
+const wavSignature = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 0x10, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45]);
+assert.equal(hasMemorizationAudioSignature("audio/webm", webmSignature), true);
+assert.equal(hasMemorizationAudioSignature("audio/ogg", oggSignature), true);
+assert.equal(hasMemorizationAudioSignature("audio/mp4", mp4Signature), true);
+assert.equal(hasMemorizationAudioSignature("audio/wav", wavSignature), true);
+assert.equal(hasMemorizationAudioSignature("audio/webm", wavSignature), false,
+  "a mismatched container must be rejected even when the client claims an audio MIME type");
+assert.equal(hasMemorizationAudioSignature("audio/wav", new Uint8Array([1, 2, 3])), false);
+
+assert.ok(memorizationActionSource.includes("normalizeMemorizationAudioMimeType(audioFile.type)"));
+assert.ok(memorizationActionSource.includes("hasMemorizationAudioSignature(audioMimeType, audioBytes)"));
+assert.ok(memorizationActionSource.includes("mimeType: audioMimeType"));
+assert.ok(!memorizationActionSource.includes("audio.type || 'audio/webm'"),
+  "an unknown upload type must never be silently relabeled as WebM");assert.match(nextConfigSource, /serverActions:\s*\{\s*bodySizeLimit:\s*'4mb'\s*\}/,
   "the server-action body limit must remain above the 3 MiB recording limit");
 
 

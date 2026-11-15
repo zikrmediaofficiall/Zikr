@@ -20,7 +20,13 @@
 import { headers } from 'next/headers';
 import { generateGeminiFromAudio, generateGeminiText } from '@/features/spiritual-ai/services/gemini-client';
 import { consumeMemorizationAiRateLimit } from '@/features/spiritual-ai/services/rate-limit';
-import { MAX_MEMORIZATION_AUDIO_BYTES, MEMORIZATION_AUDIO_LIMIT_MESSAGE, MEMORIZATION_RATE_LIMIT_MESSAGE } from '@/features/memorization/constants';
+import {
+  MAX_MEMORIZATION_AUDIO_BYTES,
+  MEMORIZATION_AUDIO_LIMIT_MESSAGE,
+  MEMORIZATION_RATE_LIMIT_MESSAGE,
+  normalizeMemorizationAudioMimeType,
+  hasMemorizationAudioSignature,
+} from '@/features/memorization/constants';
 import { formatMemorizationEvaluationResponse } from '@/features/memorization/evaluation';
 import { getTrustedClientAddress } from '@/lib/request/client-address';
 import {
@@ -44,16 +50,33 @@ export async function evaluateMemorizationAction(formData: FormData) {
   const target = typeof targetValue === 'string' ? targetValue.trim().slice(0, 500) : '';
   const expectedText = typeof expectedValue === 'string' ? expectedValue.trim().slice(0, 5000) : '';
   const audio = formData.get('audio');
+  const audioFile = audio instanceof File && audio.size > 0 ? audio : null;
 
   const hasTarget = target.length > 0;
   const hasExpected = expectedText.length > 0;
-  const hasAudio = audio instanceof File && audio.size > 0;
+  const hasAudio = Boolean(audioFile);
 
-  if (audio instanceof File && audio.size > MAX_MEMORIZATION_AUDIO_BYTES) {
+  if (audioFile && audioFile.size > MAX_MEMORIZATION_AUDIO_BYTES) {
     return MEMORIZATION_AUDIO_LIMIT_MESSAGE;
   }
-  if (audio instanceof File && audio.type && !audio.type.startsWith('audio/')) {
-    return 'صيغة التسجيل غير مدعومة. ارفع ملفًا صوتيًا فقط.';
+
+  const audioMimeType = audioFile
+    ? normalizeMemorizationAudioMimeType(audioFile.type)
+    : null;
+  if (audioFile && !audioMimeType) {
+    return 'صيغة التسجيل غير مدعومة. ارفع ملفًا صوتيًا بصيغة WebM أو MP4 أو OGG أو WAV.';
+  }
+
+  let audioBytes: Uint8Array | null = null;
+  if (audioFile) {
+    try {
+      audioBytes = new Uint8Array(await audioFile.arrayBuffer());
+    } catch {
+      return 'تعذر قراءة التسجيل الصوتي. حاول تسجيله مرة أخرى.';
+    }
+    if (!audioMimeType || !hasMemorizationAudioSignature(audioMimeType, audioBytes)) {
+      return 'محتوى الملف لا يطابق صيغة التسجيل الصوتي المعلنة.';
+    }
   }
   if (!hasAudio && !hasTarget && !hasExpected) {
     return 'حدد الورد أو ارفع تسجيلًا صوتيًا للحصول على التقييم.';
@@ -87,9 +110,9 @@ export async function evaluateMemorizationAction(formData: FormData) {
     audioProvided: false,
   });
 
-  if (hasAudio) {
-    const bytes = Buffer.from(await audio.arrayBuffer()).toString('base64');
-    const response = await generateGeminiFromAudio(audioPrompt, { data: bytes, mimeType: audio.type || 'audio/webm' }, MEMORIZATION_SYSTEM_INSTRUCTION);
+  if (audioFile && audioBytes && audioMimeType) {
+    const bytes = Buffer.from(audioBytes).toString('base64');
+    const response = await generateGeminiFromAudio(audioPrompt, { data: bytes, mimeType: audioMimeType }, MEMORIZATION_SYSTEM_INSTRUCTION);
     if (!response) {
       return 'تعذر تقييم التسجيل الصوتي حاليًا. لم تُصدر درجة أو أخطاء على الأداء. حاول لاحقًا.';
     }
