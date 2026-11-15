@@ -56,3 +56,34 @@ export function getVisibleAdminDashboardCountSections<
     }))
     .filter((section) => section.values.length > 0);
 }
+
+export type AdminVideoQueueStatusSnapshot = {
+  counts: Record<string, number>;
+  available: boolean;
+} | null;
+
+export type AdminVideoQueueOverview = {
+  unavailable: string[];
+  videoGeneration: Record<string, number>;
+  generatedAt: string;
+};
+
+/**
+ * The live admin overview exposes only the internal video queue. Delegated
+ * roles without video.manage receive no counts; the retired external social
+ * publishing queue is intentionally not part of this dashboard API.
+ */
+export function buildAdminVideoQueueOverview(
+  role: AdminRole,
+  video: AdminVideoQueueStatusSnapshot,
+  generatedAt: string,
+): AdminVideoQueueOverview {
+  const canReadVideo = hasAdminPermission(role, "video.manage");
+  const videoAvailable = canReadVideo && video?.available === true;
+
+  return {
+    unavailable: videoAvailable ? [] : ["video_generation_requests"],
+    videoGeneration: videoAvailable && video ? video.counts : {},
+    generatedAt,
+  };
+}

@@ -1,10 +1,46 @@
+function hasUnsafeEncodedPathSegment(route: string): boolean {
+  const rawPath = route.split(/[?#]/, 1)[0] ?? route;
+  for (const rawSegment of rawPath.split("/")) {
+    let segment = rawSegment;
+    for (let depth = 0; depth < 8; depth += 1) {
+      if (
+        segment === "." ||
+        segment === ".." ||
+        segment.includes("/") ||
+        segment.includes("\\")
+      ) {
+        return true;
+      }
+      if (!segment.includes("%")) break;
+      try {
+        const decoded = decodeURIComponent(segment);
+        if (decoded === segment) break;
+        segment = decoded;
+      } catch {
+        return true;
+      }
+    }
+    if (
+      segment.includes("%") ||
+      segment === "." ||
+      segment === ".." ||
+      segment.includes("/") ||
+      segment.includes("\\")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function resolveSafeOfflineRoute(route: unknown, origin: string): URL | null {
   if (
     typeof route !== "string" ||
     !route.startsWith("/") ||
     route.startsWith("//") ||
     route.includes("\\") ||
-    /%(?:2f|5c)/i.test(route)
+    /%(?:2f|5c)/i.test(route) ||
+    hasUnsafeEncodedPathSegment(route)
   ) {
     return null;
   }

@@ -8,7 +8,6 @@ type LiveOverview = {
   generatedAt: string;
   unavailable: string[];
   videoGeneration: StatusMap;
-  socialQueue: StatusMap;
 };
 
 type QueueCardProps = {
@@ -19,7 +18,7 @@ type QueueCardProps = {
 };
 
 function isLiveOverview(payload: LiveOverview | { error?: string } | null): payload is LiveOverview {
-  return Boolean(payload && "generatedAt" in payload && "videoGeneration" in payload && "socialQueue" in payload);
+  return Boolean(payload && "generatedAt" in payload && "videoGeneration" in payload);
 }
 
 const toneClasses = {
@@ -97,12 +96,12 @@ export function AdminLiveQueueDashboard() {
     try {
       const response = await fetch("/api/admin/overview", { cache: "no-store", headers: { Accept: "application/json" } });
       const payload = await response.json().catch(() => null) as LiveOverview | { error?: string } | null;
-      if (!response.ok || !isLiveOverview(payload)) throw new Error(payload && "error" in payload ? payload.error : "تعذر تحديث حالة الطوابير.");
+      if (!response.ok || !isLiveOverview(payload)) throw new Error(payload && "error" in payload ? payload.error : "تعذر تحديث حالة طابور الفيديو.");
       setData(payload);
       setError(null);
       setLastFetchAt(new Date().toISOString());
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "تعذر تحديث حالة الطوابير.");
+      setError(cause instanceof Error ? cause.message : "تعذر تحديث حالة طابور الفيديو.");
     } finally {
       setLoading(false);
       if (manual) setRefreshing(false);
@@ -129,15 +128,6 @@ export function AdminLiveQueueDashboard() {
           { key: "failed", label: "فشل", value: data?.videoGeneration.failed ?? 0, tone: "danger" as const },
         ],
       },
-      social: {
-        available: Boolean(data) && !unavailable.has("social_publish_queue"),
-        statuses: [
-          { key: "queued", label: "انتظار", value: data?.socialQueue.queued ?? 0, tone: "neutral" as const },
-          { key: "processing", label: "معالجة", value: data?.socialQueue.processing ?? 0, tone: "info" as const },
-          { key: "partial", label: "جزئي", value: data?.socialQueue.partial ?? 0, tone: "warning" as const },
-          { key: "failed", label: "فشل", value: data?.socialQueue.failed ?? 0, tone: "danger" as const },
-        ],
-      },
     };
   }, [data]);
 
@@ -151,7 +141,7 @@ export function AdminLiveQueueDashboard() {
             <span className={`h-2.5 w-2.5 rounded-full ${error ? "bg-amber-300" : loading ? "animate-pulse bg-sky-300" : "bg-emerald-300"}`} />
             <p className="text-xs tracking-[0.18em] text-sky-200/65">LIVE OPERATIONS</p>
           </div>
-          <h2 id="live-queue-dashboard-heading" className="mt-2 text-xl font-bold text-brand-cream">مراقبة حية للطوابير</h2>
+          <h2 id="live-queue-dashboard-heading" className="mt-2 text-xl font-bold text-brand-cream">مراقبة حية لطابور توليد الفيديو</h2>
           <p className="mt-1 text-sm leading-6 text-brand-cream/45">تحديث تلقائي كل 15 ثانية عند بقاء صفحة الإدارة مفتوحة.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -169,9 +159,8 @@ export function AdminLiveQueueDashboard() {
       {loading && !data ? <div className="flex items-center gap-2 rounded-xl border border-brand-gold/10 bg-black/15 p-5 text-sm text-brand-cream/55"><LoaderCircle size={17} className="animate-spin" /> جارٍ تحميل حالة الطوابير…</div> : null}
 
       {data ? (
-        <div className="grid gap-3 xl:grid-cols-2">
+        <div className="grid gap-3">
           <QueueCard title="طابور توليد الفيديو" subtitle="الطلبات pending وprocessing وretry_wait وfailed" statuses={queues.video.statuses} available={queues.video.available} />
-          <QueueCard title="طابور النشر الاجتماعي" subtitle="العناصر queued وprocessing وpartial وfailed" statuses={queues.social.statuses} available={queues.social.available} />
         </div>
       ) : null}
 

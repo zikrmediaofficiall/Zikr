@@ -26,6 +26,10 @@ for (const url of [
   "https://server16.mp3quran.net/mishary/001.mp3?token=secret",
   "https://server16.mp3quran.net/mishary/../001.mp3",
   "https://server16.mp3quran.net/mishary/%2e%2e/001.mp3",
+  "https://server16.mp3quran.net/mishary/%252e%252e/001.mp3",
+  "https://server16.mp3quran.net/mishary/%25252e%25252e/001.mp3",
+  "https://server16.mp3quran.net/mishary/%252fprivate%255c/001.mp3",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/storage/v1/object/public/quran-audio/%252e%252e/001.mp3",
   "https://zqtssvlvmkzeeyqghqfk.supabase.co/storage/v1/object/public/other-bucket/001.mp3",
 ]) {
   assert.equal(isAllowedQuranAudioUrl(url, supabaseUrl), false, url);
@@ -62,6 +66,7 @@ for (const [surahId, reciterCode] of [
 const previousWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
 const indexKey = "zikr:quran-audio-downloads";
 const store = new Map<string, string>();
+let failNativeDelete = true;
 store.set(
   indexKey,
   JSON.stringify({
@@ -86,15 +91,54 @@ Object.defineProperty(globalThis, "window", {
     zikrNative: {
       isNative: true,
       getFileInfo: async () => ({ size: 1_234_567 }),
+      deleteFile: async () => {
+        if (failNativeDelete) throw new Error("simulated native delete failure");
+      },
     },
   },
 });
 
 try {
-  const { getQuranAudioUsage } = await import("../../src/features/quran/services/offline-audio");
+  const { getQuranAudioUsage, removeQuranAudio } = await import("../../src/features/quran/services/offline-audio");
   assert.deepEqual(await getQuranAudioUsage(), { count: 1, bytes: 1_234_567 });
   const savedIndex = JSON.parse(store.get(indexKey) ?? "{}");
   assert.equal(savedIndex["alafasy:1"].sizeBytes, 1_234_567);
+
+  const nativeRecord = {
+    key: "alafasy:1",
+    surahId: 1,
+    reciterCode: "alafasy",
+    sourceUrl: "https://server16.mp3quran.net/mishary/001.mp3",
+    storage: "native",
+    path: "quran-audio/alafasy/1.mp3",
+    downloadedAt: "2026-11-15T00:00:00.000Z",
+  };
+  store.set(indexKey, JSON.stringify({ "alafasy:1": nativeRecord }));
+  await assert.rejects(removeQuranAudio(1, "alafasy"), /simulated native delete failure/);
+  assert.ok(
+    JSON.parse(store.get(indexKey) ?? "{}")["alafasy:1"],
+    "a failed native file deletion must preserve its download index so the user can retry",
+  );
+
+  failNativeDelete = false;
+  await removeQuranAudio(1, "alafasy");
+  assert.equal(
+    JSON.parse(store.get(indexKey) ?? "{}")["alafasy:1"],
+    undefined,
+    "the native download index is removed only after file deletion succeeds",
+  );
+
+  const cachedRecord = {
+    ...nativeRecord,
+    storage: "cache",
+    path: undefined,
+  };
+  store.set(indexKey, JSON.stringify({ "alafasy:1": cachedRecord }));
+  await assert.rejects(removeQuranAudio(1, "alafasy"), /التخزين المؤقت غير متاح/);
+  assert.ok(
+    JSON.parse(store.get(indexKey) ?? "{}")["alafasy:1"],
+    "an unavailable Cache API must not discard the download index",
+  );
 } finally {
   if (previousWindowDescriptor) {
     Object.defineProperty(globalThis, "window", previousWindowDescriptor);

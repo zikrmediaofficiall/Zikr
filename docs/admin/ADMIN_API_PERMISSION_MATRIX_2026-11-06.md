@@ -50,6 +50,8 @@
 
 ## ثوابت إضافية
 
+- استجابة GET `/api/admin/overview` لا تعيد إجماليات جداول متعددة المجالات أو طابور النشر الاجتماعي الخارجي المتقاعد؛ لا تُضمّن أعداد طابور توليد الفيديو إلا لمن يملك `video.manage`، بينما تظل صلاحية دخول المسار نفسها `dashboard.view`.
+
 - مسارات OAuth الخاصة بـFacebook وYouTube ومسارات إدارة طابور النشر الاجتماعي فعّالة ومحمية بالصلاحيات المدرجة أعلاه؛ عمليات النشر/التوليد الحساسة تتطلب `social.publish` مع MFA step-up.
 - بدء OAuth الخاص بـFacebook يتطلب `social.manage` و`social.publish` مع MFA step-up. Callback يتحقق من state ويحفظ اعتماد الصفحة فقط؛ لا يعيد فتح عناصر الطابور ولا يطلق النشر. اعتماد توكن الخادم يتحقق من التوكن ويحفظه فقط، ولا يستأنف الطابور. استئناف العناصر المحجوبة حصريًا عبر `release_auth_blocked_queue` داخل POST `/api/admin/social`، ويتطلب `social.publish` وMFA وتأكيدًا صريحًا والتحقق من اتصال الصفحة؛ ولا يعيد إلا العناصر التي تقع ضمن `SOCIAL_PUBLISH_AFTER`، وتظل العناصر التاريخية الأقدم محجوبة.
 - مسارا استيراد الوسائط القديمان `/api/admin/youtube-facebook/register-media` و`/api/admin/youtube-facebook/upload-url` فقط يعيدان HTTP 410 بعد التحقق من `media.manage`.

@@ -129,6 +129,32 @@ if (!upload.includes("registerAdminNarrationAsset") || !upload.includes("markAdm
 if (!upload.includes("uploadReference") || !studioClient.includes("مرجع الاسترداد")) {
   failures.push("failed narration upload responses must expose a recovery reference instead of leaving an untraceable Cloudinary object");
 }
+const cloudinaryResponseFailureStart = upload.indexOf(
+  "if (!upload.ok || !result.secure_url || result.public_id !== publicId)",
+);
+const audioUrlParseStart = upload.indexOf("let audioUrl: URL", cloudinaryResponseFailureStart);
+const invalidCloudinaryUrlStart = upload.indexOf("if (audioUrl.protocol", audioUrlParseStart);
+const assetTrackingStart = upload.indexOf("let mediaAssetId", invalidCloudinaryUrlStart);
+const cloudinaryResponseFailureBlock = upload.slice(cloudinaryResponseFailureStart, audioUrlParseStart);
+const invalidCloudinaryUrlBlock = upload.slice(audioUrlParseStart, assetTrackingStart);
+if (
+  cloudinaryResponseFailureStart < 0 ||
+  audioUrlParseStart <= cloudinaryResponseFailureStart ||
+  !cloudinaryResponseFailureBlock.includes("uploadReference: publicId") ||
+  !cloudinaryResponseFailureBlock.includes("recoveryRequired: true")
+) {
+  failures.push("ambiguous Cloudinary response failures must retain a recovery reference for possible uploaded assets");
+}
+if (
+  audioUrlParseStart < 0 ||
+  invalidCloudinaryUrlStart <= audioUrlParseStart ||
+  assetTrackingStart <= invalidCloudinaryUrlStart ||
+  !invalidCloudinaryUrlBlock.includes("uploadReference: publicId") ||
+  !invalidCloudinaryUrlBlock.includes("recoveryRequired: true")
+) {
+  failures.push("invalid or non-canonical Cloudinary URLs must retain a recovery reference for the uploaded asset");
+}
+
 if (!mediaAssetsService.includes('purpose: "video_generation_narration"') ||
     !mediaAssetsService.includes('upload_state: "audit_pending"') ||
     !mediaAssetsService.includes("rights_verified: false") ||
