@@ -23,12 +23,24 @@ for (const token of [
 }
 for (const token of [
   'from "./video-media-contract"',
+  'from "./video-audience-visibility"',
   "function isPubliclyRenderableVideo",
   "resolveVideoMediaUrl(row)",
   "defaultOgImage",
-  "rows.filter(isPubliclyRenderableVideo)",
+  "metadata->>audience.eq.general",
+  "isGeneralAudienceVideoMetadata(row.metadata)",
+  "renderableRows.slice(0, safeLimit)",
 ]) {
   if (!service.includes(token)) failures.push(`video service missing QA contract: ${token}`);
+}
+for (const token of [
+  "metadata->>audience=eq.kids",
+  "metadata->>generator=eq.zikr_internal_video_factory",
+  "metadata->>kidsVideoQaStatus=eq.passed",
+  "metadata->automatedVideoQa->>status=eq.passed",
+  "hasPassedKidsVideoQa(metadata)",
+]) {
+  if (!service.includes(token)) failures.push(`Kids video service missing QA visibility contract: ${token}`);
 }
 if (service.includes("metadata.content_ref")) failures.push("generic content_ref must not be treated as a playable video URL");
 if (!service.includes("Math.min(100, safeLimit * 2)")) failures.push("video query must over-fetch enough rows to fill the public renderable limit");
@@ -148,7 +160,11 @@ for (const token of [
   "FOR SELECT",
   "TO anon, authenticated",
   "published IS TRUE",
-  "lower(btrim(coalesce(metadata->>'audience', ''))) <> 'kids'",
+  "metadata IS NULL",
+  "jsonb_typeof(metadata) = 'object'",
+  "metadata->>'audience' IS NULL",
+  "metadata->>'audience' = 'general'",
+  "metadata->>'audience' = 'kids'",
   "metadata->>'generator' = 'zikr_internal_video_factory'",
   "metadata->>'kidsVideoQaStatus' = 'passed'",
   "metadata->'automatedVideoQa'->>'status' = 'passed'",
@@ -156,8 +172,11 @@ for (const token of [
   "COMMIT;",
 ]) {
   if (!kidsVideoPublicReadMigration.includes(token)) {
-    failures.push("Kids video public-read migration missing QA-gated RLS contract: " + token);
+    failures.push("Kids video public-read migration missing fail-closed QA-gated RLS contract: " + token);
   }
+}
+if (/metadata->>'audience'\\s*(?:<>|!=)\\s*'kids'/i.test(kidsVideoPublicReadMigration)) {
+  failures.push("Kids video public-read migration must not treat every non-Kids audience value as general");
 }
 if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
     !kidsVideoPublication.includes('qualityReview?.mode === "human"') ||
