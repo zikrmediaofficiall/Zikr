@@ -104,8 +104,13 @@ for (const order of exportOrders) {
 
 
 assert.deepEqual(
-  [...getBlockedKidsRoutes(previousRows, [], ["/kids/removed-approved-story", "/kids/removed-game"])].sort(),
-  ["/kids/removed-approved-story", "/kids/removed-game"],
+  [...getBlockedKidsRoutes(previousRows, [], [
+    "/kids/removed-approved-story",
+    "/kids/approval-withdrawn",
+    "/kids/removed-game",
+    "/kids/removed-quiz",
+  ])].sort(),
+  ["/kids/approval-withdrawn", "/kids/removed-approved-story", "/kids/removed-game", "/kids/removed-quiz"],
   "an empty verified Kids snapshot must revoke every previously exported Kids detail route",
 );
 assert.equal(resolveOfflineDatasetMinimum("kids", 20, true), 0,
