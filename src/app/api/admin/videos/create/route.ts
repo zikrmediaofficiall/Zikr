@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
+import { hasExplicitKidsVideoIntentMarker, normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
 import { requireAdminApi } from "@/features/admin/services/admin";
 import { requireAdminStepUpApi } from "@/features/admin/services/security";
 import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
@@ -102,9 +102,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let content: Record<string, unknown> = isObject(body.content)
-      ? { ...body.content }
-      : {};
+    const submittedContent = isObject(body.content) ? body.content : {};
+    const submittedKidsIntent = hasExplicitKidsVideoIntentMarker(submittedContent);
+    let content: Record<string, unknown> = { ...submittedContent };
     const qualityProfile = {
       version: "2026.1",
       audience: category === "other" ? "general" : "family",
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         prompt: source.text,
         aiMode: "source_locked",
         sourceVerifiedAtRequest: true,
-        ...(source.audience ? { audience: source.audience } : {}),
+        audience: source.audience ?? "general",
         ...(source.seriesId ? { seriesId: source.seriesId } : {}),
         ...(source.seriesTitle ? { seriesTitle: source.seriesTitle } : {}),
         ...(Number.isInteger(source.seasonNumber) ? { seasonNumber: source.seasonNumber } : {}),
@@ -212,6 +212,12 @@ export async function POST(request: NextRequest) {
     const requestedAudience = normalizeVideoAudience(content.audience);
     if (!requestedAudience) {
       return NextResponse.json({ error: "فئة الجمهور غير معروفة؛ تم إيقاف إنشاء الفيديو." }, { status: 422 });
+    }
+    if ((submittedKidsIntent || hasExplicitKidsVideoIntentMarker(content)) && requestedAudience !== "kids") {
+      return NextResponse.json(
+        { error: "توجد علامات محتوى أطفال مع فئة جمهور عامة؛ حدّد فئة الأطفال وامتلك صلاحية إدارة قسم الأطفال." },
+        { status: 422 },
+      );
     }
     content = { ...content, audience: requestedAudience };
 
