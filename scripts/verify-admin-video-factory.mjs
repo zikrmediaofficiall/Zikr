@@ -336,9 +336,14 @@ for (const token of [
 if (approvalRoute.includes("publishedInternally: true") || approvalRoute.includes("catalogPublished: true")) {
   failures.push("Admin approval must not claim that the internal content-publishing queue has already published the video");
 }
+const internalVideoMediaValidation = contentPublisher.match(
+  /const parsed = new URL\(mediaUrl\);([\s\S]*?)\n\s*\} catch \{/,
+)?.[1] ?? "";
 if (!contentPublisher.includes("content_publish_queue") ||
     !contentPublisher.includes("inspectVideoQueueItemApproval") ||
-    !contentPublisher.includes('metadata.mediaState === "purged"') ||
+    !contentPublisher.includes("!approval.approved") ||
+    !internalVideoMediaValidation.includes('metadata.mediaState !== "purged"') ||
+    !internalVideoMediaValidation.includes('metadata.mediaState !== "unlinked"') ||
     !contentPublisher.includes("row.published !== false")) {
   failures.push("Internal video publication must remain behind the scheduled content queue's QA and media-state checks");
 }
