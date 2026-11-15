@@ -75,6 +75,8 @@ assert.equal(chooseWrittenSourceKind([],"auto",false,0),null,"empty source kinds
 assert.equal(shouldBackfillKidsWrittenPost("kids_story",false),true,"the first Kids backfill may reserve today's slot");
 assert.equal(shouldBackfillKidsWrittenPost("kids_story",true),false,"a second Kids backfill must wait until another UTC day");
 assert.equal(shouldBackfillKidsWrittenPost("quran",true),true,"general written-post backfill must remain unaffected by the Kids daily slot");
+assert.equal(shouldBackfillKidsWrittenPost(" KIDS_STORY ",true),false,"case- and whitespace-variant Kids source types must still respect the daily Kids reservation");
+assert.equal(shouldBackfillKidsWrittenPost(" KIDS_STORY ",false),true,"a normalized Kids source may reserve the first daily slot");
 assert.equal(countUniqueWrittenContentReservations(
  [
   { id: "article-general-1", metadata: { automationKey: "written-v1:quran:ayah-1", source: { type: "quran", id: "ayah-1" } } },
@@ -138,6 +140,36 @@ assert.equal(backfillKidsPayload.content_id, "123e4567-e89b-12d3-a456-4266141740
 assert.equal(backfillKidsPayload.metadata.audience, "kids", "Kids backfill must retain its audience marker");
 assert.equal(backfillKidsPayload.metadata.kidsContentId, "123e4567-e89b-12d3-a456-426614174000");
 assert.equal(backfillKidsPayload.metadata.ageGroup, "6-8");
+const normalizedKidsBackfillPayload = buildWrittenBackfillQueuePayload({
+ articleId: "article-kids-normalized",
+ title: "قصة للأطفال",
+ body: "نص مناسب للأطفال",
+ publicPath: "/kids/story-normalized",
+ sourceType: " KIDS_STORY ",
+ sourceId: "123e4567-e89b-12d3-a456-426614174000",
+ sourceTitle: "قصة للأطفال",
+ ageGroup: "6-8",
+ automationKey: "written-social-v1:kids_story:123e4567-e89b-12d3-a456-426614174000",
+ now: "2026-11-10T08:00:00.000Z",
+ scheduledAt: "2026-11-10T08:05:00.000Z",
+});
+assert.equal(normalizedKidsBackfillPayload.content_id, "123e4567-e89b-12d3-a456-426614174000",
+ "normalized Kids source types must retain the live Kids content ID");
+assert.equal(normalizedKidsBackfillPayload.metadata.audience, "kids",
+ "normalized Kids source types must never be emitted as general posts");
+assert.equal(((normalizedKidsBackfillPayload.metadata.source as Record<string, unknown>).type), "kids_story",
+ "the persisted source type must use the canonical Kids marker");
+assert.throws(() => buildWrittenBackfillQueuePayload({
+ articleId: "article-kids-normalized-invalid",
+ title: "قصة",
+ body: "نص",
+ publicPath: "/quran/ash-sharh",
+ sourceType: " KIDS_STORY ",
+ sourceId: "123e4567-e89b-12d3-a456-426614174000",
+ automationKey: "written-social-v1:kids_story:123e4567-e89b-12d3-a456-426614174000",
+ now: "2026-11-10T08:00:00.000Z",
+ scheduledAt: "2026-11-10T08:05:00.000Z",
+}), /Kids backfill must retain a valid Kids source ID and \/kids\/ public path/);
 const backfillGeneralPayload = buildWrittenBackfillQueuePayload({
  articleId: "article-general-1",
  title: "معلومة عامة",
@@ -652,6 +684,8 @@ assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example
 
 assert.ok(worker.includes("isKidsWrittenSourceReservation(metadata)"), "articles with any Kids audience, source, identity or public-path marker must not enter the general knowledge generation pool");
 assert.ok(worker.includes("isSafeWrittenBackfillSource(sourceType,metadata)"), "historical social backfill must fail closed when Kids metadata conflicts with a general source type");
+assert.match(worker, /const sourceType=str\(source\.type\)\.toLowerCase\(\)/,
+ "the backfill caller must canonicalize legacy source types before quota and automation-key checks");
 assert.ok(worker.includes('WRITTEN_CONTENT_ENABLED?.trim().toLowerCase()!=="true"'), "Gemini generation must remain disabled unless explicitly enabled");
 assert.ok(writtenWorkflow.includes('WRITTEN_CONTENT_ENABLED: "true"'), "the scheduled workflow must explicitly opt in to content generation");
 assert.ok(worker.includes("WRITTEN_CONTENT_SYSTEM_INSTRUCTION"));
