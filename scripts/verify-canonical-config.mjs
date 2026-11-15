@@ -124,6 +124,18 @@ if (!siteSource.includes("url: PRODUCTION_URL")) {
   fail("siteConfig.url must be the canonical production URL");
 }
 
+if (!siteSource.includes('path: "/kids/videos"')) {
+  fail("Public Kids video library route must be included in the canonical route/sitemap inventory");
+}
+const sitemapSource = read("src/app/sitemap.ts");
+if (!sitemapSource.includes("getKidsGeneratedVideos(100)") || !sitemapSource.includes("/kids/videos/")) {
+  fail("Sitemap must include QA-filtered public Kids video detail pages");
+}
+const llmsSource = read("src/app/llms.txt/route.ts");
+if (!llmsSource.includes("${SITE_URL}/kids/videos")) {
+  fail("llms.txt must expose the public Kids video library");
+}
+
 const nextConfig = read("next.config.ts");
 if (!nextConfig.includes("const canonicalClientSiteUrl = PRODUCTION_URL;")) {
   fail("next.config.ts must pin canonicalClientSiteUrl to PRODUCTION_URL");
