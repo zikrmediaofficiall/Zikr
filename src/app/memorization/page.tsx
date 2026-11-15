@@ -36,7 +36,7 @@ export default async function MemorizationPage() {
   return <Container className='space-y-8 py-10 text-right'>
     <section className='space-y-3'>
       <h1 className='text-3xl font-bold text-brand-gold'>الحفظ والتسميع بالتجويد</h1>
-      <p className='max-w-3xl leading-8 arabic-muted'>اختار ورد يومي أو خطة أسبوعين، جاوب على أسئلة أكمل، وسجّل تسميعك صوتيًا ليتم تقييم الحفظ والتجويد بالذكاء الاصطناعي عند تفعيل API الصوت.</p>
+      <p className='max-w-3xl leading-8 arabic-muted'>اختار ورد يومي أو خطة أسبوعين، جاوب على أسئلة أكمل، وسجّل تسميعك صوتيًا ليتم تقييم الحفظ والتجويد عبر خدمة الذكاء الاصطناعي عند إرسال التسجيل.</p>
       <Button href='/quran'>فتح المصحف</Button>
     </section>
 
