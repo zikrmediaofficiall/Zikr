@@ -6,15 +6,15 @@ export async function GET() {
   try {
     const auth = await requireAdminApi('video.manage');
     if (!auth.ok) {
-      return NextResponse.json({ error: auth.error }, { status: auth.status });
+      return NextResponse.json({ error: auth.error }, { status: auth.status, headers: { 'Cache-Control': 'no-store' } });
     }
     const requests = await getAllVideoRequests();
-    return NextResponse.json(requests);
+    return NextResponse.json(requests, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[api] Failed to fetch video requests:', error);
     return NextResponse.json(
       { error: 'Failed to fetch video requests' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }

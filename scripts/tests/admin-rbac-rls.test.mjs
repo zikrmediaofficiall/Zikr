@@ -94,6 +94,10 @@ const videoRoute = readFileSync(
   resolve(process.cwd(), "src/app/api/admin/videos/[id]/route.ts"),
   "utf8",
 );
+const videoRequestsRoute = readFileSync(
+  "src/app/api/admin/videos/route.ts",
+  "utf8",
+);
 const videoGenerationRoute = readFileSync(
   resolve(process.cwd(), "src/app/api/admin/video-generation/route.ts"),
   "utf8",
@@ -617,5 +621,8 @@ assert.ok(
   !storageWritePolicyMigration.includes("profiles.role"),
   "storage policies must not treat every delegated profile.role=admin as a full administrator",
 );
+
+assert.ok(videoRequestsRoute.includes("requireAdminApi('video.manage')"), "video queue must require video.manage");
+assert.ok(videoRequestsRoute.includes("'Cache-Control': 'no-store'"), "private video queue responses must be no-store");
 
 console.log("Admin RBAC/RLS migration contract passed.");

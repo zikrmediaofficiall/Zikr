@@ -5,6 +5,9 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const aasa = read("../../src/app/.well-known/apple-app-site-association/route.ts");
 const assetLinks = read("../../src/app/.well-known/assetlinks.json/route.ts");
 const androidManifest = read("../../android/app/src/main/AndroidManifest.xml");
+const proxySource = read("../../src/proxy.ts");
+const proxyMatcher = proxySource.slice(proxySource.indexOf("export const config"));
+assert.ok(proxyMatcher.includes("\\\\.well-known/"), "public Apple/Android association endpoints must bypass Supabase session lookup in the proxy");
 const isForceStaticRoute = (source) =>
   /export\s+const\s+dynamic\s*=\s*(['"])force-static\1;/.test(source);
 
