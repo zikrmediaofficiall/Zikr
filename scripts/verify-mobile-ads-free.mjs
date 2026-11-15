@@ -102,7 +102,7 @@ requireCondition(
   "The versioned service-worker and offline-pack caches must match the app-shell cache pattern.",
 );
 requireCondition(
-  nativeBridge.includes("isAllowedQuranAudioUrl(url)") && nativeBridge.includes("isSafeQuranAudioDownloadPath(path)") && nativeBridge.includes("Filesystem.stat"),
+  nativeBridge.includes("isAllowedQuranAudioUrl(url)") && nativeBridge.includes("isSafeQuranAudioDownloadPath(path)") && nativeBridge.includes("stat?.") && nativeBridge.includes("plugins.Filesystem"),
   "Native Quran audio downloads, local file access and deletion must be path-restricted and storage sizes must be measurable.",
 );
 requireCondition(
