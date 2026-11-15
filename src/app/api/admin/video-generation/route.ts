@@ -5,7 +5,7 @@ import { recordAdminAuditEvent } from '@/features/admin/services/audit';
 import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
 import { supabaseServerAdminRequest } from '@/lib/supabase/server';
 import { readBoundedJsonBody } from '@/lib/request/bounded-json-body';
-import { buildVideoApprovalSnapshotHash, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, REQUIRED_VIDEO_APPROVAL_CHECKS } from '@/features/videos/services/video-publish-approval';
+import { buildVideoApprovalSnapshotHash, buildVideoCatalogApprovalPatch, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, REQUIRED_VIDEO_APPROVAL_CHECKS } from '@/features/videos/services/video-publish-approval';
 
 export const dynamic = 'force-dynamic';
 
@@ -175,14 +175,47 @@ export async function PATCH(request: NextRequest) {
       if (!approvalSnapshotHash) {
         return NextResponse.json({ error: 'بصمة المصدر أو المحتوى أو ملف الفيديو غير مكتملة؛ أعد تجهيز الفيديو قبل اعتماده.' }, { status: 422 });
       }
+      const catalogSlug = "zikr-" + id.toLowerCase().replace(/[^a-z0-9-]/g, "");
+      const catalogRows = await supabaseServerAdminRequest<Array<{
+        id: string; metadata: Record<string, unknown> | null; updated_at: string | null;
+      }>>(
+        '/rest/v1/videos?slug=eq.' + encodeURIComponent(catalogSlug) + '&select=id,metadata,updated_at&limit=2',
+      );
+      const catalog = catalogRows?.length === 1 ? catalogRows[0] : null;
+      if (!catalog?.id || !catalog.updated_at || !Number.isFinite(Date.parse(catalog.updated_at))) {
+        return NextResponse.json({ error: 'سجل الفيديو الداخلي غير جاهز للاعتماد؛ لم يتم تغيير حالة العملية.' }, { status: 409 });
+      }
+
       const reviewedAt = new Date().toISOString();
+      const qualityReview = {
+        ...Object.fromEntries(REQUIRED_VIDEO_APPROVAL_CHECKS.map((key) => [key, true])),
+        reviewedAt,
+        mode: 'human',
+        reviewerId: auth.profile.id,
+      };
+      const catalogPatch = buildVideoCatalogApprovalPatch({
+        metadata: catalog.metadata,
+        requestId: id,
+        videoUrl: current.video_url,
+        sourceHash: current.source_hash,
+        contentHash: current.content_hash,
+        templateVersion: current.template_version,
+        snapshotHash: approvalSnapshotHash,
+        reviewerId: auth.profile.id,
+        reviewedAt,
+        checks: body.qaChecklist,
+      });
+      if (!catalogPatch) {
+        return NextResponse.json({ error: 'بيانات الفيديو في المكتبة لا تطابق نسخة المصدر التي تمت مراجعتها؛ لم يتم اعتمادها.' }, { status: 409 });
+      }
+
       const updatedContent = {
         ...currentContent,
         approvalStatus: 'approved',
         approvalReviewerId: auth.profile.id,
         approvalReviewedAt: reviewedAt,
         approvalSnapshotHash,
-        qualityReview: { ...Object.fromEntries(REQUIRED_VIDEO_APPROVAL_CHECKS.map((key) => [key, true])), reviewedAt },
+        qualityReview,
       };
       const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(
         '/rest/v1/video_generation_requests?id=eq.' + encodeURIComponent(id) + '&status=eq.completed&updated_at=eq.' + encodeURIComponent(current.updated_at),
@@ -190,18 +223,36 @@ export async function PATCH(request: NextRequest) {
           body: JSON.stringify({ content: updatedContent, updated_at: reviewedAt }) },
       );
       if (!updated?.length) return NextResponse.json({ error: 'تغيرت حالة العملية أثناء المراجعة؛ حدّث التفاصيل ثم أعد الفحص.' }, { status: 409 });
+      const catalogUpdated = await supabaseServerAdminRequest<Array<{ id: string }>>(
+        '/rest/v1/videos?id=eq.' + encodeURIComponent(catalog.id) +
+          '&slug=eq.' + encodeURIComponent(catalogSlug) +
+          '&updated_at=eq.' + encodeURIComponent(catalog.updated_at) +
+          '&metadata->>videoGenerationRequestId=eq.' + encodeURIComponent(id) +
+          '&select=id',
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify(catalogPatch),
+        },
+      );
+      if (catalogUpdated?.length !== 1 || !catalogUpdated[0]?.id) {
+        return NextResponse.json(
+          { error: 'تم حفظ الاعتماد، لكن سجل مكتبة الفيديو تغيّر قبل النشر الداخلي؛ حدّث الصفحة وأعد المحاولة.' },
+          { status: 409, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
       const auditRecorded = await runPostCommitAudit(
         () => recordAdminAuditEvent({
         action: "video_generation.publish.approve",
         permission: "video.manage",
         resourceType: "video_generation_requests",
         resourceId: id,
-        metadata: { category: current.category, approvalChecks: REQUIRED_VIDEO_APPROVAL_CHECKS.length, approvalSnapshotHash },
+        metadata: { category: current.category, approvalChecks: REQUIRED_VIDEO_APPROVAL_CHECKS.length, approvalSnapshotHash, catalogVideoId: catalog.id, publishedInternally: true },
         }),
         (auditError) => console.error("[api/admin/video-generation] audit event failed after committed mutation:", auditError),
       );
-      return NextResponse.json({ ok: true, auditRecorded, approvalStatus: 'approved',
-        note: 'تم اعتماد جودة الفيديو لمكتبة ZIKR الداخلية فقط؛ لا يتم نشره على منصات خارجية.' });
+      return NextResponse.json({ ok: true, auditRecorded, approvalStatus: 'approved', catalogPublished: true,
+        note: 'تم اعتماد الفيديو وإظهاره في مكتبة ZIKR الداخلية فقط؛ لا يتم نشره على منصات خارجية.' });
     }
 
     if (action === "retry_publish") {
