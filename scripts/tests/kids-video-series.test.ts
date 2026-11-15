@@ -72,7 +72,7 @@ assert.equal(safeFictionDisclosure.description, "قصة تربوية خيالي�
 assert.equal(safeFictionDisclosure.socialCaption, "حكاية أصلية من ذِكر عن العدل وانتظار الدور.");
 
 const unsafeFictionSourceLabel = resolveKidsVideoPublicDisclosure(
-  { audience: "kids", aiMode: "original_kids_story", sourceLabel: "المصدر: https://example.com/source" },
+  { audience: "kids", aiMode: "original_kids_story", sourceLabel: "المصدر: https://quran.com/12" },
   "قصة تربوية خيالية أصلية للأطفال عن الصدق.",
   null,
 );
@@ -81,7 +81,7 @@ assert.equal(unsafeFictionSourceLabel.sourceLabel, fictionLabel, "an external UR
 assert.equal(
   resolveVideoSourceDisclosureLine(
     { sourceType: "original_kids_fiction", sourceLabel: "قصة موثقة في مكتبة خارجية" },
-    "https://example.com/source",
+    "https://quran.com/12",
   ),
   fictionLabel,
   "worker-generated social disclosures must replace legacy external-source claims for original Kids fiction",
