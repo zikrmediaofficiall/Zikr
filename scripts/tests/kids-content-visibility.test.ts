@@ -313,7 +313,9 @@ for (const invalidId of [
 }
 assert.ok(
   kidsVideosApi.includes('return state.kind === "valid" ? [state.id] : [];') &&
-    kidsVideosApi.includes('requestIdState.kind === "valid" ? socialQueueByRequestId.get(requestId) ?? [] : []'),
+    kidsVideosApi.includes('const requestId = requestIdState.kind === "valid" ? requestIdState.id : "";') &&
+    kidsVideosApi.includes('const socialQueueRows = requestIdState.kind === "valid"') &&
+    kidsVideosApi.includes("socialQueueByRequestId.get(requestId)"),
   "only validated UUIDs may be used for request and social queue lookups",
 );
 assert.ok(kidsVideosApi.includes("resolveKidsVideoSocialPublication"), "the Kids video feed must aggregate all original and supplemental social queue rows");
