@@ -5,7 +5,7 @@ import {
   supabaseServerAdminCount,
   supabaseServerAdminRequest,
 } from "@/lib/supabase/server";
-import { buildAdminQueueOverview } from "@/features/admin/services/admin-dashboard-visibility";
+import { buildAdminVideoQueueOverview } from "@/features/admin/services/admin-dashboard-visibility";
 import { hasAdminPermission, type AdminPermission, type AdminRole } from "@/features/admin/services/permissions";
 import { readAdminRows } from "@/features/admin/services/safe-read";
 import { getServerEnv } from "@/lib/env";
@@ -161,21 +161,13 @@ export async function getAdminSnapshot() {
 }
 
 export async function getAdminOverview(role: AdminRole) {
-  const canReadVideo = hasAdminPermission(role, "video.manage");
-  const canReadSocial = hasAdminPermission(role, "social.manage");
-  const [videoCounts, socialCounts] = await Promise.all([
-    canReadVideo
-      ? getExactStatusCounts("video_generation_requests", ["pending", "processing", "retry_wait", "failed"])
-      : Promise.resolve(null),
-    canReadSocial
-      ? getExactStatusCounts("social_publish_queue", ["queued", "processing", "partial", "failed"])
-      : Promise.resolve(null),
-  ]);
+  const videoCounts = hasAdminPermission(role, "video.manage")
+    ? await getExactStatusCounts("video_generation_requests", ["pending", "processing", "retry_wait", "failed"])
+    : null;
 
-  return buildAdminQueueOverview(
+  return buildAdminVideoQueueOverview(
     role,
     videoCounts,
-    socialCounts,
     new Date().toISOString(),
   );
 }
