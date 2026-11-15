@@ -135,6 +135,19 @@ assert.ok(
   androidRebuildWorkflow.includes("android-signing"),
   "the signed Android rebuild must retain its dedicated signing context",
 );
+const androidRebuildJob =
+  circle.match(/^  android-rebuild:\\n([\\s\\S]*?)(?=^  [a-z0-9_-]+:\\n|^workflows:\\n)/m)?.[1] ?? "";
+for (const secretName of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
+  assert.ok(
+    androidRebuildJob.includes(secretName + ': ""'),
+    "the signed Android rebuild must shadow project-level Supabase credentials: " + secretName,
+  );
+}
+assert.doesNotMatch(
+  androidRebuildJob,
+  /^\\s*(?:SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY):\\s*(?!"")\\S.*$/m,
+  "the signed Android rebuild must not receive non-empty Supabase service credentials",
+);
 for (const contract of [
   "NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app",
   "NEXT_PUBLIC_SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co",
