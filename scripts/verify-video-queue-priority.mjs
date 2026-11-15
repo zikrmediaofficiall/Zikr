@@ -139,7 +139,7 @@ assert(
     queue.includes("content->>socialQueueEnqueueStatus=eq.pending") &&
     queue.includes("content->>socialQueueEnqueueStatus=eq.processing") &&
     queue.includes("resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER)") &&
-    (queue.match(/created_at=gte\\.\\$\\{encodeURIComponent\\(publishAfter\\)\\}/g) ?? []).length === 3 &&
+    (queue.match(/created_at=gte\.\$\{encodeURIComponent\(publishAfter\)\}/g) ?? []).length === 3 &&
     queue.includes("buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore, publishAfter)") &&
     queue.includes("buildVideoSocialQueueRecoveryLeaseFilter("),
   "failed or interrupted social enqueue handoffs are retried under an exact-row-version lease",

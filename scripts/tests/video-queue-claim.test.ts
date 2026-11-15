@@ -488,7 +488,7 @@ test("failed social enqueue remains recoverable and cannot complete the video re
   assert.ok(videoWorkerSource.includes("content->>socialQueueEnqueueStatus=eq.processing"));
   assert.ok(videoWorkerSource.includes("buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore, publishAfter)"));
   assert.ok(videoWorkerSource.includes("resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER)"));
-  assert.equal((videoWorkerSource.match(/created_at=gte\\.\\$\\{encodeURIComponent\\(publishAfter\\)\\}/g) ?? []).length, 3);
+  assert.equal((videoWorkerSource.match(/created_at=gte\.\$\{encodeURIComponent\(publishAfter\)\}/g) ?? []).length, 3);
   assert.ok(videoWorkerSource.includes("buildVideoSocialQueueRecoveryLeaseFilter("));
   assert.ok(videoWorkerSource.includes("status=in.(processing,retry_wait)"));
   assert.ok(videoWorkerSource.includes("catch (handoffPersistError)"));
