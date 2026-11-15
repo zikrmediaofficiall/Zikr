@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Bell, X } from 'lucide-react';
+import { getNotificationPermission, requestNotificationPermission } from '@/features/notifications/services/notifications';
 
 const DISMISSED_KEY = 'zikr_notif_banner_dismissed';
 
@@ -18,28 +19,28 @@ export function NotificationPermissionBanner() {
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
-    // Only show on browsers that support notifications
     if (typeof window === 'undefined') return;
-    if (!('Notification' in window)) return;
-
-    const alreadyGranted = Notification.permission === 'granted';
-    const alreadyDenied = Notification.permission === 'denied';
     const dismissed = sessionStorage.getItem(DISMISSED_KEY) === '1';
+    if (dismissed) return;
 
+    let disposed = false;
     const showBanner = () => {
-      if (!alreadyGranted && !alreadyDenied && !dismissed) {
-        setShow(true);
-      }
+      void getNotificationPermission().then((permission) => {
+        if (!disposed && permission === 'default') setShow(true);
+      });
     };
 
     window.addEventListener('zikr:show-notification-banner', showBanner);
-    return () => window.removeEventListener('zikr:show-notification-banner', showBanner);
+    return () => {
+      disposed = true;
+      window.removeEventListener('zikr:show-notification-banner', showBanner);
+    };
   }, []);
 
   const handleAllow = async () => {
     setRequesting(true);
     try {
-      const result = await Notification.requestPermission();
+      const result = await requestNotificationPermission();
       if (result === 'granted' || result === 'denied') {
         dismiss();
       }
