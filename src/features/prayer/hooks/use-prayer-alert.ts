@@ -10,6 +10,7 @@ import {
 } from "@/lib/audio/spiritual-tones";
 import {
   showPrayerNotification,
+  getNotificationPermission,
   requestNotificationPermission,
 } from "@/features/notifications/services/notifications";
 import type { NotificationPermission as PermResult } from "@/features/notifications/services/notifications";
@@ -310,12 +311,31 @@ export function usePrayerAlert(
     void refreshSiteAudio();
   }, []);
 
-  // Load settings and check notification permission on mount
+  const refreshNotificationPermission = useCallback(async () => {
+    const permission = await getNotificationPermission();
+    setNotificationPermission(permission);
+  }, []);
+
+  // Read the native-aware permission state on mount and again when the
+  // Capacitor bridge becomes ready or the user changes notification access.
   useEffect(() => {
     setSettings(loadSettings());
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotificationPermission(Notification.permission as PermResult);
-    }
+    if (typeof window === "undefined") return;
+
+    let disposed = false;
+    const refresh = () => {
+      void getNotificationPermission().then((permission) => {
+        if (!disposed) setNotificationPermission(permission);
+      });
+    };
+    refresh();
+    window.addEventListener("zikr:native-ready", refresh);
+    window.addEventListener("zikr:native-notification-permission", refresh);
+    return () => {
+      disposed = true;
+      window.removeEventListener("zikr:native-ready", refresh);
+      window.removeEventListener("zikr:native-notification-permission", refresh);
+    };
   }, []);
 
   // The durable location now lives under zikr_prayer_location_v2. Load the

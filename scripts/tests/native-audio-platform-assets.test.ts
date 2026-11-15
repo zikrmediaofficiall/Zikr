@@ -188,6 +188,10 @@ assert.match(bridgeEffect, /return \(\) => \{\s*disposed = true;/);
 assert.match(bridgeSource, /zikr:native-audio-channels-ready/);
 assert.match(prayerSource, /zikr:native-audio-channels-ready/);
 assert.match(salawatSource, /zikr:native-audio-channels-ready/);
+assert.match(prayerSource, /getNotificationPermission/);
+assert.match(prayerSource, /zikr:native-ready/);
+assert.match(prayerSource, /zikr:native-notification-permission/);
+assert.doesNotMatch(prayerSource, /setNotificationPermission\\(Notification\\.permission/);
 
 const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
 try {
