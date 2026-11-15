@@ -207,7 +207,7 @@ export async function getKidsGeneratedVideoBySlug(slug: string): Promise<Video |
     views: (row.views as number) || 0,
     published: row.published as boolean,
     categoryId: row.category_id as string | undefined,
-    metadata: { ...metadata, socialPublication: socialPublicationResolution.publication, socialPublicationReadStatus: socialPublicationResolution.status },
+    metadata: { ...metadata, socialPublication: socialPublicationResolution.publication, socialPublicationReadStatus: socialPublicationResolution.status, socialPublicationCaption: socialPublicationResolution.caption },
     createdAt: row.created_at as string,
   };
 }
