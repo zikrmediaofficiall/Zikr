@@ -334,7 +334,7 @@ assert.ok(kidsVideoServiceSource.includes("isHumanVideoApprovalRecorded(metadata
 assert.ok(kidsVideoServiceSource.includes("resolveKidsVideoQaStatusForApproval"), "public Kids reads must revalidate QA against the current request and media fingerprints");
 assert.ok(kidsVideoServiceSource.includes("status=eq.completed"), "only completed generation requests may authorize public Kids videos");
 assert.ok(publicKidsListSource.includes("hasCurrentHumanKidsVideoApproval(metadata, request)"), "the Kids list must fail closed when a matching human approval request is absent");
-assert.ok(publicKidsDetailServiceSource.includes("hasCurrentHumanKidsVideoApproval(metadata, request)"), "the Kids detail must fail closed when a matching human approval request is absent");
+assert.ok(publicKidsDetailServiceSource.includes("hasCurrentHumanKidsVideoApproval(metadata, approvalRequest)"), "the Kids detail must fail closed when a matching human approval request is absent");
 
 assert.ok(
   detailResolverSource.includes('requestIdState.kind === "missing"'),
