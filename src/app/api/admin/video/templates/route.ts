@@ -74,7 +74,7 @@ async function getVersion(versionId: string) {
 
 export async function GET() {
   const auth = await requireAdminApi("video.manage");
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status, headers: { "Cache-Control": "no-store" } });
 
   try {
     const [templates, versions] = await Promise.all([
@@ -99,7 +99,7 @@ export async function GET() {
     );
   } catch (error) {
     console.error("[admin/video/templates] GET failed", error);
-    return NextResponse.json({ error: "تعذر تحميل مكتبة القوالب وإصداراتها." }, { status: 500 });
+    return NextResponse.json({ error: "تعذر تحميل مكتبة القوالب وإصداراتها." }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 }
 
