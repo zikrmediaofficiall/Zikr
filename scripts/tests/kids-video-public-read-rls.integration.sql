@@ -17,10 +17,7 @@ BEGIN
       'legacy-sql-null-metadata',
       'legacy-no-audience',
       'explicit-general',
-      'kids-approved',
-      'kids-automated-only',
-      'kids-system-approved',
-      'kids-incomplete-human-review'
+      'kids-approved'
     )
   ) THEN
     RAISE EXCEPTION 'anon can read Kids rows without matching human approval, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
@@ -46,10 +43,7 @@ BEGIN
       'legacy-sql-null-metadata',
       'legacy-no-audience',
       'explicit-general',
-      'kids-approved',
-      'kids-automated-only',
-      'kids-system-approved',
-      'kids-incomplete-human-review'
+      'kids-approved'
     )
   ) THEN
     RAISE EXCEPTION 'authenticated non-admin can read Kids rows without matching human approval, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
