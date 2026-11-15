@@ -139,7 +139,7 @@ assert.deepEqual(
 const proxySource = readFileSync("src/proxy.ts", "utf8");
 assert.match(proxySource, /redirectToLogin\(request,\s*response\)/, "protected-route redirects must carry the mutable Supabase response");
 assert.equal(
-  (proxySource.match(/copyResponseCookies\(response,\s*NextResponse\.redirect/g) ?? []).length,
+  (proxySource.match(/copyResponseCookies\(\s*response,\s*NextResponse\.redirect/g) ?? []).length,
   2,
   "both login and auth-only redirects must preserve refreshed Supabase cookies",
 );
