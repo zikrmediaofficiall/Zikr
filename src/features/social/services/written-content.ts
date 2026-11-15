@@ -93,7 +93,7 @@ export function containsKidsPersonalDataSolicitation(value: string): boolean {
  const englishSafetyWarning = /\b(?:do\s+not|don't|dont|never|should\s+not|shouldn't|must\s+not|mustn't|avoid)\s+(?:ask(?:\s+for)?|share|send|give|tell|write|enter|leave|dm|message|contact|call|meet|text|post|publish|reveal|provide)\b/i;
  const asksForPrivateChannel = /(?:^|\s)(?:ابعت(?:لي)?|ابعث(?:لي)?|ابعتي(?:لي)?|ارسل(?:لي)?|ابعث لي|ابعت لي|ابعتي لي|ارسل لي)(?:\s+[^.!؟?]{0,16})?(?:على\s+)?(?:الخاص|رسالة خاصة|واتساب|واتس اب|تيليجرام|تلجرام|انستجرام|سناب(?: شات)?|ماسنجر)(?:\s|$)/u;
  const privateEnglishContact = /\b(?:dm me|message me privately|contact me|call me|meet me|send (?:me )?(?:a )?(?:private )?dm|leave (?:me )?(?:a )?dm|(?:whatsapp|telegram|instagram|snapchat) me)\b/i;
- const englishClauses = normalized.split(/[.!?؟;,\n]+|\b(?:but|however|instead|then)\b/iu);
+ const englishClauses = normalized.split(/[.!?؟;,\n]+|\b(?:but|however|instead|then|and|or|also|as\s+well\s+as)\b/iu);
  const asksEnglish = englishClauses.some((clause) => {
   const candidate = clause.trim();
   if (!candidate || englishSafetyWarning.test(candidate)) return false;
