@@ -119,8 +119,7 @@ for (const token of [
 const kidsFeedRoute = read("src/app/api/kids/videos/route.ts");
 for (const token of [
   "classifyKidsVideoGenerationRequestId",
-  'requestIdState.kind === "invalid"',
-  'requestIdState.kind === "missing"',
+  'requestIdState.kind !== "valid"',
   "getKidsGeneratedVideos(60)",
   "storyText:",
   "socialCaption:",
@@ -130,6 +129,12 @@ for (const token of [
   "Promise.allSettled",
 ]) {
   if (!kidsFeedRoute.includes(token)) failures.push("Kids feed API must expose safe QA-approved video/story/social metadata: " + token);
+}
+if (
+  kidsVideoSocialDetailService.includes("storedSocialPublication") ||
+  kidsVideoSocialDetailService.includes("resolveKidsVideoSocialPublication([], stored, true, true)")
+) {
+  failures.push("Kids detail publication must fail closed rather than fall back to stale catalog metadata without a valid request ID");
 }
 if (kidsFeedRoute.includes("status=in.(published,partial)")) {
   failures.push("Kids feed must inspect every queue state so pending/failed supplemental rows cannot hide or resurrect stale social publication metadata");
