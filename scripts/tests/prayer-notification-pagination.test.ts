@@ -23,6 +23,10 @@ import {
   normalizePushSubscriptionRequestBody,
   parsePushCoordinate,
 } from "../../src/features/notifications/services/push-subscription-request";
+import {
+  getPrayerNotificationIdsToCancel,
+  getPrayerNotificationIdsToPreserveForUnresolvedDay,
+} from "../../src/features/prayer/services/prayer-notification-schedule";
 
 const requiredPrayerNames = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
 const validProviderTimings = {
@@ -877,11 +881,55 @@ assert.equal(simulatedServerTimeZone, "Africa/Cairo");
 const salawatHookSource = readFileSync("src/features/reminders/hooks/use-salawat-reminder.ts", "utf8");
 const prayerAlertProviderSource = readFileSync("src/components/layout/prayer-alert-provider.tsx", "utf8");
 const prayerAlertHookSource = readFileSync("src/features/prayer/hooks/use-prayer-alert.ts", "utf8");
+const enabledPrayerNames = ["Fajr", "Dhuhr", "Asr"] as const;
+const enabledPrayerFlags = { Fajr: true, Dhuhr: false, Asr: true };
+const unresolvedDayPrayerIds = getPrayerNotificationIdsToPreserveForUnresolvedDay({
+  dayOffset: 1,
+  prayers: enabledPrayerNames,
+  enabledPrayers: enabledPrayerFlags,
+  idBase: 7000,
+});
+assert.deepEqual(
+  unresolvedDayPrayerIds,
+  [7003, 7005],
+  "a failed day lookup must preserve only the enabled prayers' existing native alarm IDs",
+);
+assert.deepEqual(
+  getPrayerNotificationIdsToCancel({
+    scheduleDays: 2,
+    prayers: enabledPrayerNames,
+    enabledPrayers: enabledPrayerFlags,
+    refreshedPrayerIds: unresolvedDayPrayerIds,
+    idBase: 7000,
+  }),
+  [7000, 7001, 7002, 7004],
+  "an unresolved day must preserve enabled alarms while disabled alarms and resolved prior-day alarms remain cancellable",
+);
+assert.deepEqual(
+  getPrayerNotificationIdsToPreserveForUnresolvedDay({
+    dayOffset: -1,
+    prayers: enabledPrayerNames,
+    enabledPrayers: enabledPrayerFlags,
+    idBase: 7000,
+  }),
+  [],
+  "invalid day offsets must not generate native notification IDs",
+);
+assert.match(
+  prayerAlertHookSource,
+  /if \(!dayTimings\) \{[\s\S]*?preserveUnresolvedDay\(dayOffset\)/,
+  "a failed future-day lookup must preserve existing enabled alarms",
+);
+assert.match(
+  prayerAlertHookSource,
+  /if \(!scheduled\) \{[\s\S]*?refreshedPrayerIds\.add\(id\)/,
+  "an enabled prayer with an unresolved individual time must preserve its existing alarm",
+);
 const pastPrayerScheduleGuard = prayerAlertHookSource.indexOf("if (scheduled <= now) continue;");
-const refreshedPrayerAlarmMarker = prayerAlertHookSource.indexOf("refreshedPrayerIds.add(id)");
+const refreshedPrayerAlarmMarker = prayerAlertHookSource.indexOf("refreshedPrayerIds.add(id)", pastPrayerScheduleGuard);
 assert.ok(
   pastPrayerScheduleGuard >= 0 && refreshedPrayerAlarmMarker > pastPrayerScheduleGuard,
-  "past prayer times must cancel stale native alarms instead of being marked as refreshed",
+  "successfully resolved past prayer times must still cancel stale native alarms",
 );
 assert.match(salawatHookSource, /serverTimeZone: data\.timezone/);
 assert.match(salawatHookSource, /event === "SIGNED_IN"[\s\S]*?syncBackgroundReminderTimeZone/);
