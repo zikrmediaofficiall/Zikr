@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parsePushSubscriptionRequestBody } from "../../src/features/notifications/services/push-subscription-request";
+import {
+  parsePushPrayerContext,
+  parsePushSubscriptionRequestBody,
+} from "../../src/features/notifications/services/push-subscription-request";
 import { resolvePushSubscriptionWritePlan } from "../../src/features/notifications/services/push-subscription-ownership";
 
 const validEndpoint = "https://fcm.googleapis.com/fcm/send/test-token";
@@ -64,6 +67,117 @@ assert.equal(
 );
 assert.equal(parsePushSubscriptionRequestBody([]), null, "non-object payloads must fail closed");
 
+const validPrayerContext = {
+  prayerContext: {
+    location: {
+      city: "Alexandria",
+      country: "Egypt",
+      latitude: 31.2,
+      longitude: 29.9,
+      timezone: "Africa/Cairo",
+    },
+    prayerReminders: {
+      Fajr: 0,
+      Dhuhr: null,
+      Asr: 5,
+      Maghrib: -10,
+      Isha: 0,
+    },
+  },
+};
+
+assert.deepEqual(
+  parsePushPrayerContext(validPrayerContext),
+  {
+    location: {
+      city: "Alexandria",
+      country: "Egypt",
+      latitude: 31.2,
+      longitude: 29.9,
+      timezone: "Africa/Cairo",
+    },
+    prayerReminders: {
+      Fajr: 0,
+      Dhuhr: null,
+      Asr: 5,
+      Maghrib: -10,
+      Isha: 0,
+    },
+  },
+  "valid prayer context should be normalized before calling the database RPC",
+);
+
+const maxLengthLocation = {
+  ...validPrayerContext.prayerContext.location,
+  city: "C".repeat(160),
+  country: "X".repeat(160),
+};
+assert.ok(
+  parsePushPrayerContext({
+    prayerContext: { ...validPrayerContext.prayerContext, location: maxLengthLocation },
+  }),
+  "city and country values at the database's 160-character boundary must be accepted",
+);
+
+assert.equal(
+  parsePushPrayerContext({
+    prayerContext: {
+      ...validPrayerContext.prayerContext,
+      location: { ...validPrayerContext.prayerContext.location, city: "C".repeat(161) },
+    },
+  }),
+  null,
+  "city values above the database's 160-character limit must be rejected before the RPC",
+);
+assert.equal(
+  parsePushPrayerContext({
+    prayerContext: {
+      ...validPrayerContext.prayerContext,
+      location: { ...validPrayerContext.prayerContext.location, country: "X".repeat(161) },
+    },
+  }),
+  null,
+  "oversized country values must be rejected instead of silently converted to null",
+);
+assert.equal(
+  parsePushPrayerContext({
+    prayerContext: {
+      ...validPrayerContext.prayerContext,
+      location: { ...validPrayerContext.prayerContext.location, timezone: "T".repeat(121) },
+    },
+  }),
+  null,
+  "timezone values above the database's 120-character limit must be rejected before the RPC",
+);
+assert.equal(
+  parsePushPrayerContext({
+    prayerContext: {
+      ...validPrayerContext.prayerContext,
+      location: { ...validPrayerContext.prayerContext.location, country: 42 },
+    },
+  }),
+  null,
+  "non-string country values must not be silently dropped",
+);
+assert.equal(
+  parsePushPrayerContext({
+    prayerContext: {
+      ...validPrayerContext.prayerContext,
+      prayerReminders: { ...validPrayerContext.prayerContext.prayerReminders, Fajr: 61 },
+    },
+  }),
+  null,
+  "prayer reminder offsets outside the database-supported range must be rejected",
+);
+
+const locationMigration = readFileSync(
+  "supabase/migrations/20261114040000_save_default_prayer_location_atomically.sql",
+  "utf8",
+);
+assert.match(locationMigration, /char_length\(btrim\(p_city\)\) NOT BETWEEN 1 AND 160/);
+assert.match(locationMigration, /char_length\(btrim\(p_country\)\) > 160/);
+assert.match(locationMigration, /char_length\(btrim\(p_timezone\)\) NOT BETWEEN 1 AND 120/);
+
 assert.deepEqual(resolvePushSubscriptionWritePlan(null, "user-a"), { kind: "insert" });
 assert.deepEqual(
   resolvePushSubscriptionWritePlan({ id: "subscription-1", user_id: "user-a" }, "user-a"),
@@ -83,6 +197,7 @@ assert.deepEqual(resolvePushSubscriptionWritePlan(null, "  "), { kind: "conflict
 
 const route = readFileSync("src/app/api/push/subscription/route.ts", "utf8");
 assert.match(route, /userClient\s*\.rpc\("save_default_prayer_location"/);
+assert.ok(route.includes("parsePushPrayerContext(parsedBody.value)"));
 assert.ok(route.includes("resolvePushSubscriptionWritePlan(existing, user.id)"));
 assert.ok(
   route.includes('.eq("user_id", user.id)') &&
@@ -94,4 +209,4 @@ assert.doesNotMatch(route, /\.from\("push_subscriptions"\)\s*\.upsert\(/);
 assert.doesNotMatch(route, /\.from\("prayer_locations"\)\s*\.(?:insert|update)\(/);
 assert.ok(route.includes('code?: string }).code === "23505"'));
 
-console.log("Push subscription payload validation, ownership, and atomic location contracts passed.");
+console.log("Push subscription payload validation, database-aligned prayer context bounds, ownership, and atomic location contracts passed.");
