@@ -21,7 +21,11 @@ assert.doesNotMatch(
 // The empty job-level values intentionally shadow inherited CircleCI context secrets.
 // expectBlankCircleCiEnv below verifies the exact empty assignments for this read-only job.
 assert.doesNotMatch(androidDraftJob, /Authorization:\s*"Bearer"/, "public release metadata verification must not need a write-capable GitHub token");
-assert.match(androidDraftJob, /https:\/\/api\.github\.com\/repos\/zikrofficial-X\/Zikr/, "the verifier must continue to inspect the public canonical GitHub repository");
+assert.ok(
+  androidDraftJob.includes('const repository = "zikrofficial-X/Zikr";') &&
+    androidDraftJob.includes('"https://api.github.com/repos/" + repository'),
+  "the verifier must continue to inspect the public canonical GitHub repository",
+);
 const workflowStart = circleCiConfig.indexOf("\nworkflows:");
 const workflowConfig = circleCiConfig.slice(workflowStart);
 const androidRebuildInvocationStart = workflowConfig.indexOf("      - android-rebuild:");
