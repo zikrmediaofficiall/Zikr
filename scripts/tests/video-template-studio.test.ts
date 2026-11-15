@@ -99,8 +99,8 @@ assert.match(migration, /video_template_versions_one_active_per_template/i);
 
 assert.match(api, /requireAdminApi\("video\.manage"\)/);
 const templateGetHandler = api.slice(api.indexOf("export async function GET"), api.indexOf("export async function POST"));
-assert.match(templateGetHandler, /if \\(!auth\\.ok\\)[\\s\\S]*?Cache-Control[\\s\\S]*?no-store/, "template GET auth failures must be no-store");
-assert.match(templateGetHandler, /status: 500[\\s\\S]*?Cache-Control[\\s\\S]*?no-store/, "template GET failures must be no-store");
+assert.match(templateGetHandler, /if \(!auth\.ok\)[\s\S]*?Cache-Control[\s\S]*?no-store/, "template GET auth failures must be no-store");
+assert.match(templateGetHandler, /status: 500[\s\S]*?Cache-Control[\s\S]*?no-store/, "template GET failures must be no-store");
 
 for (const action of ["create-version", "approve-version", "activate-version", "preview-version"]) {
   assert.ok(api.includes(action), `template API action ${action} missing`);
