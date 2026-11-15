@@ -500,6 +500,10 @@ assert.equal(containsKidsPersonalDataSolicitation("انت ساكن فين؟"), t
 assert.equal(containsKidsPersonalDataSolicitation("فين بتدرس؟"), true, "Egyptian questions about a child's school location must be blocked");
 assert.equal(containsKidsPersonalDataSolicitation("عندك كام سنة؟"), true, "Egyptian questions asking for a child's age must be blocked");
 assert.equal(containsKidsPersonalDataSolicitation("ما هو رقمك؟"), true, "standard Arabic direct questions must remain blocked");
+assert.equal(containsKidsPersonalDataSolicitation("رقمك كام؟"), true, "Egyptian direct phone questions with Arabic question punctuation must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("مدرستك فين؟"), true, "Egyptian direct school questions with Arabic question punctuation must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("انت ساكن فين؟"), true, "Egyptian location questions with Arabic question punctuation must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("عندك كام سنة؟"), true, "Egyptian age questions with Arabic question punctuation must be blocked");
 assert.equal(containsKidsPersonalDataSolicitation("ما تبعتش رقمك لأي حد"), false, "Egyptian safety warnings must not be mistaken for requests for personal data");
 assert.equal(containsKidsPersonalDataSolicitation("ما تشاركش عنوان بيتك مع أي شخص"), false, "Egyptian warnings against sharing personal data must remain publishable");
 assert.equal(containsKidsPersonalDataSolicitation("ما الدرس الذي تعلمته من القصة؟"), false, "ordinary educational questions must remain allowed");
