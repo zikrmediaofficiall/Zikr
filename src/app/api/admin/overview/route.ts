@@ -11,7 +11,7 @@ export async function GET() {
   }
 
   try {
-    return NextResponse.json(await getAdminOverview(), {
+    return NextResponse.json(await getAdminOverview(auth.profile.role), {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
