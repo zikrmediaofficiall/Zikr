@@ -160,110 +160,32 @@ BEGIN
        OR nullif(btrim(p_approved_content->>'seriesId'), '') IS NULL
        OR nullif(btrim(p_approved_content->>'seriesTitle'), '') IS NULL
        OR nullif(btrim(p_approved_content->>'learningObjective'), '') IS NULL
-       OR coalesce(p_approved_content->>'seasonNumber' ~ '^[1-9][0-9]*
-     IS DISTINCT FROM (v_catalog.metadata - v_catalog_approval_fields) THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: catalog metadata changed outside the approval fields'
-      USING ERRCODE = '22023';
-  END IF;
-
-  -- Qualify target columns because RETURNS TABLE exposes an output variable
-  -- named updated_at in this PL/pgSQL function.
-  UPDATE public.video_generation_requests AS request_row
-  SET content = p_approved_content, updated_at = p_reviewed_at
-  WHERE request_row.id = p_request_id
-    AND request_row.status = 'completed'
-    AND request_row.updated_at = p_expected_request_updated_at;
-
-  GET DIAGNOSTICS v_request_rows = ROW_COUNT;
-  IF v_request_rows <> 1 THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_CONFLICT: request compare-and-set failed'
-      USING ERRCODE = '40001';
-  END IF;
-
-  UPDATE public.videos AS catalog_row
-  SET metadata = p_catalog_metadata, updated_at = p_reviewed_at
-  WHERE catalog_row.id = p_catalog_video_id
-    AND catalog_row.slug = p_catalog_slug
-    AND catalog_row.updated_at = p_expected_catalog_updated_at
-    AND catalog_row.metadata->>'videoGenerationRequestId' = p_request_id::text;
-
-  GET DIAGNOSTICS v_catalog_rows = ROW_COUNT;
-  IF v_catalog_rows <> 1 THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_CONFLICT: catalog compare-and-set failed'
-      USING ERRCODE = '40001';
-  END IF;
-
-  RETURN QUERY SELECT p_request_id, p_catalog_video_id, p_reviewed_at;
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) FROM PUBLIC, anon, authenticated;
-
-GRANT EXECUTE ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) TO service_role;
-
-COMMENT ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) IS
-  'Atomically records a human approval on a completed video-generation request and its matching internal catalog row. Both compare-and-set updates roll back together on any conflict.';
-
-COMMIT;
-, false) IS NOT TRUE
-       OR coalesce(p_approved_content->>'episodeNumber' ~ '^[1-9][0-9]*
-     IS DISTINCT FROM (v_catalog.metadata - v_catalog_approval_fields) THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: catalog metadata changed outside the approval fields'
-      USING ERRCODE = '22023';
-  END IF;
-
-  -- Qualify target columns because RETURNS TABLE exposes an output variable
-  -- named updated_at in this PL/pgSQL function.
-  UPDATE public.video_generation_requests AS request_row
-  SET content = p_approved_content, updated_at = p_reviewed_at
-  WHERE request_row.id = p_request_id
-    AND request_row.status = 'completed'
-    AND request_row.updated_at = p_expected_request_updated_at;
-
-  GET DIAGNOSTICS v_request_rows = ROW_COUNT;
-  IF v_request_rows <> 1 THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_CONFLICT: request compare-and-set failed'
-      USING ERRCODE = '40001';
-  END IF;
-
-  UPDATE public.videos AS catalog_row
-  SET metadata = p_catalog_metadata, updated_at = p_reviewed_at
-  WHERE catalog_row.id = p_catalog_video_id
-    AND catalog_row.slug = p_catalog_slug
-    AND catalog_row.updated_at = p_expected_catalog_updated_at
-    AND catalog_row.metadata->>'videoGenerationRequestId' = p_request_id::text;
-
-  GET DIAGNOSTICS v_catalog_rows = ROW_COUNT;
-  IF v_catalog_rows <> 1 THEN
-    RAISE EXCEPTION 'VIDEO_APPROVAL_CONFLICT: catalog compare-and-set failed'
-      USING ERRCODE = '40001';
-  END IF;
-
-  RETURN QUERY SELECT p_request_id, p_catalog_video_id, p_reviewed_at;
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) FROM PUBLIC, anon, authenticated;
-
-GRANT EXECUTE ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) TO service_role;
-
-COMMENT ON FUNCTION public.admin_approve_video_generation_request(
-  uuid, timestamptz, uuid, text, timestamptz, timestamptz, jsonb, jsonb
-) IS
-  'Atomically records a human approval on a completed video-generation request and its matching internal catalog row. Both compare-and-set updates roll back together on any conflict.';
-
-COMMIT;
-, false) IS NOT TRUE
+       OR NOT (CASE
+         WHEN jsonb_typeof(p_approved_content->'seasonNumber') = 'number' THEN
+           (p_approved_content->>'seasonNumber')::numeric > 0
+           AND trunc((p_approved_content->>'seasonNumber')::numeric) = (p_approved_content->>'seasonNumber')::numeric
+         WHEN jsonb_typeof(p_approved_content->'seasonNumber') = 'string' THEN
+           CASE
+             WHEN nullif(btrim(p_approved_content->>'seasonNumber'), '') IS NULL
+               OR regexp_replace(p_approved_content->>'seasonNumber', '[0-9]', '', 'g') <> '' THEN false
+             ELSE (p_approved_content->>'seasonNumber')::numeric > 0
+               AND trunc((p_approved_content->>'seasonNumber')::numeric) = (p_approved_content->>'seasonNumber')::numeric
+           END
+         ELSE false
+       END)
+       OR NOT (CASE
+         WHEN jsonb_typeof(p_approved_content->'episodeNumber') = 'number' THEN
+           (p_approved_content->>'episodeNumber')::numeric > 0
+           AND trunc((p_approved_content->>'episodeNumber')::numeric) = (p_approved_content->>'episodeNumber')::numeric
+         WHEN jsonb_typeof(p_approved_content->'episodeNumber') = 'string' THEN
+           CASE
+             WHEN nullif(btrim(p_approved_content->>'episodeNumber'), '') IS NULL
+               OR regexp_replace(p_approved_content->>'episodeNumber', '[0-9]', '', 'g') <> '' THEN false
+             ELSE (p_approved_content->>'episodeNumber')::numeric > 0
+               AND trunc((p_approved_content->>'episodeNumber')::numeric) = (p_approved_content->>'episodeNumber')::numeric
+           END
+         ELSE false
+       END)
        OR p_catalog_metadata->>'contentFormat' IS DISTINCT FROM p_approved_content->>'contentFormat'
        OR p_catalog_metadata->>'aiMode' IS DISTINCT FROM p_approved_content->>'aiMode'
        OR p_catalog_metadata->>'sourceType' IS DISTINCT FROM p_approved_content->>'sourceType'
