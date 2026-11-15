@@ -120,6 +120,7 @@ const staleCatalogPublication = {
 };
 const confirmedQueuePublication: KidsSocialQueueRow = {
   ...queueRow(queueId(9000), "2026-11-15T05:00:00.000Z"),
+  body: "حكاية أصلية من ذِكر عن الصدق.",
   status: "published",
   published_at: "2026-11-15T05:00:00.000Z",
   target_platforms: ["facebook"],
@@ -194,7 +195,7 @@ const emptyDetail = await resolveKidsVideoSocialPublicationForDetail(
 );
 assert.deepEqual(
   emptyDetail,
-  { status: "verified", publication: null },
+  { status: "verified", publication: null, caption: null },
   "a successful empty queue read must be distinguished from an unavailable read",
 );
 
@@ -207,7 +208,7 @@ const unavailableDetail = await resolveKidsVideoSocialPublicationForDetail(
 );
 assert.deepEqual(
   unavailableDetail,
-  { status: "unavailable", reason: "queue_read_failed", publication: null },
+  { status: "unavailable", reason: "queue_read_failed", publication: null, caption: null },
   "a failed queue read must be shown as unknown rather than not published",
 );
 
@@ -222,7 +223,7 @@ const invalidDetail = await resolveKidsVideoSocialPublicationForDetail(
 );
 assert.deepEqual(
   invalidDetail,
-  { status: "unavailable", reason: "invalid_request_id", publication: null },
+  { status: "unavailable", reason: "invalid_request_id", publication: null, caption: null },
 );
 assert.equal(invalidDetailCalls, 0, "invalid request IDs must never trigger a queue lookup");
 
@@ -250,6 +251,7 @@ assert.deepEqual(
       platforms: ["youtube"],
       publishedAt: "2026-11-14T23:00:00.000Z",
     },
+    caption: null,
   },
   "only rows with no request ID may use the legacy catalog fallback",
 );
