@@ -1,5 +1,37 @@
 # ZIKR Continuous Closeout Ledger
 
+## 2026-11-15T13:46:52Z — PR #320 exact-head verification and inventory reconciliation
+
+### Verified code/test checkpoint
+
+- Repository: `zikrofficial-X/Zikr`; PR [#320](https://github.com/zikrofficial-X/Zikr/pull/320); branch `audit/zikr-kids-daily-priority-20261110`; base `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- Exact verified code/test head: `6b7f46b33f4ed2e1f776202f1d8c5890113b1e09`. PR is open, not merged, and currently has no submitted reviews or requested reviewers. `.github/CODEOWNERS` assigns all paths to `@Zikrmediaofficial`; owner approval is still required.
+- [ZIKR Quality Gate run 43720337695](https://github.com/zikrofficial-X/Zikr/actions/runs/43720337695) completed **success** on the exact code/test head with `QUALITY_GATE=PASSED_FULL`. The job log confirms the full `pnpm verify` path, not `verify:pr`: tests, architecture/release contracts, migration replay, route/navigation/data lifecycle, Kids/video/social checks, mobile/offline, auth/security/SEO, lint, type-check, production build and performance-index contract all passed. Deno Edge Function checks and 15 isolated PostgreSQL 17 integration checks also passed.
+- Required CircleCI contexts are all **success**: `config-guard`, `application-build-docs`, and `source-verify`. No failed or pending check was bypassed.
+
+### Inventory repair
+
+- Current branch tree: 2428 entries (1929 blobs, 499 directories); PR changed paths: 595 (267 added, 328 modified, 0 deleted).
+- The prior manifest contained 2,418 rows and was stale: 10 current paths were absent (including its own blob) and 67 recorded SHAs no longer matched the branch tree. The prior overlay contained 585 rows for 595 changed paths, omitted 10 changed paths, and had 39 stale blob SHAs.
+- Reconciliation policy: the overlay now has 593 rows and excludes only its own file plus the paired manifest; the manifest now has 2425 entries and excludes its own blob plus the `docs/` and `docs/audits/` ancestor tree entries whose hashes necessarily depend on the manifest. All other tracked blobs and trees are recorded at the exact snapshot SHAs.
+- Current overlay counts: CONTENT_READ_PENDING_TRACE=19, CONTENT_READ_TESTED_PASS=322, FIXED_TESTED_PENDING_LIVE_APPLY=28, REVIEW_REQUIRED=218, SUPERSEDED_SNAPSHOT=6. Stale code blobs that were not re-read are conservatively reset to `REVIEW_REQUIRED`; no prior pass is carried forward across a SHA change. The new `src/lib/supabase/array-response.ts` helper remains review-required because a consumer/import trace was not established in this batch.
+
+### Review batch and safety
+
+- Read and traced the current Kids video public-read migration and isolated PostgreSQL RLS fixture; public roles can read legacy general rows and Kids rows only after QA pass. Read the source/audience contract, Kids social queue pagination/detail resolver, memorization evaluation/action/recorder, prayer-push cron reconciliation migration and the site-audio orphan-retention script/tests.
+- No reproducible source-code defect was confirmed in this batch. The reproducible defect was stale audit inventory evidence; this documentation-only batch refreshes the manifest, overlay, project status and ledger.
+- No production migration or DDL/DML, Edge Function deployment, cron mutation, content generation, Gemini request, social publishing, Storage/media/index/secret deletion, Android/iOS release, merge or Vercel deployment was performed.
+- The documentation reconciliation is a child commit of the verified code/test head. Its own exact-head Quality Gate must complete before this documentation batch is marked fully verified.
+
+### Remaining acceptance
+
+- Complete the remaining `REVIEW_REQUIRED` and `CONTENT_READ_PENDING_TRACE` paths; obtain `@Zikrmediaofficial` CODEOWNERS review and satisfy protected-branch rules.
+- Owner-controlled production migration/Edge Function rollout, Vercel manual release and production smoke checks remain blocked until review/merge approval.
+- Real-device Android/iOS login, deep links, microphone, push and provider OAuth/social acceptance remain manual. Apple Team ID/associated-domain configuration is owner-only.
+- No claim of project-wide error-free or closed status is made.
+
+---
+
 ## 2026-11-14T21:34:00Z — PR #320 Android Gradle sync repair and full verification
 
 - Exact code/test head: `47b35b7598f5287c97f07dcde623359060966e04`; base: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; PR changed files: 559; overlay rows: 557.

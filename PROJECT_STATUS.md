@@ -1,5 +1,21 @@
 # ZIKR Project Status
 
+## Latest audit continuation — 2026-11-15T13:46:52Z (verified code/test head)
+
+**State: OPEN / NOT MERGE-READY.** The code/test head `6b7f46b33f4ed2e1f776202f1d8c5890113b1e09` passed the full-scope Quality Gate. The inventory/status reconciliation below is a documentation-only child commit and must pass its own exact-head gate before this batch is called verified.
+
+- Repository: `zikrofficial-X/Zikr`; PR [#320](https://github.com/zikrofficial-X/Zikr/pull/320); branch `audit/zikr-kids-daily-priority-20261110`; base `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- **Verified code/test head:** `6b7f46b33f4ed2e1f776202f1d8c5890113b1e09`. [Quality Gate run 43720337695](https://github.com/zikrofficial-X/Zikr/actions/runs/43720337695) completed success with `QUALITY_GATE=PASSED_FULL`; its log confirms `pnpm verify` ran on this exact head. Deno checks and all 15 PostgreSQL 17 integration checks passed. CircleCI `config-guard`, `application-build-docs`, and `source-verify` are success.
+- **Current inventory:** 2428 recursive tree entries (1929 blobs, 499 directories); PR #320 changes 595 paths (267 added, 328 modified, 0 deleted). The reconciled manifest has 2425 rows after self-reference exclusions. The reconciled overlay has 593 rows after excluding its own file and the paired manifest.
+- **Reconciled overlay status:** CONTENT_READ_PENDING_TRACE=19, CONTENT_READ_TESTED_PASS=322, FIXED_TESTED_PENDING_LIVE_APPLY=28, REVIEW_REQUIRED=218, SUPERSEDED_SNAPSHOT=6. A changed blob SHA invalidates its previous content-review status; stale paths not re-read in this batch are marked `REVIEW_REQUIRED`, not carried forward as passed.
+- **Inventory defect fixed in this documentation batch:** the previous manifest had 10 absent current paths and 67 SHA mismatches; the previous overlay had 10 missing PR paths and 39 stale SHA rows. The new manifest records every non-self-referential blob/tree; the overlay records every PR-changed path except its own file and the paired manifest.
+- **Review batch:** read the Kids video public-read migration and PostgreSQL integration fixtures, audience/source visibility contract, Kids social queue/detail resolver and regression suite, memorization evaluation/action/recorder, prayer-push cron reconciliation and site-audio orphan-retention safety path. No new reproducible source-code defect was confirmed. `src/lib/supabase/array-response.ts` remains review-required because its import/consumer trace is not yet established.
+- **Governance:** PR #320 remains open and unmerged, with no submitted reviews or requested reviewers. `.github/CODEOWNERS` requires `@Zikrmediaofficial`. No merge or deployment is attempted before owner review and protected-branch acceptance.
+- **Production safety:** no production migration/DDL/DML, Edge Function deploy, cron change, Gemini request, content generation, social publishing, Storage/media/index/secret deletion, Android/iOS release, Vercel deployment or production smoke test was performed. Automatic Vercel Git deployments are disabled; manual release remains owner-gated.
+- **Remaining acceptance:** full review of the remaining overlay paths, owner/CODEOWNERS approval, protected-branch checks, approved production rollout, manual Vercel deployment and smoke checks, and real Android/iOS/OAuth/push device validation. The project is not declared error-free or closed.
+
+---
+
 ## Latest audit continuation — 2026-11-15T08:24Z
 
 **State: OPEN / NOT MERGE-READY.** The exact code/test head `cfaf0f6bc2d3cde9d4c8f16beebb7c4bd0898896` passed the full-scope verification suite. The documentation refresh in this commit is a child of that verified code/test head and must receive its own exact-head CI verification.
