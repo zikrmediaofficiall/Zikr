@@ -16,7 +16,7 @@ import { listVideoSources, resolveVideoSource } from "../../src/features/videos/
 import { listCuratedVideoSources, resolveCuratedVideoSource } from "../../src/features/videos/data/curated-content";
 import { buildKidsSeriesEpisode, validateCanonicalKidsEpisodeSnapshot, validateGeneratedKidsEpisode } from "../../src/features/videos/data/kids-story-factory";
 import { videoContentHash, sourceHash } from "../../src/features/videos/providers/content-hash";
-import { buildDuplicateVideoOwnerRecoveryFilter, canRecoverDuplicateVideoRender } from "../../src/features/videos/services/duplicate-video-recovery";
+import { buildDuplicateVideoOwnerRecoveryFilter, canRecoverDuplicateVideoRender, resolveUniqueDuplicateVideoSiteRecord } from "../../src/features/videos/services/duplicate-video-recovery";
 import { buildMissingMediaQueueRecoveryPatch } from "../../src/features/social/services/platform-availability";
 import { buildVideoSocialQueueUpdateFilter } from "../../src/features/social/services/social-queue-selection";
 import { resolveSocialPublishCutoff } from "../../src/features/social/services/facebook-queue-recovery-policy";
@@ -2729,9 +2729,9 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
           published: boolean | null;
           metadata: Record<string, unknown> | null;
         }>>(
-          `/rest/v1/videos?slug=eq.${encodeURIComponent(duplicateSlug)}&select=published,metadata&limit=1`,
+          `/rest/v1/videos?slug=eq.${encodeURIComponent(duplicateSlug)}&select=published,metadata&limit=2`,
         );
-        const duplicateSiteRecord = duplicateSiteRows?.[0] ?? null;
+        const duplicateSiteRecord = resolveUniqueDuplicateVideoSiteRecord(duplicateSiteRows);
         const canRecover = canRecoverDuplicateVideoRender({
           owner: duplicate,
           candidate: {
