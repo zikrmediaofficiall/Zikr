@@ -164,6 +164,9 @@ async function checkVideoCatalogPublication(item: SocialPublishQueueItem): Promi
     if (request.status !== "completed" || !request.video_url || request.video_url.trim() !== item.video_url.trim()) {
       return { status: "blocked", reason: "The current generation request no longer matches the queued video asset." };
     }
+    const requestContent = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+      ? request.content as Record<string, unknown>
+      : null;
     const expectedApprovalSnapshotHash = buildVideoApprovalSnapshotHashForRequest(request);
     if (!expectedApprovalSnapshotHash) {
       return { status: "blocked", reason: "The current generation request does not have a complete approval fingerprint." };
@@ -184,6 +187,7 @@ async function checkVideoCatalogPublication(item: SocialPublishQueueItem): Promi
     return evaluateVideoCatalogPublication({
       contentId: item.content_id,
       queuedVideoUrl: item.video_url,
+      requestAudience: requestContent?.audience,
       queueAudience: item.metadata?.audience,
       queueKidsContentQaStatus: item.metadata?.kidsContentQaStatus,
       expectedApprovalSnapshotHash,
