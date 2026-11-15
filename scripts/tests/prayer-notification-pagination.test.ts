@@ -185,9 +185,12 @@ const normalizedRequestBodyCalls = subscriptionRoute.match(/normalizePushSubscri
 assert.equal(normalizedRequestBodyCalls.length, 2, "POST and DELETE must normalize bounded JSON values before reading fields");
 const boundedSubscriptionBodyReads = subscriptionRoute.match(/readBoundedJsonBody\(request, 16 \* 1024\)/g) ?? [];
 assert.equal(boundedSubscriptionBodyReads.length, 2, "POST and DELETE must reject malformed or oversized request bodies before reading subscription fields");
-assert.match(subscriptionRoute, /parsePushCoordinate\(location\?\.latitude, -90, 90\)/);
-assert.match(subscriptionRoute, /parsePushCoordinate\(location\?\.longitude, -180, 180\)/);
-assert.match(subscriptionRoute, /parsePushSubscriptionRequestBody\(parsedBody\.value\)/, "subscription intake must use the shared request validator");
+assert.match(subscriptionRoute, /parsePushPrayerContext\(body\)/, "the route must validate the normalized prayer context before saving it");
+assert.match(subscriptionRequest, /parsePushCoordinate\(location\.latitude, -90, 90\)/);
+assert.match(subscriptionRequest, /parsePushCoordinate\(location\.longitude, -180, 180\)/);
+assert.match(subscriptionRequest, /boundedSubscriptionString\(location\.city, 160\)/);
+assert.match(subscriptionRequest, /boundedSubscriptionString\(location\.timezone, 120\)/);
+assert.match(subscriptionRoute, /parsePushSubscriptionRequestBody\(body\)/, "subscription intake must use the shared request validator");
 assert.match(subscriptionRequest, /isAllowedPushEndpoint\(endpoint\)/, "the shared request validator must reject arbitrary HTTPS endpoints");
 assert.match(worker, /isAllowedPushEndpoint\(subscription\.endpoint\)/, "the delivery worker must revalidate legacy endpoints before outbound requests");
 const staleRecoveryStart = worker.indexOf("async function recoverStaleClaims");
