@@ -12,6 +12,7 @@ import {
   SPIRITUAL_AI_RATE_LIMIT_WINDOW_SECONDS,
 } from '../../src/features/spiritual-ai/services/rate-limit-identity';
 import { classifyQuestion, isCrisisMessage } from '../../src/features/spiritual-ai/services/policy';
+import { formatMemorizationEvaluation } from '../../src/features/memorization/evaluation';
 
 assert.deepEqual(sanitizeChatHistory(null), []);
 assert.deepEqual(sanitizeChatHistory('not an array'), []);
@@ -154,5 +155,29 @@ assert.match(memorizationSubmitButton, /إنشاء خطة مراجعة/,
 assert.match(memorizationConstantsSource, /MAX_MEMORIZATION_AUDIO_BYTES = 3 \* 1024 \* 1024/);
 assert.match(nextConfigSource, /serverActions:\s*\{\s*bodySizeLimit:\s*'4mb'\s*\}/,
   "the server-action body limit must remain above the 3 MiB recording limit");
+
+
+const sampleMemorizationEvaluation = {
+  score: 0,
+  summary: "A plan was prepared.",
+  memorization: "The recitation was strong.",
+  errors: [],
+  tajweed: ["Practice the articulation points slowly."],
+  audioQuality: "Clear recording.",
+  revisionPlan: ["Review five verses daily."],
+};
+const textOnlyMemorizationOutput = formatMemorizationEvaluation(sampleMemorizationEvaluation, false);
+assert.match(textOnlyMemorizationOutput, /لم يتم تقييم تسجيل صوتي/);
+assert.doesNotMatch(textOnlyMemorizationOutput, /الدرجة:|أخطاء التسميع|جودة التسجيل|جودة الحفظ|The recitation was strong/);
+assert.match(textOnlyMemorizationOutput, /ملاحظات تعليمية في التجويد/);
+assert.match(textOnlyMemorizationOutput, /خطة المراجعة/);
+const audioMemorizationOutput = formatMemorizationEvaluation({
+  ...sampleMemorizationEvaluation,
+  score: 85,
+  errors: ["A missed word was heard."],
+}, true);
+assert.match(audioMemorizationOutput, /الدرجة: 85\/100/);
+assert.match(audioMemorizationOutput, /أخطاء التسميع/);
+assert.match(audioMemorizationOutput, /جودة التسجيل/);
 
 console.log('Spiritual AI request guard passed: bounded input, rate limiting, source-safe prompts, and question classification.');
