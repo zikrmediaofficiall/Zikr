@@ -735,7 +735,7 @@ const kidsHomePage = readFileSync("src/app/kids/page.tsx", "utf8");
 const kidsVideoService = readFileSync("src/features/videos/services/videos.ts", "utf8");
 const kidsSocialQueryService = readFileSync("src/features/social/services/kids-video-social-query.ts", "utf8");
 assert.match(kidsVideoService, /resolveKidsVideoSocialPublicationForDetail/);
-assert.match(kidsVideoService, /loadKidsSocialQueueRows\(\[requestId\]/, "the Kids video detail route must reconcile every page of live social queue history");
+assert.match(kidsVideoService, /loadKidsSocialQueueRows\(\[requestIdState\.id\], request\)/, "the Kids video detail route must reconcile every page of live social queue history using a validated request UUID");
 assert.match(kidsSocialQueryService, /metadata->>audience=eq\.kids/, "the shared Kids social queue reader must never use general-audience rows");
 assert.match(kidsSocialQueryService, /order=created_at\.desc,id\.desc/, "the shared Kids social queue reader must use a stable keyset order");
 assert.match(kidsSocialQueryService, /KIDS_SOCIAL_QUEUE_MAX_ROWS = 5_000/, "an oversized social history must fail closed instead of returning a truncated badge");
