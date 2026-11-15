@@ -8,7 +8,7 @@ DECLARE
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
   IF visible_rows <> 4 THEN
-    RAISE EXCEPTION 'anon must read only legacy general, explicit general, and QA-passed Kids rows; found %', visible_rows;
+    RAISE EXCEPTION 'anon must read only legacy general, explicit general, and Kids rows with complete human approval; found %', visible_rows;
   END IF;
   IF EXISTS (
     SELECT 1
@@ -17,10 +17,13 @@ BEGIN
       'legacy-sql-null-metadata',
       'legacy-no-audience',
       'explicit-general',
-      'kids-approved'
+      'kids-approved',
+      'kids-automated-only',
+      'kids-system-approved',
+      'kids-incomplete-human-review'
     )
   ) THEN
-    RAISE EXCEPTION 'anon can read unreviewed Kids, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
+    RAISE EXCEPTION 'anon can read Kids rows without matching human approval, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
   END IF;
 END
 $anon_read$;
@@ -34,7 +37,7 @@ DECLARE
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
   IF visible_rows <> 4 THEN
-    RAISE EXCEPTION 'authenticated non-admin must read only legacy general, explicit general, and QA-passed Kids rows; found %', visible_rows;
+    RAISE EXCEPTION 'authenticated non-admin must read only legacy general, explicit general, and Kids rows with complete human approval; found %', visible_rows;
   END IF;
   IF EXISTS (
     SELECT 1
@@ -43,10 +46,13 @@ BEGIN
       'legacy-sql-null-metadata',
       'legacy-no-audience',
       'explicit-general',
-      'kids-approved'
+      'kids-approved',
+      'kids-automated-only',
+      'kids-system-approved',
+      'kids-incomplete-human-review'
     )
   ) THEN
-    RAISE EXCEPTION 'authenticated non-admin can read unreviewed Kids, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
+    RAISE EXCEPTION 'authenticated non-admin can read Kids rows without matching human approval, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
   END IF;
 END
 $authenticated_read$;
@@ -59,8 +65,8 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 15 THEN
-    RAISE EXCEPTION 'service_role must retain full administrative visibility; found %', visible_rows;
+  IF visible_rows <> 18 THEN
+    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 18 fixtures; found %', visible_rows;
   END IF;
 END
 $service_role_read$;
@@ -93,8 +99,13 @@ BEGIN
      OR policy_qual NOT ILIKE '%audience%'
      OR policy_qual NOT ILIKE '%generator%'
      OR policy_qual NOT ILIKE '%kidsVideoQaStatus%'
-     OR policy_qual NOT ILIKE '%automatedVideoQa%' THEN
-    RAISE EXCEPTION 'video public-read policy must enforce canonical metadata and the full Kids QA contract';
+     OR policy_qual NOT ILIKE '%automatedVideoQa%'
+      OR policy_qual NOT ILIKE '%approvalStatus%'
+      OR policy_qual NOT ILIKE '%approvalReviewerId%'
+      OR policy_qual NOT ILIKE '%approvalReviewedAt%'
+      OR policy_qual NOT ILIKE '%approvalSnapshotHash%'
+      OR policy_qual NOT ILIKE '%qualityReview%' THEN
+    RAISE EXCEPTION 'video public-read policy must enforce canonical metadata, Kids QA and matching human approval';
   END IF;
   IF policy_roles NOT ILIKE '%anon%'
      OR policy_roles NOT ILIKE '%authenticated%'
