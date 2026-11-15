@@ -12,6 +12,9 @@ const kidsMetadata = {
   mediaState: "cloudinary_master",
   audience: "kids",
   kidsVideoQaStatus: "passed",
+  contentFormat: "series_episode",
+  aiMode: "original_kids_story",
+  sourceType: "original_kids_fiction",
   automatedVideoQa: { status: "passed", snapshotHash: "a".repeat(64) },
   approvalStatus: "approved",
   approvalReviewerId: "admin-user-1",
@@ -44,6 +47,21 @@ const kidsInput = {
 };
 
 assert.equal(evaluateVideoCatalogPublication(kidsInput).status, "approved");
+assert.equal(evaluateVideoCatalogPublication({
+  ...kidsInput,
+  queueAudience: " children ",
+  queueKidsContentQaStatus: " PASSED ",
+  row: { published: true, metadata: {
+    ...kidsMetadata,
+    audience: " KIDS ",
+    kidsVideoQaStatus: " PASSED ",
+  } },
+}).status, "approved", "catalog and queue must share normalized Kids audience and QA markers");
+assert.equal(evaluateVideoCatalogPublication({
+  ...kidsInput,
+  row: { published: true, metadata: { ...kidsMetadata, sourceType: undefined } },
+}).status, "blocked", "catalog must enforce the complete Kids series-episode source contract");
+
 assert.equal(evaluateVideoCatalogPublication({
   ...kidsInput,
   row: { published: true, metadata: {

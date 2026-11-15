@@ -1,4 +1,6 @@
 import { hasHumanKidsVideoApproval } from "../../videos/services/kids-video-publication";
+import { hasCompleteKidsVideoSeriesMetadata } from "../../videos/services/video-publish-approval";
+import { normalizeVideoAudience, normalizeVideoMarker } from "../../videos/services/video-audience-visibility";
 
 export type VideoCatalogPublicationDecision =
   | { status: "approved" }
@@ -26,9 +28,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function normalizeAudience(value: unknown): "kids" | "general" | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().toLowerCase();
-  return normalized === "kids" || normalized === "general" ? normalized : null;
+  return normalizeVideoAudience(value, false);
 }
 
 function isTrustedCloudinaryVideoUrl(value: string): boolean {
@@ -49,13 +49,7 @@ function isTrustedCloudinaryVideoUrl(value: string): boolean {
   }
 }
 
-function hasCompleteKidsSeriesMetadata(metadata: Record<string, unknown>): boolean {
-  return typeof metadata.seriesId === "string" && metadata.seriesId.trim().length > 0 &&
-    typeof metadata.seriesTitle === "string" && metadata.seriesTitle.trim().length > 0 &&
-    typeof metadata.seasonNumber === "number" && Number.isInteger(metadata.seasonNumber) && metadata.seasonNumber > 0 &&
-    typeof metadata.episodeNumber === "number" && Number.isInteger(metadata.episodeNumber) && metadata.episodeNumber > 0 &&
-    typeof metadata.learningObjective === "string" && metadata.learningObjective.trim().length > 0;
-}
+
 
 /**
  * Social publishing must not race the site's content-publishing queue. A
@@ -109,7 +103,7 @@ export function evaluateVideoCatalogPublication(
   }
 
   const automatedVideoQa = asRecord(metadata.automatedVideoQa);
-  if (automatedVideoQa?.status !== "passed") {
+  if (normalizeVideoMarker(automatedVideoQa?.status) !== "passed") {
     return { status: "blocked", reason: "The public video catalog does not contain a passed automated QA snapshot." };
   }
   const expectedApprovalSnapshotHash = input.expectedApprovalSnapshotHash?.trim() ?? "";
@@ -118,13 +112,13 @@ export function evaluateVideoCatalogPublication(
   }
 
   if (audience === "kids") {
-    if (input.queueKidsContentQaStatus !== "passed" || metadata.kidsVideoQaStatus !== "passed") {
+    if (normalizeVideoMarker(input.queueKidsContentQaStatus) !== "passed" || normalizeVideoMarker(metadata.kidsVideoQaStatus) !== "passed") {
       return { status: "blocked", reason: "Kids video QA is not passed in both the queue and public catalog." };
     }
     if (!hasHumanKidsVideoApproval(metadata, expectedApprovalSnapshotHash)) {
       return { status: "blocked", reason: "Kids videos require a matching human review record before external publishing." };
     }
-    if (!hasCompleteKidsSeriesMetadata(metadata)) {
+    if (!hasCompleteKidsVideoSeriesMetadata(metadata)) {
       return { status: "blocked", reason: "Kids video series metadata is incomplete in the public catalog." };
     }
   }
