@@ -493,6 +493,15 @@ assert.equal(containsKidsPersonalDataSolicitation("Don't ask what is your phone 
 assert.equal(containsKidsPersonalDataSolicitation("Don't share your phone number, but tell me your school."), true, "a separate positive solicitation must still be blocked after a safety-warning clause");
 assert.equal(containsKidsPersonalDataSolicitation("Do not share your phone number and tell me your school."), true, "a positive solicitation must still be blocked when joined to a safety warning with and");
 assert.equal(containsKidsPersonalDataSolicitation("Do not share your phone number or home address with anyone."), false, "conjoined English safety warnings must remain allowed");
+assert.equal(containsKidsPersonalDataSolicitation("اسمك ايه؟"), true, "Egyptian direct questions asking a child for their name must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("رقمك كام؟"), true, "Egyptian direct questions asking for a child's phone number must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("مدرستك فين؟"), true, "Egyptian direct questions asking for a child's school must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("انت ساكن فين؟"), true, "Egyptian location questions must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("فين بتدرس؟"), true, "Egyptian questions about a child's school location must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("عندك كام سنة؟"), true, "Egyptian questions asking for a child's age must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("ما هو رقمك؟"), true, "standard Arabic direct questions must remain blocked");
+assert.equal(containsKidsPersonalDataSolicitation("ما تبعتش رقمك لأي حد"), false, "Egyptian safety warnings must not be mistaken for requests for personal data");
+assert.equal(containsKidsPersonalDataSolicitation("ما تشاركش عنوان بيتك مع أي شخص"), false, "Egyptian warnings against sharing personal data must remain publishable");
 assert.equal(containsKidsPersonalDataSolicitation("ما الدرس الذي تعلمته من القصة؟"), false, "ordinary educational questions must remain allowed");
 
 const worker = readFileSync("scripts/jobs/written-content-automation.ts", "utf8");

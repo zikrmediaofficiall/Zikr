@@ -81,11 +81,14 @@ export function containsKidsPersonalDataSolicitation(value: string): boolean {
   .toLowerCase()
   .replace(/\s+/g, " ")
   .trim();
- const personalData = "(?:اسم(?:ك(?: الكامل)?| مدرستك| ولي امرك| والديك)|رقم(?:ك| هاتفك| هاتف| الموبايل| جوالك| الجوال| التليفون(?:ك| المحمول| الارضي)?| تليفون(?:ك| المحمول| الارضي)?| الفون| فونك| الواتساب| الواتس اب| واتس اب| واتسابك| واتساب| ولي امرك)|موبايلك|تليفونك|فونك|عنوانك|عنوان (?:بيتك|منزلك)|مدرستك|بريدك(?: الالكتروني)?|ايميلك|كلمة المرور|كلمة السر|موقعك|مكانك|صورتك|صورك|صورة لك|صورة شخصية|حسابك|اسم المستخدم|بياناتك الشخصية|معلوماتك الشخصية)";
+ const personalData = "(?:اسم(?:ك(?: الكامل)?| مدرستك| ولي امرك| والديك)|رقم(?:ك| هاتفك| هاتف| الموبايل| جوالك| الجوال| التليفون(?:ك| المحمول| الارضي)?| تليفون(?:ك| المحمول| الارضي)?| الفون| فونك| الواتساب| الواتس اب| واتس اب| واتسابك| واتساب| ولي امرك)|موبايلك|تليفونك|فونك|عنوانك|عنوان (?:بيتك|منزلك)|مدرستك|بريدك(?: الالكتروني)?|ايميلك|كلمة المرور|كلمة السر|موقعك|مكانك|صورتك|صورك|صورة لك|صورة شخصية|حسابك|اسم المستخدم|بياناتك الشخصية|معلوماتك الشخصية|عمرك|سنك|تاريخ ميلادك|عيد ميلادك)";
  const askVerbs = "(?:ارسل(?:لي)?|ابعث(?:لي)?|ابعت(?:لي)?|ابعتي(?:لي)?|شارك|اكتب(?:لي)?|اذكر|قل لي|قوللي|قولي|اخبرني|اعطني|اديني|تعطيني|هات(?:لي)?|وريني|اترك|ضع|سجل|ادخل|ارسل لي|ابعث لي|ابعت لي|ارسال|مشاركة|تبعت(?:لي)?|ترسل(?:لي)?|تديني|تقولي|تكتب(?:لي)?)";
  const channels = "(?:واتساب|واتس اب|تيليجرام|تلجرام|انستجرام|سناب(?: شات)?|فيسبوك|ماسنجر|الخاص|رسالة خاصة)";
  const asksForData = new RegExp("(?:^|\\s)" + askVerbs + "(?:\\s+[^.!؟?]{1,30})?\\s+" + personalData, "u");
- const asksDirectly = new RegExp("(?:^|\\s)(?:ما|ما هو|ما هي|اين|اين هو|اين هي)(?:\\s+[^.!؟?]{0,24})?\\s+" + personalData, "u");
+ const asksDirectly = new RegExp("(?:^|\\s)(?:ما(?:\\s+(?:هو|هي))?|ايه(?:\\s+(?:هو|هي))?|اين(?:\\s+(?:هو|هي))?|فين(?:\\s+(?:هو|هي))?|متى)\\s+" + personalData, "u");
+ const asksEgyptianPersonalData = new RegExp("(?:^|\\s)" + personalData + "\\s+(?:ايه|كام|كم|فين|وين)(?:\\s|$)", "u");
+ const asksEgyptianAge = /(?:^|\\s)(?:عندك|عمرك|سنك)\\s+(?:كام|كم)(?:\\s+سنة)?(?:\\s|$)|(?:^|\\s)كام\\s+سنة(?:\\s+عندك)?(?:\\s|$)/u;
+ const asksEgyptianLocation = /(?:^|\\s)(?:(?:فين|وين|اين)\\s+(?:(?:انت|انتي)\\s+)?(?:ساكن(?:ة)?|عايش(?:ة)?|بتسكن|بتعيش|بتدرس|بتروح(?:\\s+المدرسة)?|بتسكني|بتعيشي)|(?:(?:انت|انتي)\\s+)?(?:ساكن(?:ة)?|عايش(?:ة)?|بتسكن|بتعيش|بتدرس|بتروح(?:\\s+المدرسة)?|بتسكني|بتعيشي)\\s+(?:فين|وين)|(?:انت|انتي)\\s+(?:فين|وين)|(?:فين|وين)\\s+(?:انت|انتي))(?:\\s|$)/u;
  const asksForContact = new RegExp("(?:^|\\s)(?:راسلني|تواصل معي|اتصل بي|قابلني|كلمني)(?:\\s+[^.!؟?]{1,30})?(?:" + channels + ")?", "u");
  const asksInEnglish = /\b(?:can i have|may i have|could i get|would you share|send|share|tell me|give me|write|enter|leave|dm|message|contact|call|meet|text me)\b[\s\S]{0,45}\b(?:your (?:full )?name|phone(?: number)?|home(?: address)?|address|school|email|password|location|photo|picture|selfie|account|username|whatsapp|telegram|instagram|snapchat|facebook|age|birthday|date of birth|where you live)\b/i;
  const asksDirectlyInEnglish = /\b(?:what(?:['’]s|\s+is)|where(?:['’]s|\s+is)|which(?:\s+is)?)\b[\s\S]{0,45}\byour\s+(?:full\s+)?(?:name|phone(?:\s+number)?|home(?:\s+address)?|address|school|email|password|location|photo|picture|selfie|account|username|whatsapp|telegram|instagram|snapchat|facebook|age|birthday|date\s+of\s+birth)\b/i;
@@ -103,7 +106,9 @@ export function containsKidsPersonalDataSolicitation(value: string): boolean {
    privateEnglishContact.test(candidate);
  });
  return asksForData.test(normalized) || asksDirectly.test(normalized) ||
-  asksForContact.test(normalized) || asksForPrivateChannel.test(normalized) ||
+  asksEgyptianPersonalData.test(normalized) || asksEgyptianAge.test(normalized) ||
+  asksEgyptianLocation.test(normalized) || asksForContact.test(normalized) ||
+  asksForPrivateChannel.test(normalized) || asksEnglish;
   asksEnglish;
 }
 
