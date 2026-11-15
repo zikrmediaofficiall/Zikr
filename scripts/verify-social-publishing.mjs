@@ -29,6 +29,8 @@ const socialQueueMetadataService = read("src/features/social/services/social-que
 const cleanupPolicy = read("src/features/social/services/published-video-cleanup.ts");
 const youtubeCredentials = read("src/features/social/services/youtube-oauth-credentials.ts");
 const videoPublishApproval = read("src/features/videos/services/video-publish-approval.ts");
+const kidsVideoPublication = read("src/features/videos/services/kids-video-publication.ts");
+const videoCatalogPolicy = read("src/features/social/services/video-catalog-publication-policy.ts");
 const backgroundJobSettings = read("src/features/videos/services/background-job-settings.ts");
 const videoAutomation = read("src/features/videos/services/video-automation.ts");
 const socialWorkflow = read(".github/workflows/publish-social.yml");
@@ -110,7 +112,7 @@ if (!runner.includes('"social"') || runner.includes("reconcileCompletedVideoSoci
 if (!videoWorkflow.includes('AUTO_VIDEO_PUBLISH_ENABLED: "true"') ||
     !videoWorkflow.includes('AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"') ||
     !videoWorkflow.includes('BACKGROUND_JOB_TARGET: "videos"')) {
-  failures.push("video generation must enqueue only automated-QA-approved social candidates without a manual review gate");
+  failures.push("video generation may enqueue automated-QA candidates, but Kids external delivery must retain its separate human-review gate");
 }
 if (!videoGenerator.includes("async function queueSocialItems") ||
     !videoGenerator.includes("socialQueueResult = await withLeaseHeartbeat(") ||
@@ -128,6 +130,12 @@ if (!videoPublishApproval.includes("export function hasCompleteKidsVideoSeriesMe
     !videoPublishApproval.includes("content?.audience === \"kids\"")) {
   failures.push("Kids video catalog visibility and social publishing must share one complete series-episode contract");
 }
+if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
+    !videoPublishApproval.includes("inspectVideoQueueItemExternalApproval") ||
+    !videoPublishApproval.includes("isHumanVideoApprovalRecorded") ||
+    !videoCatalogPolicy.includes("hasHumanKidsVideoApproval")) {
+  failures.push("Kids external social publishing must require a matching human review record in both the generation request and public catalog");
+}
 if (!videoGenerator.includes("getYouTubeUploadRefreshToken") ||
     !videoGenerator.includes("getOptionalFacebookPageCredentials") ||
     videoGenerator.includes("getFacebookPageCredentials().catch(() => null)") ||
@@ -142,8 +150,8 @@ if (youtubeCredentials.includes("export async function getYouTubeUploadRefreshTo
   failures.push("YouTube upload credential-store errors must propagate to retryable publishing paths instead of appearing unconfigured");
 }
 if (!socialPublishingService.includes("hasVideoApprovalForQueueItem") ||
-    !socialPublishingService.includes("Video held because automated QA is missing") ||
-    !socialPublishingService.includes("Automated QA lookup failed; holding video item")) {
+    !socialPublishingService.includes("Video held because automated QA or Kids human review is missing") ||
+    !socialPublishingService.includes("Video approval lookup failed; holding video item")) {
   failures.push("the social worker must fail closed and revalidate the automated QA snapshot before provider calls");
 }
 if (!socialPublishingService.includes("syncYouTubeVideoReferenceToCatalog") ||
@@ -435,10 +443,10 @@ if (!adminClient.includes('const REMOTE_DELETE_PLATFORMS = new Set<string>(["fac
   failures.push("YouTube remote deletion must remain disabled in the UI while the least-privilege OAuth policy excludes delete scopes");
 }
 if (adminClient.includes("اعتمد الفيديو أولًا") ||
-    adminClient.includes("موقوف لمراجعة الجودة") ||
-    !adminClient.includes("فحوص الجودة الآلية غير مكتملة") ||
-    !adminClient.includes("تنتقل للنشر تلقائيًا")) {
-  failures.push("social center must show automated QA diagnostics and must not prompt for manual video approval");
+    !adminClient.includes("مراجعة الفيديو غير مكتملة") ||
+    !adminClient.includes("فيديوهات الأطفال تحتاج اعتمادًا بشريًا موثقًا") ||
+    !adminClient.includes("الفيديوهات العامة المؤهلة تنتقل للنشر تلقائيًا")) {
+  failures.push("social center must explain the Kids human-review gate while preserving automatic publishing for eligible general-audience videos");
 }
 if (!writtenWorker.includes('"articles"') ||
     !writtenWorker.includes("content_publish_queue") ||

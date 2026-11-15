@@ -122,11 +122,15 @@ for (const token of [
   if (!socialPublisher.includes(token)) failures.push(`social publisher missing automated delivery contract: ${token}`);
 }
 const approvalService = read("src/features/videos/services/video-publish-approval.ts");
+const kidsVideoPublication = read("src/features/videos/services/kids-video-publication.ts");
+const adminVideoRequestsClient = read("src/features/admin/video-requests/components/admin-video-requests-client.tsx");
 for (const token of [
   "AUTOMATED_VIDEO_QA_ENGINE",
   "AUTOMATED_VIDEO_QA_VERSION",
   "AUTOMATED_VIDEO_QA_REVIEWER_ID",
   "createAutomatedVideoQaApproval",
+  "isHumanVideoApprovalRecorded",
+  "inspectVideoQueueItemExternalApproval",
   "buildVideoApprovalSnapshotHash",
   'snapshot.audience === "kids" && snapshot.kidsVideoQaStatus !== "passed"',
   'content.kidsVideoQaStatus !== "passed"',
@@ -153,6 +157,15 @@ for (const token of [
   if (!kidsVideoPublicReadMigration.includes(token)) {
     failures.push("Kids video public-read migration missing QA-gated RLS contract: " + token);
   }
+}
+if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
+    !kidsVideoPublication.includes('qualityReview?.mode === "human"') ||
+    !kidsVideoPublication.includes("REQUIRED_KIDS_VIDEO_HUMAN_REVIEW_CHECKS.every")) {
+  failures.push("Kids external publishing must use a separate complete human review record after automated QA");
+}
+if (!adminVideoRequestsClient.includes("hasHumanKidsVideoApproval") ||
+    !adminVideoRequestsClient.includes("مراجعة بشرية إلزامية لفيديو الأطفال")) {
+  failures.push("the admin video review screen must keep automated-only Kids videos available for human review");
 }
 if (/DELETE FROM|TRUNCATE TABLE|DROP TABLE|DISABLE ROW LEVEL SECURITY/i.test(kidsVideoPublicReadMigration)) {
   failures.push("Kids video public-read migration must not mutate video data or disable RLS");

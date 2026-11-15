@@ -240,7 +240,7 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
     provider: "GitHub Actions",
     trigger: "after_video_generation_or_manual",
     approvalRequired: true,
-    note: "النشر التلقائي بعد توليد الفيديو واجتياز فحوص الجودة الآلية.",
+    note: "الفيديوهات العامة بعد اجتياز الفحص الآلي؛ فيديوهات الأطفال بعد اعتماد بشري موثق.",
   });
   const [oldestQueuedAt, setOldestQueuedAt] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | Status>("all");
@@ -808,9 +808,9 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
             <span className="mt-1 block text-xs text-brand-cream/40">الطابور الذي يمكن للعامل معالجته</span>
           </button>
           <button type="button" onClick={() => setActiveView("queue")} className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-right transition hover:bg-amber-400/10">
-            <span className="text-xs text-brand-cream/55">موقوف — فحوص الجودة الآلية غير مكتملة</span>
+            <span className="text-xs text-brand-cream/55">موقوف — مراجعة الفيديو غير مكتملة</span>
             <span className="mt-1 block text-2xl font-bold text-amber-200">{readiness.approvalPending}</span>
-            <span className="mt-1 block text-xs text-brand-cream/40">اعتماد بشري مطلوب قبل النشر</span>
+            <span className="mt-1 block text-xs text-brand-cream/40">اعتماد بشري لفيديو الأطفال أو استكمال فحص الجودة</span>
           </button>
           <button type="button" onClick={() => setActiveView("published")} className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-right transition hover:bg-emerald-400/10">
             <span className="text-xs text-brand-cream/55">فيديوهات منشورة</span>
@@ -1145,7 +1145,7 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
               الإجراءات السريعة
             </h2>
             <p className="text-xs text-brand-cream/40">
-              العناصر التي لم تجتز فحوص الجودة الآلية لا تُنشر. أصلح سبب الفشل وأعد التوليد؛ الفيديوهات التي تجتاز الفحص تنتقل للنشر تلقائيًا. تبقى نتائج القنوات الناجحة محفوظة لمنع التكرار.
+              العناصر التي لم تجتز الفحص لا تُنشر. فيديوهات الأطفال تحتاج اعتمادًا بشريًا موثقًا بعد الفحص الآلي؛ الفيديوهات العامة المؤهلة تنتقل للنشر تلقائيًا. تبقى نتائج القنوات الناجحة محفوظة لمنع التكرار.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1246,7 +1246,7 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
                     <td className="p-3 text-xs">
                       {item.videoApproval && !item.videoApproval.approved && (
                         <div className="mb-2 space-y-1 rounded-lg border border-amber-400/20 bg-amber-400/5 p-2 text-amber-200">
-                          <p className="font-semibold">موقوف — فحوص الجودة الآلية غير مكتملة</p>
+                          <p className="font-semibold">موقوف — مراجعة الفيديو غير مكتملة</p>
                           <p className="leading-5">{item.videoApproval.reason}</p>
                           {!!item.videoApproval.missingChecks.length && (
                             <p className="text-[11px] text-amber-100/70">الناقص: {item.videoApproval.missingChecks.map(key => QA_CHECK_LABELS[key] ?? key).join("، ")}</p>
@@ -1317,7 +1317,7 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
                   <p className="text-brand-cream/45">الموعد: <span dir="ltr">{item.scheduled_at ?? "فوري"}</span></p>
                   {item.videoApproval && !item.videoApproval.approved && (
                     <div className="space-y-1 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3 text-amber-200">
-                      <p className="font-semibold">موقوف — فحوص الجودة الآلية غير مكتملة</p>
+                      <p className="font-semibold">موقوف — مراجعة الفيديو غير مكتملة</p>
                       <p>{item.videoApproval.reason}</p>
                       {!!item.videoApproval.missingChecks.length && <p className="text-[11px]">الناقص: {item.videoApproval.missingChecks.map(key => QA_CHECK_LABELS[key] ?? key).join("، ")}</p>}
                       <Link href="/admin/video/requests" className="inline-flex font-semibold text-brand-gold underline underline-offset-2">عرض تشخيص فحوص الفيديو</Link>

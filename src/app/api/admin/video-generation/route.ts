@@ -253,7 +253,7 @@ export async function PATCH(request: NextRequest) {
         (auditError) => console.error("[api/admin/video-generation] audit event failed after committed mutation:", auditError),
       );
       return NextResponse.json({ ok: true, auditRecorded, approvalStatus: 'approved', catalogApprovalRecorded: true,
-        note: 'تم تسجيل اعتماد الفيديو للمكتبة الداخلية؛ سيعالجه طابور النشر المجدول بعد التحقق من سلامة الوسائط. لا يتم نشره على منصات خارجية.' });
+        note: 'تم تسجيل الاعتماد البشري للمكتبة الداخلية. لن يحدث نشر فوري؛ سيعيد العامل التحقق من بصمة الفيديو والوسائط والقنوات قبل أي نشر مجدول.' });
     }
 
     if (action === "retry_publish") {

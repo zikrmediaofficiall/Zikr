@@ -138,7 +138,7 @@ async function hasVideoApprovalForQueueItem(item: SocialPublishQueueItem): Promi
       request: rows?.[0] ?? null,
     });
   } catch (error) {
-    console.error("[social-publishing] Automated QA lookup failed; holding video item:", item.id, error);
+    console.error("[social-publishing] Video approval lookup failed; holding video item:", item.id, error);
     return false;
   }
 }
@@ -607,7 +607,7 @@ async function publishPlatform(
       };
     }
     if (!(await hasVideoApprovalForQueueItem(item))) {
-      return { platform, ok: false, approvalBlocked: true, error: "Video held because automated QA is missing, incomplete or stale." };
+      return { platform, ok: false, approvalBlocked: true, error: "Video held because automated QA or Kids human review is missing, incomplete or stale." };
     }
     const catalogApproval = await checkVideoCatalogPublication(item);
     if (catalogApproval.status === "blocked") {
