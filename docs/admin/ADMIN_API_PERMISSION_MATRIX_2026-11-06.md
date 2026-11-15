@@ -11,7 +11,7 @@
 | GET | `/api/admin/media` | `media.manage` |
 | POST | `/api/admin/media` | `media.manage` |
 | PATCH | `/api/admin/media` | `media.manage` |
-| GET | `/api/admin/overview` | `dashboard.view` |
+| GET | `/api/admin/overview` | `dashboard.view` — video queue counts additionally require `video.manage`; social queue counts additionally require `social.manage`; no cross-domain table totals are returned |
 | POST | `/api/admin/page-view` | `admin.access` — records the current admin route after removing query strings and fragments; it is write-only telemetry, not analytics data access |
 | GET | `/api/admin/sections` | `sections.manage` |
 | POST | `/api/admin/sections` | `sections.manage` |
