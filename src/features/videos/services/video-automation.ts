@@ -209,12 +209,16 @@ export async function createVideoGenerationRequest(data: {
 
 export async function getPendingVideoRequests(limit = 100): Promise<VideoGenerationRequest[]> {
   try {
-    return (await supabaseServerAdminRequest<VideoGenerationRequest[]>(
+    const rows = await supabaseServerAdminRequest<unknown>(
       `/rest/v1/video_generation_requests?status=eq.pending&order=created_at.asc&limit=${Math.max(1, Math.min(500, limit))}`,
-    )) ?? [];
+    );
+    if (!Array.isArray(rows)) {
+      throw new Error("Pending video request query returned an invalid row set.");
+    }
+    return rows as VideoGenerationRequest[];
   } catch (error) {
     console.error('[video-automation] Failed to fetch pending requests:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -248,12 +252,16 @@ export async function claimPendingVideoRequests(limit = 100): Promise<VideoGener
 
 export async function getAllVideoRequests(): Promise<VideoGenerationRequest[]> {
   try {
-    return (await supabaseServerAdminRequest<VideoGenerationRequest[]>(
+    const rows = await supabaseServerAdminRequest<unknown>(
       '/rest/v1/video_generation_requests?order=created_at.desc&limit=200',
-    )) ?? [];
+    );
+    if (!Array.isArray(rows)) {
+      throw new Error("Video request inventory query returned an invalid row set.");
+    }
+    return rows as VideoGenerationRequest[];
   } catch (error) {
     console.error('[video-automation] Failed to fetch video requests:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -273,10 +281,13 @@ export async function updateVideoRequestStatus(
     if (metadata?.videoUrl) body.video_url = metadata.videoUrl;
     let expectedUpdatedAt: string | null = null;
     if (status === 'pending') {
-      const existingContentRows = await supabaseServerAdminRequest<Array<{ content: unknown; status: string; updated_at: string }>>(
+      const existingContentRows = await supabaseServerAdminRequest<unknown>(
         '/rest/v1/video_generation_requests?id=eq.' + encodeURIComponent(videoId) + '&select=content,status,updated_at&limit=1',
       );
-      const existingRow = existingContentRows?.[0];
+      if (!Array.isArray(existingContentRows)) {
+        throw new Error("Video retry preflight query returned an invalid row set.");
+      }
+      const existingRow = existingContentRows[0] as { content: unknown; status: string; updated_at: string } | undefined;
       if (!existingRow || (expectedStatus && existingRow.status !== expectedStatus)) return false;
       expectedUpdatedAt = existingRow.updated_at;
       const existing = existingRow.content;
@@ -297,14 +308,17 @@ export async function updateVideoRequestStatus(
     const filter = expectedStatus && expectedUpdatedAt
       ? `id=eq.${encodeURIComponent(videoId)}&status=eq.${encodeURIComponent(expectedStatus)}&updated_at=eq.${encodeURIComponent(expectedUpdatedAt)}`
       : `id=eq.${encodeURIComponent(videoId)}`;
-    const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(
+    const updated = await supabaseServerAdminRequest<unknown>(
       `/rest/v1/video_generation_requests?${filter}`,
       { method: 'PATCH', headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify(body) },
     );
-    return Array.isArray(updated) && updated.length > 0;
+    if (!Array.isArray(updated)) {
+      throw new Error("Video request update returned an invalid row set.");
+    }
+    return updated.length > 0;
   } catch (error) {
     console.error('[video-automation] Failed to update video request:', error);
-    return false;
+    throw error;
   }
 }
 

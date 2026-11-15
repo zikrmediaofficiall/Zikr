@@ -88,7 +88,7 @@ export default async function AyahPage({ params }: AyahPageProps) {
 
           <div className='mt-8 flex items-center justify-between pt-6 border-t'>
             <div className="flex gap-4">
-              <BookmarkButton keyRef={`quran:${surahId}:${ayah.numberInSurah}`} />
+              <BookmarkButton keyRef={`quran:${surahId}:${ayah.numberInSurah}`} itemType="quran" />
               <ShareButton
                 title={`سورة ${surahMeta.name} — الآية ${ayah.numberInSurah}`}
                 text={ayah.text}

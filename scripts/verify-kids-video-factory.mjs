@@ -99,8 +99,21 @@ for (const token of [
   if (!kidsHome.includes(token)) failures.push("Kids home must display approved generated stories, videos, and social posts: " + token);
 }
 
+const kidsVideoService = read("src/features/videos/services/videos.ts");
+for (const token of [
+  "classifyKidsVideoGenerationRequestId",
+  "loadKidsSocialQueueRows([requestIdState.id], request)",
+  "resolveKidsVideoSocialPublication(rows, stored, true, false)",
+  "export async function getKidsGeneratedVideoBySlug",
+]) {
+  if (!kidsVideoService.includes(token)) failures.push("Kids detail service must resolve queue-backed publication state and fail closed for empty histories: " + token);
+}
+
 const kidsFeedRoute = read("src/app/api/kids/videos/route.ts");
 for (const token of [
+  "classifyKidsVideoGenerationRequestId",
+  'requestIdState.kind === "invalid"',
+  'requestIdState.kind === "missing"',
   "getKidsGeneratedVideos(60)",
   "storyText:",
   "socialCaption:",
@@ -119,6 +132,8 @@ for (const token of [
   'const SOCIAL_PLATFORMS = new Set(["youtube", "facebook", "facebook_reels"])',
   "getConfirmedPublicKidsVideoSocialPlatforms",
   "isPublicKidsVideoSocialQueueRow",
+  "classifyKidsVideoGenerationRequestId",
+  "allowStoredFallback = true",
 ]) {
   if (!kidsSocialVisibility.includes(token)) failures.push("Kids feed social visibility must enforce the confirmed platform allowlist: " + token);
 }

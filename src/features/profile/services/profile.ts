@@ -84,6 +84,17 @@ export async function getCurrentProfileData(): Promise<CurrentProfileData | null
         .limit(10),
     ]);
 
+  if (profileRes.error) throw profileRes.error;
+  if (favoritesRes.error) throw favoritesRes.error;
+  if (progressRes.error) throw progressRes.error;
+  if (
+    !Array.isArray(profileRes.data) ||
+    !Array.isArray(favoritesRes.data) ||
+    !Array.isArray(progressRes.data)
+  ) {
+    throw new Error("Profile data query returned an invalid row set.");
+  }
+
   const effectiveRole = resolveAdminRole(
     profileRes.data?.[0]?.role,
     assignmentRes.data?.role,

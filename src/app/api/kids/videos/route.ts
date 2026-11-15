@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import { getKidsGeneratedVideos } from "@/features/videos/services/videos";
 import { isKidsVideoGenerationRequestContent } from "@/features/kids/services/kids-video-request-visibility";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
-import { getConfirmedPublicKidsVideoSocialPlatforms, resolveKidsVideoSocialPublication } from "@/features/social/services/kids-video-social-visibility";
+import { classifyKidsVideoGenerationRequestId, getConfirmedPublicKidsVideoSocialPlatforms, resolveKidsVideoSocialPublication } from "@/features/social/services/kids-video-social-visibility";
 import { loadKidsSocialQueueRows, type KidsSocialQueueRow } from "@/features/social/services/kids-video-social-query";
 
 export const dynamic = "force-dynamic";
-
-const VIDEO_GENERATION_REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -24,10 +22,10 @@ export async function GET() {
     // This service enforces published=true, audience=kids, the Kids generator marker,
     // a passed Kids-specific automated QA snapshot, and playable media.
     const videos = await getKidsGeneratedVideos(60);
-    const requestIds = [...new Set(videos
-      .map((video) => video.metadata?.videoGenerationRequestId)
-      .filter((id): id is string => typeof id === "string" && VIDEO_GENERATION_REQUEST_ID_PATTERN.test(id.trim()))
-      .map((id) => id.trim()))];
+    const requestIds = [...new Set(videos.flatMap((video) => {
+      const state = classifyKidsVideoGenerationRequestId(video.metadata?.videoGenerationRequestId);
+      return state.kind === "valid" ? [state.id] : [];
+    }))];
 
     let requestContentById = new Map<string, Record<string, unknown>>();
     const socialQueueByRequestId = new Map<string, KidsSocialQueueRow[]>();
@@ -69,11 +67,12 @@ export async function GET() {
 
     const feed = videos.map((video) => {
       const metadata = video.metadata ?? {};
-      const requestId = typeof metadata.videoGenerationRequestId === "string"
-        ? metadata.videoGenerationRequestId
-        : "";
+      const requestIdState = classifyKidsVideoGenerationRequestId(metadata.videoGenerationRequestId);
+      const requestId = requestIdState.kind === "valid" ? requestIdState.id : "";
       const requestContent = requestContentById.get(requestId) ?? {};
-      const socialQueueRows = socialQueueByRequestId.get(requestId) ?? [];
+      const socialQueueRows = requestIdState.kind === "valid"
+        ? socialQueueByRequestId.get(requestId) ?? []
+        : [];
       const socialQueueForCaption = socialQueueRows.find((row) => confirmedSocialPlatforms(row).length > 0) ?? null;
       const storyText = typeof metadata.storyText === "string"
         ? metadata.storyText
@@ -106,7 +105,14 @@ export async function GET() {
         learningObjective: typeof metadata.learningObjective === "string"
           ? metadata.learningObjective
           : typeof requestContent.learningObjective === "string" ? requestContent.learningObjective : null,
-        socialPublication: resolveKidsVideoSocialPublication(socialQueueRows, metadata.socialPublication, socialQueueReadSucceeded),
+        socialPublication: requestIdState.kind === "invalid"
+          ? null
+          : resolveKidsVideoSocialPublication(
+              socialQueueRows,
+              metadata.socialPublication,
+              requestIdState.kind === "missing" || socialQueueReadSucceeded,
+              requestIdState.kind === "missing",
+            ),
       };
     });
 

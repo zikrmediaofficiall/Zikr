@@ -71,7 +71,7 @@ export default async function HadithDetail({ params }: HadithDetailPageProps) {
 
             <div className='flex items-center justify-between pt-6 border-t'>
               <div className="flex gap-4">
-                <BookmarkButton keyRef={`hadith:${bookSlug}:${h.number}`} />
+                <BookmarkButton keyRef={`hadith:${bookSlug}:${h.number}`} itemType="hadith" />
                 <ShareButton
                   title={isEnglish ? `Hadith ${h.number}` : `حديث رقم ${h.number}`}
                   text={display.text}

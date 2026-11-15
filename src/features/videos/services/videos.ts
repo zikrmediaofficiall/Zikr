@@ -6,7 +6,7 @@ import type { VideoCategory, Video } from "@/features/videos/types/videos";
 import { FALLBACK_VIDEO_CATEGORIES, FALLBACK_VIDEOS } from "@/features/videos/data/fallback";
 import { defaultOgImage } from "@/lib/site";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
-import { resolveKidsVideoSocialPublication } from "@/features/social/services/kids-video-social-visibility";
+import { classifyKidsVideoGenerationRequestId, resolveKidsVideoSocialPublication } from "@/features/social/services/kids-video-social-visibility";
 import { loadKidsSocialQueueRows, type KidsSocialQueueRequest } from "@/features/social/services/kids-video-social-query";
 import { resolveVideoMediaUrl, resolveVideoThumbnail, resolveVideoYoutubeId } from "./video-media-contract";
 
@@ -167,18 +167,18 @@ export async function getKidsGeneratedVideos(limit = 60): Promise<Video[]> {
     }));
 }
 
-const VIDEO_GENERATION_REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 async function resolveKidsVideoSocialPublicationForDetail(requestId: unknown, stored: unknown) {
-  if (typeof requestId !== "string" || !VIDEO_GENERATION_REQUEST_ID_PATTERN.test(requestId)) {
-    return resolveKidsVideoSocialPublication([], stored, true);
+  const requestIdState = classifyKidsVideoGenerationRequestId(requestId);
+  if (requestIdState.kind === "missing") {
+    return resolveKidsVideoSocialPublication([], stored, true, true);
   }
+  if (requestIdState.kind === "invalid") return null;
 
   try {
     const request: KidsSocialQueueRequest = <T>(path: string) =>
       supabaseServerAdminRequest<T>(path, { timeoutMs: 8000, retries: 1, cache: "no-store" });
-    const rows = await loadKidsSocialQueueRows([requestId], request);
-    return resolveKidsVideoSocialPublication(rows, stored, true);
+    const rows = await loadKidsSocialQueueRows([requestIdState.id], request);
+    return resolveKidsVideoSocialPublication(rows, stored, true, false);
   } catch (error) {
     console.warn("[content] Failed to reconcile Kids video social publication:", error);
     return null;

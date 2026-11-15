@@ -87,3 +87,22 @@ test("profile timezone updates reject invalid IANA timezone values", () => {
   assert.match(profileService, /normalizeIanaTimeZone\(candidate\)/);
   assert.match(profileService, /timezone must be a valid IANA timezone/);
 });
+
+
+test("profile data reads fail visibly instead of presenting database errors as empty sections", () => {
+  const profileService = readFileSync(
+    "src/features/profile/services/profile.ts",
+    "utf8",
+  );
+
+  for (const result of ["profileRes", "favoritesRes", "progressRes"]) {
+    assert.ok(
+      profileService.includes(`if (${result}.error) throw ${result}.error;`),
+      `${result} database failures must propagate to the caller`,
+    );
+  }
+
+  assert.ok(profileService.includes("!Array.isArray(profileRes.data)"));
+  assert.ok(profileService.includes("!Array.isArray(favoritesRes.data)"));
+  assert.ok(profileService.includes("!Array.isArray(progressRes.data)"));
+});

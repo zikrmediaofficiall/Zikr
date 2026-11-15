@@ -4,6 +4,10 @@ import {
   type KidsSocialQueueRow,
   type KidsSocialQueueRequest,
 } from "../../src/features/social/services/kids-video-social-query";
+import {
+  classifyKidsVideoGenerationRequestId,
+  resolveKidsVideoSocialPublication,
+} from "../../src/features/social/services/kids-video-social-visibility";
 
 const requestId = "60000000-0000-4000-8000-000000000001";
 const queueId = (value: number) =>
@@ -107,4 +111,56 @@ await assert.rejects(
 );
 assert.equal(oversizedCall, 11, "the bounded scan must stop on the first row beyond its 5,000-row cap");
 
-console.log("Kids social queue keyset pagination and fail-closed limits passed.");
+const staleCatalogPublication = {
+  status: "published",
+  platforms: ["youtube"],
+  publishedAt: "2026-11-14T23:00:00.000Z",
+};
+const confirmedQueuePublication: KidsSocialQueueRow = {
+  ...queueRow(queueId(9000), "2026-11-15T05:00:00.000Z"),
+  metadata: {
+    audience: "kids",
+    platformResults: {
+      facebook: { ok: true, remoteId: "facebook-video-9000" },
+    },
+  },
+};
+
+assert.deepEqual(classifyKidsVideoGenerationRequestId(null), { kind: "missing" });
+assert.deepEqual(
+  classifyKidsVideoGenerationRequestId("  " + requestId + " "),
+  { kind: "valid", id: requestId },
+);
+assert.deepEqual(classifyKidsVideoGenerationRequestId("not-a-request-id"), { kind: "invalid" });
+assert.deepEqual(classifyKidsVideoGenerationRequestId(42), { kind: "invalid" });
+
+assert.deepEqual(
+  resolveKidsVideoSocialPublication([confirmedQueuePublication], staleCatalogPublication, true, false),
+  {
+    status: "published",
+    platforms: ["facebook"],
+    publishedAt: "2026-11-15T05:00:00.000Z",
+  },
+  "the queue ledger must override stale catalog publication metadata",
+);
+assert.equal(
+  resolveKidsVideoSocialPublication([], staleCatalogPublication, true, false),
+  null,
+  "a valid request ID with an empty queue history must not fall back to stale catalog metadata",
+);
+assert.equal(
+  resolveKidsVideoSocialPublication([], staleCatalogPublication, false, true),
+  null,
+  "a failed queue read must not fall back to stale catalog metadata",
+);
+assert.deepEqual(
+  resolveKidsVideoSocialPublication([], staleCatalogPublication, true, true),
+  {
+    status: "published",
+    platforms: ["youtube"],
+    publishedAt: "2026-11-14T23:00:00.000Z",
+  },
+  "only rows with no generation request ID may use the legacy catalog fallback",
+);
+
+console.log("Kids social queue pagination, request-ID classification, and fail-closed publication visibility passed.");

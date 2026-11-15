@@ -15,6 +15,7 @@ const contentPublisher = read("scripts/jobs/content-publishing.ts");
 const studioClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
 const templateClient = read("src/features/admin/video-templates/components/template-studio-client.tsx");
 const uploadField = read("src/features/admin/components/video-upload-field.tsx");
+const videoAutomation = read("src/features/videos/services/video-automation.ts");
 
 assert.match(
   route,
@@ -86,4 +87,23 @@ assert.equal(
   `Admin Video Factory verification must accept the step-up-protected create and narration-upload routes.\\n${verifierRun.stdout}\\n${verifierRun.stderr}`,
 );
 
-console.log("Admin video generation and retry step-up regression contract passed.");
+const pendingInventoryStart = videoAutomation.indexOf("export async function getPendingVideoRequests");
+const claimStart = videoAutomation.indexOf("/** Optimistic queue claim.", pendingInventoryStart);
+const pendingInventory = videoAutomation.slice(pendingInventoryStart, claimStart);
+assert.match(pendingInventory, /if \(!Array\.isArray\(rows\)\)/);
+assert.match(pendingInventory, /throw error;/);
+
+const allInventoryStart = videoAutomation.indexOf("export async function getAllVideoRequests");
+const updateStart = videoAutomation.indexOf("export async function updateVideoRequestStatus", allInventoryStart);
+const allInventory = videoAutomation.slice(allInventoryStart, updateStart);
+assert.match(allInventory, /if \(!Array\.isArray\(rows\)\)/);
+assert.match(allInventory, /throw error;/);
+
+const updateStatusStart = videoAutomation.indexOf("export async function updateVideoRequestStatus");
+const metadataStart = videoAutomation.indexOf("export function generateYoutubeMetadata", updateStatusStart);
+const updateStatus = videoAutomation.slice(updateStatusStart, metadataStart);
+assert.match(updateStatus, /if \(!Array\.isArray\(existingContentRows\)\)/);
+assert.match(updateStatus, /if \(!Array\.isArray\(updated\)\)/);
+assert.match(updateStatus, /throw error;/);
+
+console.log("Admin video generation, retry step-up, and queue-read failure contracts passed.");
