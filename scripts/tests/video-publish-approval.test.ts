@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
 import { normalizeVideoAudience } from "../../src/features/videos/services/video-audience-visibility";
-import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, resolveKidsVideoQaStatusForApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
 assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
 assert.equal(hasSuspiciousReligiousAttribution("قَالَ رَسُولُ اللَّهِ ﷺ"), true, "Arabic diacritics must not bypass attribution detection");
@@ -340,6 +340,64 @@ assert.equal(catalogPatch?.metadata.approvalStatus, "approved");
 assert.equal(catalogPatch?.metadata.approvalReviewerId, "admin-user-1");
 assert.equal((catalogPatch?.metadata.qualityReview as Record<string, unknown>).mode, "human");
 assert.equal(catalogPatch?.metadata.storyText, "قصة تعليمية محفوظة كما هي", "catalog approval must preserve existing content metadata");
+
+const kidsSeriesFields = [
+  "contentFormat", "aiMode", "sourceType", "seriesId", "seriesTitle",
+  "learningObjective", "seasonNumber", "episodeNumber",
+];
+const legacyCatalogMetadata = Object.fromEntries(
+  Object.entries(catalogMetadata).filter(([key]) => !kidsSeriesFields.includes(key)),
+);
+const legacyRequestContent = { ...catalogRequestContent };
+delete legacyRequestContent.kidsVideoQaStatus;
+const legacyKidsQaStatus = resolveKidsVideoQaStatusForApproval({
+  requestContent: legacyRequestContent,
+  catalogMetadata: legacyCatalogMetadata,
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+});
+assert.equal(legacyKidsQaStatus, "passed", "a matching catalog QA record may backfill the missing legacy request QA marker");
+const legacyCatalogPatch = buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: legacyCatalogMetadata,
+  requestContent: { ...legacyRequestContent, kidsVideoQaStatus: legacyKidsQaStatus },
+});
+assert.ok(legacyCatalogPatch, "legacy Kids catalog rows may receive series metadata copied from the matching approved request");
+assert.equal(legacyCatalogPatch?.metadata.seriesId, "series-1");
+assert.equal(legacyCatalogPatch?.metadata.seriesTitle, "قصص القيم");
+assert.equal(legacyCatalogPatch?.metadata.kidsVideoQaStatus, "passed");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: legacyCatalogMetadata,
+  requestContent: legacyRequestContent,
+}), null, "catalog QA must be explicitly reconciled into the request before approval");
+assert.equal(resolveKidsVideoQaStatusForApproval({
+  requestContent: legacyRequestContent,
+  catalogMetadata: { ...legacyCatalogMetadata, kidsVideoQaStatus: "blocked" },
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+}), null, "blocked catalog Kids QA must never be promoted");
+assert.equal(resolveKidsVideoQaStatusForApproval({
+  requestContent: legacyRequestContent,
+  catalogMetadata: legacyCatalogMetadata,
+  requestId: "different-request",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+}), null, "catalog QA must be tied to the exact generation request");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...legacyCatalogMetadata, seriesId: "different-series" },
+  requestContent: { ...legacyRequestContent, kidsVideoQaStatus: "passed" },
+}), null, "conflicting catalog series metadata must fail closed");
+
 assert.equal(Object.prototype.hasOwnProperty.call(catalogMetadata, "approvalStatus"), false, "catalog approval must not mutate the caller's metadata object");
 assert.equal(buildVideoCatalogApprovalPatch({
   ...catalogApprovalInput,
@@ -446,5 +504,10 @@ assert.ok(
 const createAudienceGuard = adminVideoCreateRoute.slice(createAudienceGuardIndex, createTemplateBranchIndex);
 assert.match(createAudienceGuard, /if \(!requestedAudience\)/);
 assert.match(createAudienceGuard, /audience: requestedAudience/);
+
+const adminVideoGenerationRoute = readFileSync("src/app/api/admin/video-generation/route.ts", "utf8");
+assert.match(adminVideoGenerationRoute, /resolveKidsVideoQaStatusForApproval/);
+assert.match(adminVideoGenerationRoute, /requestContent: reviewContent/);
+assert.match(adminVideoGenerationRoute, /kidsVideoQaStatus: verifiedKidsVideoQaStatus/);
 
 console.log("Video publishing approval contract passed.");
