@@ -44,9 +44,13 @@ assert.match(
 );
 
 assert.match(generationRoute, /readBoundedJsonBody\(request,/);
-assert.equal((generationRoute.match(/readBoundedJsonBody\(request,/g) || []).length, 2, "video generation DELETE and PATCH bodies must both use bounded JSON parsing");
+assert.equal((generationRoute.match(/readBoundedJsonBody\(request,/g) || []).length, 1, "PATCH body parsing must remain bounded; legacy DELETE is disabled without reading a body");
 assert.doesNotMatch(generationRoute, /request\.json\(\)/, "the admin video-generation route must not parse unbounded JSON bodies");
-assert.match(generationRoute, /rawIds\.length > 500/, "bulk deletion must cap the number of selected request IDs");
+const generationDelete = generationRoute.split("export async function DELETE()")[1]?.split("export async function PATCH")[0] ?? "";
+assert.ok(generationDelete.includes("VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT"), "legacy request-row deletion must remain disabled until media and queue references are audited");
+assert.ok(generationDelete.includes("status: 410"), "disabled legacy delete endpoint must return 410");
+assert.ok(generationDelete.includes("requireAdminStepUpApi('video.delete'"), "disabled legacy delete endpoint must remain step-up protected");
+assert.ok(!generationDelete.includes("supabaseServerAdminRequest") && !generationDelete.includes("method: 'DELETE'"), "disabled legacy delete endpoint must not perform database mutations");
 assert.match(generationRoute, /VIDEO_REQUEST_ID_PATTERN/, "video request IDs must be validated as UUIDs before building PostgREST filters");
 
 assert.match(createRoute, /requireAdminStepUpApi\(["']video\.manage["'],\s*["']\/admin\/video\/studio["']\)/);
