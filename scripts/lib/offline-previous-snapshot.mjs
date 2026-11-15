@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import { basename, dirname } from "node:path";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -37,6 +38,27 @@ export async function loadPreviousOfflineSnapshot(manifestPath, kidsPath) {
     if (kidsContents !== null) {
       throw new Error(
         "Previous Kids dataset exists without its offline manifest; refusing to reset the route inventory.",
+      );
+    }
+    let directoryEntries;
+    try {
+      directoryEntries = await readdir(dirname(manifestPath));
+    } catch (error) {
+      if (error && typeof error === "object" && error.code === "ENOENT") {
+        directoryEntries = [];
+      } else {
+        throw new Error(
+          `Could not inspect previous offline snapshot directory ${dirname(manifestPath)}; refusing to reset the route inventory.`,
+          { cause: error },
+        );
+      }
+    }
+    const orphanedDatasetFiles = directoryEntries
+      .filter((name) => name.endsWith(".json") && name !== basename(manifestPath))
+      .sort();
+    if (orphanedDatasetFiles.length > 0) {
+      throw new Error(
+        `Previous offline dataset files exist without their offline manifest (${orphanedDatasetFiles.join(", ")}); refusing to reset the route inventory.`,
       );
     }
     return {
