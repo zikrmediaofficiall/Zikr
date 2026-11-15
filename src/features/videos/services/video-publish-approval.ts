@@ -199,6 +199,7 @@ export function buildVideoCatalogApprovalPatch(input: {
   const requestQa = record(requestContent?.automatedVideoQa);
   const metadataQa = record(metadata?.automatedVideoQa);
   const audience = normalizeVideoAudience(requestContent?.audience, false);
+  if (audience && isKidsVideoContentMarker(requestContent) && audience !== "kids") return null;
 
   if (
     !metadata ||
