@@ -124,7 +124,7 @@ BEGIN
     PERFORM 1 FROM public.admin_approve_video_generation_request(
       v_request_id, '2026-11-15T15:00:00Z', v_catalog_id,
       'zikr-50000000-0000-4000-8000-000000000005', '2026-11-15T15:00:00Z',
-      v_reviewer_id::uuid, v_reviewed_at, v_snapshot_hash, v_bad_content, v_approved_metadata
+      v_reviewed_at, v_bad_content, v_approved_metadata
     );
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM NOT LIKE 'VIDEO_APPROVAL_INVALID: Kids QA%' THEN RAISE; END IF;
@@ -141,7 +141,7 @@ BEGIN
   FROM public.admin_approve_video_generation_request(
     v_request_id, '2026-11-15T15:00:00Z', v_catalog_id,
     'zikr-50000000-0000-4000-8000-000000000005', '2026-11-15T15:00:00Z',
-    v_reviewer_id::uuid, v_reviewed_at, v_snapshot_hash, v_approved_content, v_approved_metadata
+    v_reviewed_at, v_approved_content, v_approved_metadata
   );
 
   IF v_result.request_id IS DISTINCT FROM v_request_id
