@@ -7,6 +7,28 @@ const releaseWorkflow = readFileSync(".github/workflows/release-finalization.yml
 const androidReleaseWorkflow = readFileSync(".github/workflows/publish-android-release-assets.yml", "utf8");
 const gate = readFileSync("scripts/verify-release-gates.mjs", "utf8");
 
+const circleCiConfig = readFileSync(".circleci/config.yml", "utf8");
+const androidDraftStart = circleCiConfig.indexOf("  android-release-draft:");
+const androidRebuildStart = circleCiConfig.indexOf("  android-rebuild:", androidDraftStart);
+const androidDraftJob = circleCiConfig.slice(androidDraftStart, androidRebuildStart);
+assert.ok(androidDraftStart >= 0 && androidRebuildStart > androidDraftStart, "the read-only Android release verifier must remain a distinct CircleCI job");
+assert.doesNotMatch(androidDraftJob, /context:\s*\n\s*-\s*android-signing/, "read-only Android release verification must not receive the Android signing context");
+assert.doesNotMatch(androidDraftJob, /GH_TOKEN|ANDROID_KEYSTORE_BASE64|ANDROID_KEYSTORE_PASSWORD|ANDROID_KEY_ALIAS|ANDROID_KEY_PASSWORD/, "read-only Android release verification must not receive release-write or signing secrets");
+assert.doesNotMatch(androidDraftJob, /Authorization:\s*"Bearer"/, "public release metadata verification must not need a write-capable GitHub token");
+assert.match(androidDraftJob, /https:\/\/api\.github\.com\/repos\/zikrofficial-X\/Zikr/, "the verifier must continue to inspect the public canonical GitHub repository");
+const androidRebuildStart = circleCiConfig.indexOf("  android-rebuild:");
+const androidDispatchStart = circleCiConfig.indexOf("  android-release-dispatch:", androidRebuildStart);
+const androidRebuildJob = circleCiConfig.slice(androidRebuildStart, androidDispatchStart);
+const androidDispatchJob = circleCiConfig.slice(androidDispatchStart, circleCiConfig.indexOf("\nworkflows:", androidDispatchStart));
+assert.match(androidRebuildJob, /context:\s*\n\s*-\s*android-signing/, "the signed Android build must retain its protected signing context");
+assert.match(androidDispatchJob, /context:\s*\n\s*-\s*android-signing/, "the release dispatch must retain its protected release context");
+const draftInvocationStart = circleCiConfig.indexOf("      - android-release-draft:");
+const draftInvocationEnd = circleCiConfig.indexOf("      - supabase-production-gate:", draftInvocationStart);
+const draftInvocation = circleCiConfig.slice(draftInvocationStart, draftInvocationEnd);
+assert.ok(draftInvocation.includes("only: main"), "the read-only release verifier must remain restricted to canonical main");
+assert.doesNotMatch(draftInvocation, /context:\s*\n\s*-\s*android-signing/, "the main-only read-only release check must not inherit signing secrets");
+
+
 assert.match(workflow, /checks:\s*read/);
 assert.match(workflow, /statuses:\s*read/);
 assert.match(workflow, /pull-requests:\s*read/);
