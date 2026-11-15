@@ -122,6 +122,7 @@ for (const token of ["ID3", "ftyp", "RIFF", "WAVE", "OggS", "0x1a", "0x45", "0xd
 if (!upload.includes("audio-human-") || !upload.includes("/video/upload")) failures.push("narration upload must use the dedicated Cloudinary audio prefix");
 if (upload.includes("/storage/v1/object/videos/")) failures.push("narration upload must not stage audio in Supabase Storage");
 const mediaAssetsService = read("src/features/media/services/media-assets.ts");
+const narrationRecovery = read("src/features/media/services/narration-upload-recovery.ts");
 const studioClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
 if (!upload.includes("registerAdminNarrationAsset") || !upload.includes("markAdminNarrationAssetAuditRecorded")) {
   failures.push("Cloudinary narration uploads must be durably registered in media_assets before audit success is reported");
@@ -153,6 +154,27 @@ if (
   !invalidCloudinaryUrlBlock.includes("recoveryRequired: true")
 ) {
   failures.push("invalid or non-canonical Cloudinary URLs must retain a recovery reference for the uploaded asset");
+}
+
+const uploadCatchStart = upload.lastIndexOf("} catch (error) {");
+const uploadCatchBlock = upload.slice(uploadCatchStart);
+if (
+  !upload.includes("let recoveryPublicId: string | null = null;") ||
+  !upload.includes("let uploadAttempted = false;") ||
+  !upload.includes("uploadAttempted = true;") ||
+  !uploadCatchBlock.includes("uploadAttempted && recoveryPublicId") ||
+  !uploadCatchBlock.includes("uploadReference: recoveryPublicId") ||
+  !uploadCatchBlock.includes("recoveryRequired: true")
+) {
+  failures.push("ambiguous Cloudinary network failures must return the preallocated recovery reference");
+}
+if (
+  !upload.includes("resolveNarrationUploadRecoveryReference(publicId, result.public_id)") ||
+  !narrationRecovery.includes("requestedUploadReference") ||
+  !studioClient.includes("requestedUploadReference") ||
+  !upload.includes('assetTrackingStatus === "reconciliation_pending"')
+) {
+  failures.push("Cloudinary recovery responses must expose a safe returned ID, the requested ID, and reconciliation-pending reference");
 }
 
 if (!mediaAssetsService.includes('purpose: "video_generation_narration"') ||

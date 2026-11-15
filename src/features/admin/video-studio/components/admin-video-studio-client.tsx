@@ -240,13 +240,24 @@ export default function AdminVideoStudioClient() {
     const payload = await response.json().catch(() => ({}));
     if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return null;
     if (!response.ok || typeof payload.audioUrl !== "string" || payload.auditRecorded !== true) {
+      const requestedReference = typeof payload.requestedUploadReference === "string" &&
+        payload.requestedUploadReference !== payload.uploadReference
+        ? `؛ المرجع المطلوب: ${payload.requestedUploadReference}`
+        : "";
       const recoveryReference = typeof payload.uploadReference === "string"
-        ? ` (مرجع الاسترداد: ${payload.uploadReference})`
+        ? ` (مرجع الاسترداد: ${payload.uploadReference}${requestedReference})`
         : "";
       throw new Error(`${payload.error || "تعذر تأكيد تسجيل رفع الصوت في سجل التدقيق؛ لم يتم إرفاقه بطلب الفيديو."}${recoveryReference}`);
     }
     if (payload.assetTrackingStatus === "reconciliation_pending") {
-      setWarning("تم رفع التسجيل وتأكيد التدقيق، لكن حالة الأصل تحتاج إلى مراجعة في مكتبة الوسائط.");
+      const requestedReference = typeof payload.requestedUploadReference === "string" &&
+        payload.requestedUploadReference !== payload.uploadReference
+        ? `؛ المرجع المطلوب: ${payload.requestedUploadReference}`
+        : "";
+      const recoveryReference = typeof payload.uploadReference === "string"
+        ? ` (مرجع الاسترداد: ${payload.uploadReference}${requestedReference})`
+        : "";
+      setWarning(`تم رفع التسجيل وتأكيد التدقيق، لكن حالة الأصل تحتاج إلى مراجعة في مكتبة الوسائط.${recoveryReference}`);
     }
     setUploadedAudioUrl(payload.audioUrl);
     return payload.audioUrl as string;
