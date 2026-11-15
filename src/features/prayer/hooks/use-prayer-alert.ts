@@ -311,11 +311,6 @@ export function usePrayerAlert(
     void refreshSiteAudio();
   }, []);
 
-  const refreshNotificationPermission = useCallback(async () => {
-    const permission = await getNotificationPermission();
-    setNotificationPermission(permission);
-  }, []);
-
   // Read the native-aware permission state on mount and again when the
   // Capacitor bridge becomes ready or the user changes notification access.
   useEffect(() => {
