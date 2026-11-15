@@ -238,7 +238,19 @@ const detailResolverEnd = kidsVideoServiceSource.indexOf("export async function 
 const detailResolverSource = detailResolverStart >= 0 && detailResolverEnd > detailResolverStart
   ? kidsVideoServiceSource.slice(detailResolverStart, detailResolverEnd)
   : "";
-assert.ok(detailResolverSource.includes("return resolveKidsVideoSocialPublication([], stored, true);"),
-  "the detail feed must use stored legacy publication metadata when there is no valid request ID to query");
+assert.ok(detailResolverSource.includes('requestIdState.kind === "missing"'));
+assert.ok(
+  detailResolverSource.includes("return resolveKidsVideoSocialPublication([], stored, true, true);"),
+  "the detail feed must use stored legacy publication metadata only when no request ID exists",
+);
+assert.ok(
+  detailResolverSource.includes('requestIdState.kind === "invalid"') &&
+    detailResolverSource.includes("return null;"),
+  "malformed request IDs must not be treated as legacy rows",
+);
+assert.ok(
+  detailResolverSource.includes("resolveKidsVideoSocialPublication(rows, stored, true, false)"),
+  "a valid request ID with an empty queue history must not fall back to stale catalog metadata",
+);
 
 console.log("✅ Kids video series: four series, 24 first-season episodes, 1,000 validated episode variants, and scheduled quota and social publication checks passed.");
