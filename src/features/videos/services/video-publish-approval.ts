@@ -98,6 +98,81 @@ export function createAutomatedVideoQaApproval(input: {
   };
 }
 
+export function buildVideoCatalogApprovalPatch(input: {
+  metadata: unknown;
+  requestId: string;
+  videoUrl: string;
+  sourceHash: string | null;
+  contentHash: string | null;
+  templateVersion: string | null;
+  snapshotHash: string;
+  reviewerId: string;
+  reviewedAt: string;
+  checks: VideoApprovalChecklist;
+}): { published: true; metadata: Record<string, unknown>; updated_at: string } | null {
+  const metadata = record(input.metadata);
+  const requestId = input.requestId.trim();
+  const videoUrl = input.videoUrl.trim();
+  const sourceHash = input.sourceHash?.trim() ?? "";
+  const contentHash = input.contentHash?.trim() ?? "";
+  const templateVersion = input.templateVersion?.trim() ?? "";
+  const snapshotHash = input.snapshotHash.trim();
+  const reviewerId = input.reviewerId.trim();
+  if (
+    !metadata ||
+    metadata.generator !== "zikr_internal_video_factory" ||
+    metadata.videoGenerationRequestId !== requestId ||
+    typeof metadata.generatedVideoUrl !== "string" ||
+    metadata.generatedVideoUrl.trim() !== videoUrl ||
+    typeof metadata.sourceHash !== "string" ||
+    metadata.sourceHash.trim() !== sourceHash ||
+    typeof metadata.contentHash !== "string" ||
+    metadata.contentHash.trim() !== contentHash ||
+    typeof metadata.templateVersion !== "string" ||
+    metadata.templateVersion.trim() !== templateVersion ||
+    !requestId ||
+    !videoUrl ||
+    !sourceHash ||
+    !contentHash ||
+    !templateVersion ||
+    !/^[a-f0-9]{64}$/i.test(snapshotHash) ||
+    !reviewerId ||
+    reviewerId === AUTOMATED_VIDEO_QA_REVIEWER_ID ||
+    !Number.isFinite(Date.parse(input.reviewedAt)) ||
+    !hasCompleteVideoApprovalChecklist(input.checks) ||
+    (metadata.approvalSnapshotHash != null && metadata.approvalSnapshotHash !== snapshotHash)
+  ) return null;
+
+  if (metadata.audience !== "kids" && metadata.audience !== "general") return null;
+  if (metadata.audience === "kids") {
+    const automated = record(metadata.automatedVideoQa);
+    if (
+      metadata.kidsVideoQaStatus !== "passed" ||
+      automated?.status !== "passed" ||
+      !hasCompleteKidsVideoSeriesMetadata(metadata)
+    ) return null;
+  }
+
+  const qualityReview = {
+    ...input.checks,
+    reviewedAt: input.reviewedAt,
+    mode: "human",
+    reviewerId,
+  };
+  return {
+    published: true,
+    metadata: {
+      ...metadata,
+      approvalStatus: "approved",
+      approvalReviewerId: reviewerId,
+      approvalReviewedAt: input.reviewedAt,
+      approvalSnapshotHash: snapshotHash,
+      qualityReview,
+    },
+    updated_at: input.reviewedAt,
+  };
+}
+
 export function isVideoApprovalRecorded(content: unknown, expectedSnapshotHash: string | null): boolean {
   const data = record(content);
   if (data?.approvalStatus !== "approved") return false;
