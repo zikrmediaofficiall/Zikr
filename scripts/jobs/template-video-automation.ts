@@ -9,6 +9,7 @@ import {
   supabaseServerAdminRequest,
 } from "../../src/lib/supabase/admin-rest";
 import { buildNextRowVersionUpdatedAt } from "../../src/lib/supabase/row-version";
+import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
 import { getOptionalFacebookPageCredentials } from "../../src/features/social/services/facebook-credentials";
 import { getYouTubeUploadRefreshToken } from "../../src/features/social/services/youtube-oauth-credentials";
 import { listVideoSources, resolveVideoSource } from "../../src/features/videos/services/video-sources";
@@ -929,10 +930,6 @@ function normalizeAiVideoPlan(value: unknown): AiVideoPlan {
   };
 }
 
-function hasSuspiciousReligiousAttribution(value: string) {
-  return /(قال الله|قال رسول الله|رسول الله|قال النبي|عن النبي|حديث قدسي|حديث نبوي|رضي الله عنه)\b/u.test(value);
-}
-
 function validateAiEditorialPlan(plan: AiVideoPlan, request: GeneratedRequest) {
   const source = comparableSourceText(contentText(request)).replace(/\s+/g, " ").trim();
   const reflection = comparableSourceText(plan.reflection).replace(/\s+/g, " ").trim();
@@ -1060,7 +1057,7 @@ export function assertKidsStoryContract(request: GeneratedRequest) {
   if (normalizedText.length < 180 || normalizedText.length > 1500 || !normalizedText.includes("؟")) {
     throw new Error("Child-directed narration must be a short complete story ending with a question.");
   }
-  if (normalizedText.includes("http://") || normalizedText.includes("https://") || /قال الله|قال رسول الله|حديث قدسي|حديث نبوي/u.test(normalizedText)) {
+  if (normalizedText.includes("http://") || normalizedText.includes("https://") || hasSuspiciousReligiousAttribution(normalizedText)) {
     throw new Error("Child-directed fiction must not contain raw URLs or unsupported religious attributions.");
   }
   if (String(content.sourceType ?? "") === "original_kids_fiction" && !String(content.sourceLabel ?? "").includes("آية أو حديث")) {
@@ -1662,7 +1659,7 @@ export function buildAutomatedVideoQaChecklist(
     content.aiMode === "general_reminder" &&
     content.sourceType === "editorial" &&
     sourceLabel === "محتوى تحريري أصلي من منصة ذِكر" &&
-    !/(قال الله|قال رسول الله|رسول الله|حديث قدسي|حديث نبوي)/u.test(contentText(request));
+    !hasSuspiciousReligiousAttribution(contentText(request));
   const sourceVerified = sourceCategories.has(category)
     ? Boolean(sourceId && /^https:\/\//i.test(sourceUrl) && sourceLabel.trim() && render.sourceLocked === true)
     : isKidsSeries || isOriginalEditorial;

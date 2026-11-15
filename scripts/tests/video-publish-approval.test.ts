@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
+import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
 import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, createAutomatedVideoQaApproval, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
+assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
+assert.equal(hasSuspiciousReligiousAttribution("قَالَ رَسُولُ اللَّهِ ﷺ"), true, "Arabic diacritics must not bypass attribution detection");
+assert.equal(hasSuspiciousReligiousAttribution("قال تعالى إن الصدق قيمة جميلة"), true);
+assert.equal(hasSuspiciousReligiousAttribution("هذا نص تعليمي عام عن الصدق والأمانة"), false);
+assert.equal(hasSuspiciousReligiousAttribution("بقال رسول الله"), false, "the phrase must not match inside a longer Arabic word");
+assert.equal(hasSuspiciousReligiousAttribution("رسول اللهي"), false, "the phrase must not match when followed by another Arabic letter");
+assert.equal(hasSuspiciousReligiousAttribution(null), false);
+
 const checks: VideoApprovalChecklist = { sourceVerified: true, audioReviewed: true, visualsReviewed: true, captionsReviewed: true, rightsReviewed: true };
 const now = "2026-10-21T12:00:00.000Z";
 const snapshot = {
