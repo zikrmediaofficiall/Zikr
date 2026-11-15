@@ -71,6 +71,22 @@ const safeFictionDisclosure = resolveKidsVideoPublicDisclosure(
 assert.equal(safeFictionDisclosure.description, "قصة تربوية خيالية أصلية للأطفال عن العدل وانتظار الدور.");
 assert.equal(safeFictionDisclosure.socialCaption, "حكاية أصلية من ذِكر عن العدل وانتظار الدور.");
 
+const unsafeFictionSourceLabel = resolveKidsVideoPublicDisclosure(
+  { audience: "kids", aiMode: "original_kids_story", sourceLabel: "المصدر: https://example.com/source" },
+  "قصة تربوية خيالية أصلية للأطفال عن الصدق.",
+  null,
+);
+assert.equal(unsafeFictionSourceLabel.sourceType, "original_kids_fiction", "the inferred Kids-fiction mode must expose its canonical source type");
+assert.equal(unsafeFictionSourceLabel.sourceLabel, fictionLabel, "an external URL must not be trusted as the source label for original Kids fiction");
+assert.equal(
+  resolveVideoSourceDisclosureLine(
+    { sourceType: "original_kids_fiction", sourceLabel: "قصة موثقة في مكتبة خارجية" },
+    "https://example.com/source",
+  ),
+  fictionLabel,
+  "worker-generated social disclosures must replace legacy external-source claims for original Kids fiction",
+);
+
 const firstSeason = Array.from({ length: 24 }, (_, index) => buildKidsSeriesEpisode(index + 1));
 assert.equal(new Set(firstSeason.map((episode) => episode.sourceId)).size, 24, "source IDs must be unique");
 assert.equal(new Set(firstSeason.map((episode) => episode.seriesId)).size, 4, "all series must be represented");
