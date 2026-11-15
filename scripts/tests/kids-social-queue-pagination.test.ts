@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   loadKidsSocialQueueRows,
   type KidsSocialQueueRow,
@@ -181,8 +182,9 @@ assert.deepEqual(
       platforms: ["facebook"],
       publishedAt: "2026-11-15T05:00:00.000Z",
     },
+    caption: "حكاية أصلية من ذِكر عن الصدق.",
   },
-  "a detail page must use confirmed live queue delivery state",
+  "a detail page must use confirmed live queue delivery state and its confirmed caption",
 );
 
 const emptyDetail = await resolveKidsVideoSocialPublicationForDetail(
@@ -223,6 +225,14 @@ assert.deepEqual(
   { status: "unavailable", reason: "invalid_request_id", publication: null },
 );
 assert.equal(invalidDetailCalls, 0, "invalid request IDs must never trigger a queue lookup");
+
+const detailPageSource = readFileSync(
+  new URL("../../src/app/kids/videos/[slug]/page.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(detailPageSource, /resolveKidsVideoSocialPublicationForDetail/);
+assert.match(detailPageSource, /socialResolution\.publication/);
+assert.doesNotMatch(detailPageSource, /metadata\.socialPublication\s*&&/);
 
 const legacyDetail = await resolveKidsVideoSocialPublicationForDetail(
   null,
