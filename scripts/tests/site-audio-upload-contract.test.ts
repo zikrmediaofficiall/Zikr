@@ -150,6 +150,12 @@ assert.ok(
 assert.match(uploadRoute, /SITE_AUDIO_ALLOWED_MIME_TYPES/);
 assert.match(uploadRoute, /SITE_AUDIO_MAX_BYTES/);
 assert.match(uploadRoute, /MP3 أو WAV أو OGG أو M4A أو AAC أو WebM/, "the upload error must list every supported audio format");
+const uploadSuccessStart = uploadRoute.indexOf("return NextResponse.json({\n    path,");
+const uploadSuccessEnd = uploadRoute.indexOf("\n  }, { headers:", uploadSuccessStart);
+assert.ok(uploadSuccessStart >= 0 && uploadSuccessEnd > uploadSuccessStart, "the signed capability response must remain identifiable");
+assert.match(uploadRoute.slice(uploadSuccessStart, uploadSuccessEnd + 160), /Cache-Control.*no-store, private/,
+  "the signed upload URL and token must never be cacheable by browsers or intermediaries");
+
 const signedUrlPosition = uploadRoute.indexOf("createSignedUploadUrl");
 const auditEventPosition = uploadRoute.indexOf("await recordAdminAuditEvent", signedUrlPosition);
 assert.ok(signedUrlPosition >= 0 && auditEventPosition > signedUrlPosition, "the audit event is recorded after the signed URL is created");
