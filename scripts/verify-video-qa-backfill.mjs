@@ -24,6 +24,11 @@ for (const token of [
   "content->automatedVideoQa=is.null",
   "KIDS_CLASSIFICATION_BLOCK_REASON",
   "isKidsClassificationRevalidation",
+  "isKidsQaRevalidation",
+  "content->>kidsVideoQaStatus=is.null",
+  "content->>approvalReviewerId=eq.system%3Azikr-video-factory",
+  "normalizeVideoAudience",
+  "revalidatedKidsSpecificQa",
   "content->automatedVideoQa->>blockedReason=eq.",
   "revalidatedAfterCanonicalKidsClassification",
   'approvalStatus: "qa_failed"',
@@ -107,8 +112,8 @@ if (!dynamicWorker.includes("source.category === \"story\"") ||
     !dynamicWorker.includes('"generationMode" in source')) {
   failures.push("Kids classification recovery must be restricted to canonical deterministic Kids story sources");
 }
-if (!backfill.includes("originalContent.curatedSourceId.startsWith(\"kids-series:\")") ||
-    !backfill.includes('validatedContent.audience !== "kids"')) {
+if (!backfill.includes('normalizeVideoMarker(originalContent.curatedSourceId).startsWith("kids-series:")') ||
+    !backfill.includes('normalizeVideoAudience(validatedContent.audience, false) !== "kids"')) {
   failures.push("Legacy Kids backfill must reclassify only after a canonical source lookup restores the Kids audience");
 }
 if (!dynamicWorker.includes("function getAiAttemptsPerRunLimit()") ||
