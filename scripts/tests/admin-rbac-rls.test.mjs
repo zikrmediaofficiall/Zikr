@@ -406,8 +406,17 @@ assert.doesNotMatch(
 );
 assert.match(
   videoRoute,
-  /recordAdminAuditEvent\([\s\S]*?video_generation\.update[\s\S]*?recordAdminAuditEvent\([\s\S]*?video_generation\.delete_failed/,
-  "video mutation endpoints must append audit events",
+  /recordAdminAuditEvent\([\s\S]*?video_generation\.update/,
+  "video request updates must append audit events",
+);
+const legacyVideoDelete = videoRoute.match(/export async function DELETE\(\)[\s\S]*$/)?.[0] ?? "";
+assert.match(legacyVideoDelete, /VIDEO_REQUEST_DELETE_REQUIRES_REFERENCE_AUDIT/);
+assert.match(legacyVideoDelete, /status: 410/);
+assert.match(legacyVideoDelete, /requireAdminStepUpApi\(['"]video\.delete['"]/);
+assert.doesNotMatch(
+  legacyVideoDelete,
+  /supabaseServerAdminRequest|runPostCommitAudit|recordAdminAuditEvent|method:\s*['"]DELETE['"]/,
+  "legacy single-row video deletion must remain disabled until media and queue references are audited",
 );
 const legacyVideoPatch = videoRoute.match(/export async function PATCH\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
 assert.match(
