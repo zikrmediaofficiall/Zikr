@@ -571,7 +571,7 @@ assert.doesNotMatch(runActionBlock, /release_auth_blocked_queue|payload\.release
 assert.match(runActionBlock, /async \(action: "retry" \| "retry_all_failed" \| "delete" \| "delete_failed" \| "publish_now"\)/, "the generic handler's action union must match the actions it actually dispatches");
 assert.match(adminSocialClient, /const releaseAuthBlockedQueue = useCallback[\s\S]*?action: "release_auth_blocked_queue"[\s\S]*?payload\.released/, "auth-block release must stay in its dedicated handler");
 
-console.log("Social platform isolation and independent readiness tests passed.");
+
 
 const legacyFacebookAuthBlock = { authBlocked: true, attempts: 5 };
 assert.equal(canAttemptSocialPlatform({ platform: "facebook", enabledPlatforms: both, metadata: legacyFacebookAuthBlock, maxAttempts: 5 }), false, "legacy Facebook auth block must continue holding Facebook");
@@ -1256,3 +1256,24 @@ assert.deepEqual(
   { facebook: 0, facebook_reels: 4, youtube: 1 },
   "only the recoverable Facebook Page retry counter may reset",
 );
+
+const inferredPermanentFacebookRecovery = buildFacebookQueueRecoveryPatch(
+  {
+    authBlocked: true,
+    permanentFailure: true,
+    permanentFailurePlatforms: ["facebook"],
+    platformResults: {
+      facebook: { ok: false, error: "Facebook OAuthException: access token expired" },
+    },
+    platformAttempts: { facebook: 3 },
+  },
+  ["facebook"],
+  "2026-11-15T00:30:00.000Z",
+);
+assert.equal(
+  inferredPermanentFacebookRecovery,
+  null,
+  "an inferred auth-shaped error must not override an explicit permanent failure for the same target",
+);
+
+console.log("Social platform isolation and independent readiness tests passed.");

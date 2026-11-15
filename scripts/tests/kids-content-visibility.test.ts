@@ -256,6 +256,10 @@ assert.ok(adminManager.includes("isKidsContentType(item.type) ? typeLabels[item.
 assert.ok(adminManager.includes('fileName="featured_image_file"'), "the Kids form must submit the selected file to its validated server action");
 assert.ok(imageField.includes("name={fileName}"), "the image field must include the server-action file input name");
 assert.equal(imageField.includes("fetch("), false, "Kids media must not upload before the server validates the slug");
+assert.match(adminManager, /<Field name="content_en" label="المحتوى بالإنجليزية \(اختياري\)" textarea/,
+  "the Kids admin form must expose the optional English body that the public English locale requires");
+assert.ok(adminAction.includes('content_en: value(formData, "content_en")'),
+  "the Kids admin action must persist the English body supplied by the form");
 
 const kidsDetailPage = readFileSync("src/app/kids/[slug]/page.tsx", "utf8");
 const kidsQuizValidation = readFileSync("src/features/kids/services/kids-content-validation.ts", "utf8");

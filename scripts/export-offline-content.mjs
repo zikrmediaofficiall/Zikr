@@ -1,13 +1,14 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { getBlockedKidsRoutes, getPublishedKidsRoutes } from './lib/offline-kids-route-safety.mjs';
+import { getBlockedKidsRoutes, getPublishedKidsRoutes, resolveOfflineDatasetMinimum } from './lib/offline-kids-route-safety.mjs';
 import { getPublishedParentScope, isParentScopedOfflineDataset } from './lib/offline-export-parent-scope.mjs';
 import { getBlockedPublishedContentRoutes } from './lib/offline-export-route-pruning.mjs';
 
 const root = process.cwd();
 const outputDir = path.join(root, 'public/offline-content/v1');
 const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-const apiKey = (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLIC_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const apiKey = (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLIC_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || serviceRoleKey).trim();
 
 if (!supabaseUrl || !apiKey) {
   if (process.argv.includes('--required')) {
@@ -18,6 +19,10 @@ if (!supabaseUrl || !apiKey) {
   // validated snapshot before a subsequent deployment picks it up.
   console.warn('[offline-export] No Supabase credentials; keeping the committed public snapshot unchanged.');
   process.exit(0);
+}
+
+if (process.argv.includes('--required') && !serviceRoleKey) {
+  throw new Error('Offline snapshot refresh requires a protected SUPABASE_SERVICE_ROLE_KEY so Kids visibility and route revocation are complete.');
 }
 
 const datasets = [
@@ -128,7 +133,12 @@ for (const [dataset, table, ...filters] of datasets) {
     rows = rows.filter((row) => row && (row.type !== 'story' || row.metadata?.age_appropriate === true));
   }
   const configuredMinimum = minimumRecords[dataset] ?? 0;
-  const minimum = isParentScopedOfflineDataset(dataset) ? 0 : configuredMinimum;
+  const minimum = isParentScopedOfflineDataset(dataset)
+    ? 0
+    : resolveOfflineDatasetMinimum(dataset, configuredMinimum, Boolean(serviceRoleKey));
+  if (dataset === 'kids' && rows.length < configuredMinimum) {
+    console.warn(`[offline-export] Kids has ${rows.length} currently public rows; exporting the verified subset so removed or age-rejected routes are revoked instead of retaining stale offline content.`);
+  }
   if (isParentScopedOfflineDataset(dataset) && rows.length < configuredMinimum) {
     console.warn(
       `[offline-export] ${dataset} has ${rows.length} rows after filtering to published parents; exporting the complete public subset instead of retaining hidden child records.`,

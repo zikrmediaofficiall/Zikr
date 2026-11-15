@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { getPublishedKidsRoutes, isValidOfflineDatasetCount } from './lib/offline-kids-route-safety.mjs';
 
 const manifestPath = 'public/offline-content/v1/manifest.json';
 const routeSnapshotPath = 'public/offline-content/v2/routes.json';
@@ -46,7 +47,7 @@ try {
   if (!Array.isArray(manifest.routes) || manifest.routes.length < 20) failures.push('Offline manifest route inventory is unexpectedly small');
 
   for (const [name, definition] of Object.entries(manifest.datasets ?? {})) {
-    if (!definition?.path || !Number.isInteger(definition.count) || definition.count <= 0) {
+    if (!definition?.path || !isValidOfflineDatasetCount(name, definition.count)) {
       failures.push(`Invalid dataset metadata: ${name}`);
       continue;
     }
@@ -62,6 +63,18 @@ try {
         const rows = JSON.parse(read(file));
         if (!Array.isArray(rows)) failures.push(`Dataset must be a JSON array: ${file}`);
         else if (rows.length !== definition.count) failures.push(`Dataset count mismatch: ${name} manifest=${definition.count} file=${rows.length}`);
+        else if (name === 'kids') {
+          if (rows.some(row => row?.type === 'story' && row?.metadata?.age_appropriate !== true)) {
+            failures.push('Offline Kids dataset must not contain stories without explicit age-appropriate approval');
+          }
+          const expectedKidsRoutes = getPublishedKidsRoutes(rows);
+          const actualKidsRoutes = (manifest.routes ?? [])
+            .filter(route => typeof route === 'string' && route.startsWith('/kids/'))
+            .sort();
+          if (JSON.stringify(actualKidsRoutes) !== JSON.stringify(expectedKidsRoutes)) {
+            failures.push('Offline Kids detail routes must exactly match the currently exported, age-approved Kids dataset');
+          }
+        }
       } catch (error) {
         failures.push(`Dataset JSON is invalid: ${file}: ${error instanceof Error ? error.message : 'unknown error'}`);
       }

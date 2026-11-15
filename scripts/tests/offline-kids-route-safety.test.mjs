@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { getBlockedKidsRoutes, getPublishedKidsRoutes } from "../lib/offline-kids-route-safety.mjs";
+import { getBlockedKidsRoutes, getPublishedKidsRoutes, isValidOfflineDatasetCount, resolveOfflineDatasetMinimum } from "../lib/offline-kids-route-safety.mjs";
 
 const previousRows = [
   { type: "story", slug: "removed-approved-story", metadata: { age_appropriate: true } },
@@ -101,5 +101,34 @@ for (const order of exportOrders) {
 }
 
 
+
+
+assert.deepEqual(
+  [...getBlockedKidsRoutes(previousRows, [], ["/kids/removed-approved-story", "/kids/removed-game"])].sort(),
+  ["/kids/removed-approved-story", "/kids/removed-game"],
+  "an empty verified Kids snapshot must revoke every previously exported Kids detail route",
+);
+assert.equal(resolveOfflineDatasetMinimum("kids", 20, true), 0,
+  "a complete service-role read must allow a reduced or empty Kids public snapshot to be published");
+assert.throws(
+  () => resolveOfflineDatasetMinimum("kids", 20, false),
+  /service-role key/,
+  "a reduced Kids snapshot must never be inferred from an RLS-limited anonymous read",
+);
+assert.equal(resolveOfflineDatasetMinimum("articles", 10, false), 10,
+  "the existing minimum floor for non-Kids datasets must remain unchanged");
+assert.equal(isValidOfflineDatasetCount("kids", 0), true,
+  "the offline verifier must accept an intentionally empty, fully verified Kids dataset");
+assert.equal(isValidOfflineDatasetCount("articles", 0), false,
+  "the offline verifier must continue rejecting empty non-Kids datasets");
+assert.equal(isValidOfflineDatasetCount("kids", -1), false);
+const offlineVerifier = readFileSync("scripts/verify-offline-content.mjs", "utf8");
+assert.ok(offlineVerifier.includes("isValidOfflineDatasetCount(name, definition.count)"),
+  "offline verification must allow zero only for the Kids dataset");
+assert.ok(offlineVerifier.includes("getPublishedKidsRoutes(rows)"),
+  "offline verification must reconcile Kids detail routes against the current exported dataset");
+const offlineWorkflow = readFileSync(".github/workflows/refresh-offline-content.yml", "utf8");
+assert.ok(offlineWorkflow.includes('"scripts/lib/offline-kids-route-safety.mjs"'),
+  "changes to Kids route revocation policy must trigger a fresh offline snapshot workflow");
 
 console.log("Offline Kids route revocation contracts passed.");

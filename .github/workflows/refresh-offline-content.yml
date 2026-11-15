@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/refresh-offline-content.yml"
       - "scripts/export-offline-content.mjs"
+      - "scripts/lib/offline-kids-route-safety.mjs"
       - "scripts/verify-offline-content.mjs"
   schedule:
     - cron: "41 2 * * *"

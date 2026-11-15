@@ -287,7 +287,7 @@ assert.equal(
 );
 assert.equal(emptyRecoveryCalls, 1);
 
-console.log("Facebook credential row-shape and validation CAS checks passed.");
+
 
 
 const malformedRowCalls: string[] = [];
@@ -365,3 +365,5 @@ assert.match(firstRecoveryPatchPath, /status=eq.failed/);
 assert.match(firstRecoveryPatchPath, /updated_at=eq.2026-11-12T06%3A00%3A00.000Z/);
 assert.match(firstRecoveryPatchPath, /created_at=eq.2026-11-12T05%3A00%3A00.000Z/);
 assert.match(firstRecoveryPatchPath, /metadata->>authBlocked=eq.true/);
+
+console.log("Facebook credential row-shape and validation CAS checks passed.");

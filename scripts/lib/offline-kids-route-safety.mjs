@@ -53,3 +53,21 @@ export function getBlockedKidsRoutes(previousRows, currentRows, previousRoutes =
 
   return blocked;
 }
+
+
+export function resolveOfflineDatasetMinimum(dataset, configuredMinimum, hasServiceRoleKey) {
+  if (!Number.isInteger(configuredMinimum) || configuredMinimum < 0) {
+    throw new Error("Offline dataset minimum must be a non-negative integer.");
+  }
+  if (dataset !== "kids") return configuredMinimum;
+  if (!hasServiceRoleKey) {
+    throw new Error("Kids offline snapshots require a protected Supabase service-role key so route revocation uses a complete visibility read.");
+  }
+  // A legitimate empty or reduced Kids public set must still be exported so
+  // previously cached routes for unpublished or rejected content are revoked.
+  return 0;
+}
+
+export function isValidOfflineDatasetCount(dataset, count) {
+  return Number.isInteger(count) && (dataset === "kids" ? count >= 0 : count > 0);
+}
