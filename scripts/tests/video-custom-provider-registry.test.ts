@@ -30,6 +30,7 @@ const config = getVideoEngineConfig({ ...process.env,
 assert.ok(config.order.includes("hf_custom_1"));
 assert.deepEqual(config.customSpaces.map((entry) => entry.name), ["hf_custom_1"]);
 const disabledAiConfig = getVideoEngineConfig({
+  NODE_ENV: process.env.NODE_ENV ?? "test",
   VIDEO_AI_ENABLED: "false",
   HF_VIDEO_CUSTOM_SPACES: JSON.stringify([{ space: "example/wan-free", variant: "wan2_2_fast", enabled: true }]),
 });
