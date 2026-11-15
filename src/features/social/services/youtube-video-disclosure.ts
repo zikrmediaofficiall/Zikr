@@ -1,5 +1,6 @@
-type YouTubeVideoDisclosureInput = {
 import { normalizeVideoAudience, normalizeVideoMarker } from "../../videos/services/video-audience-visibility";
+
+type YouTubeVideoDisclosureInput = {
   content: unknown;
   provider?: unknown;
   queueMetadata?: unknown;
