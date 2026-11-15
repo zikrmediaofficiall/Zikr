@@ -199,7 +199,7 @@ assert.deepEqual(
 const unavailableDetail = await resolveKidsVideoSocialPublicationForDetail(
   requestId,
   staleCatalogPublication,
-  async <T>(_path: string) => {
+  async <_T>(_path: string) => {
     throw new Error("simulated queue read failure");
   },
 );
@@ -227,7 +227,7 @@ assert.equal(invalidDetailCalls, 0, "invalid request IDs must never trigger a qu
 const legacyDetail = await resolveKidsVideoSocialPublicationForDetail(
   null,
   staleCatalogPublication,
-  async <T>(_path: string) => {
+  async <_T>(_path: string) => {
     throw new Error("legacy rows must not need a queue lookup");
   },
 );
