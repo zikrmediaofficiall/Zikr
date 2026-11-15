@@ -1,3 +1,5 @@
+import { hasHumanKidsVideoApproval } from "../../videos/services/kids-video-publication";
+
 export type VideoCatalogPublicationDecision =
   | { status: "approved" }
   | { status: "pending"; reason: string }
@@ -58,7 +60,7 @@ function hasCompleteKidsSeriesMetadata(metadata: Record<string, unknown>): boole
  * Social publishing must not race the site's content-publishing queue. A
  * generated video is eligible only after its catalog row is public and its
  * durable media/QA metadata still matches the queue item. Kids require both
- * the catalog QA result and the queue's explicit Kids QA marker.
+ * automated QA markers and a separate matching human review before external delivery.
  */
 export function evaluateVideoCatalogPublication(
   input: VideoCatalogPublicationInput,
@@ -113,6 +115,9 @@ export function evaluateVideoCatalogPublication(
   if (audience === "kids") {
     if (input.queueKidsContentQaStatus !== "passed" || metadata.kidsVideoQaStatus !== "passed") {
       return { status: "blocked", reason: "Kids video QA is not passed in both the queue and public catalog." };
+    }
+    if (!hasHumanKidsVideoApproval(metadata)) {
+      return { status: "blocked", reason: "Kids videos require a matching human review record before external publishing." };
     }
     if (!hasCompleteKidsSeriesMetadata(metadata)) {
       return { status: "blocked", reason: "Kids video series metadata is incomplete in the public catalog." };

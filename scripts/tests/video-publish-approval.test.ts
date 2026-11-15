@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
-import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
 assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
 assert.equal(hasSuspiciousReligiousAttribution("قَالَ رَسُولُ اللَّهِ ﷺ"), true, "Arabic diacritics must not bypass attribution detection");
@@ -26,7 +26,7 @@ const content = {
   approvalReviewerId: "admin-user-1",
   approvalReviewedAt: now,
   approvalSnapshotHash: snapshotHash,
-  qualityReview: { ...checks, reviewedAt: now },
+  qualityReview: { ...checks, reviewedAt: now, mode: "human", reviewerId: "admin-user-1" },
 };
 const request = {
   status: "completed",
@@ -224,6 +224,40 @@ const kidsAutomatedApproval = createAutomatedVideoQaApproval({
 });
 assert.equal(kidsAutomatedApproval?.kidsVideoQaStatus, "passed");
 assert.equal(kidsAutomatedApproval?.approvalSnapshotHash, kidsSnapshotHash);
+const kidsAutomatedContent = { ...completeKidsContent, ...kidsAutomatedApproval };
+const kidsAutomatedQueueItem = {
+  ...kidsQueueItem,
+  request: { ...request, content: kidsAutomatedContent },
+};
+assert.equal(isVideoApprovalRecorded(kidsAutomatedContent, kidsSnapshotHash), true,
+  "automated Kids QA remains a valid internal screening record");
+assert.equal(isHumanVideoApprovalRecorded(kidsAutomatedContent, kidsSnapshotHash), false,
+  "the system QA identity must never count as a human Kids review");
+assert.equal(inspectVideoQueueItemApproval(kidsAutomatedQueueItem).approved, true,
+  "the internal website publication gate retains its existing automated-QA policy");
+assert.equal(inspectVideoQueueItemExternalApproval(kidsAutomatedQueueItem).approved, false,
+  "Kids videos must not be sent to external platforms on automated QA alone");
+assert.match(inspectVideoQueueItemExternalApproval(kidsAutomatedQueueItem).reason ?? "", /اعتماد بشري موثق/);
+assert.equal(isVideoQueueItemApprovedForPublishing(kidsAutomatedQueueItem), false);
+const humanApprovedKidsContent = {
+  ...kidsAutomatedContent,
+  approvalReviewerId: "admin-user-1",
+  approvalReviewedAt: now,
+  qualityReview: { ...checks, reviewedAt: now, mode: "human", reviewerId: "admin-user-1" },
+};
+assert.equal(isHumanVideoApprovalRecorded(humanApprovedKidsContent, kidsSnapshotHash), true);
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: humanApprovedKidsContent },
+}), true, "a matching human review must release the Kids video for external publishing");
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: { ...humanApprovedKidsContent, qualityReview: { ...humanApprovedKidsContent.qualityReview, reviewerId: "different-admin" } } },
+}), false, "a mismatched human reviewer marker must fail closed");
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: { ...humanApprovedKidsContent, approvalReviewerId: "system:zikr-video-factory" } },
+}), false, "the automated QA identity must not impersonate a human reviewer");
 assert.equal(createAutomatedVideoQaApproval({
   snapshot: { ...kidsSnapshot, kidsVideoQaStatus: "blocked" },
   checks,

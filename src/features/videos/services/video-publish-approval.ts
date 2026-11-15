@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { hasHumanKidsVideoApproval } from "./kids-video-publication";
 
 export const REQUIRED_VIDEO_APPROVAL_CHECKS = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"] as const;
 export type VideoApprovalCheck = (typeof REQUIRED_VIDEO_APPROVAL_CHECKS)[number];
@@ -218,6 +219,11 @@ export function isVideoApprovalRecorded(content: unknown, expectedSnapshotHash: 
   // Existing administrator approvals remain valid for historical records.
   return true;
 }
+
+export function isHumanVideoApprovalRecorded(content: unknown, expectedSnapshotHash: string | null): boolean {
+  return hasHumanKidsVideoApproval(content) && isVideoApprovalRecorded(content, expectedSnapshotHash);
+}
+
 export type VideoPublishRequestSnapshot = {
   status: string;
   category: string;
@@ -295,11 +301,42 @@ export function inspectVideoQueueItemApproval(input: {
   return { approved: false, reason, missingChecks, approvalStatus };
 }
 
+export function inspectVideoQueueItemExternalApproval(input: {
+  contentType: string;
+  contentId: string | null;
+  queuedVideoUrl: string | null;
+  request: VideoPublishRequestSnapshot | null;
+}): VideoPublishApprovalDiagnostics {
+  const diagnostics = inspectVideoQueueItemApproval(input);
+  if (!diagnostics.approved) return diagnostics;
+
+  const content = record(input.request?.content);
+  if (content?.audience !== "kids" || !input.request) return diagnostics;
+
+  const snapshotHash = buildVideoApprovalSnapshotHash({
+    category: input.request.category,
+    sourceHash: input.request.source_hash,
+    contentHash: input.request.content_hash,
+    templateVersion: input.request.template_version,
+    videoUrl: input.request.video_url,
+    audience: "kids",
+    kidsVideoQaStatus: typeof content.kidsVideoQaStatus === "string" ? content.kidsVideoQaStatus : null,
+  });
+  if (isHumanVideoApprovalRecorded(content, snapshotHash)) return diagnostics;
+
+  return {
+    ...diagnostics,
+    approved: false,
+    reason: "اجتاز فيديو الأطفال فحص الجودة الآلي فقط؛ يلزم اعتماد بشري موثق قبل النشر الخارجي.",
+    missingChecks: [],
+  };
+}
+
 export function isVideoQueueItemApprovedForPublishing(input: {
   contentType: string;
   contentId: string | null;
   queuedVideoUrl: string | null;
   request: VideoPublishRequestSnapshot | null;
 }): boolean {
-  return inspectVideoQueueItemApproval(input).approved;
+  return inspectVideoQueueItemExternalApproval(input).approved;
 }

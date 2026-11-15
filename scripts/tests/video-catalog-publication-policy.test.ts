@@ -12,6 +12,20 @@ const kidsMetadata = {
   audience: "kids",
   kidsVideoQaStatus: "passed",
   automatedVideoQa: { status: "passed" },
+  approvalStatus: "approved",
+  approvalReviewerId: "admin-user-1",
+  approvalReviewedAt: "2026-11-14T12:00:00.000Z",
+  approvalSnapshotHash: "a".repeat(64),
+  qualityReview: {
+    sourceVerified: true,
+    audioReviewed: true,
+    visualsReviewed: true,
+    captionsReviewed: true,
+    rightsReviewed: true,
+    reviewedAt: "2026-11-14T12:00:00.000Z",
+    mode: "human",
+    reviewerId: "admin-user-1",
+  },
   seriesId: "salim-nour",
   seriesTitle: "Salim and Nour",
   seasonNumber: 1,
@@ -28,6 +42,21 @@ const kidsInput = {
 };
 
 assert.equal(evaluateVideoCatalogPublication(kidsInput).status, "approved");
+assert.equal(evaluateVideoCatalogPublication({
+  ...kidsInput,
+  row: { published: true, metadata: {
+    ...kidsMetadata,
+    approvalReviewerId: "system:zikr-video-factory",
+    qualityReview: { ...kidsMetadata.qualityReview, mode: "automated", reviewerId: "system:zikr-video-factory" },
+  } },
+}).status, "blocked", "automated QA alone must not release a Kids video to external platforms");
+assert.equal(evaluateVideoCatalogPublication({
+  ...kidsInput,
+  row: { published: true, metadata: {
+    ...kidsMetadata,
+    qualityReview: { ...kidsMetadata.qualityReview, reviewerId: "different-admin" },
+  } },
+}).status, "blocked", "the catalog reviewer marker must match the human QA reviewer");
 assert.equal(evaluateVideoCatalogPublication({ ...kidsInput, row: null }).status, "pending");
 assert.equal(evaluateVideoCatalogPublication({ ...kidsInput, row: { ...kidsRow, published: false } }).status, "pending");
 assert.equal(evaluateVideoCatalogPublication({ ...kidsInput, queueKidsContentQaStatus: null }).status, "blocked");
