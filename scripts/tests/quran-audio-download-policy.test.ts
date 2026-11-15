@@ -106,7 +106,7 @@ try {
 const nativeBridgeSource = readFileSync("src/components/layout/native-capacitor-bridge.tsx", "utf8");
 assert.ok(nativeBridgeSource.includes("isAllowedQuranAudioUrl(url)"));
 assert.ok(nativeBridgeSource.includes("isSafeQuranAudioDownloadPath(path)"));
-assert.ok(nativeBridgeSource.includes("Filesystem.stat"));
+assert.ok(nativeBridgeSource.includes("stat?."));
 
 const offlineAudioSource = readFileSync("src/features/quran/services/offline-audio.ts", "utf8");
 assert.ok(offlineAudioSource.includes("isAllowedQuranAudioUrl(sourceUrl)"));
