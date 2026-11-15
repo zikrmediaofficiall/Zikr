@@ -41,6 +41,8 @@ jobs:
       SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
       NEXT_PUBLIC_SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
       NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
+      EXPECTED_PROJECT_REF: zqtssvlvmkzeeyqghqfk
+      BACKFILL_CONFIRMATION: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation || '' }}
       # Production row updates require an explicit manual dispatch and typed owner confirmation.
       BACKFILL_APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply == true && inputs.confirmation == 'APPLY_QA_BACKFILL' }}
     steps:
