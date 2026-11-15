@@ -1,10 +1,7 @@
--- Public Kids video reads require the same human approval contract used by
--- the atomic admin approval RPC. Automated QA alone is not a public release gate.
--- General and legacy non-internal videos retain their existing visibility rules.
--- This migration changes only the SELECT policy; it does not update or delete rows.
+-- Require the complete Kids publication contract after all preceding migrations.
+-- Preserve media, source, series, automated-QA and matching human-review checks;
+-- a later migration must never weaken the policy established by prior hardening.
 BEGIN;
-
-DROP POLICY IF EXISTS videos_public_read ON public.videos;
 
 CREATE POLICY videos_public_read
   ON public.videos
@@ -25,16 +22,21 @@ CREATE POLICY videos_public_read
           OR (
             metadata->>'audience' = 'kids'
             AND metadata->>'generator' = 'zikr_internal_video_factory'
-            AND metadata->>'kidsVideoQaStatus' = 'passed'
-            AND jsonb_typeof(metadata->'automatedVideoQa') = 'object'
-            AND metadata->'automatedVideoQa'->>'status' = 'passed'
-            AND metadata->'automatedVideoQa'->>'snapshotHash' = metadata->>'approvalSnapshotHash'
-            AND metadata->>'approvalStatus' = 'approved'
-            AND metadata->>'approvalReviewerId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-            AND metadata->>'approvalReviewerId' <> 'system:zikr-video-factory'
-            AND nullif(btrim(metadata->>'approvalReviewedAt'), '') IS NOT NULL
-            AND metadata->>'approvalSnapshotHash' ~ '^[a-f0-9]{64}$'
             AND metadata->>'videoGenerationRequestId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            AND metadata->>'generatedVideoUrl' IS NOT NULL
+            AND metadata->>'mediaState' = 'cloudinary_master'
+            AND metadata->>'sourceMediaMissing' IS DISTINCT FROM 'true'
+            AND metadata->>'sourceHash' IS NOT NULL
+            AND metadata->>'contentHash' IS NOT NULL
+            AND metadata->>'templateVersion' IS NOT NULL
+            AND metadata->>'kidsVideoQaStatus' = 'passed'
+            AND metadata->'automatedVideoQa'->>'status' = 'passed'
+            AND metadata->'automatedVideoQa'->>'snapshotHash' ~ '^[a-f0-9]{64}$'
+            AND metadata->>'approvalStatus' = 'approved'
+            AND metadata->>'approvalReviewerId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+            AND metadata->>'approvalReviewedAt' IS NOT NULL
+            AND metadata->>'approvalSnapshotHash' = metadata->'automatedVideoQa'->>'snapshotHash'
+            AND metadata->>'approvalSnapshotHash' ~ '^[a-f0-9]{64}$'
             AND jsonb_typeof(metadata->'qualityReview') = 'object'
             AND metadata->'qualityReview'->>'mode' = 'human'
             AND metadata->'qualityReview'->>'reviewerId' = metadata->>'approvalReviewerId'
@@ -44,13 +46,49 @@ CREATE POLICY videos_public_read
             AND metadata->'qualityReview'->>'visualsReviewed' = 'true'
             AND metadata->'qualityReview'->>'captionsReviewed' = 'true'
             AND metadata->'qualityReview'->>'rightsReviewed' = 'true'
+            AND metadata->>'contentFormat' = 'series_episode'
+            AND metadata->>'aiMode' = 'original_kids_story'
+            AND metadata->>'sourceType' = 'original_kids_fiction'
+            AND nullif(btrim(metadata->>'seriesId'), '') IS NOT NULL
+            AND nullif(btrim(metadata->>'seriesTitle'), '') IS NOT NULL
+            AND nullif(btrim(metadata->>'learningObjective'), '') IS NOT NULL
+            AND coalesce(metadata->>'seasonNumber', '') ~ '^[1-9][0-9]*$'
+            AND coalesce(metadata->>'episodeNumber', '') ~ '^[1-9][0-9]*$'
           )
         )
       )
     )
   );
 
+            AND metadata->>'approvalReviewerId' <> 'system:zikr-video-factory'
+            AND metadata->>'approvalReviewedAt' IS NOT NULL
+            AND metadata->>'approvalSnapshotHash' = metadata->'automatedVideoQa'->>'snapshotHash'
+            AND metadata->>'approvalSnapshotHash' ~ '^[a-f0-9]{64}$'
+            AND jsonb_typeof(metadata->'qualityReview') = 'object'
+            AND metadata->'qualityReview'->>'mode' = 'human'
+            AND metadata->'qualityReview'->>'reviewerId' = metadata->>'approvalReviewerId'
+            AND metadata->'qualityReview'->>'reviewedAt' = metadata->>'approvalReviewedAt'
+            AND metadata->'qualityReview'->>'sourceVerified' = 'true'
+            AND metadata->'qualityReview'->>'audioReviewed' = 'true'
+            AND metadata->'qualityReview'->>'visualsReviewed' = 'true'
+            AND metadata->'qualityReview'->>'captionsReviewed' = 'true'
+            AND metadata->'qualityReview'->>'rightsReviewed' = 'true'
+            AND metadata->>'contentFormat' = 'series_episode'
+            AND metadata->>'aiMode' = 'original_kids_story'
+            AND metadata->>'sourceType' = 'original_kids_fiction'
+            AND nullif(btrim(metadata->>'seriesId'), '') IS NOT NULL
+            AND nullif(btrim(metadata->>'seriesTitle'), '') IS NOT NULL
+            AND nullif(btrim(metadata->>'learningObjective'), '') IS NOT NULL
+            AND coalesce(metadata->>'seasonNumber', '') ~ '^[1-9][0-9]*$'
+            AND coalesce(metadata->>'episodeNumber', '') ~ '^[1-9][0-9]*$'
+          )
+        )
+      )
+    )
+  );
+
+
 COMMENT ON POLICY videos_public_read ON public.videos IS
-  'Public reads include legacy/general videos and Kids videos only after passed automated QA plus matching human approval metadata.';
+  'Public reads include legacy/general videos and Kids videos only after complete automated QA, media/source checks, and matching human approval metadata.';
 
 COMMIT;
