@@ -4,6 +4,7 @@ import { assertCanonicalSupabaseProjectUrl } from './lib/canonical-supabase-proj
 import { getBlockedKidsRoutes, getPublishedKidsRoutes, resolveOfflineDatasetMinimum } from './lib/offline-kids-route-safety.mjs';
 import { getPublishedParentScope, isParentScopedOfflineDataset } from './lib/offline-export-parent-scope.mjs';
 import { getBlockedPublishedContentRoutes } from './lib/offline-export-route-pruning.mjs';
+import { loadPreviousOfflineSnapshot } from './lib/offline-previous-snapshot.mjs';
 
 const root = process.cwd();
 const outputDir = path.join(root, 'public/offline-content/v1');
@@ -119,13 +120,10 @@ async function fetchAll(table, filters) {
 }
 
 const manifestPath = path.join(outputDir, 'manifest.json');
-let previous = { routes: [], datasets: {} };
-try { previous = JSON.parse(await readFile(manifestPath, 'utf8')); } catch { /* first export */ }
-let previousKidsRows = [];
-try {
-  const previousKids = JSON.parse(await readFile(path.join(outputDir, 'kids.json'), 'utf8'));
-  if (Array.isArray(previousKids)) previousKidsRows = previousKids;
-} catch { /* first export */ }
+const { previous, previousKidsRows } = await loadPreviousOfflineSnapshot(
+  manifestPath,
+  path.join(outputDir, 'kids.json'),
+);
 
 let blockedKidsRoutes = new Set();
 const exported = [];
