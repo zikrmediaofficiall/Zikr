@@ -251,6 +251,8 @@ const catalogMetadata = {
   kidsVideoQaStatus: "passed",
   automatedVideoQa: { status: "passed" },
   sourceType: "original_kids_fiction",
+  contentFormat: "series_episode",
+  aiMode: "original_kids_story",
   seriesId: "series-1",
   seriesTitle: "قصص القيم",
   learningObjective: "تعلم الصدق والأمانة",
