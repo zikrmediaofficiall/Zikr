@@ -478,6 +478,10 @@ assert.equal(containsKidsPersonalDataSolicitation("What is your phone number?"),
 assert.equal(containsKidsPersonalDataSolicitation("What's your full name?"), true, "direct English questions requesting a child's name must be blocked");
 assert.equal(containsKidsPersonalDataSolicitation("Where is your school?"), true, "direct English questions requesting a child's school must be blocked");
 assert.equal(containsKidsPersonalDataSolicitation("Where do you live?"), true, "direct English questions requesting a child's home location must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Where do you study?"), true, "direct English questions requesting a child's school must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Which school do you attend?"), true, "English school-attendance questions must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("What school do you go to?"), true, "English questions asking where a child studies must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Never ask where you study."), false, "negative safety instructions about school questions must remain allowed");
 assert.equal(containsKidsPersonalDataSolicitation("How old are you?"), true, "direct English questions requesting a child's age must be blocked");
 assert.equal(containsKidsPersonalDataSolicitation("Can I have your email address?"), true, "polite English requests for a child's email must be blocked");
 assert.equal(containsKidsPersonalDataSolicitation("ابعتلي إجابة السؤال"), false, "ordinary educational requests must not be mistaken for private contact");
