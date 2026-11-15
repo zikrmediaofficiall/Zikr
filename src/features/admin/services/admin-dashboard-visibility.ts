@@ -91,8 +91,8 @@ export function buildAdminQueueOverview(
 
   return {
     unavailable,
-    videoGeneration: videoAvailable ? video.counts : {},
-    socialQueue: socialAvailable ? social.counts : {},
+    videoGeneration: videoAvailable && video ? video.counts : {},
+    socialQueue: socialAvailable && social ? social.counts : {},
     generatedAt,
   };
 }
