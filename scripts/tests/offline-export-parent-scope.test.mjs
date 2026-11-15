@@ -72,5 +72,5 @@ test("offline export applies parent scope before validating and writing child da
   assert.match(exporter, /getPublishedParentScope\(dataset, exported\)/);
   assert.match(exporter, /parentScope\?\.hasParents === false/);
   assert.match(exporter, /\[\.\.\.filters, parentScope\.filter\]/);
-  assert.match(exporter, /isParentScopedOfflineDataset\(dataset\) \? 0 : configuredMinimum/);
+  assert.match(exporter, /isParentScopedOfflineDataset\(dataset\)[\s\S]*?resolveOfflineDatasetMinimum\(dataset, configuredMinimum, Boolean\(serviceRoleKey\)\)/);
 });
