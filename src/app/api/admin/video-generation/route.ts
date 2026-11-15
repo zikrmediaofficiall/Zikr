@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
+import { isKidsVideoContentMarker, normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
 import { requireAdminApi } from '@/features/admin/services/admin';
 import { requireAdminStepUpApi } from '@/features/admin/services/security';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
@@ -111,6 +111,13 @@ export async function PATCH(request: NextRequest) {
       const audience = normalizeVideoAudience(currentContent.audience);
       if (!audience) {
         return NextResponse.json({ error: 'فئة الجمهور غير معروفة؛ تم إيقاف الاعتماد.' }, { status: 409 });
+      }
+      const hasKidsIntent = isKidsVideoContentMarker(currentContent);
+      if (hasKidsIntent && audience !== 'kids') {
+        return NextResponse.json(
+          { error: 'علامات محتوى الأطفال لا تتوافق مع فئة الجمهور المسجلة؛ حدّث بيانات الجمهور قبل الاعتماد.' },
+          { status: 409, headers: { 'Cache-Control': 'no-store' } },
+        );
       }
       const isKidsVideo = audience === 'kids';
       // Video managers may review general-audience assets, but Kids publication
