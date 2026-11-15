@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { runInNewContext } from "node:vm";
 import {
   filterOfflineSupplementalKidsRoutes,
   getPublishedKidsOfflineRoutes,
@@ -15,6 +16,12 @@ for (const route of [
   "/\\\\evil.example/path",
   "/%5c%5cevil.example/path",
   "/%2f%2fevil.example/path",
+  "/kids/%252e%252e/admin",
+  "/kids/%25252e%25252e/admin",
+  "/kids/%2525252e%2525252e/admin",
+  "/articles/%252fprivate",
+  "/articles/%255cprivate",
+  "/kids/%ZZ",
   "/kids/story?token=secret",
   "/kids/story#fragment",
   "https://evil.example/path",
@@ -71,6 +78,25 @@ assert.deepEqual(
 
 const offlinePackSource = readFileSync(resolve(process.cwd(), "src/lib/offline-pack.ts"), "utf8");
 const serviceWorkerSource = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
+const serviceWorkerRouteSafetyStart = serviceWorkerSource.indexOf("function hasUnsafeEncodedPathSegment(");
+const serviceWorkerRouteSafetyEnd = serviceWorkerSource.indexOf("function absoluteSameOriginUrl(", serviceWorkerRouteSafetyStart);
+assert.ok(
+  serviceWorkerRouteSafetyStart >= 0 && serviceWorkerRouteSafetyEnd > serviceWorkerRouteSafetyStart,
+  "service worker must expose the bounded encoded-path traversal guard before URL normalization",
+);
+const serviceWorkerRouteSafety = runInNewContext(
+  `${serviceWorkerSource.slice(serviceWorkerRouteSafetyStart, serviceWorkerRouteSafetyEnd)}\n({ isSafeOfflineRoute })`,
+  { self: { location: { origin } }, URL },
+) as { isSafeOfflineRoute: (route: string) => boolean };
+for (const route of [
+  "/kids/%252e%252e/admin",
+  "/kids/%25252e%25252e/admin",
+  "/articles/%252fprivate",
+  "/articles/%255cprivate",
+  "/kids/%ZZ",
+]) {
+  assert.equal(serviceWorkerRouteSafety.isSafeOfflineRoute(route), false, `service worker must reject encoded traversal: ${route}`);
+}
 assert.match(offlinePackSource, /getPublishedKidsOfflineRoutes\(refreshedKidsRows\)/, "route pruning must include current Kids dataset slugs, even when the static manifest is stale");
 assert.match(offlinePackSource, /filterOfflineSupplementalKidsRoutes\(manifest\.routes \?\? \[\], currentKidsRoutes\)/, "stale Kids story routes in the manifest must also be removed from the keep set");
 assert.match(offlinePackSource, /filterOfflineSupplementalKidsRoutes\(supplementalRouteInventory, refreshedKidsRoutes\)/, "static supplemental routes must not reintroduce revoked Kids stories");
