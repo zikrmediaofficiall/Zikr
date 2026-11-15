@@ -1,6 +1,10 @@
 import { getServerEnv } from "../../src/lib/env";
 import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
-import { classifyBackfillPatchResult } from "../../src/features/videos/services/video-qa-backfill-policy";
+import {
+  assertBackfillApplyConfirmation,
+  assertBackfillTargetProject,
+  classifyBackfillPatchResult,
+} from "../../src/features/videos/services/video-qa-backfill-policy";
 import { normalizeVideoAudience, normalizeVideoMarker } from "../../src/features/videos/services/video-audience-visibility";
 import { sourceHash, videoContentHash } from "../../src/features/videos/providers/content-hash";
 import { AI_VISUAL_POLICY_VERSION } from "../../src/features/videos/providers/ai-visual-policy";
@@ -419,6 +423,12 @@ async function main() {
     throw new Error("Legacy Video QA backfill requires the production Supabase service-role environment.");
   }
   const apply = process.argv.includes("--apply");
+  assertBackfillTargetProject(SUPABASE_URL, process.env.EXPECTED_PROJECT_REF);
+  assertBackfillApplyConfirmation(
+    apply,
+    process.env.BACKFILL_APPLY,
+    process.env.BACKFILL_CONFIRMATION,
+  );
   const rows = await listLegacyRequests();
   console.log("[video-qa-backfill] mode=" + (apply ? "apply" : "dry-run") + " candidates=" + rows.length);
   const results = [];
