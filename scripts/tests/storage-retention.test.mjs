@@ -80,6 +80,19 @@ assert.throws(
 assert.throws(() => assertExpectedSupabaseProject(supabaseUrl, "wrong-project"), /20-character Supabase project ref/);
 assert.throws(() => assertExpectedSupabaseProject("https://other-project.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
 assert.throws(() => assertExpectedSupabaseProject("http://zqtssvlvmkzeeyqghqfk.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
+for (const nonCanonicalUrl of [
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co:8443",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/rest/v1",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co?apikey=unexpected",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/#fragment",
+  "https://operator:secret@zqtssvlvmkzeeyqghqfk.supabase.co",
+]) {
+  assert.throws(
+    () => assertExpectedSupabaseProject(nonCanonicalUrl, "zqtssvlvmkzeeyqghqfk"),
+    /unexpected Supabase project/,
+    "Storage retention must reject non-canonical ports, paths, query strings, fragments, and URL credentials",
+  );
+}
 assert.doesNotThrow(() => assertRetentionApplyConfirmation(false, "", false));
 assert.throws(
   () => assertRetentionApplyConfirmation(true, "DELETE_STAGING_COPIES_AFTER_REFERENCE_FREEZE", false),

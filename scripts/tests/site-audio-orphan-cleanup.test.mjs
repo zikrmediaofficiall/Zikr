@@ -38,6 +38,19 @@ assert.throws(
   "a null asset-reference or Storage-list response must never be interpreted as an empty inventory",
 );
 assert.throws(() => assertExpectedSupabaseProject("https://other.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
+for (const nonCanonicalUrl of [
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co:8443",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/rest/v1",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co?apikey=unexpected",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/#fragment",
+  "https://operator:secret@zqtssvlvmkzeeyqghqfk.supabase.co",
+]) {
+  assert.throws(
+    () => assertExpectedSupabaseProject(nonCanonicalUrl, "zqtssvlvmkzeeyqghqfk"),
+    /unexpected Supabase project/,
+    "site-audio cleanup must reject non-canonical ports, paths, query strings, fragments, and URL credentials",
+  );
+}
 assert.doesNotThrow(() => assertSiteAudioCleanupApplyConfirmation(false, "", false));
 assert.throws(() => assertSiteAudioCleanupApplyConfirmation(true, "DELETE_UNREFERENCED_SITE_AUDIO_UPLOADS", false), /SITE_AUDIO_UPLOAD_WRITES_PAUSED=true/);
 assert.throws(() => assertSiteAudioCleanupApplyConfirmation(true, "wrong", true), /DELETE_UNREFERENCED_SITE_AUDIO_UPLOADS/);

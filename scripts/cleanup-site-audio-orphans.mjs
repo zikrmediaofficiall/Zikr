@@ -48,7 +48,16 @@ export function assertExpectedSupabaseProject(supabaseUrl, expectedProjectRef) {
     throw new Error("EXPECTED_PROJECT_REF must be the canonical 20-character Supabase project ref.");
   }
   const parsed = new URL(supabaseUrl);
-  if (parsed.protocol !== "https:" || parsed.hostname.toLowerCase() !== expected + ".supabase.co") {
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname.toLowerCase() !== expected + ".supabase.co" ||
+    parsed.port ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash
+  ) {
     throw new Error("Refusing site-audio cleanup for an unexpected Supabase project.");
   }
   return expected;
