@@ -398,6 +398,7 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
       approvedContent,
       request.updated_at,
       revalidatingKidsClassification ? KIDS_CLASSIFICATION_BLOCK_REASON : undefined,
+      revalidatingKidsQa ? (typeof originalContent.kidsVideoQaStatus === "string" ? originalContent.kidsVideoQaStatus : null) : undefined,
     );
     if (!updated) {
       return { id: request.id, status: "stale", reason: "The request changed after selection; no QA metadata was written." };
