@@ -18,7 +18,7 @@ function isOriginalKidsFiction(content: Record<string, unknown>): boolean {
 
 function hasMisleadingOriginalFictionAttribution(value: string | null): boolean {
   if (!value) return false;
-  return /(?:https?:\\/\\/|www\\.)|(?:قصة\\s+موثقة|موثقة\\s+في\\s+مكتبة|إحالة\\s+إلى\\s+مصدرها|مصدرها\\s+الأساسي|(?:^|\\n)\\s*المصدر\\s*[:：])/iu.test(value);
+  return /(?:https?:\/\/|www\.)|(?:قصة\s+موثقة|موثقة\s+في\s+مكتبة|إحالة\s+إلى\s+مصدرها|مصدرها\s+الأساسي|(?:^|\n)\s*المصدر\s*[:：])/iu.test(value);
 }
 
 function resolveOriginalKidsFictionSourceLabel(value: unknown): string {
