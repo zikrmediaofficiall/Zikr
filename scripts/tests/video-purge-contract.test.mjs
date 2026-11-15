@@ -306,3 +306,28 @@ assert.ok(
     control.includes("disabled={busy || !scope || confirmation !== CONFIRMATION_PHRASE}"),
   "the destructive scope must be explicitly selected before the confirmation action can run.",
 );
+
+const failedVideoDeleteAction = read("src/features/admin/actions/video.ts");
+const adminCommandCenter = read("src/features/admin/components/admin-platform-command-center.tsx");
+assert.ok(
+  failedVideoDeleteAction.includes("VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT") &&
+    failedVideoDeleteAction.includes("deletionStarted: false") &&
+    failedVideoDeleteAction.includes("recordsDeleted: 0") &&
+    failedVideoDeleteAction.includes("No rows were changed."),
+  "the legacy bulk-delete server action must return an explicit non-destructive hold result",
+);
+assert.doesNotMatch(
+  failedVideoDeleteAction,
+  /supabaseServerAdminRequest|method:\\s*["']DELETE|recordAdminAuditEvent|revalidatePath|requireAdminStepUp/,
+  "the legacy bulk-delete server action must not perform database writes or destructive side effects",
+);
+assert.ok(
+  !adminCommandCenter.includes("deleteFailedVideoGenerationAction") &&
+    !adminCommandCenter.includes("<form action={"),
+  "the admin command center must not expose the unsafe bulk-delete server action",
+);
+assert.ok(
+  adminCommandCenter.includes("الحذف الجماعي متوقف حتى اكتمال مراجعة مراجع الوسائط") &&
+    adminCommandCenter.includes("الحذف معطّل مؤقتًا"),
+  "the admin command center must explain why failed request records are retained",
+);
