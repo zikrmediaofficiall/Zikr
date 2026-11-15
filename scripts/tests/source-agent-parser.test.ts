@@ -39,7 +39,7 @@ const externalFetchIndex = agentSource.indexOf("await fetch(source.fetch_url");
 assert.ok(parserPreflightIndex >= 0 && parserPreflightIndex < externalFetchIndex, "unsupported/catalog-only providers must be skipped before any network request");
 assert.match(agentSource, /redirect:\s*"error"/, "provider fetches must not follow unreviewed redirects");
 assert.match(agentSource, /signal:\s*AbortSignal\.timeout\(10_000\)/, "provider fetches must have a bounded timeout");
-assert.match(agentSource, /getSourceAgentRunStatus\\(summary\\)/, "skipped sources must affect the persisted run status");
-assert.match(agentSource, /ok:\\s*summary\\.failed === 0 && summary\\.skipped === 0/, "skipped sources must not produce a successful top-level response");
+assert.match(agentSource, /getSourceAgentRunStatus\(summary\)/, "skipped sources must affect the persisted run status");
+assert.match(agentSource, /ok:\s*summary\.failed === 0 && summary\.skipped === 0/, "skipped sources must not produce a successful top-level response");
 
 console.log("Source-agent parser outcome and fetch-safety contract passed.");
