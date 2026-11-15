@@ -381,3 +381,11 @@ The older `public.plan_background_reminder_deliveries(timestamptz)` function exi
 - Admin setting `require_mfa_for_destructive=false`; Supabase Security Advisor reports leaked-password protection disabled; Performance Advisor reports 78 unused-index notices; Health Advisor returned no lints. No index was dropped.
 - Deployed Edge Function versions: `spiritual-ai` v2, `prayer-notification-worker` v77, `source-verified-content-agent` v14. The local branch has stronger auth/body bounds, pagination/endpoint validation/delivery leases, and explicit parser-skip reporting respectively. No Edge Function was deployed.
 - All statements above are based on read-only metadata/catalog/count queries. No DDL/DML, migration apply, bucket change, cron mutation, function deployment, Storage-object change, or data mutation was performed.
+
+
+## 2026-11-15T16:32Z — atomic video approval migration (local-only)
+
+- Remote migration history remains **418** versions through `20261110170000`; the repository now has **445** migration files, **27 local-only pending**, and zero remote-only versions.
+- Added `supabase/migrations/20261115153600_admin_video_approval_atomic.sql` (blob SHA `6211d986167ed63ad6147fcc66051057d05c0551`). It creates the service-role-only `admin_approve_video_generation_request` RPC so the generation request and matching catalog row are locked and compare-and-set updated atomically.
+- Isolated PostgreSQL 17 integration step 11 passed in Quality Gate `43735522332` on exact code/test head `37b1d8b8861ae39ea673c4386eaf2ec76fc7571a`. The test first caught ambiguous `updated_at` references caused by the PL/pgSQL output parameter; both UPDATE predicates now qualify their target aliases.
+- The RPC is absent from production. This migration remains local-only and was not applied. No production schema, data, function, cron, storage, or content was changed.
