@@ -188,7 +188,6 @@ export const appRoutes = [
   { path: "/knowledge", label: "مركز المعرفة", sitemap: { changeFrequency: "monthly", priority: 0.7 }, footer: "platform" },
   { path: "/videos", label: "الفيديوهات", sitemap: { changeFrequency: "daily", priority: 0.8 } },
   { path: "/kids", label: "الأطفال", sitemap: { changeFrequency: "weekly", priority: 0.7 } },
-  { path: "/kids/videos", label: "فيديوهات الأطفال", sitemap: { changeFrequency: "weekly", priority: 0.65 } },
   { path: "/kids/adventures", label: "مغامرات الأطفال", sitemap: { changeFrequency: "weekly", priority: 0.7 } },
   { path: "/memorization", label: "الحفظ", sitemap: { changeFrequency: "weekly", priority: 0.6 }, nav: "more", footer: "tools" },
   { path: "/wird", label: "الورد اليومي", sitemap: { changeFrequency: "weekly", priority: 0.6 }, footer: "tools" },
