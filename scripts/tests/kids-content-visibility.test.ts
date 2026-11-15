@@ -1058,10 +1058,15 @@ const kidsVideoPublicReadMigration = readFileSync(
 );
 assert.match(kidsVideoPublicReadMigration, /DROP POLICY IF EXISTS videos_public_read ON public\.videos/i);
 assert.match(kidsVideoPublicReadMigration, /CREATE POLICY videos_public_read[\s\S]*?TO anon, authenticated[\s\S]*?published IS TRUE/i);
-assert.match(
+assert.match(kidsVideoPublicReadMigration, /metadata IS NULL/i);
+assert.match(kidsVideoPublicReadMigration, /jsonb_typeof\(metadata\) = 'object'/i);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'audience' IS NULL/i);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'audience' = 'general'/i);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'audience' = 'kids'/i);
+assert.doesNotMatch(
   kidsVideoPublicReadMigration,
   /lower\(btrim\(coalesce\(metadata->>'audience', ''\)\)\) <> 'kids'/i,
-  "non-Kids videos may remain public while every Kids audience value is gated",
+  "unknown and malformed audience values must fail closed instead of being treated as general",
 );
 assert.match(kidsVideoPublicReadMigration, /metadata->>'generator' = 'zikr_internal_video_factory'/);
 assert.match(kidsVideoPublicReadMigration, /metadata->>'kidsVideoQaStatus' = 'passed'/);
