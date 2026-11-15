@@ -15,6 +15,7 @@ export type VideoCatalogPublicationRow = {
 export type VideoCatalogPublicationInput = {
   contentId: string | null;
   queuedVideoUrl: string | null;
+  requestAudience: unknown;
   queueAudience: unknown;
   queueKidsContentQaStatus: unknown;
   expectedApprovalSnapshotHash: string | null;
@@ -76,14 +77,21 @@ export function evaluateVideoCatalogPublication(
   if (!metadata) return { status: "blocked", reason: "The public video catalog metadata is missing or invalid." };
 
   const audience = normalizeAudience(metadata.audience);
+  const requestAudience = normalizeAudience(input.requestAudience);
   const queueAudience = input.queueAudience == null ? null : normalizeAudience(input.queueAudience);
   if (!audience || (input.queueAudience != null && !queueAudience)) {
     return { status: "blocked", reason: "The video catalog or queue audience is invalid." };
   }
-  if (queueAudience && queueAudience !== audience) {
-    return { status: "blocked", reason: "The queue audience does not match the published video catalog audience." };
+  if (!requestAudience) {
+    return { status: "blocked", reason: "The generation request audience is missing or invalid." };
   }
-  if (audience === "kids" && queueAudience !== "kids") {
+  if (requestAudience !== audience) {
+    return { status: "blocked", reason: "request_audience_mismatch" };
+  }
+  if (queueAudience && queueAudience !== requestAudience) {
+    return { status: "blocked", reason: "The queue audience does not match the generation request audience." };
+  }
+  if (requestAudience === "kids" && queueAudience !== "kids") {
     return { status: "blocked", reason: "Kids videos require an explicit Kids audience marker in the social queue." };
   }
 
