@@ -179,6 +179,7 @@ assert.match(worker, /normalizePrayerTimings\(cache\.timings, PRAYERS\)/,
 assert.match(worker, /normalizePrayerTimings\(payload\.data\?\.timings, PRAYERS\)/,
   "provider responses must be complete and validated before they enter the schedule cache");
 const subscriptionRoute = readFileSync("src/app/api/push/subscription/route.ts", "utf8");
+const subscriptionRequest = readFileSync("src/features/notifications/services/push-subscription-request.ts", "utf8");
 const serviceWorker = readFileSync("public/sw.js", "utf8");
 const normalizedRequestBodyCalls = subscriptionRoute.match(/normalizePushSubscriptionRequestBody\(parsedBody\.value\)/g) ?? [];
 assert.equal(normalizedRequestBodyCalls.length, 2, "POST and DELETE must normalize bounded JSON values before reading fields");
@@ -186,7 +187,8 @@ const boundedSubscriptionBodyReads = subscriptionRoute.match(/readBoundedJsonBod
 assert.equal(boundedSubscriptionBodyReads.length, 2, "POST and DELETE must reject malformed or oversized request bodies before reading subscription fields");
 assert.match(subscriptionRoute, /parsePushCoordinate\(location\?\.latitude, -90, 90\)/);
 assert.match(subscriptionRoute, /parsePushCoordinate\(location\?\.longitude, -180, 180\)/);
-assert.match(subscriptionRoute, /isAllowedPushEndpoint\(endpoint\)/, "subscription intake must reject arbitrary HTTPS endpoints");
+assert.match(subscriptionRoute, /parsePushSubscriptionRequestBody\(parsedBody\.value\)/, "subscription intake must use the shared request validator");
+assert.match(subscriptionRequest, /isAllowedPushEndpoint\(endpoint\)/, "the shared request validator must reject arbitrary HTTPS endpoints");
 assert.match(worker, /isAllowedPushEndpoint\(subscription\.endpoint\)/, "the delivery worker must revalidate legacy endpoints before outbound requests");
 const staleRecoveryStart = worker.indexOf("async function recoverStaleClaims");
 const staleRecoveryEnd = worker.indexOf("async function getDueDeliveryCandidates", staleRecoveryStart);
@@ -974,7 +976,7 @@ assert.doesNotMatch(
 const pushSubscriptionRoute = readFileSync("src/app/api/push/subscription/route.ts", "utf8");
 const pushWorkerSource = readFileSync("supabase/functions/prayer-notification-worker/index.ts", "utf8");
 assert.match(pushSubscriptionRoute, /createAdminClient\(\)/, "the subscription API must use the service-role client");
-assert.match(pushSubscriptionRoute, /isAllowedPushEndpoint/, "the API must validate endpoint hosts before storing them");
+assert.match(pushSubscriptionRoute, /parsePushSubscriptionRequestBody\(parsedBody\.value\)/, "the API must validate endpoints through the shared request parser");
 assert.match(pushWorkerSource, /isAllowedPushEndpoint/, "the worker must validate legacy endpoints before outbound push requests");
 
 console.log("Prayer notification subscription pagination and delivery lease contracts passed.");
