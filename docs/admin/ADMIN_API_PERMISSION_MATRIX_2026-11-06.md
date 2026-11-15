@@ -31,7 +31,7 @@
 | POST | `/api/admin/video-purge` | `video.delete` — MFA step-up before destructive cleanup |
 | GET | `/api/admin/video-generation` | `video.manage` |
 | DELETE | `/api/admin/video-generation` | `video.delete` |
-| PATCH | `/api/admin/video-generation` | `video.manage` — external publish retry returns HTTP 410 |
+| PATCH | `/api/admin/video-generation` | `video.manage`; `kids.manage` for Kids approval only — external publish retry returns HTTP 410 |
 | GET | `/api/admin/video-generation/sources` | `video.manage` |
 | GET | `/api/admin/social/youtube/connect` | `social.manage` + `social.publish` MFA step-up — publishing-capable OAuth |
 | GET | `/api/admin/social/youtube/callback` | `social.manage`, `social.publish` (MFA step-up) — validates upload/read scopes and stores the publishing refresh token |
