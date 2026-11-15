@@ -81,3 +81,10 @@ All checks below were performed against the public production alias after deploy
 - The offline refresh workflow's PR-creation failure now fails visibly in the branch; repository Actions PR-creation permission or a write-scoped token remains an owner-only configuration step.
 - Vercel production remains on `main@c4560d9`; no deployment of the audit branch was made. Missing iOS AASA app ID and GA4 service credentials remain owner inputs.
 - Manual acceptance remains: iOS universal links/OAuth/push/audio/offline behavior on a physical device; Android signed release/Play Store install; provider account permissions and production smoke after an approved deployment.
+
+## 2026-11-15 exact-head update
+
+- Current PR head `e66036991a0eaa33370824efb1cf7aac98aadb79`; 625 changed paths; overlay 623 rows (401 tested-pass, 36 fixed/tested/pending-live-apply, 180 review-required, 6 superseded); manifest 2,439 entries.
+- Quality Gate `43759138630`, CircleCI `43759138676`, and Android Debug APK `43759138702` passed. Supabase Preview `132938540531` was skipped because the audit branch is not associated with a Supabase Branch.
+- The public Kids API/detail resolver fail closed without a valid generation-request ID; current IDs use queue history. Catalog metadata retry is operational follow-up, not a current public stale-status defect.
+- Vercel project settings remain unverified due team access denial. Owner authorization is required before confirming Git auto-deploy and project metadata; do not infer from a READY deployment.

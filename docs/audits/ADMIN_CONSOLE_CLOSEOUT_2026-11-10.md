@@ -105,5 +105,5 @@ Do not merge or deploy until:
 - Read the admin narration upload route and Cloudinary recovery helper. Mismatched returned public IDs are surfaced as recovery references; assets are not deleted or silently registered under the wrong ID.
 - Kids video approval binds QA and series metadata to the matching generation-request fingerprint. PostgreSQL 17 atomic integration tests pass, but the RPC migration remains unapplied in production.
 - Kids offline static snapshot remains unsafe on main (20 unapproved stories); the safe 45-row snapshot, exporter/verifier and regression tests are in PR #320.
-- A separate open issue remains: failed Kids `socialPublication` catalog metadata writes are not retried after queue finalization. Do not mark the social/Kids closeout complete until a bounded reconciliation path and regression tests exist.
+- The publisher's Kids `socialPublication` catalog metadata sync remains best-effort/no-retry, but the public Kids API/detail resolver now fail closed for missing/invalid request IDs and use queue history for valid IDs; a failed catalog write no longer exposes a stale public badge. Treat reconciliation as operational follow-up only.
 - Owner review, Supabase migration application, GitHub Actions PR-creation permission, iOS/Android device acceptance and production smoke checks remain outstanding.

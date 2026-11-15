@@ -66,3 +66,9 @@ The PR Quality Gates passed before merge, the final main Quality Gate passed, an
 - No audit-dispatched content generation, Gemini calls, social publishing, production DB mutation, storage/media deletion, release or deployment occurred. Existing scheduled workflows were inspected only.
 
 The current branch has materially advanced the audit, but 182 paths remain REVIEW_REQUIRED and 36 fixes remain pending live application/owner rollout. Do not merge, deploy or claim closure until CODEOWNERS review, production migration review/application, offline snapshot refresh, scheduled publisher approval gating, the Kids catalog-sync retry gap, missing Vercel environment inputs and device acceptance are resolved.
+
+## 2026-11-15 exact-head update — still open
+
+- Current PR head `e66036991a0eaa33370824efb1cf7aac98aadb79`; 625 changed paths; overlay 623 rows (401 tested-pass, 36 fixed/tested/pending-live-apply, 180 review-required, 6 superseded); manifest 2,439 entries.
+- Quality Gate `43759138630`, CircleCI `43759138676`, and Android Debug APK `43759138702` passed. Supabase Preview was skipped, not passed.
+- PR remains open: CODEOWNERS review, 27 unapplied Supabase migrations, GitHub Actions PR-creation permission, Vercel team settings/owner inputs, physical-device acceptance and post-deploy production smoke remain outstanding.

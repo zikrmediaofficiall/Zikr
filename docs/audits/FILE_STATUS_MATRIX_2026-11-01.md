@@ -2380,3 +2380,10 @@ This section is a branch snapshot, not a change to the main-baseline matrix abov
 - No audit-dispatched content generation, Gemini calls, social publishing, production DB mutation, storage/media deletion, release or deployment occurred. Existing scheduled workflows were inspected only.
 
 The paired `PR320_FILE_STATUS_OVERLAY_2026-11-15.md` is the current path-level matrix for the 614 changed paths. Statuses are deliberately split between content-read/tested, fixed but awaiting live migration/owner rollout, still review-required, and superseded snapshot rows. In particular, the Kids offline snapshot and workflow fixes remain pending merge/refresh; 182 rows still require review. Do not treat this summary as evidence that all tracked files have been read.
+
+## 2026-11-15 exact-head reconciliation
+
+- PR #320 current head `e66036991a0eaa33370824efb1cf7aac98aadb79`; 625 changed paths (96,256 additions, 6,573 deletions, zero deleted paths).
+- Manifest target: 2,439 entries; recursive tree: 2,442 entries. Overlay: 623 rows; CONTENT_READ_TESTED_PASS=401, FIXED_TESTED_PENDING_LIVE_APPLY=36, REVIEW_REQUIRED=180, SUPERSEDED_SNAPSHOT=6.
+- Code/test checkpoint `ce56d065a640b4e5ee38024a28179db15e0a6817`; Quality Gate `43759138630`, CircleCI `43759138676`, Android Debug APK `43759138702` all passed on the current PR head after the README-only child commit. Supabase Preview `132938540531` was skipped because this branch is not associated with a Supabase Branch; it is not a pass.
+- Kids public API/detail publication fails closed without a valid generation-request ID; valid IDs use queue history. The best-effort catalog metadata write has no retry, but no stale public badge is exposed.
