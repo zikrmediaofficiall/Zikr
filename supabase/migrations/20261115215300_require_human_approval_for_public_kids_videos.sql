@@ -24,7 +24,7 @@ CREATE POLICY videos_public_read
           OR (
             metadata->>'audience' = 'kids'
             AND metadata->>'generator' = 'zikr_internal_video_factory'
-            AND metadata->>'videoGenerationRequestId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            AND metadata->>'videoGenerationRequestId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
             AND nullif(btrim(metadata->>'generatedVideoUrl'), '') LIKE 'https://res.cloudinary.com/%'
             AND metadata->>'mediaState' = 'cloudinary_master'
             AND metadata->>'sourceMediaMissing' IS DISTINCT FROM 'true'
@@ -35,7 +35,7 @@ CREATE POLICY videos_public_read
             AND metadata->'automatedVideoQa'->>'status' = 'passed'
             AND metadata->'automatedVideoQa'->>'snapshotHash' ~ '^[a-f0-9]{64}$'
             AND metadata->>'approvalStatus' = 'approved'
-            AND metadata->>'approvalReviewerId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            AND metadata->>'approvalReviewerId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
             AND nullif(btrim(metadata->>'approvalReviewedAt'), '') IS NOT NULL
             AND metadata->>'approvalSnapshotHash' = metadata->'automatedVideoQa'->>'snapshotHash'
             AND metadata->>'approvalSnapshotHash' ~ '^[a-f0-9]{64}$'

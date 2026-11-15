@@ -59,8 +59,8 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 18 THEN
-    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 18 fixtures; found %', visible_rows;
+  IF visible_rows <> 22 THEN
+    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 22 fixtures; found %', visible_rows;
   END IF;
 END
 $service_role_read$;

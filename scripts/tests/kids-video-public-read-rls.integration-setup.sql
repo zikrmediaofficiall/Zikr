@@ -104,3 +104,32 @@ VALUES
   ('malformed-array-metadata', true, '["kids"]'::jsonb),
   ('json-null-metadata', true, 'null'::jsonb),
   ('unpublished-general', false, '{"audience":"general"}'::jsonb);
+
+-- These four rows otherwise copy the fully approved fixture. They must remain
+-- private because request/reviewer IDs with a non-RFC version or variant are
+-- not valid application-generated UUIDs.
+INSERT INTO public.videos (id, published, metadata)
+SELECT 'kids-invalid-request-version', published,
+       metadata || jsonb_build_object('videoGenerationRequestId', '10000000-0000-0000-8000-000000000001')
+FROM public.videos WHERE id = 'kids-approved';
+
+INSERT INTO public.videos (id, published, metadata)
+SELECT 'kids-invalid-request-variant', published,
+       metadata || jsonb_build_object('videoGenerationRequestId', '10000000-0000-4000-7000-000000000001')
+FROM public.videos WHERE id = 'kids-approved';
+
+INSERT INTO public.videos (id, published, metadata)
+SELECT 'kids-invalid-reviewer-version', published,
+       metadata || jsonb_build_object(
+         'approvalReviewerId', '11111111-1111-0111-8111-111111111111',
+         'qualityReview', metadata->'qualityReview' || jsonb_build_object('reviewerId', '11111111-1111-0111-8111-111111111111')
+       )
+FROM public.videos WHERE id = 'kids-approved';
+
+INSERT INTO public.videos (id, published, metadata)
+SELECT 'kids-invalid-reviewer-variant', published,
+       metadata || jsonb_build_object(
+         'approvalReviewerId', '11111111-1111-4111-7111-111111111111',
+         'qualityReview', metadata->'qualityReview' || jsonb_build_object('reviewerId', '11111111-1111-4111-7111-111111111111')
+       )
+FROM public.videos WHERE id = 'kids-approved';
