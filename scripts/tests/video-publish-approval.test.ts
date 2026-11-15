@@ -376,6 +376,29 @@ assert.equal(catalogPatch?.metadata.approvalStatus, "approved");
 assert.equal(catalogPatch?.metadata.approvalReviewerId, "admin-user-1");
 assert.equal((catalogPatch?.metadata.qualityReview as Record<string, unknown>).mode, "human");
 assert.equal(catalogPatch?.metadata.storyText, "قصة تعليمية محفوظة كما هي", "catalog approval must preserve existing content metadata");
+const mismatchedGeneralSnapshotHash = buildVideoApprovalSnapshotHash({ ...snapshot, audience: "general" });
+const mismatchedGeneralCatalogPatch = buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: {
+    ...catalogMetadata,
+    audience: "general",
+    approvalSnapshotHash: mismatchedGeneralSnapshotHash,
+    automatedVideoQa: { ...catalogMetadata.automatedVideoQa, snapshotHash: mismatchedGeneralSnapshotHash },
+  },
+  requestContent: {
+    ...catalogRequestContent,
+    audience: "general",
+    approvalStatus: "approved",
+    approvalReviewerId: "admin-user-1",
+    approvalReviewedAt: now,
+    approvalSnapshotHash: mismatchedGeneralSnapshotHash,
+    qualityReview: { ...checks, reviewedAt: now, mode: "human", reviewerId: "admin-user-1" },
+    automatedVideoQa: { ...catalogRequestContent.automatedVideoQa, snapshotHash: mismatchedGeneralSnapshotHash },
+  },
+  snapshotHash: mismatchedGeneralSnapshotHash!,
+});
+assert.equal(mismatchedGeneralCatalogPatch, null,
+  "a general approval snapshot must not approve catalog metadata carrying explicit Kids provenance");
 
 const kidsSeriesFields = [
   "contentFormat", "aiMode", "sourceType", "seriesId", "seriesTitle",
@@ -531,9 +554,18 @@ assert.ok(
     adminVideoGenerationRoute.indexOf("const catalogSlug"),
   "conflicting Kids metadata must be rejected before catalog reads or approval mutations",
 );
+assert.match(adminVideoGenerationRoute, /isKidsVideoContentMarker\(currentContent\)/);
+assert.ok(
+  adminVideoGenerationRoute.indexOf("isKidsVideoContentMarker(currentContent)") <
+    adminVideoGenerationRoute.indexOf("const catalogSlug"),
+  "conflicting Kids metadata must be rejected before catalog reads or approval mutations",
+);
 assert.doesNotMatch(adminVideoGenerationRoute, /currentContent\.audience === ["']kids["']/);
 const adminVideoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
 assert.match(adminVideoCreateRoute, /normalizeVideoAudience\(content\.audience\)/);
+assert.match(adminVideoCreateRoute, /hasExplicitKidsVideoIntentMarker/);
+assert.match(adminVideoCreateRoute, /submittedKidsIntent/);
+assert.match(adminVideoCreateRoute, /audience: source\.audience \?\? "general"/);
 assert.match(adminVideoCreateRoute, /hasExplicitKidsVideoIntentMarker/);
 assert.match(adminVideoCreateRoute, /submittedKidsIntent/);
 assert.match(adminVideoCreateRoute, /audience: source\.audience \?\? "general"/);
@@ -550,6 +582,8 @@ assert.ok(
 const createAudienceGuard = adminVideoCreateRoute.slice(createAudienceGuardIndex, createTemplateBranchIndex);
 assert.match(createAudienceGuard, /if \(!requestedAudience\)/);
 assert.match(createAudienceGuard, /audience: requestedAudience/);
+assert.match(createAudienceGuard, /submittedKidsIntent \|\| hasExplicitKidsVideoIntentMarker\(content\)/,
+  "Kids provenance must be reconciled before the request is persisted");
 const createKidsPermissionGuardIndex = adminVideoCreateRoute.indexOf('if (requestedAudience === "kids")');
 assert.ok(
   createKidsPermissionGuardIndex > createAudienceGuardIndex &&
