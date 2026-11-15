@@ -7,6 +7,7 @@ import {
   fingerprintSiteAudioStoragePath,
   isSafeSiteAudioUploadIntent,
   requireSiteAudioArrayResult,
+  assertSiteAudioIntentUpdateResult,
   selectExpiredSiteAudioUploadIntents,
 } from "../cleanup-site-audio-orphans.mjs";
 
@@ -28,6 +29,9 @@ const detachedRegisteredIntent = { ...validIntent, status: "registered" };
 
 assert.equal(assertExpectedSupabaseProject("https://zqtssvlvmkzeeyqghqfk.supabase.co", "zqtssvlvmkzeeyqghqfk"), "zqtssvlvmkzeeyqghqfk");
 assert.deepEqual(requireSiteAudioArrayResult([], "fixture"), []);
+assert.equal(assertSiteAudioIntentUpdateResult({ storage_path: validIntent.storage_path }, validIntent.storage_path), true);
+assert.throws(() => assertSiteAudioIntentUpdateResult(null, validIntent.storage_path), /did not update the expected row/, "a zero-row compare-and-set must not be reported as a successful reconciliation");
+assert.throws(() => assertSiteAudioIntentUpdateResult({ storage_path: ownerId + "/different-file.mp3" }, validIntent.storage_path), /did not update the expected row/, "an update response for another path must not be accepted");
 assert.throws(
   () => requireSiteAudioArrayResult(null, "fixture"),
   /incomplete data; refusing cleanup/,
@@ -123,6 +127,9 @@ assert.ok(intentValidationIndex >= 0 && intentValidationIndex < protectedIntentI
 assert.ok(cleanupScript.includes(".filter((intent) => intent?.asset_id === null)"), "only detached intents may enter the Storage deletion loop");
 assert.ok(cleanupScript.includes("status.in.(pending,deleting),and(status.eq.registered,asset_id.is.null)"), "the worker must include delete-locked and detached registered intents without scanning live registered assets");
 assert.ok(cleanupScript.includes('.eq("status", expectedStatus)'), "intent state changes must use compare-and-set updates");
+assert.ok(cleanupScript.includes('.is("asset_id", null)'), "detached cleanup candidates must remain asset-pointer-null through the compare-and-set");
+assert.ok(cleanupScript.includes('.eq("asset_id", expectedAssetId)'), "protected intent reconciliation must compare-and-set the exact existing asset pointer");
+assert.ok(cleanupScript.includes("assertSiteAudioIntentUpdateResult(data, storagePath)"), "zero-row or mismatched intent updates must fail instead of being logged as successful");
 assert.ok(cleanupScript.includes("referencedAsset.id !== intent.asset_id"), "protected intents must match the exact canonical asset ID before being marked registered");
 assert.match(cleanupScript, /listExactObject\(client, directory, fileName\)/);
 assert.ok(cleanupScript.includes(".range(offset, offset + pageSize - 1)"), "intent inventory must use bounded pages instead of the PostgREST max_rows-limited single query");

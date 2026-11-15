@@ -24,6 +24,14 @@ export function requireSiteAudioArrayResult(data, label) {
   return data;
 }
 
+export function assertSiteAudioIntentUpdateResult(data, expectedStoragePath) {
+  const storagePath = asString(expectedStoragePath);
+  if (!storagePath || !data || typeof data !== "object" || data.storage_path !== storagePath) {
+    throw new Error("Site-audio intent compare-and-set did not update the expected row; refusing to report cleanup success.");
+  }
+  return true;
+}
+
 export function fingerprintSiteAudioStoragePath(value) {
   const storagePath = asString(value);
   if (!storagePath) throw new Error("A site-audio storage path is required for fingerprinting.");
@@ -124,16 +132,18 @@ function splitStoragePath(storagePath) {
   return { directory: parts[0], fileName: parts[1] };
 }
 
-async function updateIntent(client, storagePath, expectedStatus, patch) {
-  const { data, error } = await client
+async function updateIntent(client, storagePath, expectedStatus, expectedAssetId, patch) {
+  let query = client
     .from("site_audio_upload_intents")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("storage_path", storagePath)
-    .eq("status", expectedStatus)
-    .select("storage_path")
-    .maybeSingle();
+    .eq("status", expectedStatus);
+  query = expectedAssetId === null
+    ? query.is("asset_id", null)
+    : query.eq("asset_id", expectedAssetId);
+  const { data, error } = await query.select("storage_path").maybeSingle();
   if (error) throw new Error("Could not reconcile site-audio upload intent: " + error.message);
-  return Boolean(data);
+  return assertSiteAudioIntentUpdateResult(data, storagePath);
 }
 
 async function findAssetReference(client, storagePath) {
@@ -206,7 +216,7 @@ async function main() {
       throw new Error("An expired site-audio intent retains an asset pointer that cannot be matched to the canonical asset; refusing cleanup.");
     }
     if (apply) {
-      await updateIntent(client, intent.storage_path, intent.status, {
+      await updateIntent(client, intent.storage_path, intent.status, intent.asset_id, {
         status: "registered",
         asset_id: referencedAsset.id,
       });
@@ -224,7 +234,7 @@ async function main() {
     const referencedAsset = await findAssetReference(client, intent.storage_path);
     if (referencedAsset) {
       if (apply) {
-        await updateIntent(client, intent.storage_path, intent.status, {
+        await updateIntent(client, intent.storage_path, intent.status, null, {
           status: "registered",
           asset_id: referencedAsset.id,
         });
@@ -235,7 +245,7 @@ async function main() {
 
     const object = await listExactObject(client, directory, fileName);
     if (!object) {
-      if (apply) await updateIntent(client, intent.storage_path, intent.status, { status: "cleaned", asset_id: null });
+      if (apply) await updateIntent(client, intent.storage_path, intent.status, null, { status: "cleaned", asset_id: null });
       console.log("RECONCILE missing site-audio object (" + safePathLogReference(intent.storage_path) + ").");
       continue;
     }
@@ -273,7 +283,7 @@ async function main() {
 
     const latestReference = await findAssetReference(client, intent.storage_path);
     if (latestReference) {
-      await updateIntent(client, intent.storage_path, intent.status, {
+      await updateIntent(client, intent.storage_path, intent.status, null, {
         status: "registered",
         asset_id: latestReference.id,
       });
@@ -289,7 +299,7 @@ async function main() {
       throw new Error("Site-audio Storage object is still present after removal; intent remains pending.");
     }
 
-    await updateIntent(client, intent.storage_path, intent.status, { status: "cleaned", asset_id: null });
+    await updateIntent(client, intent.storage_path, intent.status, null, { status: "cleaned", asset_id: null });
     console.log("REMOVED verified unreferenced site-audio object (" + safePathLogReference(intent.storage_path) + ").");
   }
 
