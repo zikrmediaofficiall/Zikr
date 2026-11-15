@@ -9,11 +9,11 @@ import { hasDismissedNotificationBanner, persistNotificationBannerDismissal } fr
 let persistedDismissal: string | null = null;
 assert.equal(hasDismissedNotificationBanner(() => ({
   getItem: () => persistedDismissal,
-  setItem: (_key, value) => { persistedDismissal = value; },
+  setItem: (_key: string, value: string) => { persistedDismissal = value; },
 })), false);
 persistNotificationBannerDismissal(() => ({
   getItem: () => persistedDismissal,
-  setItem: (_key, value) => { persistedDismissal = value; },
+  setItem: (_key: string, value: string) => { persistedDismissal = value; },
 }));
 assert.equal(persistedDismissal, "1");
 assert.equal(hasDismissedNotificationBanner(() => ({
