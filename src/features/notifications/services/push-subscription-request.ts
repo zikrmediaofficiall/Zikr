@@ -34,10 +34,86 @@ export type ParsedPushSubscriptionRequest = {
   platform: string | null;
 };
 
+export type ParsedPushPrayerContext = {
+  location: {
+    city: string;
+    country: string | null;
+    latitude: number;
+    longitude: number;
+    timezone: string;
+  };
+  prayerReminders: Record<string, number | null>;
+};
+
 function boundedSubscriptionString(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
   return normalized.length > 0 && normalized.length <= maxLength ? normalized : null;
+}
+
+function validTimezone(value: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate the prayer context against the database RPC's exact column bounds.
+ * Reject oversized optional country values instead of silently dropping them.
+ */
+export function parsePushPrayerContext(value: unknown): ParsedPushPrayerContext | null {
+  const body = normalizePushSubscriptionRequestBody(value);
+  const context = isRecord(body.prayerContext) ? body.prayerContext : null;
+  const location = context && isRecord(context.location) ? context.location : null;
+  if (!context || !location) return null;
+
+  const city = boundedSubscriptionString(location.city, 160);
+  const timezone = boundedSubscriptionString(location.timezone, 120);
+  const latitude = parsePushCoordinate(location.latitude, -90, 90);
+  const longitude = parsePushCoordinate(location.longitude, -180, 180);
+  const rawCountry = location.country;
+  let country: string | null = null;
+
+  if (rawCountry !== null && rawCountry !== undefined) {
+    if (typeof rawCountry !== "string") return null;
+    const normalizedCountry = rawCountry.trim();
+    if (normalizedCountry.length > 160) return null;
+    country = normalizedCountry || null;
+  }
+
+  if (
+    !city ||
+    !timezone ||
+    !validTimezone(timezone) ||
+    latitude === null ||
+    longitude === null
+  ) {
+    return null;
+  }
+
+  const rawReminders = context.prayerReminders;
+  if (!isRecord(rawReminders)) return null;
+
+  const prayerReminders: Record<string, number | null> = {};
+  for (const prayer of ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const) {
+    const reminder = rawReminders[prayer];
+    if (reminder === null) {
+      prayerReminders[prayer] = null;
+      continue;
+    }
+    if (!Number.isInteger(reminder) || Number(reminder) < -60 || Number(reminder) > 60) {
+      return null;
+    }
+    prayerReminders[prayer] = Number(reminder);
+  }
+
+  return {
+    location: { city, country, latitude, longitude, timezone },
+    prayerReminders,
+  };
 }
 
 export function parsePushSubscriptionRequestBody(
