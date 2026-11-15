@@ -56,7 +56,7 @@ assert.ok(sitemapSource.includes("getKidsGeneratedVideos(100)"), "sitemap must f
 assert.ok(sitemapSource.includes("route(`/kids/videos/${encodeURIComponent(video.slug)}`"), "sitemap must include individual Kids video detail pages");
 const kidsVideosServiceSource = readFileSync("src/features/videos/services/videos.ts", "utf8");
 assert.match(kidsVideosServiceSource, /metadata->>kidsVideoQaStatus=eq\.passed/);
-assert.match(kidsVideosServiceSource, /metadata->automatedVideoQa->>status=eq\\.passed/);
+assert.ok(kidsVideosServiceSource.includes("metadata->automatedVideoQa->>status=eq.passed"));
 assert.match(sitemapSource, /getSitemapShard\(await getSitemapEntries\(\), 0\)/);
 assert.doesNotMatch(sitemapSource, /SITEMAP_URL_LIMIT|slice\(0,\s*50_000\)/);
 assert.match(shardRouteSource, /getSitemapShard\(allEntries, id\)/);
