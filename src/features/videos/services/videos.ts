@@ -6,8 +6,7 @@ import type { VideoCategory, Video } from "@/features/videos/types/videos";
 import { FALLBACK_VIDEO_CATEGORIES, FALLBACK_VIDEOS } from "@/features/videos/data/fallback";
 import { defaultOgImage } from "@/lib/site";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
-import { classifyKidsVideoGenerationRequestId, resolveKidsVideoSocialPublication } from "@/features/social/services/kids-video-social-visibility";
-import { loadKidsSocialQueueRows, type KidsSocialQueueRequest } from "@/features/social/services/kids-video-social-query";
+import { resolveKidsVideoSocialPublicationForDetail } from "@/features/social/services/kids-video-social-detail";
 import { resolveVideoMediaUrl, resolveVideoThumbnail, resolveVideoYoutubeId } from "./video-media-contract";
 
 function isPubliclyRenderableVideo(row: Record<string, unknown>): boolean {
@@ -167,23 +166,6 @@ export async function getKidsGeneratedVideos(limit = 60): Promise<Video[]> {
     }));
 }
 
-async function resolveKidsVideoSocialPublicationForDetail(requestId: unknown, stored: unknown) {
-  const requestIdState = classifyKidsVideoGenerationRequestId(requestId);
-  if (requestIdState.kind === "missing") {
-    return resolveKidsVideoSocialPublication([], stored, true, true);
-  }
-  if (requestIdState.kind === "invalid") return null;
-
-  try {
-    const request: KidsSocialQueueRequest = <T>(path: string) =>
-      supabaseServerAdminRequest<T>(path, { timeoutMs: 8000, retries: 1, cache: "no-store" });
-    const rows = await loadKidsSocialQueueRows([requestIdState.id], request);
-    return resolveKidsVideoSocialPublication(rows, stored, true, false);
-  } catch (error) {
-    console.warn("[content] Failed to reconcile Kids video social publication:", error);
-    return null;
-  }
-}
 export async function getKidsGeneratedVideoBySlug(slug: string): Promise<Video | null> {
   const safeSlug = encodeURIComponent(slug?.trim() ?? "");
   if (!safeSlug) return null;
@@ -205,7 +187,15 @@ export async function getKidsGeneratedVideoBySlug(slug: string): Promise<Video |
   if (!row || !hasPassedKidsVideoQa(metadata) ||
       metadata.generator !== "zikr_internal_video_factory" ||
       !isPubliclyRenderableVideo(row)) return null;
-  const socialPublication = await resolveKidsVideoSocialPublicationForDetail(metadata.videoGenerationRequestId, metadata.socialPublication);
+  const socialPublicationResolution = await resolveKidsVideoSocialPublicationForDetail(
+    metadata.videoGenerationRequestId,
+    metadata.socialPublication,
+    <T>(path: string) =>
+      supabaseServerAdminRequest<T>(path, { timeoutMs: 8000, retries: 1, cache: "no-store" }),
+  );
+  if (socialPublicationResolution.status === "unavailable") {
+    console.warn("[content] Kids video social publication state is unavailable:", socialPublicationResolution.reason);
+  }
   return {
     id: row.id as string,
     title: row.title as string,
@@ -217,7 +207,7 @@ export async function getKidsGeneratedVideoBySlug(slug: string): Promise<Video |
     views: (row.views as number) || 0,
     published: row.published as boolean,
     categoryId: row.category_id as string | undefined,
-    metadata: { ...metadata, socialPublication },
+    metadata: { ...metadata, socialPublication: socialPublicationResolution.publication, socialPublicationReadStatus: socialPublicationResolution.status },
     createdAt: row.created_at as string,
   };
 }
