@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
-import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
 assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
 assert.equal(hasSuspiciousReligiousAttribution("قَالَ رَسُولُ اللَّهِ ﷺ"), true, "Arabic diacritics must not bypass attribution detection");
@@ -373,5 +374,50 @@ assert.equal(buildVideoCatalogApprovalPatch({
   ...catalogApprovalInput,
   reviewerId: "system:zikr-video-factory",
 }), null, "the system QA identity cannot impersonate an administrator approval");
+
+const normalizedKidsSnapshotHash = buildVideoApprovalSnapshotHash({
+  ...kidsSnapshot,
+  audience: " KIDS ",
+  kidsVideoQaStatus: " PASSED ",
+});
+assert.equal(normalizedKidsSnapshotHash, kidsSnapshotHash);
+
+const normalizedHumanKidsContent = {
+  ...humanApprovedKidsContent,
+  audience: " KIDS ",
+  sourceType: " ORIGINAL_KIDS_FICTION ",
+  aiMode: " ORIGINAL_KIDS_STORY ",
+  contentFormat: " SERIES_EPISODE ",
+};
+assert.equal(hasCompleteKidsVideoSeriesMetadata(normalizedHumanKidsContent), true);
+assert.equal(isHumanVideoApprovalRecorded(normalizedHumanKidsContent, kidsSnapshotHash), true);
+assert.equal(
+  inspectVideoQueueItemExternalApproval({
+    ...kidsQueueItem,
+    request: { ...request, content: normalizedHumanKidsContent },
+  }).approved,
+  true,
+  "normalized Kids markers must preserve a valid matching human review",
+);
+
+const unknownAudienceQueueItem = {
+  ...kidsQueueItem,
+  request: {
+    ...request,
+    content: { ...humanApprovedKidsContent, audience: "family" },
+  },
+};
+assert.equal(
+  inspectVideoQueueItemApproval(unknownAudienceQueueItem).approved,
+  false,
+  "unknown non-empty audience markers must fail closed instead of being treated as general",
+);
+
+const adminVideoGenerationRoute = readFileSync("src/app/api/admin/video-generation/route.ts", "utf8");
+assert.match(adminVideoGenerationRoute, /normalizeVideoAudience\\(currentContent\\.audience\\)/);
+assert.doesNotMatch(adminVideoGenerationRoute, /currentContent\\.audience === ["']kids["']/);
+const adminVideoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
+assert.match(adminVideoCreateRoute, /normalizeVideoAudience\\(content\\.audience\\)/);
+assert.doesNotMatch(adminVideoCreateRoute, /content\\.audience === ["']kids["']/);
 
 console.log("Video publishing approval contract passed.");
