@@ -250,25 +250,40 @@ assert.match(detailPageSource, /metadata\.socialPublicationCaption/);
 assert.match(detailPageSource, /metadata\.socialPublicationReadStatus/);
 assert.match(detailPageSource, /metadata\.socialPublication/);
 
+let missingDetailCalls = 0;
 const legacyDetail = await resolveKidsVideoSocialPublicationForDetail(
   null,
   staleCatalogPublication,
   async <_T>(_path: string) => {
-    throw new Error("legacy rows must not need a queue lookup");
+    missingDetailCalls += 1;
+    return [] as unknown as _T;
   },
 );
 assert.deepEqual(
   legacyDetail,
   {
-    status: "verified",
-    publication: {
-      status: "published",
-      platforms: ["youtube"],
-      publishedAt: "2026-11-14T23:00:00.000Z",
-    },
+    status: "unavailable",
+    reason: "missing_request_id",
+    publication: null,
     caption: null,
   },
-  "only rows with no request ID may use the legacy catalog fallback",
+  "a legacy row without a request ID must not present catalog metadata as verified live delivery",
+);
+assert.equal(missingDetailCalls, 0, "missing request IDs must fail closed without a queue lookup");
+
+const kidsVideosApiSource = readFileSync(
+  new URL("../../src/app/api/kids/videos/route.ts", import.meta.url),
+  "utf8",
+);
+assert.match(
+  kidsVideosApiSource,
+  /socialPublication: requestIdState\.kind !== "valid"\s*\? null/,
+  "the public Kids video API must not fall back to catalog publication metadata for missing or invalid request IDs",
+);
+assert.match(
+  kidsVideosApiSource,
+  /socialPublicationReadStatus:[\s\S]*?requestIdState\.kind !== "valid"/,
+  "the public Kids video API must expose unknown publication state when a generation request ID is missing",
 );
 
 const invalidStoredPublication = {
