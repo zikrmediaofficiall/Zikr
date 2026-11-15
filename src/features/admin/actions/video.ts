@@ -1,5 +1,7 @@
 "use server";
 
+import { requireAdminStepUp } from "@/features/admin/services/security";
+
 /**
  * Legacy bulk deletion is intentionally disabled. Failed generation requests
  * may still own media, catalog, social-queue, or audit references. Keep the
@@ -7,6 +9,7 @@
  * contract are implemented.
  */
 export async function deleteFailedVideoGenerationAction() {
+  await requireAdminStepUp("video.delete", "/admin/video/requests");
   return {
     ok: false as const,
     code: "VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT",
