@@ -6,13 +6,13 @@
 |---|---|---|
 | Video generation | GitHub Actions | `.github/workflows/generate-ai-video.yml` |
 | Internal website video publication | GitHub Actions + Supabase | `content_publish_queue` |
-| External social publishing | Source-verified text posts; automated-QA-gated videos | `.github/workflows/publish-social.yml` after generation, every 15 minutes, or manual dispatch |
+| External social publishing | Source-verified text posts; automated-QA-gated general videos; human-reviewed Kids videos | `.github/workflows/publish-social.yml` after generation, every 15 minutes, or manual dispatch |
 | Application build/documentation | CircleCI | `application-build-docs` |
 | Android build/signing | CircleCI | `android-rebuild` |
 | Prayer notifications | Supabase | `prayer-notification-worker` + pg_cron |
 | Source-verified content ingestion | Supabase | `source-verified-content-agent` + pg_cron |
 
-There is no CircleCI production video worker and no Vercel Cron for video publication. External social publishing is separate from rendering and requires provider preflight and administrator enablement. Video rows additionally require five passing automated QA checks; source-verified written text rows use the written-content quality gate.
+There is no CircleCI production video worker and no Vercel Cron for video publication. External social publishing is separate from rendering and requires provider preflight and administrator enablement. General-audience video rows require five passing automated QA checks; Kids video rows additionally require a matching human approval record. Source-verified written text rows use the written-content quality gate.
 
 ## Video pipeline
 
@@ -47,11 +47,11 @@ Completed MP4s are uploaded to Cloudinary and registered in the ZIKR `videos` ta
 
 This queue is not a social queue. No video-generation step may enqueue `social_publish_queue`, call a provider upload endpoint, or require a social publishing permission. Template previews are explicitly excluded from public publication.
 
-## Automated-QA external social publishing
+## Automated-QA and human-reviewed Kids external social publishing
 
 Social delivery is a separate worker, never part of the renderer. After a successful video-generation run, GitHub Actions invokes `.github/workflows/publish-social.yml`; an administrator can also dispatch it manually. A bounded 15-minute schedule also drains up to five eligible rows and retries deferred/partial results after provider cooldowns. The workflow validates the connected Facebook Page and a YouTube OAuth refresh credential with `youtube.upload`, `youtube.readonly`, and `yt-analytics.readonly` before enabling each provider. No delete scope is requested. If provider readiness fails, that provider remains disabled and no rows are claimed for it.
 
-Only newly created rows at or after `SOCIAL_PUBLISH_AFTER` are eligible. The historic queue is excluded from automatic replay. Each video must pass automated source, audio, visuals, captions, and rights checks recorded on its generation request and bound to the exact source/content/template/MP4 fingerprint. The worker rechecks this immutable automated QA record immediately before every provider call; missing, stale, changed, or failed checks block publication. No human review is required. Provider results and remote IDs are stored per platform to prevent duplicate publishing. Social insights are refreshed by the dedicated daily `sync-social-insights.yml` workflow and after relevant changes reach `main`; that analytics-only worker disables social publishing explicitly and does not claim queue rows.
+Only newly created rows at or after `SOCIAL_PUBLISH_AFTER` are eligible. The historic queue is excluded from automatic replay. Each video must pass automated source, audio, visuals, captions, and rights checks recorded on its generation request and bound to the exact source/content/template/MP4 fingerprint. The worker rechecks this immutable automated QA record immediately before every provider call; missing, stale, changed, or failed checks block publication. For Kids videos, the worker also requires a separate human review record whose reviewer is not the automation identity, whose five checks are all true, and whose fingerprint still matches the generated request and catalog row. The admin video-review screen is the approval path; approval only makes a row eligible for a later bounded worker run and never triggers an upload itself. Provider results and remote IDs are stored per platform to prevent duplicate publishing. Social insights are refreshed by the dedicated daily `sync-social-insights.yml` workflow and after relevant changes reach `main`; that analytics-only worker disables social publishing explicitly and does not claim queue rows.
 
 The internal website video catalog and `content_publish_queue` remain independent from external social delivery. A video may appear on the ZIKR website without being posted publicly to a social platform.
 

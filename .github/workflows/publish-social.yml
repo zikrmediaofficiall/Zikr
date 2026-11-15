@@ -224,4 +224,4 @@ jobs:
         shell: bash
         run: |
           echo "Social worker finished. Only rows created on/after ${SOCIAL_PUBLISH_AFTER} are eligible."
-          echo "Manual video approval is not required; each video is revalidated against its automated QA snapshot immediately before publishing."
+          echo "General videos require a current automated QA snapshot; Kids videos additionally require matching human approval before external publishing."
