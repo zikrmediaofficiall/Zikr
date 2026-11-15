@@ -2,14 +2,14 @@
 Verified code/test head: `0b5b6a3a7ed47e3a1b8d7fcc9719015747ba6a5b` (canonical full Quality Gate 43753246088 passed with `QUALITY_GATE=PASSED_FULL`; CircleCI Config Validation 43753246084 passed; Android Native Login Debug APK 43753246093 passed).
 The code/test head above is the exact head tested. The repository-inventory and documentation reconciliation commit is separate and requires its own exact-head CI verification.
 Base: `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
-PR changed paths: 622 (96,163 additions, 6,562 deletions; 0 deleted paths).
+PR changed paths: 622 (96,170 additions, 6,562 deletions; 0 deleted paths).
 Rows in this overlay: 620; it excludes this overlay file and the paired repository manifest.
 Status counts: CONTENT_READ_TESTED_PASS=396, FIXED_TESTED_PENDING_LIVE_APPLY=36, REVIEW_REQUIRED=182, SUPERSEDED_SNAPSHOT=6.
 Repository inventory at code/test head: 2,442 recursive tree entries (1,943 blobs, 499 directories); refreshed manifest target: 2,439 entries (excludes `docs`, `docs/audits` ancestor tree hashes and its own blob).
 Production migration inventory: 445 local SQL migrations versus 418 applied in Supabase; 27 remain unapplied. No production migration was applied by this audit.
 Owner gate: CODEOWNERS is `@Zikrmediaofficial`; no review is recorded and the attempted reviewer request did not register. Merge/deploy remain blocked pending owner review and production release gates.
 Offline Kids safety: main currently exposes 20 unapproved stories in the public static `kids.json` (65 rows total); the audit branch snapshot has 45 rows and 0 unapproved stories. Main scheduled refresh run 43701197507 pushed an unfiltered automation branch but failed to create a review PR because GitHub Actions lacks PR-creation permission. This PR adds the export/verifier/test fix and makes that workflow fail visibly instead of green.
-Social publishing: the scheduled main publisher run 43735977185 processed 5 rows (1 succeeded, 4 deferred, 0 approval-blocked). Main still lacks the Kids human-review gate; the audit branch adds it. A separate remaining review item is retrying failed Kids catalog `socialPublication` metadata sync without re-publishing.
+Social publishing: the scheduled main publisher run 43735977185 processed 5 rows (1 succeeded, 4 deferred, 0 approval-blocked). Main still lacks the Kids human-review gate; the audit branch adds it. A separate remaining review item is retrying failed Kids catalog `socialPublication` metadata sync for legacy rows without a valid generation-request ID; current request IDs are resolved from queue history.
 Production operations: no content generation, Gemini call, social publish, production DB mutation, storage/media deletion, release or deployment was dispatched by this audit. Existing scheduled workflows were observed separately.
 Manifest self-reference handling: the manifest records this overlay's exact blob SHA from the inventory snapshot, excludes its own blob, and omits the `docs/` and `docs/audits/` ancestor tree entries because their tree hashes include the manifest itself.
 
