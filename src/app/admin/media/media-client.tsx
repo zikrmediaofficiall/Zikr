@@ -33,6 +33,7 @@ export default function AdminMediaPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [warning, setWarning] = useState("");
   const [title, setTitle] = useState("");
   const [altText, setAltText] = useState("");
   const [license, setLicense] = useState("");
@@ -83,7 +84,7 @@ export default function AdminMediaPage() {
   }
 
   async function upload() {
-    setError(""); setMessage("");
+    setError(""); setMessage(""); setWarning("");
     if (!file) return setError("اختر صورة أولًا.");
     if (!license.trim() && !attribution.trim()) return setError("أدخل الترخيص أو بيانات النسب.");
     setBusy(true);
@@ -96,9 +97,13 @@ export default function AdminMediaPage() {
       form.set("attribution", attribution.trim());
       form.set("folder", folder);
       const response = await fetch("/api/admin/media", { method: "POST", body: form });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json().catch(() => ({})) as { error?: string; auditRecorded?: boolean };
       if (!response.ok) throw new Error(payload.error || "فشل رفع الأصل.");
-      setMessage("تم رفع الأصل وتسجيله كغير منشور حتى توثيق الحقوق.");
+      if (payload.auditRecorded === false) {
+        setWarning("تم رفع الأصل وحفظه، لكن تعذر تسجيل حدث التدقيق. لا تعِد رفعه؛ راجع مسؤول النظام.");
+      } else {
+        setMessage("تم رفع الأصل وتسجيله كغير منشور حتى توثيق الحقوق.");
+      }
       setTitle(""); setAltText(""); setLicense(""); setAttribution(""); setFile(null);
       const input = document.getElementById("media-file") as HTMLInputElement | null;
       if (input) input.value = "";
@@ -109,17 +114,21 @@ export default function AdminMediaPage() {
   }
 
   async function mutate(id: string, action: "verify_rights" | "publish" | "unpublish") {
-    setError(""); setMessage(""); setBusy(true);
+    setError(""); setMessage(""); setWarning(""); setBusy(true);
     try {
       const response = await fetch("/api/admin/media", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, action }),
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json().catch(() => ({})) as { error?: string; nextPath?: string; auditRecorded?: boolean };
       if (!response.ok && payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return;
       if (!response.ok) throw new Error(payload.error || "تعذر تنفيذ الإجراء.");
-      setMessage("تم تنفيذ الإجراء.");
+      if (payload.auditRecorded === false) {
+        setWarning("تم تنفيذ الإجراء، لكن تعذر تسجيل حدث التدقيق. لا تكرر الإجراء؛ راجع مسؤول النظام.");
+      } else {
+        setMessage("تم تنفيذ الإجراء.");
+      }
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر تنفيذ الإجراء.");
@@ -135,6 +144,7 @@ export default function AdminMediaPage() {
       </header>
 
       {error && <div role="alert" className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">{error}</div>}
+      {warning && <div role="alert" className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">{warning}</div>}
       {message && <div role="status" className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{message}</div>}
 
       <PurgeGeneratedVideosControl onCompleted={load} />
@@ -150,7 +160,7 @@ export default function AdminMediaPage() {
         <div className="grid gap-3 md:grid-cols-2">
           <input value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان الأصل" className="rounded-xl border border-brand-gold/15 bg-black/30 p-3 text-brand-cream" />
           <input value={altText} maxLength={500} onChange={(e) => setAltText(e.target.value)} placeholder="النص البديل بالعربية" className="rounded-xl border border-brand-gold/15 bg-black/30 p-3 text-brand-cream" />
-          <input value={license} maxLength={200} onChange={(e) => setLicense(e.target.value)} placeholder="الترخيص" className="rounded-xl border border-brand-gold/15 bg-black/30 p-3 text-brand-cream" />
+          <input value={license} maxLength={120} onChange={(e) => setLicense(e.target.value)} placeholder="الترخيص" className="rounded-xl border border-brand-gold/15 bg-black/30 p-3 text-brand-cream" />
           <input value={attribution} maxLength={300} onChange={(e) => setAttribution(e.target.value)} placeholder="النسب / صاحب الحقوق" className="rounded-xl border border-brand-gold/15 bg-black/30 p-3 text-brand-cream" />
           <select value={folder} onChange={(e) => setFolder(e.target.value)} className="rounded-xl border border-brand-gold/15 bg-black/30 p-3 text-brand-cream">{folders.map((value) => <option key={value} value={value}>{value}</option>)}</select>
           <input id="media-file" type="file" accept={MEDIA_IMAGE_ACCEPT} onChange={(e) => selectFile(e.target.files?.[0] ?? null, e.currentTarget)} className="rounded-xl border border-brand-gold/15 bg-black/30 p-2 text-xs text-brand-cream" />
