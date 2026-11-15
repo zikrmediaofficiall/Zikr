@@ -113,6 +113,24 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'فئة الجمهور غير معروفة؛ تم إيقاف الاعتماد.' }, { status: 409 });
       }
       const isKidsVideo = audience === 'kids';
+      // Video managers may review general-audience assets, but Kids publication
+      // approval also changes the public child-directed content surface.
+      // Require the separate Kids permission before reading or mutating the catalog.
+      if (isKidsVideo) {
+        const kidsAuth = await requireAdminApi('kids.manage');
+        if (!kidsAuth.ok) {
+          return NextResponse.json(
+            { error: kidsAuth.error },
+            { status: kidsAuth.status, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        if (kidsAuth.profile.id !== auth.profile.id) {
+          return NextResponse.json(
+            { error: 'Unauthorized' },
+            { status: 401, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+      }
       const catalogSlug = "zikr-" + id.toLowerCase().replace(/[^a-z0-9-]/g, "");
       const catalogRows = await supabaseServerAdminRequest<Array<{
         id: string; metadata: Record<string, unknown> | null; updated_at: string | null;
