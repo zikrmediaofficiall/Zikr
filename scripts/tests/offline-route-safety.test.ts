@@ -79,13 +79,13 @@ assert.deepEqual(
 const offlinePackSource = readFileSync(resolve(process.cwd(), "src/lib/offline-pack.ts"), "utf8");
 const serviceWorkerSource = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 const serviceWorkerRouteSafetyStart = serviceWorkerSource.indexOf("function hasUnsafeEncodedPathSegment(");
-const serviceWorkerRouteSafetyEnd = serviceWorkerSource.indexOf("\\nfunction absoluteSameOriginUrl(", serviceWorkerRouteSafetyStart);
+const serviceWorkerRouteSafetyEnd = serviceWorkerSource.indexOf("function absoluteSameOriginUrl(", serviceWorkerRouteSafetyStart);
 assert.ok(
   serviceWorkerRouteSafetyStart >= 0 && serviceWorkerRouteSafetyEnd > serviceWorkerRouteSafetyStart,
   "service worker must expose the bounded encoded-path traversal guard before URL normalization",
 );
 const serviceWorkerRouteSafety = runInNewContext(
-  `${serviceWorkerSource.slice(serviceWorkerRouteSafetyStart, serviceWorkerRouteSafetyEnd)}\\n({ isSafeOfflineRoute })`,
+  `${serviceWorkerSource.slice(serviceWorkerRouteSafetyStart, serviceWorkerRouteSafetyEnd)}\n({ isSafeOfflineRoute })`,
   { self: { location: { origin } }, URL },
 ) as { isSafeOfflineRoute: (route: string) => boolean };
 for (const route of [
