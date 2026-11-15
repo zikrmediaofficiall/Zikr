@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   normalizePushSubscriptionRequestBody,
-  parsePushCoordinate,
+  parsePushPrayerContext,
   parsePushSubscriptionRequestBody,
+  type ParsedPushPrayerContext,
 } from "@/features/notifications/services/push-subscription-request";
 import { resolvePushSubscriptionWritePlan } from "@/features/notifications/services/push-subscription-ownership";
 import { mergePrayerReminderPreferences } from "@/features/prayer/services/prayer-reminder-preferences";
@@ -16,89 +17,10 @@ import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
 
 export const dynamic = "force-dynamic";
 
-const PRAYER_NAMES = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
-
-type SubscriptionBody = {
-  endpoint?: unknown;
-  keys?: { p256dh?: unknown; auth?: unknown };
-  deviceId?: unknown;
-  userAgent?: unknown;
-  platform?: unknown;
-  prayerContext?: {
-    location?: {
-      latitude?: unknown;
-      longitude?: unknown;
-      city?: unknown;
-      country?: unknown;
-      timezone?: unknown;
-    };
-    prayerReminders?: unknown;
-  };
-};
-
 function asBoundedString(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
   return normalized.length > 0 && normalized.length <= maxLength ? normalized : null;
-}
-
-function validTimezone(value: string): boolean {
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: value });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-
-function parsePrayerContext(body: SubscriptionBody) {
-  const location = body.prayerContext?.location;
-  const city = asBoundedString(location?.city, 256);
-  const timezone = asBoundedString(location?.timezone, 128);
-  const latitude = parsePushCoordinate(location?.latitude, -90, 90);
-  const longitude = parsePushCoordinate(location?.longitude, -180, 180);
-  if (
-    !city ||
-    !timezone ||
-    !validTimezone(timezone) ||
-    latitude === null ||
-    longitude === null
-  ) {
-    return null;
-  }
-
-  const rawReminders = body.prayerContext?.prayerReminders;
-  if (
-    !rawReminders ||
-    typeof rawReminders !== "object" ||
-    Array.isArray(rawReminders)
-  ) {
-    return null;
-  }
-
-  const prayerReminders: Record<string, number | null> = {};
-  for (const prayer of PRAYER_NAMES) {
-    const value = (rawReminders as Record<string, unknown>)[prayer];
-    if (value === null) {
-      prayerReminders[prayer] = null;
-      continue;
-    }
-    if (!Number.isInteger(value) || Number(value) < -60 || Number(value) > 60)
-      return null;
-    prayerReminders[prayer] = Number(value);
-  }
-
-  return {
-    location: {
-      city,
-      country: asBoundedString(location?.country, 256),
-      latitude,
-      longitude,
-      timezone,
-    },
-    prayerReminders,
-  };
 }
 
 async function requireUser() {
@@ -110,7 +32,7 @@ async function upsertPrayerContext(
   admin: ReturnType<typeof createAdminClient>,
   userClient: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-  context: NonNullable<ReturnType<typeof parsePrayerContext>>
+  context: ParsedPushPrayerContext,
 ) {
   const { data: existingPreferences, error: preferenceLookupError } = await admin
     .from("prayer_preferences")
@@ -121,7 +43,7 @@ async function upsertPrayerContext(
 
   const mergedPrayerReminders = mergePrayerReminderPreferences(
     existingPreferences?.prayer_reminders,
-    context.prayerReminders
+    context.prayerReminders,
   );
 
   const { data: savedLocation, error: locationError } = await userClient
@@ -147,15 +69,16 @@ async function upsertPrayerContext(
         notifications_enabled: true,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id" }
+      { onConflict: "user_id" },
     );
   if (preferenceError) throw preferenceError;
 }
 
 export async function POST(request: NextRequest) {
   const user = await requireUser();
-  if (!user)
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
 
   const parsedBody = await readBoundedJsonBody(request, 16 * 1024);
   if (!parsedBody.ok) {
@@ -164,13 +87,13 @@ export async function POST(request: NextRequest) {
       { status: parsedBody.status, headers: { "Cache-Control": "private, no-store" } },
     );
   }
-  const body = normalizePushSubscriptionRequestBody(parsedBody.value) as SubscriptionBody;
+
   const parsed = parsePushSubscriptionRequestBody(parsedBody.value);
-  const prayerContext = parsePrayerContext(body);
+  const prayerContext = parsePushPrayerContext(parsedBody.value);
   if (!parsed || !prayerContext) {
     return NextResponse.json(
       { error: "Invalid push subscription or prayer settings." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -191,7 +114,7 @@ export async function POST(request: NextRequest) {
     if (writePlan.kind === "conflict") {
       return NextResponse.json(
         { error: "Subscription belongs to a different account." },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -221,7 +144,7 @@ export async function POST(request: NextRequest) {
       if (!updated) {
         return NextResponse.json(
           { error: "Subscription ownership changed; register it again from this account." },
-          { status: 409 }
+          { status: 409 },
         );
       }
     } else {
@@ -239,7 +162,7 @@ export async function POST(request: NextRequest) {
         if ((insertError as { code?: string }).code === "23505") {
           return NextResponse.json(
             { error: "Subscription was registered concurrently; retry from this account." },
-            { status: 409 }
+            { status: 409 },
           );
         }
         throw insertError;
@@ -253,15 +176,16 @@ export async function POST(request: NextRequest) {
     console.error("[push] Failed to save subscription:", error);
     return NextResponse.json(
       { error: "Unable to save subscription." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(request: NextRequest) {
   const user = await requireUser();
-  if (!user)
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
 
   const parsedBody = await readBoundedJsonBody(request, 16 * 1024);
   if (!parsedBody.ok) {
@@ -272,11 +196,12 @@ export async function DELETE(request: NextRequest) {
   }
   const body = normalizePushSubscriptionRequestBody(parsedBody.value);
   const endpoint = asBoundedString(body.endpoint, 4096);
-  if (!endpoint)
+  if (!endpoint) {
     return NextResponse.json(
       { error: "Invalid subscription." },
-      { status: 400 }
+      { status: 400 },
     );
+  }
 
   try {
     const admin = createAdminClient();
@@ -292,7 +217,7 @@ export async function DELETE(request: NextRequest) {
     console.error("[push] Failed to remove subscription:", error);
     return NextResponse.json(
       { error: "Unable to remove subscription." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
