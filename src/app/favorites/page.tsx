@@ -30,14 +30,12 @@ export default async function FavoritesPage() {
     (f) => !['quran', 'hadith', 'story'].includes(f.item_type),
   );
 
-  const typeLabels: Record<string, string> = {
+  const typeLabels: Record<FavoriteItemType, string> = {
     quran: 'القرآن الكريم',
     hadith: 'الحديث الشريف',
     story: 'القصص',
     scholar: 'العلماء',
     dua: 'الأدعية',
-    article: 'المقالات',
-    video: 'الفيديوهات',
   };
 
   const getLink = getFavoriteHref;

@@ -1,13 +1,9 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { isFavoriteItemType, type FavoriteItemType } from "./favorite-links";
 
-export type FavoriteItemType =
-  | "quran"
-  | "hadith"
-  | "story"
-  | "scholar"
-  | "dua";
+export type { FavoriteItemType } from "./favorite-links";
 
 export type Favorite = {
   id: string;
@@ -51,6 +47,7 @@ export async function addCurrentUserFavorite(
   itemRef: string,
   itemType: FavoriteItemType = "quran",
 ): Promise<{ ok: true } | { ok: false; error: "Unauthorized" | "Invalid" | "Failed" }> {
+  if (!isFavoriteItemType(itemType)) return { ok: false, error: "Invalid" };
   const session = await getAuthenticatedUser();
   if (!session) return { ok: false, error: "Unauthorized" };
 
@@ -78,6 +75,7 @@ export async function removeCurrentUserFavorite(
   itemRef: string,
   itemType: FavoriteItemType = "quran",
 ): Promise<{ ok: true } | { ok: false; error: "Unauthorized" | "Invalid" | "Failed" }> {
+  if (!isFavoriteItemType(itemType)) return { ok: false, error: "Invalid" };
   const session = await getAuthenticatedUser();
   if (!session) return { ok: false, error: "Unauthorized" };
 
@@ -130,6 +128,7 @@ export async function isCurrentUserFavorite(
   itemRef: string,
   itemType: FavoriteItemType = "quran",
 ): Promise<boolean> {
+  if (!isFavoriteItemType(itemType)) return false;
   const session = await getAuthenticatedUser();
   if (!session) return false;
 
@@ -151,6 +150,7 @@ export async function getCurrentUserFavoritedRefs(
   itemRefs: string[],
   itemType: FavoriteItemType = "quran",
 ): Promise<Set<string>> {
+  if (!isFavoriteItemType(itemType)) return new Set();
   const session = await getAuthenticatedUser();
   if (!session || !itemRefs.length) return new Set();
 
