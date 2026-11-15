@@ -37,7 +37,17 @@ export function parseMemorizationEvaluation(raw: string): MemorizationEvaluation
           .filter(Boolean)
           .slice(0, 8)
       : [];
-  const score = Number(value.score);
+  const rawScore = value.score;
+  if (
+    rawScore === null ||
+    rawScore === undefined ||
+    typeof rawScore === "boolean" ||
+    (typeof rawScore === "string" && rawScore.trim().length === 0) ||
+    (typeof rawScore !== "number" && typeof rawScore !== "string")
+  ) {
+    return null;
+  }
+  const score = Number(rawScore);
   if (!Number.isFinite(score)) return null;
   return {
     score: Math.max(0, Math.min(100, Math.round(score))),

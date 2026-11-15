@@ -183,6 +183,13 @@ const malformedAudioOutput = formatMemorizationEvaluationResponse(
   true,
 );
 assert.match(malformedAudioOutput, /لم تُصدر درجة/);
+const nullScoreAudioOutput = formatMemorizationEvaluationResponse(
+  JSON.stringify({ score: null, summary: "No valid score was produced." }),
+  true,
+);
+assert.match(nullScoreAudioOutput, /لم تُصدر درجة/);
+assert.doesNotMatch(nullScoreAudioOutput, /الدرجة:|0\/100|No valid score was produced/,
+  "null is not a valid zero score and must fail closed");
 assert.doesNotMatch(malformedAudioOutput, /99|100|الدرجة:|أخطاء التسميع|No mistakes detected/i,
   "unstructured audio output must not be presented as a validated score or finding");
 
