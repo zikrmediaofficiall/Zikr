@@ -14,6 +14,8 @@ const duaLayout = readFileSync("src/app/dua/[slug]/layout.tsx", "utf8");
 const requiredContracts = [
   ["Quran main route must validate the surah catalog", 'expectedContent: /الفاتحة.*الناس/'],
   ["Kids games catalogue must validate a real game entry", 'expectedContent: /مختبر الحروف|Arabic Letter Lab|Letter Lab/i'],
+  ["Kids video library must receive a production smoke check", 'path: "/kids/videos"'],
+  ["Kids video smoke must validate the rendered child-library heading", '/قصص فيديو مخصصة للأطفال|Stories made for young viewers/i'],
   ["Canonical Quran catalog API must be checked", 'path: "/api/quran/surahs"'],
   ["The API must validate all 114 ordered surahs", "payload.length === 114"],
   ["The final Quran surah must be present", "payload[113]?.id === 114"],
