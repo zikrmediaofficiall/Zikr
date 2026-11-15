@@ -15,15 +15,15 @@ export type KidsVideoSocialPublicationDetailResolution =
     }
   | {
       status: "unavailable";
-      reason: "invalid_request_id" | "queue_read_failed";
+      reason: "missing_request_id" | "invalid_request_id" | "queue_read_failed";
       publication: null;
       caption: null;
     };
 
 /**
  * Reconcile the detail-page badge against the complete live queue history.
- * A verified empty history means "not published"; an invalid ID or failed
- * queue read means "unknown" and must never be presented as a negative result.
+ * A verified empty history means "not published". A missing/invalid ID or failed
+ * queue read means "unknown"; legacy catalog metadata is not proof of live delivery.
  */
 export async function resolveKidsVideoSocialPublicationForDetail(
   requestId: unknown,
@@ -34,8 +34,9 @@ export async function resolveKidsVideoSocialPublicationForDetail(
 
   if (requestIdState.kind === "missing") {
     return {
-      status: "verified",
-      publication: resolveKidsVideoSocialPublication([], stored, true, true),
+      status: "unavailable",
+      reason: "missing_request_id",
+      publication: null,
       caption: null,
     };
   }
