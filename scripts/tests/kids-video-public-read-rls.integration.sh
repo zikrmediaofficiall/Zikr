@@ -34,6 +34,7 @@ fi
 psql=(docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U postgres -d zikr_kids_video_public_rls_test)
 "${psql[@]}" -f /workspace/scripts/tests/kids-video-public-read-rls.integration-setup.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261114210000_restrict_public_kids_video_read_to_qa_passed.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261115170000_restrict_public_kids_video_read_to_human_approval.sql
 "${psql[@]}" -f /workspace/scripts/tests/kids-video-public-read-rls.integration.sql
 
 echo "Public video audience RLS integration passed."
