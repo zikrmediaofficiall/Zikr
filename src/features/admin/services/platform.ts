@@ -6,7 +6,7 @@ import {
   supabaseServerAdminRequest,
 } from "@/lib/supabase/server";
 import { buildAdminQueueOverview } from "@/features/admin/services/admin-dashboard-visibility";
-import type { AdminPermission, AdminRole } from "@/features/admin/services/permissions";
+import { hasAdminPermission, type AdminPermission, type AdminRole } from "@/features/admin/services/permissions";
 import { readAdminRows } from "@/features/admin/services/safe-read";
 import { getServerEnv } from "@/lib/env";
 
