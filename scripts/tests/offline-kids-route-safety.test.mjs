@@ -125,6 +125,8 @@ assert.equal(isValidOfflineDatasetCount("kids", -1), false);
 const offlineVerifier = readFileSync("scripts/verify-offline-content.mjs", "utf8");
 assert.ok(offlineVerifier.includes("isValidOfflineDatasetCount(name, definition.count)"),
   "offline verification must allow zero only for the Kids dataset");
+assert.match(exporter, /const apiKey = \(serviceRoleKey \|\| process\.env\.SUPABASE_ANON_KEY/,
+  "required offline exports must prefer the protected service-role key over any configured anonymous key");
 assert.ok(offlineVerifier.includes("getPublishedKidsRoutes(rows)"),
   "offline verification must reconcile Kids detail routes against the current exported dataset");
 const offlineWorkflow = readFileSync(".github/workflows/refresh-offline-content.yml", "utf8");
