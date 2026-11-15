@@ -44,6 +44,7 @@ VALUES
   ('legacy-no-audience', true, '{}'::jsonb),
   ('explicit-general', true, '{"audience":"general"}'::jsonb),
   ('kids-approved', true, '{"audience":"kids","generator":"zikr_internal_video_factory","kidsVideoQaStatus":"passed","automatedVideoQa":{"status":"passed"}}'::jsonb),
+  ('internal-missing-audience', true, '{"generator":"zikr_internal_video_factory","videoGenerationRequestId":"10000000-0000-4000-8000-000000000099"}'::jsonb),
   ('kids-failed-qa', true, '{"audience":"kids","generator":"zikr_internal_video_factory","kidsVideoQaStatus":"passed","automatedVideoQa":{"status":"failed"}}'::jsonb),
   ('kids-missing-generator', true, '{"audience":"kids","kidsVideoQaStatus":"passed","automatedVideoQa":{"status":"passed"}}'::jsonb),
   ('unknown-child-audience', true, '{"audience":"child","generator":"zikr_internal_video_factory","kidsVideoQaStatus":"passed","automatedVideoQa":{"status":"passed"}}'::jsonb),
