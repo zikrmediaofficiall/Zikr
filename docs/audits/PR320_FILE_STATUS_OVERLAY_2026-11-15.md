@@ -4,7 +4,7 @@ Code/test candidate head: `bef48c909e5709504937e6bcee8cc84e950c4612` (exact-head
 Base: `main` at `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
 PR changed paths: 569 (246 added, 323 modified, 0 deleted).
 Rows in this overlay: 569.
-Status counts: REVIEW_REQUIRED=218, CONTENT_READ_TESTED_PASS=281, CONTENT_READ_PENDING_TRACE=34, SUPERSEDED_SNAPSHOT=8, FIXED_TESTED_PENDING_LIVE_APPLY=28.
+Status counts: REVIEW_REQUIRED=217, CONTENT_READ_TESTED_PASS=282, CONTENT_READ_PENDING_TRACE=34, SUPERSEDED_SNAPSHOT=8, FIXED_TESTED_PENDING_LIVE_APPLY=28.
 Repository inventory: 2407 recursive tree entries (1908 blobs, 499 directories).
 Project status blob SHA: `efe1a38c2257259bd2365b2fbc29c4b19e46c707`.
 Continuous closeout ledger blob SHA: `a5ffdf0ed60398cefc64ad28b1c353f19a13f742`.
@@ -510,7 +510,7 @@ Self-reference handling: this overlay row points to the prior overlay blob; the 
 | `src/features/videos/services/video-media-audit-outcome.ts` | `A` | `a8f9c3a0c3bcf096c1d8d1198509fa8aa0307f5e` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `src/features/videos/services/video-media-contract.ts` | `M` | `5f30b92cdf0d55a33aebe9e36827bdfdf39481d3` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `src/features/videos/services/video-media-url.ts` | `A` | `1bee3a9b2ff103905c433696649982255d072873` | `REVIEW_REQUIRED` | Blob unchanged from 11:50Z overlay; prior evidence retained. Blob unchanged from 06:05Z overlay; prior evidence retained. Blob unchanged from 2026-11-14T0536Z overlay; prior status retained. |
-| `src/features/videos/services/video-publish-approval.ts` | `M` | `686baf3795fec8c6e91947c9d838b2a2dae27fa0` | `REVIEW_REQUIRED` | Added or changed since the previous overlay; review the actual file contents and trace consumers at this exact blob SHA. |
+| `src/features/videos/services/video-publish-approval.ts` | `M` | `ac959ff3ad54b7aec37f06c6c67469dfa69a9aa7` | `CONTENT_READ_TESTED_PASS` | Full request snapshot builder, automated QA gate, human Kids approval and external queue approval logic read; focused regression test and full-scope Quality Gate 43677234069 passed on 829c80b; unchanged since. |
 | `src/features/videos/services/video-qa-backfill-policy.ts` | `A` | `c8d9285bba5f45fe8c305fd297100851f262cdaf` | `CONTENT_READ_TESTED_PASS` | New pure response classifier: exactly one returned row means updated, zero means stale, malformed/multiple rows fail closed. Covered by video-qa-backfill-policy.test.ts and Quality Gate run 43640413903. |
 | `src/features/videos/services/video-queue-claim.ts` | `A` | `a7008672cc6be6cc4193d791031da1c8a3d2f21f` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
 | `src/features/videos/services/videos.ts` | `M` | `0eaf48da8eff0b2524ad43c0184d77fda8448479` | `CONTENT_READ_TESTED_PASS` | Read and reviewed at exact head a77b2d2; full Quality Gate run 43627717182 passed; no live side effects. |
