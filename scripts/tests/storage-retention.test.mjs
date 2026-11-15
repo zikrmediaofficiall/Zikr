@@ -62,6 +62,16 @@ assert.throws(
   /incomplete inventory; refusing cleanup/,
   "null Supabase reference and Android settings pages must fail closed",
 );
+assert.throws(
+  () => requireArrayResult(undefined, "fixture"),
+  /incomplete inventory; refusing cleanup/,
+  "missing Supabase response data must fail closed",
+);
+assert.throws(
+  () => requireArrayResult({}, "fixture"),
+  /incomplete inventory; refusing cleanup/,
+  "an object-shaped response must not be accepted as an empty reference inventory",
+);
 assert.throws(() => assertExpectedSupabaseProject(supabaseUrl, "wrong-project"), /20-character Supabase project ref/);
 assert.throws(() => assertExpectedSupabaseProject("https://other-project.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
 assert.throws(() => assertExpectedSupabaseProject("http://zqtssvlvmkzeeyqghqfk.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
