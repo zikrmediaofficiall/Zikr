@@ -55,6 +55,7 @@ type CapacitorWindow = Window & {
       sound?: string;
       channelId?: string;
     }) => Promise<void>;
+    checkNotificationPermission: () => Promise<unknown>;
     requestNotificationPermission: () => Promise<unknown>;
     requestLocationPermission: () => Promise<unknown>;
     checkExactNotificationSetting: () => Promise<unknown>;
@@ -203,6 +204,9 @@ function installNativeFacade(
           },
         ],
       });
+    },
+    async checkNotificationPermission() {
+      return plugins.LocalNotifications?.checkPermissions?.();
     },
     async requestNotificationPermission() {
       return plugins.LocalNotifications?.requestPermissions?.();
