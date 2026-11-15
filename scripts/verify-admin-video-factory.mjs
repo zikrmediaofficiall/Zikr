@@ -21,6 +21,17 @@ if (!createRoute.includes("SOURCE_LOCKED_CATEGORIES")) failures.push("video crea
 if (!createRoute.includes("resolveVideoSource")) failures.push("video create API must resolve the canonical source");
 if (!createRoute.includes("sourceVerifiedAtRequest: true")) failures.push("video create API must stamp source verification");
 if (!createRoute.includes("ownCloudinaryAudioUrl")) failures.push("human narration must be restricted to ZIKR-owned Cloudinary uploads");
+const createAudienceGuardIndex = createRoute.indexOf("const requestedAudience = normalizeVideoAudience(content.audience);");
+const createTemplateBranchIndex = createRoute.indexOf('if (typeof content.templateVersionId === "string"');
+const createRequestIndex = createRoute.indexOf("const result = await createVideoGenerationRequest({");
+const createAudienceGuard = createAudienceGuardIndex >= 0 && createTemplateBranchIndex > createAudienceGuardIndex
+  ? createRoute.slice(createAudienceGuardIndex, createTemplateBranchIndex)
+  : "";
+if (!createAudienceGuard.includes("if (!requestedAudience)") ||
+    !createAudienceGuard.includes("audience: requestedAudience") ||
+    createRequestIndex <= createTemplateBranchIndex) {
+  failures.push("video create API must reject unknown audience markers and persist a canonical audience before optional template handling");
+}
 if (!createRoute.includes("category === \"quran\"")) failures.push("Quran audio substitution must remain blocked");
 
 const approvalHelper = read("src/features/videos/services/video-publish-approval.ts");
