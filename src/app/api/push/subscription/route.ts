@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAllowedPushEndpoint } from "@/features/notifications/services/push-endpoint";
 import {
   normalizePushSubscriptionRequestBody,
   parsePushCoordinate,
+  parsePushSubscriptionRequestBody,
 } from "@/features/notifications/services/push-subscription-request";
+import { resolvePushSubscriptionWritePlan } from "@/features/notifications/services/push-subscription-ownership";
 import { mergePrayerReminderPreferences } from "@/features/prayer/services/prayer-reminder-preferences";
 import {
   createAdminClient,
+  createClient,
   getSupabaseUser,
   isSupabaseConfigured,
 } from "@/lib/supabase/server";
@@ -35,11 +37,9 @@ type SubscriptionBody = {
 };
 
 function asBoundedString(value: unknown, maxLength: number): string | null {
-  return typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= maxLength
-    ? value
-    : null;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 && normalized.length <= maxLength ? normalized : null;
 }
 
 function validTimezone(value: string): boolean {
@@ -51,21 +51,6 @@ function validTimezone(value: string): boolean {
   }
 }
 
-function parseSubscription(body: SubscriptionBody) {
-  const endpoint = asBoundedString(body.endpoint, 4096);
-  const p256dh = asBoundedString(body.keys?.p256dh, 1024);
-  const auth = asBoundedString(body.keys?.auth, 1024);
-  if (!endpoint || !p256dh || !auth || !isAllowedPushEndpoint(endpoint)) return null;
-
-  return {
-    endpoint,
-    p256dh,
-    auth,
-    device_id: asBoundedString(body.deviceId, 128),
-    user_agent: asBoundedString(body.userAgent, 1024),
-    platform: asBoundedString(body.platform, 128),
-  };
-}
 
 function parsePrayerContext(body: SubscriptionBody) {
   const location = body.prayerContext?.location;
@@ -123,6 +108,7 @@ async function requireUser() {
 
 async function upsertPrayerContext(
   admin: ReturnType<typeof createAdminClient>,
+  userClient: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   context: NonNullable<ReturnType<typeof parsePrayerContext>>
 ) {
@@ -138,27 +124,19 @@ async function upsertPrayerContext(
     context.prayerReminders
   );
 
-  const { data: existingLocation, error: locationLookupError } = await admin
-    .from("prayer_locations")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("is_default", true)
-    .maybeSingle();
-  if (locationLookupError) throw locationLookupError;
+  const { data: savedLocation, error: locationError } = await userClient
+    .rpc("save_default_prayer_location", {
+      p_city: context.location.city,
+      p_country: context.location.country,
+      p_latitude: context.location.latitude,
+      p_longitude: context.location.longitude,
+      p_timezone: context.location.timezone,
+    })
+    .single();
 
-  const locationPatch = {
-    user_id: userId,
-    ...context.location,
-    is_default: true,
-    updated_at: new Date().toISOString(),
-  };
-  const { error: locationError } = existingLocation
-    ? await admin
-        .from("prayer_locations")
-        .update(locationPatch)
-        .eq("id", existingLocation.id)
-    : await admin.from("prayer_locations").insert(locationPatch);
-  if (locationError) throw locationError;
+  if (locationError || !savedLocation) {
+    throw locationError ?? new Error("Failed to save the default prayer location.");
+  }
 
   const { error: preferenceError } = await admin
     .from("prayer_preferences")
@@ -187,7 +165,7 @@ export async function POST(request: NextRequest) {
     );
   }
   const body = normalizePushSubscriptionRequestBody(parsedBody.value) as SubscriptionBody;
-  const parsed = parseSubscription(body);
+  const parsed = parsePushSubscriptionRequestBody(parsedBody.value);
   const prayerContext = parsePrayerContext(body);
   if (!parsed || !prayerContext) {
     return NextResponse.json(
@@ -197,6 +175,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const userClient = await createClient();
     const admin = createAdminClient();
     const { data: existing, error: existingError } = await admin
       .from("push_subscriptions")
@@ -205,31 +184,71 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (existingError) throw existingError;
 
-    // Never allow a caller to silently hijack a subscription owned by another
-    // account. The prior user must remove it by signing out on that device.
-    if (existing && existing.user_id !== user.id) {
+    // The lookup is only a preflight. The subsequent update is scoped by the
+    // current owner and endpoint, while a concurrent insert is handled as a
+    // conflict rather than an upsert that could transfer ownership.
+    const writePlan = resolvePushSubscriptionWritePlan(existing, user.id);
+    if (writePlan.kind === "conflict") {
       return NextResponse.json(
         { error: "Subscription belongs to a different account." },
         { status: 409 }
       );
     }
 
-    await upsertPrayerContext(admin, user.id, prayerContext);
+    const now = new Date().toISOString();
+    const subscriptionPatch = {
+      p256dh: parsed.p256dh,
+      auth: parsed.auth,
+      device_id: parsed.device_id,
+      user_agent: parsed.user_agent,
+      platform: parsed.platform,
+      is_active: true,
+      last_used_at: now,
+      updated_at: now,
+    };
 
-    const { error } = await admin.from("push_subscriptions").upsert(
-      {
-        ...(existing ? { id: existing.id } : {}),
-        user_id: user.id,
-        ...parsed,
-        is_active: true,
-        last_used_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "endpoint" }
-    );
-    if (error) throw error;
+    if (writePlan.kind === "update") {
+      const { data: updated, error: updateError } = await admin
+        .from("push_subscriptions")
+        .update(subscriptionPatch)
+        .eq("id", writePlan.id)
+        .eq("user_id", user.id)
+        .eq("endpoint", parsed.endpoint)
+        .select("id")
+        .maybeSingle();
 
-    return NextResponse.json({ ok: true }, { status: existing ? 200 : 201 });
+      if (updateError) throw updateError;
+      if (!updated) {
+        return NextResponse.json(
+          { error: "Subscription ownership changed; register it again from this account." },
+          { status: 409 }
+        );
+      }
+    } else {
+      const { data: inserted, error: insertError } = await admin
+        .from("push_subscriptions")
+        .insert({
+          user_id: user.id,
+          endpoint: parsed.endpoint,
+          ...subscriptionPatch,
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (insertError) {
+        if ((insertError as { code?: string }).code === "23505") {
+          return NextResponse.json(
+            { error: "Subscription was registered concurrently; retry from this account." },
+            { status: 409 }
+          );
+        }
+        throw insertError;
+      }
+      if (!inserted) throw new Error("Failed to save the push subscription.");
+    }
+
+    await upsertPrayerContext(admin, userClient, user.id, prayerContext);
+    return NextResponse.json({ ok: true }, { status: writePlan.kind === "insert" ? 201 : 200 });
   } catch (error) {
     console.error("[push] Failed to save subscription:", error);
     return NextResponse.json(
