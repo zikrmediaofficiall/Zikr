@@ -103,7 +103,7 @@ export function evaluateVideoCatalogPublication(
   }
 
   const automatedVideoQa = asRecord(metadata.automatedVideoQa);
-  if (normalizeVideoMarker(automatedVideoQa?.status) !== "passed") {
+  if (!automatedVideoQa || normalizeVideoMarker(automatedVideoQa.status) !== "passed") {
     return { status: "blocked", reason: "The public video catalog does not contain a passed automated QA snapshot." };
   }
   const expectedApprovalSnapshotHash = input.expectedApprovalSnapshotHash?.trim() ?? "";
