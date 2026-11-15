@@ -52,6 +52,9 @@ assert.equal(isVideoQueueItemApprovedForPublishing(queueItem), true);
 const kidsSnapshot = { ...snapshot, audience: "kids", kidsVideoQaStatus: "passed" };
 const kidsSnapshotHash = buildVideoApprovalSnapshotHash(kidsSnapshot);
 assert.equal(typeof kidsSnapshotHash, "string");
+assert.equal(hasCompleteKidsVideoSeriesMetadata(null), false, "null Kids metadata must fail closed");
+assert.equal(hasCompleteKidsVideoSeriesMetadata("kids"), false, "primitive Kids metadata must fail closed");
+assert.equal(isHumanVideoApprovalRecorded(null, kidsSnapshotHash), false, "null human-review metadata must fail closed");
 assert.equal(buildVideoApprovalSnapshotHash({ ...kidsSnapshot, kidsVideoQaStatus: "blocked" }), null);
 const completeKidsContent = {
   ...content,
@@ -72,6 +75,14 @@ const kidsQueueItem = {
   contentType: "kids_video",
   request: { ...request, content: completeKidsContent },
 };
+assert.equal(
+  inspectVideoQueueItemExternalApproval({
+    ...kidsQueueItem,
+    request: { ...request, content: null },
+  }).approved,
+  false,
+  "null Kids request content must fail closed without throwing",
+);
 assert.equal(isVideoQueueItemApprovedForPublishing(kidsQueueItem), true);
 assert.equal(isVideoQueueItemApprovedForPublishing({
   ...kidsQueueItem,

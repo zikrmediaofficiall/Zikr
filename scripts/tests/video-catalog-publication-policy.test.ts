@@ -197,6 +197,8 @@ const generalVideoMetadataCases: Array<[unknown, boolean, string]> = [
   [{ audience: null }, true, "a null audience remains a legacy general video"],
   [{ audience: "general" }, true, "the canonical general audience remains visible"],
   [{ audience: "kids" }, false, "Kids audience is excluded from the general catalog"],
+  [0, false, "numeric metadata must fail closed instead of becoming a legacy general video"],
+  [true, false, "boolean metadata must fail closed instead of becoming a legacy general video"],
   [{ audience: "Kids" }, false, "case-variant Kids audience fails closed"],
   [{ audience: " kids " }, false, "whitespace-variant Kids audience fails closed"],
   [{ audience: "child" }, false, "unknown child audience fails closed"],

@@ -26,6 +26,7 @@ export function normalizeVideoMarker(value: unknown): string {
 }
 
 export function isGeneralAudienceVideoMetadata(metadata: unknown): boolean {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return true;
+  if (metadata === null || metadata === undefined) return true;
+  if (typeof metadata !== "object" || Array.isArray(metadata)) return false;
   return normalizeVideoAudience((metadata as Record<string, unknown>).audience) === "general";
 }
