@@ -1,6 +1,31 @@
 const MP3QURAN_AUDIO_HOST = /^server[0-9]+\.mp3quran\.net$/i;
 const SUPABASE_AUDIO_BUCKET_PREFIX = "/storage/v1/object/public/quran-audio/";
 
+function isSafeAudioPathSegment(segment: string): boolean {
+  let decoded = segment;
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (
+      decoded === "." ||
+      decoded === ".." ||
+      decoded.includes("/") ||
+      decoded.includes("\\")
+    ) {
+      return false;
+    }
+    if (!decoded.includes("%")) return true;
+    const next = decodeURIComponent(decoded);
+    if (next === decoded) return true;
+    decoded = next;
+  }
+  return (
+    !decoded.includes("%") &&
+    decoded !== "." &&
+    decoded !== ".." &&
+    !decoded.includes("/") &&
+    !decoded.includes("\\")
+  );
+}
+
 export function isAllowedQuranAudioUrl(
   value: unknown,
   supabaseUrl: string | undefined =
@@ -17,15 +42,7 @@ export function isAllowedQuranAudioUrl(
 
     const segments = url.pathname.split("/").filter(Boolean);
     for (const segment of segments) {
-      const decoded = decodeURIComponent(segment);
-      if (
-        decoded === "." ||
-        decoded === ".." ||
-        decoded.includes("/") ||
-        decoded.includes("\\")
-      ) {
-        return false;
-      }
+      if (!isSafeAudioPathSegment(segment)) return false;
     }
 
     if (

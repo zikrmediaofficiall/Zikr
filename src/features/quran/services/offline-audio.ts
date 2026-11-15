@@ -233,19 +233,28 @@ export async function removeQuranAudio(
   const record = index[key];
   if (!record) return;
 
-  try {
-    if (record.storage === "native") {
-      const bridge = nativeBridge();
-      const path = record.path || record.uri;
-      if (bridge?.deleteFile && path) await bridge.deleteFile(path);
-    } else if ("caches" in window) {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.delete(record.sourceUrl);
+  if (record.storage === "native") {
+    const bridge = nativeBridge();
+    const path = record.path || record.uri;
+    if (!bridge?.deleteFile || !path || !isSafeQuranAudioDownloadPath(path)) {
+      throw new Error("تعذر حذف ملف التلاوة المحلي بأمان؛ احتفظنا بسجل التنزيل للمحاولة مرة أخرى.");
     }
-  } finally {
-    delete index[key];
-    writeIndex(index);
+    await bridge.deleteFile(path);
+  } else if (record.storage === "cache") {
+    if (!("caches" in window)) {
+      throw new Error("التخزين المؤقت غير متاح؛ احتفظنا بسجل التنزيل للمحاولة مرة أخرى.");
+    }
+    const cache = await caches.open(CACHE_NAME);
+    await cache.delete(record.sourceUrl);
+  } else {
+    throw new Error("نوع التخزين المحلي غير معروف؛ احتفظنا بسجل التنزيل.");
   }
+
+  // Remove the index only after the backing file/cache operation succeeds.
+  // If deletion fails, retain the record so the user can retry rather than
+  // orphaning an undeleted native file or cached response.
+  delete index[key];
+  writeIndex(index);
 }
 
 export async function getQuranAudioDownloads(): Promise<QuranAudioDownload[]> {
