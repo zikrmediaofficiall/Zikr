@@ -60,7 +60,7 @@ function buildKidsSeriesMetadataPatch(requestContent: Record<string, unknown>, m
 /**
  * Legacy Kids requests stored the QA result on the catalog row, while the
  * request JSON omitted kidsVideoQaStatus. Derive only from a catalog row
- * tied to the same request, URL, hashes, template and automated-QA snapshot.
+ * bound to the same request, URL, hashes, template and automated-QA snapshot.
  */
 export function resolveKidsVideoQaStatusForApproval(input: {
   requestContent: unknown;
@@ -85,6 +85,9 @@ export function resolveKidsVideoQaStatusForApproval(input: {
     metadata.sourceHash !== input.sourceHash ||
     metadata.contentHash !== input.contentHash ||
     metadata.templateVersion !== input.templateVersion ||
+    requestContent.sourceHash !== input.sourceHash ||
+    requestContent.contentHash !== input.contentHash ||
+    requestContent.templateVersion !== input.templateVersion ||
     normalizeVideoAudience(metadata.audience, false) !== "kids" ||
     requestQa?.status !== "passed" ||
     metadataQa?.status !== "passed" ||
