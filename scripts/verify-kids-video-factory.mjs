@@ -100,13 +100,20 @@ for (const token of [
 }
 
 const kidsVideoService = read("src/features/videos/services/videos.ts");
+const kidsVideoSocialDetailService = read("src/features/social/services/kids-video-social-detail.ts");
 for (const token of [
-  "classifyKidsVideoGenerationRequestId",
-  "loadKidsSocialQueueRows([requestIdState.id], request)",
-  "resolveKidsVideoSocialPublication(rows, stored, true, false)",
+  "resolveKidsVideoSocialPublicationForDetail",
   "export async function getKidsGeneratedVideoBySlug",
 ]) {
-  if (!kidsVideoService.includes(token)) failures.push("Kids detail service must resolve queue-backed publication state and fail closed for empty histories: " + token);
+  if (!kidsVideoService.includes(token)) failures.push("Kids detail service must use the queue-backed publication resolver: " + token);
+}
+for (const token of [
+  "loadKidsSocialQueueRows([requestIdState.id], request)",
+  'reason: "invalid_request_id"',
+  'reason: "queue_read_failed"',
+  'status: "verified"',
+]) {
+  if (!kidsVideoSocialDetailService.includes(token)) failures.push("Kids detail publication resolver must distinguish verified and unavailable queue states: " + token);
 }
 
 const kidsFeedRoute = read("src/app/api/kids/videos/route.ts");
@@ -156,7 +163,7 @@ if (!socialWorker.includes("syncKidsSocialPublicationToCatalog") ||
   failures.push("confirmed social-platform deliveries must sync back to the Kids catalog");
 }
 const kidsVideoDetail = read("src/app/kids/videos/[slug]/page.tsx");
-if (!kidsVideoDetail.includes("الحكاية كاملة") || !kidsVideoDetail.includes("منشور السوشيال ميديا") || !kidsVideoDetail.includes("socialPublication")) {
+if (!kidsVideoDetail.includes("الحكاية كاملة") || !kidsVideoDetail.includes("منشور السوشيال ميديا") || !kidsVideoDetail.includes("socialPublication") || !kidsVideoDetail.includes("تعذر التحقق من حالة النشر")) {
   failures.push("Kids video detail must display the full story and its generated social post");
 }
 
