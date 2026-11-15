@@ -469,10 +469,13 @@ export async function getQuranAudioFromDb(
   reciterCode: string,
 ): Promise<
   | {
-  if (!isValidQuranAudioDownloadRequest(surahId, reciterCode)) return { audio: null, reason: "invalid_audio_request", storage_path: null };
  audio: QuranAudioRecord; reason?: undefined; storage_path?: undefined }
   | { audio: null; reason: string; storage_path: string | null }
 > {
+  if (!isValidQuranAudioDownloadRequest(surahId, reciterCode)) {
+    return { audio: null, reason: "invalid_audio_request", storage_path: null };
+  }
+
   const candidates = [...new Set([
     reciterCode,
     reciterCode.replace(/^ar\./i, ""),
