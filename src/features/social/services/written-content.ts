@@ -61,7 +61,8 @@ export function chooseWrittenSourceKind(
 }
 
 export function shouldBackfillKidsWrittenPost(sourceType: string, hasKidsPostToday: boolean): boolean {
- return sourceType !== "kids_story" || !hasKidsPostToday;
+ const normalizedSourceType = typeof sourceType === "string" ? sourceType.trim().toLowerCase() : "";
+ return normalizedSourceType !== "kids_story" || !hasKidsPostToday;
 }
 
 export function scheduleKidsBackfillWithinUtcDay(now: Date): string | null {
@@ -246,7 +247,10 @@ export function buildWrittenBackfillQueuePayload(input: {
  now: string;
  scheduledAt: string;
 }) {
- const isKidsStory = input.sourceType === "kids_story";
+ const normalizedSourceType = typeof input.sourceType === "string"
+  ? input.sourceType.trim().toLowerCase()
+  : "";
+ const isKidsStory = normalizedSourceType === "kids_story";
  if (isKidsStory && (
   !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(input.sourceId) ||
   !/^\/kids\/[a-z0-9-]+$/i.test(input.publicPath)
@@ -277,7 +281,7 @@ export function buildWrittenBackfillQueuePayload(input: {
     ageGroup: input.ageGroup ?? null,
    } : {}),
    source: {
-    type: input.sourceType,
+    type: normalizedSourceType,
     id: input.sourceId,
     title: input.sourceTitle || input.title,
     reference: input.sourceReference || "",
