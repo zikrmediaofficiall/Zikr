@@ -146,3 +146,11 @@ contexts for the production gate and scheduled English sync, move the Android
 dispatch token into a GH-token-only context, verify the affected jobs, then
 remove the project-level copies. The audit does not read, move, rotate, or
 delete any secret.
+
+The signed `android-rebuild` job retains the Android signing context and its
+required GitHub dispatch token, but shadows the project-level
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` values at job scope. The
+separate `android-release-dispatch` job retains the dispatch token while
+shadowing Supabase, Gemini, and keystore values. The Android build receives
+only the public Supabase URL/anon key needed by the client build, not the
+production service-role credential.
