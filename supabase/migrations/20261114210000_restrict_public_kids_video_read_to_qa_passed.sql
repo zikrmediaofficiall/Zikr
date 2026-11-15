@@ -18,7 +18,10 @@ CREATE POLICY videos_public_read
       OR (
         jsonb_typeof(metadata) = 'object'
         AND (
-          metadata->>'audience' IS NULL
+          (
+            metadata->>'audience' IS NULL
+            AND metadata->>'generator' IS DISTINCT FROM 'zikr_internal_video_factory'
+          )
           OR metadata->>'audience' = 'general'
           OR (
             metadata->>'audience' = 'kids'
