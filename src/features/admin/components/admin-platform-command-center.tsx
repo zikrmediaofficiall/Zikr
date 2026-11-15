@@ -4,6 +4,7 @@ import { getAdminSnapshot } from "@/features/admin/services/platform";
 import { ADMIN_NAVIGATION } from "@/features/admin/config/navigation";
 import { getCurrentProfile } from "@/features/admin/services/admin";
 import { hasAdminPermission } from "@/features/admin/services/permissions";
+import { getVisibleAdminDashboardCountSections } from "@/features/admin/services/admin-dashboard-visibility";
 import { AdminModuleDirectory } from "@/features/admin/components/admin-module-directory";
 
 type AdminSnapshot = Awaited<ReturnType<typeof getAdminSnapshot>>;
@@ -153,6 +154,7 @@ export async function AdminPlatformCommandCenter() {
       tables: ["profiles", "video_generation_requests", "admin_audit_events"],
     },
   ];
+  const visibleCountSections = getVisibleAdminDashboardCountSections(role, countSections, snapshot.counts);
 
   return (
     <div className="space-y-8" dir="rtl">
@@ -345,8 +347,8 @@ export async function AdminPlatformCommandCenter() {
             أعداد من قاعدة البيانات الفعلية، منظّمة بحسب وظيفة كل جزء من المنصة. الأرقام تمثل السجلات ولا تعني وحدها أن كل عنصر منشور أو معتمد.
           </p>
         </header>
-        {countSections.map((section) => {
-          const values = snapshot.counts.filter((value) => section.tables.includes(value.table));
+        {visibleCountSections.map((section) => {
+          const values = section.values;
           if (!values.length) return null;
           return (
             <section key={section.key} className="space-y-3">
