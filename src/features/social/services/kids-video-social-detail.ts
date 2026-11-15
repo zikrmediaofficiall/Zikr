@@ -11,11 +11,13 @@ export type KidsVideoSocialPublicationDetailResolution =
   | {
       status: "verified";
       publication: ReturnType<typeof resolveKidsVideoSocialPublication>;
+      caption: string | null;
     }
   | {
       status: "unavailable";
       reason: "invalid_request_id" | "queue_read_failed";
       publication: null;
+      caption: null;
     };
 
 /**
@@ -34,6 +36,7 @@ export async function resolveKidsVideoSocialPublicationForDetail(
     return {
       status: "verified",
       publication: resolveKidsVideoSocialPublication([], stored, true, true),
+      caption: null,
     };
   }
 
@@ -42,20 +45,29 @@ export async function resolveKidsVideoSocialPublicationForDetail(
       status: "unavailable",
       reason: "invalid_request_id",
       publication: null,
+      caption: null,
     };
   }
 
   try {
     const rows = await loadKidsSocialQueueRows([requestIdState.id], request);
+    const confirmedCaptionRow = rows.find((row) =>
+      resolveKidsVideoSocialPublication([row], null, true, false)?.platforms.length,
+    );
+    const caption = typeof confirmedCaptionRow?.body === "string" && confirmedCaptionRow.body.trim()
+      ? confirmedCaptionRow.body
+      : null;
     return {
       status: "verified",
       publication: resolveKidsVideoSocialPublication(rows, stored, true, false),
+      caption,
     };
   } catch {
     return {
       status: "unavailable",
       reason: "queue_read_failed",
       publication: null,
+      caption: null,
     };
   }
 }
