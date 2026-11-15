@@ -13,7 +13,13 @@ const androidRebuildStart = circleCiConfig.indexOf("  android-rebuild:", android
 const androidDraftJob = circleCiConfig.slice(androidDraftStart, androidRebuildStart);
 assert.ok(androidDraftStart >= 0 && androidRebuildStart > androidDraftStart, "the read-only Android release verifier must remain a distinct CircleCI job");
 assert.doesNotMatch(androidDraftJob, /context:\s*\n\s*-\s*android-signing/, "read-only Android release verification must not receive the Android signing context");
-assert.doesNotMatch(androidDraftJob, /GH_TOKEN|ANDROID_KEYSTORE_BASE64|ANDROID_KEYSTORE_PASSWORD|ANDROID_KEY_ALIAS|ANDROID_KEY_PASSWORD/, "read-only Android release verification must not receive release-write or signing secrets");
+assert.doesNotMatch(
+  androidDraftJob,
+  /^\s*(?:GH_TOKEN|ANDROID_KEYSTORE_BASE64|ANDROID_KEYSTORE_PASSWORD|ANDROID_KEY_ALIAS|ANDROID_KEY_PASSWORD):\s*(?!"")\S.*$/m,
+  "read-only Android release verification must not contain non-empty release-write or signing secret values",
+);
+// The empty job-level values intentionally shadow inherited CircleCI context secrets.
+// expectBlankCircleCiEnv below verifies the exact empty assignments for this read-only job.
 assert.doesNotMatch(androidDraftJob, /Authorization:\s*"Bearer"/, "public release metadata verification must not need a write-capable GitHub token");
 assert.match(androidDraftJob, /https:\/\/api\.github\.com\/repos\/zikrofficial-X\/Zikr/, "the verifier must continue to inspect the public canonical GitHub repository");
 const workflowStart = circleCiConfig.indexOf("\nworkflows:");
