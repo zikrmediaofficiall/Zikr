@@ -77,6 +77,7 @@ const CORE_CHECKS = [
   { path: "/prayer-times", label: "prayer times page", expectedMain: /مواقيت/i },
   { path: "/kids", label: "kids page", expectedMain: /نتعلم|الأطفال|الاطفال/i },
   { path: "/kids/games", label: "kids games catalogue", expectedMain: /الألعاب|ألعاب|All games|Choose your next adventure/i, expectedContent: /مختبر الحروف|Arabic Letter Lab|Letter Lab/i },
+  { path: "/kids/videos", label: "kids video library", expectedMain: /قصص فيديو مخصصة للأطفال|Stories made for young viewers/i },
   { path: "/data-deletion", label: "Facebook data deletion instructions", expectedMain: /حذف بيانات المستخدم.*إرسال طلب حذف البيانات/i },
   { path: "/dua/zikr-dua-expansion-14", label: "short published dua detail", minMainText: 35 },
   {
