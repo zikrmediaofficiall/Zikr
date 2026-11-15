@@ -32,6 +32,16 @@ assert.equal(isKidsWrittenSourceReservation({ publicPath: "https://zikrmediaoffi
   "absolute Kids public URLs must be recognized as Kids content");
 assert.equal(isKidsWrittenSourceReservation({ publicPath: "/%6Bids/story" }), true,
   "percent-encoded Kids path segments must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "/%256Bids/story" }), true,
+  "double-encoded Kids path segments must remain reserved before general-content backfill");
+assert.equal(isKidsWrittenSourceReservation({ public_path: "/%25256Bids/story" }), true,
+  "triple-encoded legacy Kids paths must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "/articles/%252e%252e/kids/story" }), true,
+  "decoded dot-segment traversal must not hide a Kids route from the reservation guard");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "/articles/%ZZ" }), true,
+  "malformed legacy paths must fail closed instead of entering general-content backfill");
+assert.equal(isSafeWrittenBackfillSource("quran", { publicPath: "/%256Bids/story" }), false,
+  "a double-encoded Kids path must never be relabeled as a general source");
 assert.equal(isKidsWrittenSourceReservation({ public_path: "/kids/story" }), true,
   "legacy snake-case public paths must remain reserved");
 assert.equal(isKidsWrittenSourceReservation({ publicPath: "", public_path: "/kids/story" }), true,
