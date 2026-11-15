@@ -19,6 +19,7 @@ const serviceWorkerRegister = read(
 const runtimePolicy = read("src/lib/ads/runtime-policy.ts");
 const serviceWorker = read("public/sw.js");
 const offlineAudio = read("src/features/quran/services/offline-audio.ts");
+const nativeBridge = read("src/components/layout/native-capacitor-bridge.tsx");
 const offlinePack = read("src/lib/offline-pack.ts");
 const adsenseSlot = read("src/components/layout/adsense-slot.tsx");
 const runtimeEffects = read("src/components/layout/runtime-effects.tsx");
@@ -99,6 +100,10 @@ requireCondition(
   appShellCachePattern.test(appShellCacheName) &&
     appShellCachePattern.test(offlinePackCacheName),
   "The versioned service-worker and offline-pack caches must match the app-shell cache pattern.",
+);
+requireCondition(
+  nativeBridge.includes("isAllowedQuranAudioUrl(url)") && nativeBridge.includes("isSafeQuranAudioDownloadPath(path)") && nativeBridge.includes("Filesystem.stat"),
+  "Native Quran audio downloads, local file access and deletion must be path-restricted and storage sizes must be measurable.",
 );
 requireCondition(
   quranAudioCacheName === "zikr-quran-audio-v1" &&
