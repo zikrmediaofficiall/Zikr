@@ -425,10 +425,10 @@ assert.equal(
 );
 
 const adminVideoGenerationRoute = readFileSync("src/app/api/admin/video-generation/route.ts", "utf8");
-assert.match(adminVideoGenerationRoute, /normalizeVideoAudience\\(currentContent\\.audience\\)/);
-assert.doesNotMatch(adminVideoGenerationRoute, /currentContent\\.audience === ["']kids["']/);
+assert.match(adminVideoGenerationRoute, /normalizeVideoAudience\(currentContent\.audience\)/);
+assert.doesNotMatch(adminVideoGenerationRoute, /currentContent\.audience === ["']kids["']/);
 const adminVideoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
-assert.match(adminVideoCreateRoute, /normalizeVideoAudience\\(content\\.audience\\)/);
-assert.doesNotMatch(adminVideoCreateRoute, /content\\.audience === ["']kids["']/);
+assert.match(adminVideoCreateRoute, /normalizeVideoAudience\(content\.audience\)/);
+assert.doesNotMatch(adminVideoCreateRoute, /content\.audience === ["']kids["']/);
 
 console.log("Video publishing approval contract passed.");
