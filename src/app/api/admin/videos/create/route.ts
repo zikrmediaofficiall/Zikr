@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
 import { requireAdminStepUpApi } from "@/features/admin/services/security";
 import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
@@ -231,7 +232,10 @@ export async function POST(request: NextRequest) {
       if (!template || !config || !isVideoTemplateAssetAllowedForAudience(config.assetKey, template.audience)) {
         return NextResponse.json({ error: "إعدادات القالب لا تجتاز تحقق محرك الرندر." }, { status: 422 });
       }
-      const requestedAudience = content.audience === "kids" ? "kids" : "general";
+      const requestedAudience = normalizeVideoAudience(content.audience);
+      if (!requestedAudience) {
+        return NextResponse.json({ error: "فئة الجمهور غير معروفة؛ تم إيقاف إنشاء الفيديو." }, { status: 422 });
+      }
       if (requestedAudience !== template.audience) {
         return NextResponse.json({ error: "القالب المختار لا يتوافق مع فئة الجمهور لهذا الفيديو." }, { status: 422 });
       }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
 import { requireAdminApi } from '@/features/admin/services/admin';
 import { requireAdminStepUpApi } from '@/features/admin/services/security';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
@@ -141,7 +142,11 @@ export async function PATCH(request: NextRequest) {
       }
       const currentContent = current.content && typeof current.content === 'object' && !Array.isArray(current.content)
         ? current.content as Record<string, unknown> : {};
-      const isKidsVideo = currentContent.audience === 'kids';
+      const audience = normalizeVideoAudience(currentContent.audience);
+      if (!audience) {
+        return NextResponse.json({ error: 'فئة الجمهور غير معروفة؛ تم إيقاف الاعتماد.' }, { status: 409 });
+      }
+      const isKidsVideo = audience === 'kids';
       const automatedQa = currentContent.automatedVideoQa && typeof currentContent.automatedVideoQa === 'object' && !Array.isArray(currentContent.automatedVideoQa)
         ? currentContent.automatedVideoQa as Record<string, unknown>
         : {};
@@ -169,7 +174,7 @@ export async function PATCH(request: NextRequest) {
         contentHash: current.content_hash,
         templateVersion: current.template_version,
         videoUrl: current.video_url,
-        audience: isKidsVideo ? 'kids' : 'general',
+        audience,
         kidsVideoQaStatus: isKidsVideo ? String(currentContent.kidsVideoQaStatus) : null,
       });
       if (!approvalSnapshotHash) {
