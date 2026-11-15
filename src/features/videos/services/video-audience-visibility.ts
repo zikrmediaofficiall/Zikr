@@ -15,7 +15,7 @@ export function normalizeVideoAudience(
   if (typeof value !== "string") return null;
 
   const normalized = value.trim().toLowerCase();
-  if (!normalized) return missingAsGeneral ? "general" : null;
+  if (!normalized) return null;
   if (["kids", "kid", "children", "child"].includes(normalized)) return "kids";
   if (normalized === "general") return "general";
   return null;
