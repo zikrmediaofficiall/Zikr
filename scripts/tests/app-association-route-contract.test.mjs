@@ -20,6 +20,7 @@ for (const prefix of publicAppLinkPrefixes) {
   assert.ok(aasa.includes(`{ '/': '${prefix}/*' }`), `iOS Universal Links must include nested public routes under ${prefix}`);
   assert.ok(androidManifest.includes(`android:pathPrefix="${prefix}"`), `Android App Links must include ${prefix}`);
 }
+assert.ok(aasa.includes("{ '/': '/duas' }"), "iOS Universal Links must include the legacy /duas alias before its server redirect to /dua");
 assert.doesNotMatch(
   aasa,
   /\{\s*['"]\/['"]\s*:\s*['"]\/\*['"]\s*\}/,

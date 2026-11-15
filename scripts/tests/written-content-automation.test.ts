@@ -474,9 +474,19 @@ assert.equal(containsKidsPersonalDataSolicitation("ابعتلي على الخا�
 assert.equal(containsKidsPersonalDataSolicitation("ابعتيلي رسالة خاصة"), true, "feminine Egyptian colloquial private-message requests must be rejected");
 assert.equal(containsKidsPersonalDataSolicitation("ابعثلي رسالة على واتساب"), true, "requests to move a child to WhatsApp must be rejected");
 assert.equal(containsKidsPersonalDataSolicitation("send me a DM"), true, "English requests to move a child into direct messages must be rejected");
+assert.equal(containsKidsPersonalDataSolicitation("What is your phone number?"), true, "direct English questions requesting a child's phone number must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("What's your full name?"), true, "direct English questions requesting a child's name must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Where is your school?"), true, "direct English questions requesting a child's school must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Where do you live?"), true, "direct English questions requesting a child's home location must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("How old are you?"), true, "direct English questions requesting a child's age must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Can I have your email address?"), true, "polite English requests for a child's email must be blocked");
 assert.equal(containsKidsPersonalDataSolicitation("ابعتلي إجابة السؤال"), false, "ordinary educational requests must not be mistaken for private contact");
 assert.equal(containsKidsPersonalDataSolicitation("DM me your location"), true, "English personal-location requests must be rejected");
 assert.equal(containsKidsPersonalDataSolicitation("لا تشارك رقم هاتفك مع أي شخص"), false, "safety warnings must not be mistaken for personal-data solicitation");
+assert.equal(containsKidsPersonalDataSolicitation("Do not share your phone number with anyone."), false, "English safety warnings must not be blocked as solicitations");
+assert.equal(containsKidsPersonalDataSolicitation("Never ask for your home address."), false, "English warnings against asking for personal data must remain publishable");
+assert.equal(containsKidsPersonalDataSolicitation("Don't ask what is your phone number."), false, "negative instructions must not be mistaken for direct questions");
+assert.equal(containsKidsPersonalDataSolicitation("Don't share your phone number, but tell me your school."), true, "a separate positive solicitation must still be blocked after a safety-warning clause");
 assert.equal(containsKidsPersonalDataSolicitation("ما الدرس الذي تعلمته من القصة؟"), false, "ordinary educational questions must remain allowed");
 
 const worker = readFileSync("scripts/jobs/written-content-automation.ts", "utf8");
