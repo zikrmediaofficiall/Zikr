@@ -49,6 +49,7 @@ VALUES
     "videoGenerationRequestId":"10000000-0000-4000-8000-000000000001",
     "generatedVideoUrl":"https://res.cloudinary.com/zikr/video/upload/v123/kids-approved.mp4",
     "mediaState":"cloudinary_master",
+    "sourceMediaMissing":false,
     "sourceHash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "contentHash":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "templateVersion":"kids-template-v1",

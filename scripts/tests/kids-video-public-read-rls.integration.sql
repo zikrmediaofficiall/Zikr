@@ -102,6 +102,8 @@ BEGIN
       OR policy_qual NOT ILIKE '%videoGenerationRequestId%'
       OR policy_qual NOT ILIKE '%generatedVideoUrl%'
       OR policy_qual NOT ILIKE '%mediaState%'
+      OR policy_qual NOT ILIKE '%sourceMediaMissing%'
+      OR policy_qual NOT ILIKE '%res.cloudinary.com%'
       OR policy_qual NOT ILIKE '%sourceHash%'
       OR policy_qual NOT ILIKE '%contentHash%'
       OR policy_qual NOT ILIKE '%templateVersion%'
