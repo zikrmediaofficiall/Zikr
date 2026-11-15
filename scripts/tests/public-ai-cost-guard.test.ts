@@ -74,7 +74,13 @@ assert.match(poetryService, /POETRY_SYSTEM_INSTRUCTION/);
 assert.match(poetryService, /generateGeminiText\(prompt, 1500, POETRY_SYSTEM_INSTRUCTION\)/);
 
 assert.match(memorizationAction, /MEMORIZATION_SYSTEM_INSTRUCTION/);
-assert.match(memorizationAction, /generateGeminiFromAudio\(audioPrompt, \{ data: bytes, mimeType: audio\.type \|\| 'audio\/webm' \}, MEMORIZATION_SYSTEM_INSTRUCTION\)/);
+assert.match(memorizationAction, /normalizeMemorizationAudioMimeType\\(audioFile\\.type\\)/,
+  "audio uploads must use an explicit supported MIME allowlist");
+assert.match(memorizationAction, /hasMemorizationAudioSignature\\(audioMimeType, audioBytes\\)/,
+  "audio uploads must match the declared MIME type to the actual container signature");
+assert.match(memorizationAction, /generateGeminiFromAudio\\(audioPrompt, \\{ data: bytes, mimeType: audioMimeType \\}, MEMORIZATION_SYSTEM_INSTRUCTION\\)/);
+assert.doesNotMatch(memorizationAction, /audio\\.type \\|\\| ['"]audio\\/webm['"]/,
+  "unknown upload types must not be silently relabeled as WebM");
 assert.match(memorizationAction, /generateGeminiText\(textFallbackPrompt, 1600, MEMORIZATION_SYSTEM_INSTRUCTION\)/);
 
 const apiHealthSource = readFileSync('src/lib/services/api-health.ts', 'utf8');

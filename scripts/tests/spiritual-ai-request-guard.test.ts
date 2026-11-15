@@ -181,7 +181,8 @@ assert.ok(memorizationActionSource.includes("normalizeMemorizationAudioMimeType(
 assert.ok(memorizationActionSource.includes("hasMemorizationAudioSignature(audioMimeType, audioBytes)"));
 assert.ok(memorizationActionSource.includes("mimeType: audioMimeType"));
 assert.ok(!memorizationActionSource.includes("audio.type || 'audio/webm'"),
-  "an unknown upload type must never be silently relabeled as WebM");assert.match(nextConfigSource, /serverActions:\s*\{\s*bodySizeLimit:\s*'4mb'\s*\}/,
+  "an unknown upload type must never be silently relabeled as WebM");
+assert.match(nextConfigSource, /serverActions:\s*\{\s*bodySizeLimit:\s*'4mb'\s*\}/,
   "the server-action body limit must remain above the 3 MiB recording limit");
 
 
