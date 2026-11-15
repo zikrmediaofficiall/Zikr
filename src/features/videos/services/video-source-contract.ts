@@ -18,7 +18,7 @@ function isOriginalKidsFiction(content: Record<string, unknown>): boolean {
 
 function hasMisleadingOriginalFictionAttribution(value: string | null): boolean {
   if (!value) return false;
-  return /(?:https?:\/\/|www\.)|(?:قصة\s+موثقة|موثقة\s+في\s+مكتبة|إحالة\s+إلى\s+مصدرها|مصدرها\s+الأساسي|(?:^|\n)\s*المصدر\s*[:：])/iu.test(value);
+  return /(?:https?:\/\/|www\.)|(?:قصة\s+موثقة|موثقة\s+في\s+مكتبة|إحالة\s+إلى\s+مصدرها|مصدرها\s+الأساسي|(?:^|\n)\s*(?:المصدر|المراجع|مرجع)\s*[:：])|(?:^|\n)\s*(?:sources?|references?|citations?)\s*[:：]|\b(?:based\s+on|adapted\s+from|quoted\s+from|according\s+to|as\s+(?:told|described|recorded|mentioned)\s+in)\s+(?:(?:the|a|an)\s+)?(?:qur['’]?an|hadith|sunnah|sahih(?:\s+al)?|bukhari|muslim|prophetic\s+tradition|islamic\s+history|historical\s+record|true\s+story|documented\s+story)\b/iu.test(value);
 }
 
 function resolveOriginalKidsFictionSourceLabel(value: unknown): string {
@@ -26,6 +26,13 @@ function resolveOriginalKidsFictionSourceLabel(value: unknown): string {
   return sourceLabel && !hasMisleadingOriginalFictionAttribution(sourceLabel)
     ? sourceLabel
     : ORIGINAL_KIDS_FICTION_DISCLOSURE;
+}
+
+function resolveOriginalEditorialSourceLabel(value: unknown): string {
+  const sourceLabel = cleanString(value);
+  return sourceLabel && !hasMisleadingOriginalFictionAttribution(sourceLabel)
+    ? sourceLabel
+    : ORIGINAL_EDITORIAL_DISCLOSURE;
 }
 
 /**
@@ -53,7 +60,7 @@ export function resolveVideoSourceDisclosureLine(content: unknown, fallbackSourc
   const sourceType = cleanString(record.sourceType);
   const sourceLabel = cleanString(record.sourceLabel);
   if (isOriginalKidsFiction(record)) return resolveOriginalKidsFictionSourceLabel(sourceLabel);
-  if (sourceType === "editorial") return sourceLabel ?? ORIGINAL_EDITORIAL_DISCLOSURE;
+  if (sourceType === "editorial") return resolveOriginalEditorialSourceLabel(sourceLabel);
   const sourceUrl = fallbackSourceUrl.trim();
   return sourceUrl ? "المصدر: " + sourceUrl : sourceLabel ?? "";
 }
@@ -71,18 +78,22 @@ export function resolveKidsVideoPublicDisclosure(
   const record = asRecord(metadata);
   const originalFiction = isOriginalKidsFiction(record);
   const sourceType = originalFiction ? "original_kids_fiction" : cleanString(record.sourceType);
+  const editorial = cleanString(record.sourceType) === "editorial";
   const sourceLabel = originalFiction
     ? resolveOriginalKidsFictionSourceLabel(record.sourceLabel)
-    : cleanString(record.sourceLabel);
+    : editorial
+      ? resolveOriginalEditorialSourceLabel(record.sourceLabel)
+      : cleanString(record.sourceLabel);
+  const rejectMisleadingAttribution = originalFiction || editorial;
   const rawDescription = cleanString(description);
   const rawSocialCaption = cleanString(socialCaption);
   return {
     sourceType,
     sourceLabel,
-    description: originalFiction && hasMisleadingOriginalFictionAttribution(rawDescription)
+    description: rejectMisleadingAttribution && hasMisleadingOriginalFictionAttribution(rawDescription)
       ? null
       : rawDescription,
-    socialCaption: originalFiction && hasMisleadingOriginalFictionAttribution(rawSocialCaption)
+    socialCaption: rejectMisleadingAttribution && hasMisleadingOriginalFictionAttribution(rawSocialCaption)
       ? null
       : rawSocialCaption,
   };
