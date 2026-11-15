@@ -158,6 +158,15 @@ assert.ok(offlineVerifier.includes("getPublishedKidsRoutes(rows)"),
   "offline verification must reconcile Kids detail routes against the current exported dataset");
 assert.ok(offlineVerifier.includes("supportedKidsTypes.has(type)"),
   "offline verification must reject unsupported Kids types instead of exposing unrouteable rows");
+assert.match(
+  exporter,
+  /rows = rows\.filter\(\(row\) => row && \(row\.type !== ['"]story['"] \|\| row\.metadata\?\.age_appropriate === true\)\)/,
+  "offline export must omit every Kids story without explicit age-appropriate approval",
+);
+assert.ok(
+  offlineVerifier.includes("row?.metadata?.age_appropriate !== true"),
+  "offline verification must fail when an unapproved Kids story appears in the public snapshot",
+);
 
 const committedKidsRows = JSON.parse(readFileSync("public/offline-content/v1/kids.json", "utf8"));
 const committedOfflineManifest = JSON.parse(readFileSync("public/offline-content/v1/manifest.json", "utf8"));
