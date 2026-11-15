@@ -505,7 +505,6 @@ const createAudienceGuard = adminVideoCreateRoute.slice(createAudienceGuardIndex
 assert.match(createAudienceGuard, /if \(!requestedAudience\)/);
 assert.match(createAudienceGuard, /audience: requestedAudience/);
 
-const adminVideoGenerationRoute = readFileSync("src/app/api/admin/video-generation/route.ts", "utf8");
 assert.match(adminVideoGenerationRoute, /resolveKidsVideoQaStatusForApproval/);
 assert.match(adminVideoGenerationRoute, /requestContent: reviewContent/);
 assert.match(adminVideoGenerationRoute, /kidsVideoQaStatus: verifiedKidsVideoQaStatus/);
