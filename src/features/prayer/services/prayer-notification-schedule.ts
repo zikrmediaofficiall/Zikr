@@ -138,6 +138,33 @@ export function getPrayerAlertDateKey(date: Date, timeZone?: string): string {
 
 
 /**
+ * Preserve existing enabled alarms for a day whose prayer timings could not
+ * be resolved. The caller adds these IDs to the set that must not be cancelled.
+ */
+export function getPrayerNotificationIdsToPreserveForUnresolvedDay(input: {
+  dayOffset: number;
+  prayers: readonly string[];
+  enabledPrayers: Readonly<Record<string, boolean>>;
+  idBase: number;
+}): number[] {
+  const { dayOffset, prayers, enabledPrayers, idBase } = input;
+  if (
+    !Number.isSafeInteger(dayOffset) ||
+    dayOffset < 0 ||
+    !Number.isSafeInteger(idBase) ||
+    prayers.length === 0
+  ) {
+    return [];
+  }
+
+  return prayers.flatMap((prayer, prayerIndex) =>
+    enabledPrayers[prayer] === true
+      ? [idBase + dayOffset * prayers.length + prayerIndex]
+      : [],
+  );
+}
+
+/**
  * Select only native prayer alarms that can be safely refreshed.
  * Enabled alarms for a day/prayer whose timing could not be resolved are
  * deliberately preserved; disabled alarms and successfully refreshed alarms
