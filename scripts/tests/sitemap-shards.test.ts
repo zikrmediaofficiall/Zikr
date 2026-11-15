@@ -32,12 +32,14 @@ const sitemapCandidates = [
   { url: noindexBase + "/kids/puzzle" },
   { url: noindexBase + "/kids/games/level-1" },
   { url: noindexBase + "/kids/adventures" },
+  { url: noindexBase + "/kids/videos" },
+  { url: noindexBase + "/kids/videos/approved-slug" },
   { url: noindexBase + "/stories/approved" },
   { url: "https://external.invalid/untrusted" },
 ];
 assert.deepEqual(
   filterIndexableSitemapRoutes(sitemapCandidates, siteConfig.url, isNoindexPath).map((entry) => entry.url),
-  [noindexBase + "/kids/adventures", noindexBase + "/stories/approved"],
+  [noindexBase + "/kids/adventures", noindexBase + "/kids/videos", noindexBase + "/kids/videos/approved-slug", noindexBase + "/stories/approved"],
   "sitemap filtering must apply the shared noindex policy to static and dynamic routes and reject external origins",
 );
 
@@ -48,6 +50,13 @@ const indexRouteSource = readFileSync("src/app/sitemap-index.xml/route.ts", "utf
 assert.match(sitemapSource, /filterIndexableSitemapRoutes\([\s\S]*uniqueRoutes\(\[\.\.\.staticRoutes, \.\.\.dynamicRoutes\]\)/);
 assert.match(sitemapSource, /item\.type === ["']story["'][\s\S]*item\.metadata\?\.age_appropriate === true/);
 assert.match(sitemapSource, /getSitemapShardCountForEntryCount\(entries\.length\)/);
+assert.ok(siteConfig.appRoutes.some((route) => route.path === "/kids/videos"), "public Kids video library route must be indexable");
+assert.equal(isNoindexPath("/kids/videos"), false, "public Kids video library and detail routes must remain indexable");
+assert.ok(sitemapSource.includes("getKidsGeneratedVideos(100)"), "sitemap must fetch the QA-filtered public Kids video catalog");
+assert.ok(sitemapSource.includes("route(`/kids/videos/${encodeURIComponent(video.slug)}`"), "sitemap must include individual Kids video detail pages");
+const kidsVideosServiceSource = readFileSync("src/features/videos/services/videos.ts", "utf8");
+assert.match(kidsVideosServiceSource, /metadata->>kidsVideoQaStatus=eq\.passed/);
+assert.match(kidsVideosServiceSource, /metadata->>automatedVideoQa->>status=eq\.passed/);
 assert.match(sitemapSource, /getSitemapShard\(await getSitemapEntries\(\), 0\)/);
 assert.doesNotMatch(sitemapSource, /SITEMAP_URL_LIMIT|slice\(0,\s*50_000\)/);
 assert.match(shardRouteSource, /getSitemapShard\(allEntries, id\)/);
@@ -76,6 +85,7 @@ assert.match(sitemapSource, /getArticles\(undefined, 1000, ["']ar["']\)/);
 
 const llmsSource = readFileSync("src/app/llms.txt/route.ts", "utf8");
 assert.match(llmsSource, /siteConfig\.url\.replace/);
+assert.ok(llmsSource.includes("${SITE_URL}/kids/videos"), "llms.txt must expose the public Kids video library");
 assert.match(llmsSource, /Public sitemap index: \$\{SITE_URL\}\/sitemap-index\.xml/);
 assert.doesNotMatch(llmsSource, /Public sitemap: \$\{SITE_URL\}\/sitemap\.xml/);
 assert.doesNotMatch(llmsSource, /https:\/\/zikrmediaofficial\.vercel\.app/);
