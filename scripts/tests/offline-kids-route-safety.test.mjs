@@ -171,7 +171,7 @@ assert.ok(
 const refreshWorkflow = readFileSync(".github/workflows/refresh-offline-content.yml", "utf8");
 assert.match(
   refreshWorkflow,
-  /echo "::error::GitHub Actions token cannot create pull requests[\\s\\S]*?exit 1/,
+  /echo "::error::GitHub Actions token cannot create pull requests[\s\S]*?exit 1/,
   "offline refresh must fail visibly when it cannot create the review PR instead of reporting a false-green snapshot",
 );
 
