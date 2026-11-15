@@ -113,6 +113,11 @@ export async function GET() {
               requestIdState.kind === "missing" || socialQueueReadSucceeded,
               requestIdState.kind === "missing",
             ),
+        socialPublicationReadStatus:
+          requestIdState.kind === "invalid" ||
+          (requestIdState.kind === "valid" && !socialQueueReadSucceeded)
+            ? "unavailable"
+            : "verified",
       };
     });
 
