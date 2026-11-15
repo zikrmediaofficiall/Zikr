@@ -107,6 +107,8 @@ export async function registerAdminNarrationAsset(input: {
 export async function markAdminNarrationAssetAuditRecorded(
   id: string,
   publicId: string,
+  contentType: string,
+  uploadedBy: string,
 ): Promise<void> {
   if (!id.trim() || !publicId.trim()) throw new Error("Narration asset tracking identifiers are invalid.");
 
@@ -125,6 +127,8 @@ export async function markAdminNarrationAssetAuditRecorded(
           purpose: "video_generation_narration",
           upload_state: "ready",
           audit_recorded: true,
+          content_type: contentType,
+          uploaded_by: uploadedBy,
         },
       }),
     },
