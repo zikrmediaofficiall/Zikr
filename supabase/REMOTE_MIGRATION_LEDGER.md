@@ -389,3 +389,11 @@ The older `public.plan_background_reminder_deliveries(timestamptz)` function exi
 - Added `supabase/migrations/20261115153600_admin_video_approval_atomic.sql` (blob SHA `6211d986167ed63ad6147fcc66051057d05c0551`). It creates the service-role-only `admin_approve_video_generation_request` RPC so the generation request and matching catalog row are locked and compare-and-set updated atomically.
 - Isolated PostgreSQL 17 integration step 11 passed in Quality Gate `43735522332` on exact code/test head `37b1d8b8861ae39ea673c4386eaf2ec76fc7571a`. The test first caught ambiguous `updated_at` references caused by the PL/pgSQL output parameter; both UPDATE predicates now qualify their target aliases.
 - The RPC is absent from production. This migration remains local-only and was not applied. No production schema, data, function, cron, storage, or content was changed.
+
+
+## 2026-11-15 read-only migration reconciliation
+
+- Local migration files: 445. Production `schema_migrations`: 418 applied, latest `20261110170000`; 27 local versions remain unapplied.
+- New local migration `20261115153600_admin_video_approval_atomic.sql` (blob `5d9e8c9d2bb44f48d0a62a24d8b34d5d1f1f4b5a`) defines the atomic Kids video approval RPC and related contract. It is not applied in production; no production migration was executed.
+- Production still lacks the video approval/retention RPC contracts, `site_audio_upload_intents`, `youtube_sync_state.playlists`, the prayer default-location function and the expected timezone/retention contract fields. Confirm each against the release checklist before owner-approved rollout.
+- The 27-migration difference remains a release blocker. Use the protected release-finalization workflow and owner approval; do not use direct SQL or bypass migration history reconciliation.

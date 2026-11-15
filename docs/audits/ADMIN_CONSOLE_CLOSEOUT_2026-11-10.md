@@ -97,3 +97,13 @@ Do not merge or deploy until:
 3. A Preview/browser pass confirms desktop and mobile navigation, search/command palette, all ten sections, and the canonical media/social destinations.
 4. Each role is checked against both visible navigation and direct page/API access.
 5. The approved merge SHA is verified before any production release.
+
+
+## 2026-11-15 continuation
+
+- Read the complete 1,187-line `/api/admin/social` route and 928-line social admin client. Read-only reads are separated from publish/manage actions; mutating actions use permission checks, AAL2 step-up, explicit confirmation and row-version compare-and-set. Facebook remote deletion is explicit; YouTube remote deletion is rejected. No action was invoked.
+- Read the admin narration upload route and Cloudinary recovery helper. Mismatched returned public IDs are surfaced as recovery references; assets are not deleted or silently registered under the wrong ID.
+- Kids video approval binds QA and series metadata to the matching generation-request fingerprint. PostgreSQL 17 atomic integration tests pass, but the RPC migration remains unapplied in production.
+- Kids offline static snapshot remains unsafe on main (20 unapproved stories); the safe 45-row snapshot, exporter/verifier and regression tests are in PR #320.
+- A separate open issue remains: failed Kids `socialPublication` catalog metadata writes are not retried after queue finalization. Do not mark the social/Kids closeout complete until a bounded reconciliation path and regression tests exist.
+- Owner review, Supabase migration application, GitHub Actions PR-creation permission, iOS/Android device acceptance and production smoke checks remain outstanding.

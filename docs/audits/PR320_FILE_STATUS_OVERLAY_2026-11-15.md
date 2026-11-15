@@ -2,7 +2,7 @@
 Verified code/test head: `0b5b6a3a7ed47e3a1b8d7fcc9719015747ba6a5b` (canonical full Quality Gate 43753246088 passed with `QUALITY_GATE=PASSED_FULL`; CircleCI Config Validation 43753246084 passed; Android Native Login Debug APK 43753246093 passed).
 The code/test head above is the exact head tested. The repository-inventory and documentation reconciliation commit is separate and requires its own exact-head CI verification.
 Base: `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
-PR changed paths: 616 (96,036 additions, 6,562 deletions; 0 deleted paths).
+PR changed paths: 616 (96,040 additions, 6,562 deletions; 0 deleted paths).
 Rows in this overlay: 614; it excludes this overlay file and the paired repository manifest.
 Status counts: CONTENT_READ_TESTED_PASS=390, FIXED_TESTED_PENDING_LIVE_APPLY=36, REVIEW_REQUIRED=182, SUPERSEDED_SNAPSHOT=6.
 Repository inventory at code/test head: 2,442 recursive tree entries (1,943 blobs, 499 directories); refreshed manifest target: 2,439 entries (excludes `docs`, `docs/audits` ancestor tree hashes and its own blob).

@@ -2066,3 +2066,23 @@ Request current CODEOWNERS review, finish the 45 pending-trace and 205 review-re
 - **Governance:** PR #320 is open/mergeable with no CODEOWNERS review. `.github/CODEOWNERS` requires `@Zikrmediaofficial`; collaborator permission is null, so owner review cannot be requested by this integration. No branch-protection, review, or approval gate was bypassed.
 - **Next:** reconcile manifest, file-status overlay, project status, and this ledger on a documentation-only child commit; verify that exact child SHA separately. Then continue the remaining 206 review-required and 18 pending-trace paths. Owner review, production migration/function deployment, Vercel deployment/smoke on merged code, social-provider acceptance, iOS signing/App ID, and physical-device checks remain open.
 - **Safety:** no content generation, Gemini request, social publish, production database mutation, storage/media/index/secret deletion, release, merge, or production deploy was triggered.
+
+
+## 2026-11-15 continuation — repository audit checkpoint
+
+- PR #320 is open against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`, code/test checkpoint `0b5b6a3a7ed47e3a1b8d7fcc9719015747ba6a5b`; 616 changed paths (96,040 additions, 6,562 deletions, zero deleted paths).
+- Canonical Quality Gate run `43753246088` passed with `QUALITY_GATE=PASSED_FULL`; CircleCI Config Validation `43753246084` passed; Android Native Login Debug APK `43753246093` passed.
+- File-status overlay: 614 rows; CONTENT_READ_TESTED_PASS=390, FIXED_TESTED_PENDING_LIVE_APPLY=36, REVIEW_REQUIRED=182, SUPERSEDED_SNAPSHOT=6. The 182 review-required rows remain open.
+- Repository tree: 2,442 entries (1,943 blobs, 499 directories); manifest target 2,439 entries, excluding the `docs/` and `docs/audits/` ancestor tree hashes and its own blob.
+- Supabase: 445 local SQL migrations, 418 applied, 27 unapplied; no production migration was applied.
+- Vercel latest production deployment `dpl_4d8m4a1W4iL7fZrVvP5zq6s2cN9h` is READY at `main@c4560d9`; this audit branch has not been deployed.
+- CODEOWNERS is `@Zikrmediaofficial`; no owner review is recorded and the attempted reviewer request did not register. Merge/deploy remain blocked.
+- No audit-dispatched content generation, Gemini calls, social publishing, production DB mutation, storage/media deletion, release or deployment occurred. Existing scheduled workflows were inspected only.
+
+### New verified findings
+- **Offline Kids snapshot exposure:** main's public `public/offline-content/v1/kids.json` contains 65 rows, including 26 stories of which 20 lack `metadata.age_appropriate=true`. The audit branch snapshot contains 45 rows (35 games, 3 quizzes, 1 wudu activity, 6 approved stories; zero unapproved stories). The ordinary Kids offline resolver filters these stories, but the public static JSON remains directly accessible.
+- Main's scheduled offline refresh run `43701197507` pushed `automation/offline-content-snapshot@cad62b7735111c3b1a49b03ed6074ae4679e7af5` but could not create a review PR because the repository Actions token is not permitted to create PRs. Its old verifier did not detect unapproved Kids rows. The audit branch adds export/verifier/regression coverage and makes PR-creation failure exit nonzero; owner must enable approved PR creation or provide a write-scoped `GH_TOKEN`.
+- **Social publishing:** main scheduled publisher run `43735977185` processed five queue rows (one succeeded, four deferred, zero approval-blocked). Main still lacks the Kids human-review gate; the audit branch adds a fail-closed gate. The scheduled AI-video workflow is configured for non-dry-run auto-publish without an approval requirement; no generation/publishing was triggered by this audit.
+- **Remaining catalog-sync gap:** after a Kids social queue row is finalized, a failed `videos.metadata.socialPublication` catalog update is logged and swallowed; no bounded retry/reconciliation scan repairs the catalog. Provider/queue success remains intact, but the Kids catalog can show stale publication state. This remains REVIEW_REQUIRED.
+- Storage-retention scripts were read, not executed. Their apply path requires exact project identity, paused reference writes, explicit typed confirmation, a retention RPC contract and compare-and-set checks. The daily video-media audit workflow is a metadata writer; it was not dispatched.
+- Vercel read-only inventory confirms missing `IOS_ASSOCIATED_DOMAIN_APP_ID`, `GA4_PROPERTY_ID` and `GA4_REFRESH_TOKEN`; `SOCIAL_SYNC_SECRET` exists but its value was not inspected or compared.

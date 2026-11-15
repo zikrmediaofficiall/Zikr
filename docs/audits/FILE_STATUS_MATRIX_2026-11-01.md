@@ -2366,3 +2366,17 @@ This section is a branch snapshot, not a change to the main-baseline matrix abov
 - Keep `social-publishing.ts`, `scripts/verify-social-publishing.mjs`, `scripts/jobs/social-publishing.ts`, `scripts/verify-kids-video-factory.mjs`, and the detail page `REVIEW_REQUIRED` until a queue-derived detail-page state or retryable sync fix and regression test are verified. Policy and human-approval helpers/tests passed the prior full-scope gate on 829c80b.
 - Current source/test head `bef48c909e5709504937e6bcee8cc84e950c4612` still has no exact-head Quality Gate/CircleCI result. No social publishing was run to reproduce the issue.
 
+
+
+## 2026-11-15 continuation — reconciled PR #320 inventory
+
+- PR #320 is open against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`, code/test checkpoint `0b5b6a3a7ed47e3a1b8d7fcc9719015747ba6a5b`; 616 changed paths (96,040 additions, 6,562 deletions, zero deleted paths).
+- Canonical Quality Gate run `43753246088` passed with `QUALITY_GATE=PASSED_FULL`; CircleCI Config Validation `43753246084` passed; Android Native Login Debug APK `43753246093` passed.
+- File-status overlay: 614 rows; CONTENT_READ_TESTED_PASS=390, FIXED_TESTED_PENDING_LIVE_APPLY=36, REVIEW_REQUIRED=182, SUPERSEDED_SNAPSHOT=6. The 182 review-required rows remain open.
+- Repository tree: 2,442 entries (1,943 blobs, 499 directories); manifest target 2,439 entries, excluding the `docs/` and `docs/audits/` ancestor tree hashes and its own blob.
+- Supabase: 445 local SQL migrations, 418 applied, 27 unapplied; no production migration was applied.
+- Vercel latest production deployment `dpl_4d8m4a1W4iL7fZrVvP5zq6s2cN9h` is READY at `main@c4560d9`; this audit branch has not been deployed.
+- CODEOWNERS is `@Zikrmediaofficial`; no owner review is recorded and the attempted reviewer request did not register. Merge/deploy remain blocked.
+- No audit-dispatched content generation, Gemini calls, social publishing, production DB mutation, storage/media deletion, release or deployment occurred. Existing scheduled workflows were inspected only.
+
+The paired `PR320_FILE_STATUS_OVERLAY_2026-11-15.md` is the current path-level matrix for the 614 changed paths. Statuses are deliberately split between content-read/tested, fixed but awaiting live migration/owner rollout, still review-required, and superseded snapshot rows. In particular, the Kids offline snapshot and workflow fixes remain pending merge/refresh; 182 rows still require review. Do not treat this summary as evidence that all tracked files have been read.

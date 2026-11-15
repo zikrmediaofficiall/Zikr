@@ -60,3 +60,24 @@ All checks below were performed against the public production alias after deploy
 - No compatibility route redirect was deleted.
 - Active Admin Video Studio and Video Requests clients were moved to feature-owned modules; canonical route imports were updated.
 - No production deployment protection was removed.
+
+
+## 2026-11-15 current readiness checkpoint
+
+- PR #320 is open against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`, code/test checkpoint `0b5b6a3a7ed47e3a1b8d7fcc9719015747ba6a5b`; 616 changed paths (96,040 additions, 6,562 deletions, zero deleted paths).
+- Canonical Quality Gate run `43753246088` passed with `QUALITY_GATE=PASSED_FULL`; CircleCI Config Validation `43753246084` passed; Android Native Login Debug APK `43753246093` passed.
+- File-status overlay: 614 rows; CONTENT_READ_TESTED_PASS=390, FIXED_TESTED_PENDING_LIVE_APPLY=36, REVIEW_REQUIRED=182, SUPERSEDED_SNAPSHOT=6. The 182 review-required rows remain open.
+- Repository tree: 2,442 entries (1,943 blobs, 499 directories); manifest target 2,439 entries, excluding the `docs/` and `docs/audits/` ancestor tree hashes and its own blob.
+- Supabase: 445 local SQL migrations, 418 applied, 27 unapplied; no production migration was applied.
+- Vercel latest production deployment `dpl_4d8m4a1W4iL7fZrVvP5zq6s2cN9h` is READY at `main@c4560d9`; this audit branch has not been deployed.
+- CODEOWNERS is `@Zikrmediaofficial`; no owner review is recorded and the attempted reviewer request did not register. Merge/deploy remain blocked.
+- No audit-dispatched content generation, Gemini calls, social publishing, production DB mutation, storage/media deletion, release or deployment occurred. Existing scheduled workflows were inspected only.
+
+### Open release/owner gates
+- PR #320 is mergeable at the Git level but has no CODEOWNERS approval; the owner review request did not register. Do not merge or bypass branch protection.
+- 27 Supabase migrations remain unapplied. The new atomic Kids video approval RPC migration is not live; production video-approval routes must not be treated as deployed.
+- Main's public offline Kids snapshot exposes 20 unapproved stories. The safe filtered snapshot and verifier are in PR #320, not main.
+- Main's scheduled social publisher has no Kids human-review gate. The branch adds it; owner must review before merge.
+- The offline refresh workflow's PR-creation failure now fails visibly in the branch; repository Actions PR-creation permission or a write-scoped token remains an owner-only configuration step.
+- Vercel production remains on `main@c4560d9`; no deployment of the audit branch was made. Missing iOS AASA app ID and GA4 service credentials remain owner inputs.
+- Manual acceptance remains: iOS universal links/OAuth/push/audio/offline behavior on a physical device; Android signed release/Play Store install; provider account permissions and production smoke after an approved deployment.
