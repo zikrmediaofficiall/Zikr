@@ -747,7 +747,8 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       key = `story:${day}:${slot}`;
       if (await findByAutomationKey("video_generation_requests", key)) continue;
       const sources = await listVideoSources("story");
-      const pool = filterGeneralStorySources(sources.length ? sources : listCuratedVideoSources("story"));
+      const sourcePool = sources.length ? sources : listCuratedVideoSources("story");
+      const pool = filterGeneralStorySources([...sourcePool]);
       if (!pool.length) throw new Error("No verified story sources are available.");
       const row = pool[(day * 16 + slot) % pool.length];
       payload = {
