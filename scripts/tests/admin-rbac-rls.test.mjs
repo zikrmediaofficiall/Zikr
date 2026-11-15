@@ -542,7 +542,11 @@ assert.ok(
     kidsApprovalRpcPosition > kidsApprovalGatePosition,
   "Kids video human approval must require kids.manage after audience resolution and before the atomic approval RPC",
 );
-const videoManagerRole = permissionService.match(/video_manager:\s*\[([\\s\\S]*?)\]/)?.[1] ?? "";
+const videoManagerRoleStart = permissionService.indexOf("video_manager: [");
+const videoManagerRoleEnd = permissionService.indexOf("]", videoManagerRoleStart);
+const videoManagerRole = videoManagerRoleStart >= 0 && videoManagerRoleEnd > videoManagerRoleStart
+  ? permissionService.slice(videoManagerRoleStart, videoManagerRoleEnd)
+  : "";
 assert.match(videoManagerRole, /video\.manage/, "video managers retain general video review permission");
 assert.doesNotMatch(videoManagerRole, /kids\.manage/, "video managers do not implicitly receive Kids content management permission");
 
