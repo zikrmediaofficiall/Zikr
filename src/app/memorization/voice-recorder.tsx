@@ -207,8 +207,8 @@ export function VoiceRecorder() {
       <Button type='button' onClick={isRecording ? stopRecording : startRecording} variant={isRecording ? 'secondary' : 'primary'}>
         {isRecording ? 'إيقاف التسجيل' : 'ابدأ تسجيل التسميع'}
       </Button>
-      <Button type='submit' disabled={!audioBlob || isPending}>تقييم الحفظ والتجويد</Button>
-      {audioBlob ? <span className='text-sm text-emerald-300'>تم تسجيل الصوت وجاهز للتقييم.</span> : <span className='text-sm arabic-muted'>لن يُطلب إذن الميكروفون إلا عند الضغط على بدء التسجيل. الحد الأقصى للتسجيل 3 ميجابايت.</span>}
+      <Button type='submit' disabled={isPending}>{audioBlob ? 'تقييم الحفظ والتجويد' : 'إنشاء خطة مراجعة'}</Button>
+      {audioBlob ? <span className='text-sm text-emerald-300'>تم تسجيل الصوت وجاهز للتقييم.</span> : <span className='text-sm arabic-muted'>يمكنك إدخال المقرر أو النص المتوقع لإنشاء خطة مراجعة دون تسجيل. لن يُطلب إذن الميكروفون إلا عند بدء التسجيل، والحد الأقصى للصوت 3 ميجابايت.</span>}
     </div>
 
     {micError ? (
