@@ -28,5 +28,9 @@ export function normalizeVideoMarker(value: unknown): string {
 export function isGeneralAudienceVideoMetadata(metadata: unknown): boolean {
   if (metadata === null || metadata === undefined) return true;
   if (typeof metadata !== "object" || Array.isArray(metadata)) return false;
-  return normalizeVideoAudience((metadata as Record<string, unknown>).audience) === "general";
+  const record = metadata as Record<string, unknown>;
+  if (record.generator === "zikr_internal_video_factory" && (record.audience === null || record.audience === undefined)) {
+    return false;
+  }
+  return normalizeVideoAudience(record.audience) === "general";
 }
