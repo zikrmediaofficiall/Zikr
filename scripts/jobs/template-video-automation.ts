@@ -10,6 +10,7 @@ import {
 } from "../../src/lib/supabase/admin-rest";
 import { buildNextRowVersionUpdatedAt } from "../../src/lib/supabase/row-version";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
+import { containsKidsPersonalDataSolicitation } from "../../src/features/social/services/written-content";
 import { getOptionalFacebookPageCredentials } from "../../src/features/social/services/facebook-credentials";
 import { getYouTubeUploadRefreshToken } from "../../src/features/social/services/youtube-oauth-credentials";
 import { listVideoSources, resolveVideoSource } from "../../src/features/videos/services/video-sources";
@@ -941,6 +942,10 @@ function validateAiEditorialPlan(plan: AiVideoPlan, request: GeneratedRequest) {
   if (reflection.length > 110) throw new Error("AI reflection exceeds the Arabic editorial length limit.");
   if (caption.length > 220) throw new Error("AI social caption exceeds the Arabic editorial length limit.");
   if (/https?:\/\//i.test(reflection) || /https?:\/\//i.test(caption)) throw new Error("AI editorial text contains a URL.");
+  if (request.content?.audience === "kids" && (
+    containsKidsPersonalDataSolicitation(reflection) ||
+    containsKidsPersonalDataSolicitation(caption)
+  )) throw new Error("AI Kids editorial text contains a personal-data solicitation.");
   if (hasSuspiciousReligiousAttribution(reflection) || hasSuspiciousReligiousAttribution(caption)) throw new Error("AI editorial text contains an unapproved religious attribution.");
   if (["quran", "hadith", "adhkar", "dua", "story"].includes(request.category) && source.length >= 40) {
     for (const candidate of [reflection, caption]) {
@@ -1703,7 +1708,17 @@ export function buildAutomatedVideoQaChecklist(
 
   const narration = contentText(request);
   const narrationQuality = evaluateArabicNarrationText(narration, category);
-  const captionsReviewed = narrationQuality.ok &&
+  const ai = content.ai && typeof content.ai === "object" && !Array.isArray(content.ai)
+    ? content.ai as Record<string, unknown>
+    : {};
+  const kidsEditorialTextSafe = content.audience !== "kids" || [
+    request.title,
+    request.description ?? "",
+    narration,
+    typeof ai.reflection === "string" ? ai.reflection : "",
+    typeof ai.socialCaption === "string" ? ai.socialCaption : "",
+  ].every((value) => !containsKidsPersonalDataSolicitation(value));
+  const captionsReviewed = kidsEditorialTextSafe && narrationQuality.ok &&
     narration.length >= 8 &&
     render.captionTiming === "page-weighted-audio-duration" &&
     typeof render.composition === "string" && Boolean(render.composition.trim()) &&
