@@ -21,6 +21,8 @@ assert.equal(hasExplicitKidsVideoIntentMarker({ audience: "general", publicPath:
   "nested-encoded Kids public paths must not bypass audience classification");
 assert.equal(hasExplicitKidsVideoIntentMarker({ audience: "general", sourceId: "", curatedSourceId: "kids-series:little-good-steps:s1:e1" }), true,
   "an empty primary source ID must not hide a Kids curated source ID");
+assert.equal(hasExplicitKidsVideoIntentMarker({ audience: "general", sourceId: "general:story:1", curatedSourceId: "kids-series:little-good-steps:s1:e1" }), true,
+  "a general primary source ID must not hide a Kids curated source ID");
 assert.equal(isKidsVideoContentMarker({ audience: "general", sourceType: "original_kids_fiction" }), true);
 assert.equal(isKidsVideoContentMarker({ sourceType: "story", type: "story" }), true,
   "legacy story requests without an audience must retain the existing Kids classification");

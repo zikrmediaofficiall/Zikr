@@ -45,8 +45,8 @@ export function hasExplicitKidsVideoIntentMarker(value: unknown): boolean {
 
   if (normalizeVideoMarker(record.generationMode) === "free_deterministic_story_factory") return true;
 
-  const sourceId = normalizeVideoMarker(record.sourceId) || normalizeVideoMarker(record.curatedSourceId);
-  if (sourceId.startsWith("kids-series:")) return true;
+  const sourceIds = [record.sourceId, record.curatedSourceId].map(normalizeVideoMarker);
+  if (sourceIds.some((sourceId) => sourceId.startsWith("kids-series:"))) return true;
 
   return isKidsVideoPublicPath(record.publicPath);
 }
