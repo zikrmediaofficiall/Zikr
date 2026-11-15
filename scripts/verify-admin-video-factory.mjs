@@ -343,7 +343,8 @@ if (!contentPublisher.includes("content_publish_queue") ||
   failures.push("Internal video publication must remain behind the scheduled content queue's QA and media-state checks");
 }
 if (!backgroundRunner.includes("processScheduledContent(20)") ||
-    backgroundRunner.indexOf("processScheduledContent(20)") > backgroundRunner.indexOf("processSocialPublishQueue")) {
+    !backgroundRunner.includes('const social = target === "all" || target === "social"') ||
+    backgroundRunner.indexOf("processScheduledContent(20)") > backgroundRunner.indexOf('const social = target === "all" || target === "social"')) {
   failures.push("Scheduled internal content publication must run before external social publishing");
 }
 
