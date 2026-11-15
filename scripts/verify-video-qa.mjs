@@ -116,8 +116,9 @@ for (const token of [
   "recoverStaleSocialPublishItems",
   "hasTransientFailure",
   "updated_at=lt.",
-  "Video held because automated QA is missing, incomplete or stale.",
+  "Video held because automated QA or Kids human review is missing, incomplete or stale.",
   "getYouTubeVideoDisclosure",
+  "Video approval lookup failed; holding video item",
 ]) {
   if (!socialPublisher.includes(token)) failures.push(`social publisher missing automated delivery contract: ${token}`);
 }
