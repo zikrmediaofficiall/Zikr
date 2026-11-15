@@ -1,5 +1,5 @@
 # PR #320 file-status overlay — 2026-11-15
-Code/test head: `ce56d065a640b4e5ee38024a28179db15e0a6817`. Current repository/docs/manifest head: `b20d80d415ec890c3aac4663561ad8f2d758f146`. Exact-head checks: Quality Gate 43760844613 passed; CircleCI Config Validation 43760844628 passed; Android Native Login Debug APK 43760844638 passed. Supabase Preview check 132938540531 was skipped because this branch is not associated with a Supabase Branch; it is not a pass.
+Code/test head: `ce56d065a640b4e5ee38024a28179db15e0a6817`. Current repository/docs/manifest head: `95af688ed70f984e0cbc48332aaf9e8cdc08862c`. Exact-head checks: Quality Gate 43761418156 passed; CircleCI Config Validation 43761418164 passed; Android Native Login Debug APK 43761417863 passed. Supabase Preview check 132938540531 was skipped because this branch is not associated with a Supabase Branch; it is not a pass.
 Base: `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
 PR changed paths: 625 (96,282 additions, 6,573 deletions; 0 deleted paths).
 Rows in this overlay: 623; it excludes this overlay file and the paired repository manifest.
