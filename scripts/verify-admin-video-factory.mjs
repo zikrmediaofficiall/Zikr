@@ -116,6 +116,22 @@ if (!upload.includes("hasValidAudioSignature")) failures.push("narration upload 
 for (const token of ["ID3", "ftyp", "RIFF", "WAVE", "OggS", "0x1a", "0x45", "0xdf", "0xa3"]) if (!upload.includes(token)) failures.push(`audio signature contract missing: ${token}`);
 if (!upload.includes("audio-human-") || !upload.includes("/video/upload")) failures.push("narration upload must use the dedicated Cloudinary audio prefix");
 if (upload.includes("/storage/v1/object/videos/")) failures.push("narration upload must not stage audio in Supabase Storage");
+const mediaAssetsService = read("src/features/media/services/media-assets.ts");
+const studioClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
+if (!upload.includes("registerAdminNarrationAsset") || !upload.includes("markAdminNarrationAssetAuditRecorded")) {
+  failures.push("Cloudinary narration uploads must be durably registered in media_assets before audit success is reported");
+}
+if (!upload.includes("uploadReference") || !studioClient.includes("مرجع الاسترداد")) {
+  failures.push("failed narration upload responses must expose a recovery reference instead of leaving an untraceable Cloudinary object");
+}
+if (!mediaAssetsService.includes('purpose: "video_generation_narration"') ||
+    !mediaAssetsService.includes('upload_state: "audit_pending"') ||
+    !mediaAssetsService.includes("rights_verified: false") ||
+    !mediaAssetsService.includes("published: false") ||
+    !mediaAssetsService.includes('upload_state: "ready"')) {
+  failures.push("narration media assets must remain private, rights-unverified and tracked through audit reconciliation");
+}
+
 
 const service = read("src/features/videos/services/video-automation.ts");
 if (!service.includes("updated_at=eq.") || !service.includes("request.updated_at")) failures.push("video queue claims must include optimistic updated_at");
