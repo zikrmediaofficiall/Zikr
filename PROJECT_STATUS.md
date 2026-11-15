@@ -1,5 +1,21 @@
 # ZIKR Project Status
 
+## Latest audit continuation — 2026-11-15T04:39Z
+
+**State: OPEN / NOT MERGE-READY.** The audit branch has advanced; the repository-wide review is not complete.
+
+- PR #320: `audit/zikr-kids-daily-priority-20261110`; base `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; current source head before this status-only commit: `d6a49087bc0befecf971541aceae5b488a2799be`.
+- Previous exact code/test head `829c80be969bfc482c154e9d7d127abb81def792` passed full-scope Quality Gate run [43677234069](https://github.com/zikrofficial-X/Zikr/actions/runs/43677234069): Deno Edge Function type-check, PostgreSQL 17 integration checks, canonical source/architecture gate, lint, types, SEO/security/mobile checks and production build all completed successfully. CircleCI `config-guard`, `source-verify`, and `application-build-docs` succeeded. Android Native Login **Debug APK** run [43677234067](https://github.com/zikrofficial-X/Zikr/actions/runs/43677234067) succeeded; no release was created.
+- Kids approval regression repair: `scripts/tests/video-publish-approval.test.ts` now compares the Kids snapshot against a request containing the persisted Kids content, and asserts a general-audience request cannot reuse the Kids fingerprint.
+- Current repair batch `d6a49087bc0befecf971541aceae5b488a2799be` hardens site-audio and video/Android Storage cleanup: null/non-array Supabase reference inventories and Storage listings now fail closed instead of being interpreted as empty. Focused regression assertions were added. **No verification has yet run on this exact SHA**; the next full-scope gate must pass on the final head before this batch is marked tested.
+- Read and traced the site-audio upload/registration/delete routes, upload-intent migration, cleanup scripts, manual/scheduled workflows, regression tests, and lifecycle documentation. The daily video/Android retention workflow is dry-run by default; site-audio cleanup is manual-only. No `--apply` cleanup was run and no production object, row, bucket, or media was changed.
+- The write-pause workflow inputs are operator attestations, not application locks. Any destructive apply still requires the owner to independently pause every relevant writer for the full window; absent that verified freeze, cleanup must remain dry-run only.
+- The prior 2026-11-15 branch overlay/manifest snapshot is stale relative to the new repair commits. The inventory, overlay, baseline matrix note, project status, and closeout ledger must be reconciled against the final verified SHA before merge.
+- Read-only Vercel state: latest production deployment remains **READY** on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; no audit deployment occurred. Runtime error aggregation showed two handled `TypeError: fetch failed` events over 24 hours (last observed 2026-11-14 22:01Z); the last 50-minute production log query had no error/fatal/warning entries. This is a transient network-reliability signal, not a reproduced route failure.
+- `.github/CODEOWNERS` requires `@Zikrmediaofficial` review for all files. PR #320 has no submitted owner approval. The branch-protection endpoint returned 403 to the integration, so protection rules could not be independently read; no rule was bypassed.
+- PRs #321–#325 remain open against the same old base and overlap the audit branch. No separate branch was merged or overwritten. Review their remaining deltas before any merge action.
+- No content generation, Gemini request, social publishing, production database mutation, storage/media deletion, index/secret change, Android/iOS release, merge, or production deployment was triggered.
+
 ## Latest verified checkpoint — 2026-11-14T21:34:00Z
 
 **State: IN PROGRESS — NOT MERGE-READY OR DEPLOYED.**
