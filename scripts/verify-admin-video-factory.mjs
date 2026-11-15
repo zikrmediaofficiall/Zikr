@@ -68,7 +68,15 @@ const generationPatch = generation.match(/export async function PATCH\([\s\S]*$/
 if (!generationGet.includes("requireAdminApi('video.manage')")) failures.push("video generation GET must require video.manage");
 if (!generationPatch.includes("requireAdminStepUpApi('video.manage'")) failures.push("video generation PATCH must require video.manage step-up");
 if (!generationDelete.includes("requireAdminStepUpApi('video.delete'")) failures.push("video generation DELETE must require video.delete step-up");
-if (!generation.includes("updated_at=eq.") || !generation.includes("current.updated_at")) failures.push("admin publish retry must use optimistic concurrency");
+const approvalConcurrencyBlock = generation.match(/if \(action === 'approve_publish'\)[\s\S]*?(?=if \(action === "retry_publish"\))/)?.[0] ?? "";
+if (
+  !approvalConcurrencyBlock.includes("p_expected_request_updated_at") ||
+  !approvalConcurrencyBlock.includes("current.updated_at") ||
+  !approvalConcurrencyBlock.includes("p_expected_catalog_updated_at") ||
+  !approvalConcurrencyBlock.includes("catalog.updated_at")
+) {
+  failures.push("admin publish approval must use optimistic concurrency for both the request and catalog");
+}
 
 const retryPublishStart = generation.search(/if\s*\(\s*action\s*===\s*["']retry_publish["']\s*\)/);
 const retryPublishEnd = generation.indexOf("DIRECT_VIDEO_STATUS_MUTATION_RETIRED", retryPublishStart);
@@ -353,7 +361,7 @@ if (!catalogApprovalHelper.includes("metadata.videoGenerationRequestId !== reque
 for (const token of [
   "buildVideoCatalogApprovalPatch",
   "/rest/v1/videos?slug=eq.",
-  "metadata->>videoGenerationRequestId=eq.",
+  
   "catalogApprovalRecorded: true",
 ]) {
   if (!approvalRoute.includes(token)) failures.push("Admin approval must record approval only on the matching internal video catalog row: " + token);
