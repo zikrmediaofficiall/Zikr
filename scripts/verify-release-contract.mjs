@@ -193,7 +193,7 @@ assert.ok(recoveryDispatch.includes("ref: isTagDispatch ? tag : recoveryBranch")
 
 assert.ok(circle.includes('REPOSITORY="zikrofficial-X/Zikr"') && circle.includes('https://github.com/${REPOSITORY}/releases/download/'), "CircleCI Android release metadata must use GitHub Releases in the canonical repository");
 const androidJob =
-  circle.match(/^  android-rebuild:\n([\\s\\S]*?)(?=^  [a-z0-9_-]+:\n|^workflows:\n)/m)?.[1] ?? "";
+  circle.match(/^  android-rebuild:\n([\s\S]*?)(?=^  [a-z0-9_-]+:\n|^workflows:\n)/m)?.[1] ?? "";
 assert.match(
   androidJob,
   /NEXT_PUBLIC_SUPABASE_URL:\s*"?https:\/\/zqtssvlvmkzeeyqghqfk\.supabase\.co"?/,
