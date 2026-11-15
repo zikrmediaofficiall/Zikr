@@ -118,6 +118,9 @@ const staleCatalogPublication = {
 };
 const confirmedQueuePublication: KidsSocialQueueRow = {
   ...queueRow(queueId(9000), "2026-11-15T05:00:00.000Z"),
+  status: "published",
+  published_at: "2026-11-15T05:00:00.000Z",
+  target_platforms: ["facebook"],
   metadata: {
     audience: "kids",
     platformResults: {
