@@ -64,6 +64,15 @@ try {
     "a genuinely empty first export must be allowed",
   );
 
+  const orphanedArticlesPath = path.join(snapshotDirectory, "articles.json");
+  await writeFile(orphanedArticlesPath, "[]", "utf8");
+  await assert.rejects(
+    loadPreviousOfflineSnapshot(previousManifestPath, previousKidsPath),
+    /dataset files exist without their offline manifest/,
+    "an orphaned non-Kids dataset must not be mistaken for a first export or reset the prior route inventory",
+  );
+  await rm(orphanedArticlesPath, { force: true });
+
   await writeFile(previousKidsPath, "[]", "utf8");
   await assert.rejects(
     loadPreviousOfflineSnapshot(previousManifestPath, previousKidsPath),
