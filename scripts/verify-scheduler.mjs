@@ -31,6 +31,25 @@ if (!currentCronMigration.includes("zqtssvlvmkzeeyqghqfk.supabase.co")) failures
 if (!currentCronMigration.includes("cron.alter_job")) failures.push("cron migration must use the supported pg_cron alter_job API");
 if (!currentCronMigration.includes("zikr-prayer-push-dispatch") || !currentCronMigration.includes("zikr-source-verified-content-agent")) failures.push("current cron migration must explicitly limit updates to the two active ZIKR jobs");
 
+const prayerPushCronReconcileMigration = read("supabase/migrations/20261115070000_reconcile_prayer_push_cron_project_ref.sql");
+for (const token of [
+  "zikr-prayer-push-dispatch",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/functions/v1/prayer-notification-worker",
+  "cron.alter_job",
+  "cron.unschedule",
+  "cron.schedule",
+  "public.get_push_scheduler_secret()",
+  "WHERE EXISTS (SELECT 1 FROM public.push_subscriptions WHERE is_active)",
+  "'* * * * *'",
+]) {
+  if (!prayerPushCronReconcileMigration.includes(token)) {
+    failures.push("prayer push cron reconciliation is missing its canonical contract: " + token);
+  }
+}
+if (prayerPushCronReconcileMigration.includes("nmdeazfmtncelykzxkhs.supabase.co")) {
+  failures.push("prayer push cron reconciliation must not retain the historical project URL");
+}
+
 const contentSync = read(".github/workflows/english-content-sync.yml");
 if (contentSync.includes("\n  schedule:")) failures.push("GitHub English content sync must not own an automatic schedule");
 if (!contentSync.includes("pnpm translate:articles:en") || !contentSync.includes("pnpm sync:hadith:en")) failures.push("English article/Hadith sync commands are incomplete");
