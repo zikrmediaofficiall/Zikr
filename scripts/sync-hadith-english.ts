@@ -1,4 +1,6 @@
-const supabaseUrl = process.env.SUPABASE_URL?.trim();
+import { assertCanonicalSupabaseProjectUrl } from "./lib/canonical-supabase-project.mjs";
+
+const rawSupabaseUrl = process.env.SUPABASE_URL?.trim();
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 const SUPABASE_REQUEST_TIMEOUT_MS = 15_000;
 const HADITH_API_TIMEOUT_MS = 10_000;
@@ -19,9 +21,10 @@ function parseBatchSize(raw: string | undefined): number {
 
 const batchSize = parseBatchSize(process.env.HADITH_TRANSLATION_BATCH_SIZE);
 
-if (!supabaseUrl || !serviceRoleKey) {
+if (!rawSupabaseUrl || !serviceRoleKey) {
   throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
 }
+const supabaseUrl = assertCanonicalSupabaseProjectUrl(rawSupabaseUrl);
 
 type BookRow = { id: string; slug: string; name_en: string | null };
 type HadithRow = {

@@ -49,7 +49,7 @@ The scheduled `english-content-sync` job does not attach the `android-signing` c
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `GEMINI_API_KEY`
 
-The job validates all three names before running `pnpm translate:articles:en` and `pnpm sync:hadith:en`. Missing variables cause an early failure; valid credentials can still fail later due to provider/API or content-sync errors.
+The job validates all three names and verifies that `SUPABASE_URL` is exactly the canonical HTTPS project origin before running `pnpm translate:articles:en` and `pnpm sync:hadith:en`. Both worker scripts repeat this project guard before any queue recovery, API request, or database write. Missing variables or a mismatched URL cause an early failure; valid credentials can still fail later due to provider/API or content-sync errors.
 
 An earlier main commit reported an `english-content-sync` failure, but the latest production baseline commit `9e429094` currently has a successful combined status for its three attached checks: CircleCI `application-build-docs`, Vercel, and CircleCI `config-guard`. The scheduled sync is a separate daily pipeline and is not represented in that current commit status. This repair session cannot read CircleCI project environment values or authenticated scheduled-job logs, so the latest standalone sync result and its failure cause are **not verified**. Do not attach the Android signing context as a workaround; confirm the three project variables and inspect the scheduled job's first error step.
 

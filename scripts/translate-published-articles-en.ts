@@ -1,3 +1,4 @@
+import { assertCanonicalSupabaseProjectUrl } from "./lib/canonical-supabase-project.mjs";
 import { createHash } from "node:crypto";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { resolveStaleTranslationQueueRecovery } from "../src/features/articles/services/translation-queue-recovery";
@@ -10,7 +11,7 @@ function requireEnvironmentValue(name: string): string {
   return value;
 }
 
-const supabaseUrl = requireEnvironmentValue("SUPABASE_URL");
+const supabaseUrl = assertCanonicalSupabaseProjectUrl(requireEnvironmentValue("SUPABASE_URL"));
 const serviceRoleKey = requireEnvironmentValue("SUPABASE_SERVICE_ROLE_KEY");
 const geminiApiKey = requireEnvironmentValue("GEMINI_API_KEY");
 function parseBatchSize(raw: string | undefined): number {

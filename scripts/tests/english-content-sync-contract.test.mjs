@@ -1,8 +1,29 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { assertCanonicalSupabaseProjectUrl } from "../lib/canonical-supabase-project.mjs";
 
 const hadithSync = readFileSync("scripts/sync-hadith-english.ts", "utf8");
 const articleSync = readFileSync("scripts/translate-published-articles-en.ts", "utf8");
+
+const canonicalSupabaseUrl = "https://zqtssvlvmkzeeyqghqfk.supabase.co";
+assert.equal(assertCanonicalSupabaseProjectUrl(canonicalSupabaseUrl), canonicalSupabaseUrl);
+assert.equal(assertCanonicalSupabaseProjectUrl(canonicalSupabaseUrl + "/"), canonicalSupabaseUrl);
+for (const invalidUrl of [
+  "http://zqtssvlvmkzeeyqghqfk.supabase.co",
+  "https://other-project.supabase.co",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co.attacker.example",
+  "https://user:pass@zqtssvlvmkzeeyqghqfk.supabase.co",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co:8443",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/rest/v1",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/?project=other",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/#other",
+]) {
+  assert.throws(() => assertCanonicalSupabaseProjectUrl(invalidUrl), /canonical ZIKR production Supabase project/);
+}
+assert.ok(hadithSync.includes("assertCanonicalSupabaseProjectUrl(rawSupabaseUrl)"),
+  "Hadith sync must reject any non-canonical Supabase project before reading or writing rows");
+assert.ok(articleSync.includes('assertCanonicalSupabaseProjectUrl(requireEnvironmentValue("SUPABASE_URL"))'),
+  "Gemini article translation must reject any non-canonical Supabase project before stale-queue recovery");
 
 const missingEnglishFilter = "&or=(text_en.is.null,text_en.eq.)";
 assert.ok(
