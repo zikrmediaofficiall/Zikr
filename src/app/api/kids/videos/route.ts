@@ -109,17 +109,18 @@ export async function GET() {
         learningObjective: typeof metadata.learningObjective === "string"
           ? metadata.learningObjective
           : typeof requestContent.learningObjective === "string" ? requestContent.learningObjective : null,
-        socialPublication: requestIdState.kind === "invalid"
+        // A missing generation ID cannot prove that no queue row exists.
+        // Do not trust legacy catalog metadata for public delivery state.
+        socialPublication: requestIdState.kind !== "valid"
           ? null
           : resolveKidsVideoSocialPublication(
               socialQueueRows,
-              metadata.socialPublication,
-              requestIdState.kind === "missing" || socialQueueReadSucceeded,
-              requestIdState.kind === "missing",
+              null,
+              socialQueueReadSucceeded,
+              false,
             ),
         socialPublicationReadStatus:
-          requestIdState.kind === "invalid" ||
-          (requestIdState.kind === "valid" && !socialQueueReadSucceeded)
+          requestIdState.kind !== "valid" || !socialQueueReadSucceeded
             ? "unavailable"
             : "verified",
       };
