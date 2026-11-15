@@ -241,6 +241,17 @@ if (!worker.includes("source_hash: rendered.sourceHash") || !worker.includes("co
   failures.push("completed manual renders must persist source, content and template integrity fingerprints");
 }
 const generationWorkflow = read(".github/workflows/generate-ai-video.yml");
+const providerTypes = read("src/features/videos/providers/types.ts");
+if (
+  !generationWorkflow.includes('VIDEO_FREE_ONLY: "true"') ||
+  !generationWorkflow.includes('HF_WAN_VIDEO_ENABLED: "true"') ||
+  !generationWorkflow.includes('HF_LTX_FAST_VIDEO_ENABLED: "true"') ||
+  !generationWorkflow.includes('VIDEO_PROVIDER_ORDER: "hf_ltx_fast,hf_wan,template"') ||
+  !generationWorkflow.includes('GEMINI_AUDIO_SMOKE_TEST: "false"') ||
+  !providerTypes.includes("return !config.freeOnly && config.aiEnabled && Boolean(env.GEMINI_API_KEY?.trim())")
+) {
+  failures.push("scheduled video generation must explicitly enable free Hugging Face providers while keeping paid Gemini planning disabled in free-only mode");
+}
 const leaseWrappedSocialEnqueue = /await\s+withLeaseHeartbeat\s*\(\s*\(signal\)\s*=>\s*queueSocialItems\s*\(\s*request\s*,\s*rendered\.videoUrl\s*,\s*signal\s*\)\s*,?\s*\)/.test(worker);
 if (!/async\s+function\s+queueSocialItems\s*\(/.test(worker) ||
     !leaseWrappedSocialEnqueue ||
