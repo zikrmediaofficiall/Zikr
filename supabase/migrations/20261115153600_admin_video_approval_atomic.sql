@@ -149,11 +149,13 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  UPDATE public.video_generation_requests
+  -- Qualify target columns because RETURNS TABLE exposes an output variable
+  -- named updated_at in this PL/pgSQL function.
+  UPDATE public.video_generation_requests AS request_row
   SET content = p_approved_content, updated_at = p_reviewed_at
-  WHERE id = p_request_id
-    AND status = 'completed'
-    AND updated_at = p_expected_request_updated_at;
+  WHERE request_row.id = p_request_id
+    AND request_row.status = 'completed'
+    AND request_row.updated_at = p_expected_request_updated_at;
 
   GET DIAGNOSTICS v_request_rows = ROW_COUNT;
   IF v_request_rows <> 1 THEN
@@ -161,12 +163,12 @@ BEGIN
       USING ERRCODE = '40001';
   END IF;
 
-  UPDATE public.videos
+  UPDATE public.videos AS catalog_row
   SET metadata = p_catalog_metadata, updated_at = p_reviewed_at
-  WHERE id = p_catalog_video_id
-    AND slug = p_catalog_slug
-    AND updated_at = p_expected_catalog_updated_at
-    AND metadata->>'videoGenerationRequestId' = p_request_id::text;
+  WHERE catalog_row.id = p_catalog_video_id
+    AND catalog_row.slug = p_catalog_slug
+    AND catalog_row.updated_at = p_expected_catalog_updated_at
+    AND catalog_row.metadata->>'videoGenerationRequestId' = p_request_id::text;
 
   GET DIAGNOSTICS v_catalog_rows = ROW_COUNT;
   IF v_catalog_rows <> 1 THEN
