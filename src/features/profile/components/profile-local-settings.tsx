@@ -160,7 +160,7 @@ export function ProfileLocalSettings({ initialReminder }: Props) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => window.dispatchEvent(new Event("zikr:show-notification-banner"))}
+          onClick={() => window.dispatchEvent(new CustomEvent("zikr:show-notification-banner", { detail: { force: true } }))}
         >
           إعداد الإشعارات
         </Button>

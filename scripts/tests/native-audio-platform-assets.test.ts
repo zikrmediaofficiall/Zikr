@@ -269,11 +269,16 @@ assert.match(
   /async checkNotificationPermission\(\) \{\s*return plugins\.LocalNotifications\?\.checkPermissions\?\.\(\);\s*\}/,
   "the native bridge must expose LocalNotifications.checkPermissions",
 );
-assert.match(profileSettingsSource, /zikr:show-notification-banner/);
+assert.match(profileSettingsSource, /new CustomEvent\("zikr:show-notification-banner", \{ detail: \{ force: true \} \}\)/,
+  "the explicit settings action must be able to reopen a previously dismissed banner");
 assert.match(notificationBannerSource, /zikr:show-notification-banner/);
 assert.match(notificationBannerSource, /getNotificationPermission/);
 assert.match(notificationBannerSource, /hasDismissedNotificationBanner/);
 assert.match(notificationBannerSource, /persistNotificationBannerDismissal/);
+assert.match(notificationBannerSource, /detail\?\.force === true/);
+assert.match(notificationBannerSource, /if \(dismissed && !force\) return;/);
+assert.doesNotMatch(notificationBannerSource, /if \(dismissed\) return;/,
+  "a prior dismissal must not prevent the explicit settings event listener from registering");
 assert.doesNotMatch(notificationBannerSource, /sessionStorage\.getItem|sessionStorage\.setItem/,
   "the banner must route storage access through the failure-safe adapter");
 assert.match(notificationBannerSource, /requestNotificationPermission/);

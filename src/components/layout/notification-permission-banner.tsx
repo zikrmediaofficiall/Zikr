@@ -20,10 +20,12 @@ export function NotificationPermissionBanner() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const dismissed = hasDismissedNotificationBanner(() => window.sessionStorage);
-    if (dismissed) return;
+
 
     let disposed = false;
-    const showBanner = () => {
+    const showBanner = (event: Event) => {
+      const force = (event as CustomEvent<{ force?: boolean }>).detail?.force === true;
+      if (dismissed && !force) return;
       void getNotificationPermission().then((permission) => {
         if (!disposed && permission === 'default') setShow(true);
       });
