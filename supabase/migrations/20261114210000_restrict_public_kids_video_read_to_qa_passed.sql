@@ -1,6 +1,7 @@
--- Keep unreviewed Kids video metadata private even when a legacy row is
--- marked published. The public Kids feed already requires the same factory
--- marker and QA status; this RLS policy makes direct PostgREST reads agree.
+-- Keep unreviewed or malformed Kids video metadata private even when a legacy row is
+-- marked published. Only canonical general rows (or legacy rows without an audience)
+-- and Kids rows with the complete internal QA contract are publicly readable.
+-- Unknown audience labels and non-object metadata fail closed.
 -- No video rows or Storage objects are changed or deleted.
 BEGIN;
 
@@ -13,11 +14,19 @@ CREATE POLICY videos_public_read
   USING (
     published IS TRUE
     AND (
-      lower(btrim(coalesce(metadata->>'audience', ''))) <> 'kids'
+      metadata IS NULL
       OR (
-        metadata->>'generator' = 'zikr_internal_video_factory'
-        AND metadata->>'kidsVideoQaStatus' = 'passed'
-        AND metadata->'automatedVideoQa'->>'status' = 'passed'
+        jsonb_typeof(metadata) = 'object'
+        AND (
+          metadata->>'audience' IS NULL
+          OR metadata->>'audience' = 'general'
+          OR (
+            metadata->>'audience' = 'kids'
+            AND metadata->>'generator' = 'zikr_internal_video_factory'
+            AND metadata->>'kidsVideoQaStatus' = 'passed'
+            AND metadata->'automatedVideoQa'->>'status' = 'passed'
+          )
+        )
       )
     )
   );

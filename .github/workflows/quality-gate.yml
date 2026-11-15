@@ -113,6 +113,11 @@ jobs:
         run: bash scripts/tests/kids-content-active-rls.integration.sh
         timeout-minutes: 5
 
+      - name: Verify public video audience RLS against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/kids-video-public-read-rls.integration.sh
+        timeout-minutes: 5
+
       - name: Verify client table privilege hardening against PostgreSQL 17
         shell: bash
         run: bash scripts/tests/client-table-privilege-hardening.integration.sh

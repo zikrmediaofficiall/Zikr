@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { isGeneralAudienceVideoMetadata } from "../../src/features/videos/services/video-audience-visibility";
 import { evaluateVideoCatalogPublication } from "../../src/features/social/services/video-catalog-publication-policy";
 import { clearRevalidatedSocialApprovalDeferrals, shouldScheduleSocialPublishRetry } from "../../src/features/social/services/social-publish-recovery-policy";
 
@@ -189,4 +190,28 @@ assert.ok(platformStart >= 0 && platformCatalogGate > platformStart && platformC
   "each platform must revalidate catalog publication immediately before provider dispatch");
 assert.match(socialSource, /row\.published !== true/);
 assert.match(socialSource, /published=eq\.true/);
+const generalVideoMetadataCases: Array<[unknown, boolean, string]> = [
+  [null, true, "legacy SQL-null metadata remains a general video"],
+  [undefined, true, "missing metadata remains a legacy general video"],
+  [{}, true, "legacy metadata without an audience remains general"],
+  [{ audience: null }, true, "a null audience remains a legacy general video"],
+  [{ audience: "general" }, true, "the canonical general audience remains visible"],
+  [{ audience: "kids" }, false, "Kids audience is excluded from the general catalog"],
+  [{ audience: "Kids" }, false, "case-variant Kids audience fails closed"],
+  [{ audience: " kids " }, false, "whitespace-variant Kids audience fails closed"],
+  [{ audience: "child" }, false, "unknown child audience fails closed"],
+  [{ audience: "children" }, false, "unknown children audience fails closed"],
+  [{ audience: "" }, false, "an empty audience is not silently treated as general"],
+  [["kids"], false, "non-object metadata fails closed"],
+  ["kids", false, "non-object metadata fails closed"],
+];
+for (const [metadata, expected, message] of generalVideoMetadataCases) {
+  assert.equal(isGeneralAudienceVideoMetadata(metadata), expected, message);
+}
+const generalVideoServiceSource = readFileSync("src/features/videos/services/videos.ts", "utf8");
+assert.match(generalVideoServiceSource, /metadata->>audience\.eq\.general/);
+assert.doesNotMatch(generalVideoServiceSource, /metadata->>audience\.neq\.kids/);
+assert.match(generalVideoServiceSource, /isGeneralAudienceVideoMetadata\(row\.metadata\)/);
+assert.match(generalVideoServiceSource, /if \(!isGeneralAudienceVideoMetadata\(rows\[0\]\.metadata\)\) return null;/);
+
 console.log("Social video catalog publication and Kids QA gates passed.");

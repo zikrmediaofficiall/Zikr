@@ -8,6 +8,7 @@ import { defaultOgImage } from "@/lib/site";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 import { resolveKidsVideoSocialPublicationForDetail } from "@/features/social/services/kids-video-social-detail";
 import { resolveVideoMediaUrl, resolveVideoThumbnail, resolveVideoYoutubeId } from "./video-media-contract";
+import { isGeneralAudienceVideoMetadata } from "./video-audience-visibility";
 
 function isPubliclyRenderableVideo(row: Record<string, unknown>): boolean {
   return Boolean(resolveVideoMediaUrl(row));
@@ -47,7 +48,7 @@ export async function getVideos(
   // The general video catalog must never mix child-directed media into the
   // public feed. Kids content is served only by the dedicated Kids experience.
   let query =
-    "/rest/v1/videos?select=id,title,slug,description,youtube_id,thumbnail_url,duration,views,published,category_id,metadata,created_at&published=eq.true&or=(metadata->>audience.is.null,metadata->>audience.neq.kids)&order=created_at.desc";
+    "/rest/v1/videos?select=id,title,slug,description,youtube_id,thumbnail_url,duration,views,published,category_id,metadata,created_at&published=eq.true&or=(metadata->>audience.is.null,metadata->>audience.eq.general)&order=created_at.desc";
 
   if (categoryId && categoryId !== "all") {
     query += `&category_id=eq.${encodeURIComponent(categoryId)}`;
@@ -63,7 +64,7 @@ export async function getVideos(
   });
 
   if (rows.length === 0) return fallback.slice(0, safeLimit);
-  const renderableRows = rows.filter(isPubliclyRenderableVideo);
+  const renderableRows = rows.filter((row) => isGeneralAudienceVideoMetadata(row.metadata) && isPubliclyRenderableVideo(row));
   if (renderableRows.length === 0) return fallback.slice(0, safeLimit);
 
   return renderableRows.slice(0, safeLimit).map(r => ({
@@ -88,14 +89,18 @@ export async function getVideoBySlug(slug: string): Promise<Video | null> {
   if (!isSupabaseConfigured()) return FALLBACK_VIDEOS.find((video) => video.slug === slug.trim()) ?? null;
 
   const rows = await supabaseServerAnonRequest<Array<Record<string, unknown>>>(
-    `/rest/v1/videos?select=*&slug=eq.${safeSlug}&published=eq.true&or=(metadata->>audience.is.null,metadata->>audience.neq.kids)&limit=1`,
+    `/rest/v1/videos?select=*&slug=eq.${safeSlug}&published=eq.true&or=(metadata->>audience.is.null,metadata->>audience.eq.general)&limit=1`,
     { timeoutMs: 8000, retries: 1, cache: "no-store" },
   ).catch(error => {
     console.error("[content] Failed to fetch video by slug:", error);
     return [];
   });
 
-  if (!rows.length || !isPubliclyRenderableVideo(rows[0])) {
+  if (!rows.length) {
+    return FALLBACK_VIDEOS.find((video) => video.slug === slug.trim()) ?? null;
+  }
+  if (!isGeneralAudienceVideoMetadata(rows[0].metadata)) return null;
+  if (!isPubliclyRenderableVideo(rows[0])) {
     return FALLBACK_VIDEOS.find((video) => video.slug === slug.trim()) ?? null;
   }
   const r = rows[0];
