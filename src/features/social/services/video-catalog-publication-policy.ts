@@ -15,6 +15,7 @@ export type VideoCatalogPublicationInput = {
   queuedVideoUrl: string | null;
   queueAudience: unknown;
   queueKidsContentQaStatus: unknown;
+  expectedApprovalSnapshotHash: string | null;
   row: VideoCatalogPublicationRow | null;
 };
 
@@ -111,12 +112,16 @@ export function evaluateVideoCatalogPublication(
   if (automatedVideoQa?.status !== "passed") {
     return { status: "blocked", reason: "The public video catalog does not contain a passed automated QA snapshot." };
   }
+  const expectedApprovalSnapshotHash = input.expectedApprovalSnapshotHash?.trim() ?? "";
+  if (!expectedApprovalSnapshotHash || automatedVideoQa.snapshotHash !== expectedApprovalSnapshotHash) {
+    return { status: "blocked", reason: "The catalog automated QA snapshot does not match the current generation request." };
+  }
 
   if (audience === "kids") {
     if (input.queueKidsContentQaStatus !== "passed" || metadata.kidsVideoQaStatus !== "passed") {
       return { status: "blocked", reason: "Kids video QA is not passed in both the queue and public catalog." };
     }
-    if (!hasHumanKidsVideoApproval(metadata)) {
+    if (!hasHumanKidsVideoApproval(metadata, expectedApprovalSnapshotHash)) {
       return { status: "blocked", reason: "Kids videos require a matching human review record before external publishing." };
     }
     if (!hasCompleteKidsSeriesMetadata(metadata)) {

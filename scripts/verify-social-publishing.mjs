@@ -136,6 +136,12 @@ if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") 
     !videoCatalogPolicy.includes("hasHumanKidsVideoApproval")) {
   failures.push("Kids external social publishing must require a matching human review record in both the generation request and public catalog");
 }
+if (!socialPublishingService.includes("buildVideoApprovalSnapshotHashForRequest") ||
+    !socialPublishingService.includes("expectedApprovalSnapshotHash") ||
+    !videoCatalogPolicy.includes("automatedVideoQa.snapshotHash !== expectedApprovalSnapshotHash") ||
+    !videoCatalogPolicy.includes("hasHumanKidsVideoApproval(metadata, expectedApprovalSnapshotHash)")) {
+  failures.push("the social worker must bind both catalog automated QA and Kids human review to the current generation-request fingerprint");
+}
 if (!videoGenerator.includes("getYouTubeUploadRefreshToken") ||
     !videoGenerator.includes("getOptionalFacebookPageCredentials") ||
     videoGenerator.includes("getFacebookPageCredentials().catch(() => null)") ||

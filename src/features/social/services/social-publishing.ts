@@ -8,7 +8,7 @@ import { resolveYouTubeVideoDisclosure } from "@/features/social/services/youtub
 import { getFacebookPageCredentials } from "@/features/social/services/facebook-credentials";
 import { resolveSocialPublishCutoff } from "@/features/social/services/facebook-queue-recovery-policy";
 import { extractFacebookReelsNextAllowedAt, isFacebookReelsCooldownDeferredError } from "@/features/social/services/facebook-reels-rate-limit";
-import { isVideoContentType, isVideoQueueItemApprovedForPublishing, type VideoPublishRequestSnapshot } from "@/features/videos/services/video-publish-approval";
+import { buildVideoApprovalSnapshotHashForRequest, isVideoContentType, isVideoQueueItemApprovedForPublishing, type VideoPublishRequestSnapshot } from "@/features/videos/services/video-publish-approval";
 import { shouldRestorePurgedPublishedVideo } from "@/features/videos/services/video-media-contract";
 import {
   buildDueSocialQueueClaimFilter,
@@ -150,6 +150,25 @@ async function checkVideoCatalogPublication(item: SocialPublishQueueItem): Promi
   }
 
   try {
+    const requestRows = await supabaseServerAdminRequest<Array<VideoPublishRequestSnapshot>>(
+      "/rest/v1/video_generation_requests?id=eq." + encodeURIComponent(item.content_id) +
+        "&select=status,category,video_url,source_hash,content_hash,template_version,content&limit=2",
+    );
+    if (!Array.isArray(requestRows) || requestRows.length === 0) {
+      return { status: "pending", reason: "The video generation request is not available for catalog revalidation." };
+    }
+    if (requestRows.length !== 1) {
+      return { status: "blocked", reason: "The video generation request ID is not unique." };
+    }
+    const request = requestRows[0];
+    if (request.status !== "completed" || !request.video_url || request.video_url.trim() !== item.video_url.trim()) {
+      return { status: "blocked", reason: "The current generation request no longer matches the queued video asset." };
+    }
+    const expectedApprovalSnapshotHash = buildVideoApprovalSnapshotHashForRequest(request);
+    if (!expectedApprovalSnapshotHash) {
+      return { status: "blocked", reason: "The current generation request does not have a complete approval fingerprint." };
+    }
+
     const rows = await supabaseServerAdminRequest<Array<{ published: boolean | null; metadata: unknown }>>(
       "/rest/v1/videos?metadata->>videoGenerationRequestId=eq." +
         encodeURIComponent(item.content_id) +
@@ -167,6 +186,7 @@ async function checkVideoCatalogPublication(item: SocialPublishQueueItem): Promi
       queuedVideoUrl: item.video_url,
       queueAudience: item.metadata?.audience,
       queueKidsContentQaStatus: item.metadata?.kidsContentQaStatus,
+      expectedApprovalSnapshotHash,
       row: rows[0],
     });
   } catch (error) {

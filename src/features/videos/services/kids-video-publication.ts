@@ -17,7 +17,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
  * External social delivery requires a separate, auditable human approval
  * bound to the exact video fingerprint.
  */
-export function hasHumanKidsVideoApproval(value: unknown): boolean {
+export function hasHumanKidsVideoApproval(value: unknown, expectedSnapshotHash?: string | null): boolean {
   const content = asRecord(value);
   const reviewerId = typeof content?.approvalReviewerId === "string"
     ? content.approvalReviewerId.trim()
@@ -33,11 +33,15 @@ export function hasHumanKidsVideoApproval(value: unknown): boolean {
     ? content.approvalSnapshotHash.trim()
     : "";
 
+  const snapshotMatches = expectedSnapshotHash === undefined
+    ? /^[a-f0-9]{64}$/i.test(snapshotHash)
+    : typeof expectedSnapshotHash === "string" && snapshotHash === expectedSnapshotHash;
+
   return content?.audience === "kids" &&
     content.approvalStatus === "approved" &&
     reviewerId.length > 0 &&
     reviewerId !== "system:zikr-video-factory" &&
-    /^[a-f0-9]{64}$/i.test(snapshotHash) &&
+    snapshotMatches &&
     Number.isFinite(approvalReviewedAt) &&
     qualityReview?.mode === "human" &&
     qualityReview.reviewerId === reviewerId &&

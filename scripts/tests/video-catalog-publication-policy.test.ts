@@ -11,7 +11,7 @@ const kidsMetadata = {
   mediaState: "cloudinary_master",
   audience: "kids",
   kidsVideoQaStatus: "passed",
-  automatedVideoQa: { status: "passed" },
+  automatedVideoQa: { status: "passed", snapshotHash: "a".repeat(64) },
   approvalStatus: "approved",
   approvalReviewerId: "admin-user-1",
   approvalReviewedAt: "2026-11-14T12:00:00.000Z",
@@ -38,6 +38,7 @@ const kidsInput = {
   queuedVideoUrl: videoUrl,
   queueAudience: "kids",
   queueKidsContentQaStatus: "passed",
+  expectedApprovalSnapshotHash: "a".repeat(64),
   row: kidsRow,
 };
 
@@ -50,6 +51,14 @@ assert.equal(evaluateVideoCatalogPublication({
     qualityReview: { ...kidsMetadata.qualityReview, mode: "automated", reviewerId: "system:zikr-video-factory" },
   } },
 }).status, "blocked", "automated QA alone must not release a Kids video to external platforms");
+assert.equal(evaluateVideoCatalogPublication({
+  ...kidsInput,
+  row: { published: true, metadata: { ...kidsMetadata, approvalSnapshotHash: "b".repeat(64) } },
+}).status, "blocked", "catalog human approval must match the current request snapshot");
+assert.equal(evaluateVideoCatalogPublication({
+  ...kidsInput,
+  row: { published: true, metadata: { ...kidsMetadata, automatedVideoQa: { status: "passed", snapshotHash: "b".repeat(64) } } },
+}).status, "blocked", "catalog automated QA must match the current request snapshot");
 assert.equal(evaluateVideoCatalogPublication({
   ...kidsInput,
   row: { published: true, metadata: {
@@ -103,6 +112,7 @@ assert.equal(evaluateVideoCatalogPublication({
   queuedVideoUrl: videoUrl,
   queueAudience: "general",
   queueKidsContentQaStatus: null,
+  expectedApprovalSnapshotHash: "a".repeat(64),
   row: { published: true, metadata: generalMetadata },
 }).status, "approved");
 

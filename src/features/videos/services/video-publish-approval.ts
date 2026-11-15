@@ -152,11 +152,13 @@ export function buildVideoCatalogApprovalPatch(input: {
     requestContent.approvalSnapshotHash !== snapshotHash ||
     !isVideoApprovalRecorded(requestContent, snapshotHash) ||
     requestQa?.status !== "passed" ||
+     requestQa.snapshotHash !== snapshotHash ||
     (audience !== "kids" && audience !== "general") ||
     (metadata.audience != null && metadata.audience !== audience) ||
     (metadata.approvalStatus != null && metadata.approvalStatus !== "approved") ||
     (metadata.approvalSnapshotHash != null && metadata.approvalSnapshotHash !== snapshotHash) ||
     metadataQa?.status !== "passed" ||
+     metadataQa.snapshotHash !== snapshotHash ||
     metadata.mediaState === "purged" ||
     metadata.mediaState === "unlinked" ||
     metadata.sourceMediaMissing === true
@@ -221,7 +223,7 @@ export function isVideoApprovalRecorded(content: unknown, expectedSnapshotHash: 
 }
 
 export function isHumanVideoApprovalRecorded(content: unknown, expectedSnapshotHash: string | null): boolean {
-  return hasHumanKidsVideoApproval(content) && isVideoApprovalRecorded(content, expectedSnapshotHash);
+  return hasHumanKidsVideoApproval(content, expectedSnapshotHash) && isVideoApprovalRecorded(content, expectedSnapshotHash);
 }
 
 export type VideoPublishRequestSnapshot = {
@@ -233,6 +235,20 @@ export type VideoPublishRequestSnapshot = {
   template_version: string | null;
   content: unknown;
 };
+export function buildVideoApprovalSnapshotHashForRequest(request: VideoPublishRequestSnapshot | null): string | null {
+  if (!request || request.status !== "completed" || !request.video_url) return null;
+  const content = record(request.content);
+  return buildVideoApprovalSnapshotHash({
+    category: request.category,
+    sourceHash: request.source_hash,
+    contentHash: request.content_hash,
+    templateVersion: request.template_version,
+    videoUrl: request.video_url,
+    audience: content?.audience === "kids" ? "kids" : "general",
+    kidsVideoQaStatus: typeof content?.kidsVideoQaStatus === "string" ? content.kidsVideoQaStatus : null,
+  });
+}
+
 export type VideoPublishApprovalDiagnostics = {
   approved: boolean;
   reason: string | null;
@@ -274,15 +290,10 @@ export function inspectVideoQueueItemApproval(input: {
       approvalStatus,
     };
   }
-  const snapshotHash = buildVideoApprovalSnapshotHash({
-    category: input.request.category,
-    sourceHash: input.request.source_hash,
-    contentHash: input.request.content_hash,
-    templateVersion: input.request.template_version,
-    videoUrl: input.request.video_url,
-    audience: content?.audience === "kids" ? "kids" : "general",
-    kidsVideoQaStatus: typeof content?.kidsVideoQaStatus === "string" ? content.kidsVideoQaStatus : null,
-  });
+  const snapshotHash = buildVideoApprovalSnapshotHashForRequest(input.request);
+  if (!snapshotHash) {
+    return { approved: false, reason: "بصمة المصدر أو المحتوى أو ملف الفيديو غير مكتملة.", missingChecks: [...REQUIRED_VIDEO_APPROVAL_CHECKS], approvalStatus };
+  }
   const approved = isVideoApprovalRecorded(content, snapshotHash);
   if (approved) return { approved: true, reason: null, missingChecks: [], approvalStatus };
 
@@ -313,15 +324,13 @@ export function inspectVideoQueueItemExternalApproval(input: {
   const content = record(input.request?.content);
   if (content?.audience !== "kids" || !input.request) return diagnostics;
 
-  const snapshotHash = buildVideoApprovalSnapshotHash({
-    category: input.request.category,
-    sourceHash: input.request.source_hash,
-    contentHash: input.request.content_hash,
-    templateVersion: input.request.template_version,
-    videoUrl: input.request.video_url,
-    audience: "kids",
-    kidsVideoQaStatus: typeof content.kidsVideoQaStatus === "string" ? content.kidsVideoQaStatus : null,
-  });
+  const snapshotHash = buildVideoApprovalSnapshotHashForRequest(input.request);
+  if (!snapshotHash) return {
+    ...diagnostics,
+    approved: false,
+    reason: "بصمة مراجعة فيديو الأطفال غير مكتملة؛ تم إيقاف النشر الخارجي.",
+    missingChecks: [],
+  };
   if (isHumanVideoApprovalRecorded(content, snapshotHash)) return diagnostics;
 
   return {

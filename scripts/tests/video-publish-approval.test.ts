@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
-import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
 assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
 assert.equal(hasSuspiciousReligiousAttribution("قَالَ رَسُولُ اللَّهِ ﷺ"), true, "Arabic diacritics must not bypass attribution detection");
@@ -224,6 +224,8 @@ const kidsAutomatedApproval = createAutomatedVideoQaApproval({
 });
 assert.equal(kidsAutomatedApproval?.kidsVideoQaStatus, "passed");
 assert.equal(kidsAutomatedApproval?.approvalSnapshotHash, kidsSnapshotHash);
+assert.equal(buildVideoApprovalSnapshotHashForRequest(request), kidsSnapshotHash,
+  "the worker and approval inspector must derive the same request fingerprint");
 const kidsAutomatedContent = { ...completeKidsContent, ...kidsAutomatedApproval };
 const kidsAutomatedQueueItem = {
   ...kidsQueueItem,
@@ -283,7 +285,7 @@ const catalogMetadata = {
   templateVersion: snapshot.templateVersion,
   audience: "kids",
   kidsVideoQaStatus: "passed",
-  automatedVideoQa: { status: "passed" },
+  automatedVideoQa: { status: "passed", snapshotHash: kidsSnapshotHash },
   sourceType: "original_kids_fiction",
   contentFormat: "series_episode",
   aiMode: "original_kids_story",
@@ -357,6 +359,10 @@ assert.equal(buildVideoCatalogApprovalPatch({
   ...catalogApprovalInput,
   metadata: { ...catalogMetadata, approvalSnapshotHash: "different-hash" },
 }), null, "catalog approval must reject a stale approval fingerprint");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, automatedVideoQa: { status: "passed", snapshotHash: "b".repeat(64) } },
+}), null, "catalog approval must reject stale automated QA metadata even when source fields still match");
 assert.equal(buildVideoCatalogApprovalPatch({
   ...catalogApprovalInput,
   requestContent: { ...catalogRequestContent, approvalStatus: "awaiting_human_review" },
