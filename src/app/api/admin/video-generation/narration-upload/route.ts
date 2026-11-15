@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
 
     let assetTrackingStatus: "ready" | "reconciliation_pending" = "ready";
     try {
-      await markAdminNarrationAssetAuditRecorded(mediaAssetId, publicId);
+      await markAdminNarrationAssetAuditRecorded(mediaAssetId, publicId, contentType, auth.profile.id);
     } catch (trackingError) {
       assetTrackingStatus = "reconciliation_pending";
       console.warn("[api/admin/video-generation/narration-upload] audit succeeded but media asset state needs reconciliation:", { publicId, mediaAssetId, trackingError });
