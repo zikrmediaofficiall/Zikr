@@ -27,7 +27,18 @@ export function resolveSafeOfflineRoute(route: unknown, origin: string): URL | n
   }
 }
 
-const SAFE_KIDS_CONTENT_TYPES = new Set(["activity", "game", "quiz", "story", "video", "wudu"]);
+const SAFE_KIDS_CONTENT_TYPES = new Set([
+  "story",
+  "prayer",
+  "wudu",
+  "quiz",
+  "game",
+  "puzzle",
+  "coloring",
+  "matching",
+  "video",
+  "memorize",
+]);
 
 export function getPublishedKidsOfflineRoutes(rows: unknown[]): string[] {
   const routes = new Set<string>();
@@ -82,4 +93,22 @@ export function filterOfflineSupplementalKidsRoutes(
     // can publish or revoke stories with arbitrary valid slugs.
     return STATIC_KIDS_PAGE_ROUTES.has(normalizedRoute) || allowed.has(normalizedRoute);
   });
+}
+
+
+/**
+ * A completed offline pack must match the exact current route inventory.
+ * Extra cached routes are stale too: they may represent unpublished content.
+ */
+export function isOfflineRouteInventoryComplete(
+  requiredRoutes: readonly string[],
+  cachedRoutes: readonly string[],
+): boolean {
+  if (!Array.isArray(requiredRoutes) || !Array.isArray(cachedRoutes)) return false;
+  const required = new Set(requiredRoutes);
+  const cached = new Set(cachedRoutes);
+  return required.size === requiredRoutes.length &&
+    cached.size === cachedRoutes.length &&
+    required.size === cached.size &&
+    [...required].every((route) => cached.has(route));
 }

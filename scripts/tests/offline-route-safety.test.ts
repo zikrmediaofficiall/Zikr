@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { filterOfflineSupplementalKidsRoutes, getPublishedKidsOfflineRoutes, resolveSafeOfflineRoute } from "../../src/lib/offline-route-safety";
+import {
+  filterOfflineSupplementalKidsRoutes,
+  getPublishedKidsOfflineRoutes,
+  isOfflineRouteInventoryComplete,
+  resolveSafeOfflineRoute,
+} from "../../src/lib/offline-route-safety";
+import { KIDS_CONTENT_TYPES } from "../../src/features/kids/services/kids-content-validation";
 
 const origin = "https://zikrmediaofficial.vercel.app";
 assert.equal(resolveSafeOfflineRoute("/kids/story-ibrahim", origin)?.origin, origin);
@@ -18,6 +24,13 @@ for (const route of [
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+const supportedTypeRows = KIDS_CONTENT_TYPES.map((type) => ({
+  slug: `supported-${type}`,
+  type,
+  published: true,
+  is_active: true,
+  metadata: type === "story" ? { age_appropriate: true } : {},
+}));
 const publishedKidsRoutes = getPublishedKidsOfflineRoutes([
   { slug: "approved-story", type: "story", published: true, is_active: true, metadata: { age_appropriate: true } },
   { slug: "unapproved-story", type: "story", published: true, is_active: true, metadata: { age_appropriate: false } },
@@ -27,9 +40,19 @@ const publishedKidsRoutes = getPublishedKidsOfflineRoutes([
   { slug: "inactive-game", type: "game", published: true, is_active: false, metadata: {} },
   { slug: "../unsafe", type: "game", published: true, is_active: true, metadata: {} },
   { slug: "unsupported", type: "unknown", published: true, is_active: true, metadata: {} },
+  { slug: "legacy-activity", type: "activity", published: true, is_active: true, metadata: {} },
+  ...supportedTypeRows,
 ]);
-assert.deepEqual(publishedKidsRoutes, ["/kids/approved-story", "/kids/public-game"],
-  "offline route inventory must include all current safe Kids rows and only explicitly approved stories");
+const expectedPublishedKidsRoutes = [
+  "/kids/approved-story",
+  "/kids/public-game",
+  ...KIDS_CONTENT_TYPES.map((type) => `/kids/supported-${type}`),
+].sort();
+assert.deepEqual(
+  publishedKidsRoutes,
+  expectedPublishedKidsRoutes,
+  "offline route inventory must include every supported Kids type, exclude legacy activity, and require explicit publication and story approval",
+);
 assert.deepEqual(
   filterOfflineSupplementalKidsRoutes([
     "/kids/story-old-unpublished",
@@ -61,5 +84,12 @@ assert.match(serviceWorkerSource, /url\.origin !== self\.location\.origin/,
   "route pruning must remain restricted to same-origin cache entries");
 assert.match(serviceWorkerSource, /cache\.delete\(request\)/,
   "stale HTML route entries must be removed from Cache Storage");
+
+assert.equal(isOfflineRouteInventoryComplete(["/", "/kids/current"], ["/", "/kids/current"]), true);
+assert.equal(isOfflineRouteInventoryComplete(["/", "/kids/current"], ["/", "/kids/current", "/kids/revoked"]), false,
+  "a stale cached Kids route must make the offline inventory incomplete");
+assert.equal(isOfflineRouteInventoryComplete(["/", "/kids/current"], ["/"]), false);
+assert.equal(isOfflineRouteInventoryComplete(["/", "/kids/current"], ["/", "/kids/current", "/kids/current"]), false,
+  "duplicate cached route entries must not be accepted as a complete inventory");
 
 console.log("Offline route same-origin safety tests passed.");

@@ -1,4 +1,15 @@
-const SAFE_KIDS_CONTENT_TYPES = new Set(["activity", "game", "quiz", "story", "video", "wudu"]);
+const SAFE_KIDS_CONTENT_TYPES = new Set([
+  "story",
+  "prayer",
+  "wudu",
+  "quiz",
+  "game",
+  "puzzle",
+  "coloring",
+  "matching",
+  "video",
+  "memorize",
+]);
 
 function isPublicKidsRouteRow(row) {
   if (!row || typeof row !== "object") return false;

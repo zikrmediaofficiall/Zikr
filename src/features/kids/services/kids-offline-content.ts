@@ -20,7 +20,12 @@ export function shouldUseOfflineKidsContentForNetworkError(error: unknown): bool
 }
 
 export function normalizeOfflineKidsRows(rows: unknown[], locale: KidsOfflineLocale = "ar"): KidsItem[] {
-  const items = rows
+  const publicRows = rows.filter((row): row is Record<string, unknown> => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return false;
+    const candidate = row as Record<string, unknown>;
+    return candidate.published === true && candidate.is_active === true;
+  });
+  const items = publicRows
     .map((row) => normalizeKidsContentRow(row as Parameters<typeof normalizeKidsContentRow>[0]))
     .filter((item): item is KidsItem => item !== null && isKidsContentType(item.type))
     // The offline exporter intentionally requires explicit age approval for

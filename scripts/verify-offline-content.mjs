@@ -67,6 +67,24 @@ try {
           if (rows.some(row => row?.published !== true || row?.is_active !== true)) {
             failures.push('Offline Kids dataset must contain only published and active rows');
           }
+          const supportedKidsTypes = new Set([
+            'story',
+            'prayer',
+            'wudu',
+            'quiz',
+            'game',
+            'puzzle',
+            'coloring',
+            'matching',
+            'video',
+            'memorize',
+          ]);
+          if (rows.some(row => {
+            const type = typeof row?.type === 'string' ? row.type : row?.content_type;
+            return typeof type !== 'string' || !supportedKidsTypes.has(type);
+          })) {
+            failures.push('Offline Kids dataset contains an unsupported content type');
+          }
           if (rows.some(row => {
             const type = typeof row?.type === 'string' ? row.type : row?.content_type;
             return type === 'story' && row?.metadata?.age_appropriate !== true;

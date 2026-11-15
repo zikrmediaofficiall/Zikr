@@ -7,6 +7,8 @@ on:
       - ".github/workflows/refresh-offline-content.yml"
       - "scripts/export-offline-content.mjs"
       - "scripts/lib/offline-kids-route-safety.mjs"
+      - "scripts/lib/offline-export-parent-scope.mjs"
+      - "scripts/lib/offline-export-route-pruning.mjs"
       - "scripts/verify-offline-content.mjs"
   schedule:
     - cron: "41 2 * * *"

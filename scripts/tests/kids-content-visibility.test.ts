@@ -905,6 +905,9 @@ const offlineKidsRows = normalizeOfflineKidsRows([
   { id: "unapproved-story", slug: "unapproved-story", title_ar: "قصة غير معتمدة", type: "story", age_group: "6-8", content_ar: "نص", published: true, is_active: true, metadata: { age_appropriate: false } },
   { id: "legacy-story", slug: "legacy-story", title_ar: "قصة قديمة", type: "story", age_group: "6-8", content_ar: "نص", published: true, is_active: true, metadata: {} },
   { id: "inactive-game", slug: "inactive-game", title_ar: "لعبة غير نشطة", type: "game", age_group: "6-8", content_ar: "نص", published: true, is_active: false, metadata: {} },
+  { id: "unpublished-game", slug: "unpublished-game", title_ar: "لعبة غير منشورة", type: "game", age_group: "6-8", content_ar: "نص", published: false, is_active: true, metadata: {} },
+  { id: "missing-published", slug: "missing-published", title_ar: "نشر غير محدد", type: "game", age_group: "6-8", content_ar: "نص", is_active: true, metadata: {} },
+  { id: "missing-active", slug: "missing-active", title_ar: "تفعيل غير محدد", type: "game", age_group: "6-8", content_ar: "نص", published: true, metadata: {} },
   { id: "public-game", slug: "public-game", title_ar: "لعبة", title_en: "Game", type: "game", age_group: "6-8", content_ar: "نص", content_en: "Text", published: true, is_active: true, metadata: {} },
 ], "ar");
 assert.deepEqual(
