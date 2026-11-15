@@ -53,7 +53,7 @@ const requestAudienceMismatch = evaluateVideoCatalogPublication(mismatchedReques
 assert.equal(requestAudienceMismatch.status, "blocked",
   "a general generation request must not be dispatched through a Kids queue/catalog row");
 if (requestAudienceMismatch.status === "blocked") {
-  assert.equal(requestAudienceMismatch.reason, "request_audience_mismatch");
+  assert.equal(requestAudienceMismatch.reason, "The generation request audience does not match the published video catalog audience.");
 }
 assert.equal(evaluateVideoCatalogPublication({
   ...kidsInput,
@@ -144,6 +144,12 @@ const generalInput = {
   row: { published: true, metadata: generalMetadata },
 };
 assert.equal(evaluateVideoCatalogPublication(generalInput).status, "approved");
+const legacyGeneralInput = { ...generalInput, requestAudience: undefined };
+assert.equal(evaluateVideoCatalogPublication(legacyGeneralInput).status, "approved",
+  "legacy general requests without an audience marker remain general when queue and catalog are general");
+const missingKidsAudienceInput = { ...kidsInput, requestAudience: undefined };
+assert.equal(evaluateVideoCatalogPublication(missingKidsAudienceInput).status, "blocked",
+  "a Kids catalog row must not inherit the legacy general-audience default");
 
 const cleared = clearRevalidatedSocialApprovalDeferrals({
   videoCatalogApprovalBlocked: true,
