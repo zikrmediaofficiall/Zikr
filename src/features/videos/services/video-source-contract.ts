@@ -18,7 +18,14 @@ function isOriginalKidsFiction(content: Record<string, unknown>): boolean {
 
 function hasMisleadingOriginalFictionAttribution(value: string | null): boolean {
   if (!value) return false;
-  return /(?:قصة\s+موثقة|موثقة\s+في\s+مكتبة|إحالة\s+إلى\s+مصدرها|مصدرها\s+الأساسي|(?:^|\n)\s*المصدر\s*[:：])/u.test(value);
+  return /(?:https?:\\/\\/|www\\.)|(?:قصة\\s+موثقة|موثقة\\s+في\\s+مكتبة|إحالة\\s+إلى\\s+مصدرها|مصدرها\\s+الأساسي|(?:^|\\n)\\s*المصدر\\s*[:：])/iu.test(value);
+}
+
+function resolveOriginalKidsFictionSourceLabel(value: unknown): string {
+  const sourceLabel = cleanString(value);
+  return sourceLabel && !hasMisleadingOriginalFictionAttribution(sourceLabel)
+    ? sourceLabel
+    : ORIGINAL_KIDS_FICTION_DISCLOSURE;
 }
 
 /**
@@ -45,7 +52,7 @@ export function resolveVideoSourceDisclosureLine(content: unknown, fallbackSourc
   const record = asRecord(content);
   const sourceType = cleanString(record.sourceType);
   const sourceLabel = cleanString(record.sourceLabel);
-  if (isOriginalKidsFiction(record)) return sourceLabel ?? ORIGINAL_KIDS_FICTION_DISCLOSURE;
+  if (isOriginalKidsFiction(record)) return resolveOriginalKidsFictionSourceLabel(sourceLabel);
   if (sourceType === "editorial") return sourceLabel ?? ORIGINAL_EDITORIAL_DISCLOSURE;
   const sourceUrl = fallbackSourceUrl.trim();
   return sourceUrl ? "المصدر: " + sourceUrl : sourceLabel ?? "";
@@ -62,10 +69,11 @@ export function resolveKidsVideoPublicDisclosure(
   socialCaption: string | null;
 } {
   const record = asRecord(metadata);
-  const sourceType = cleanString(record.sourceType);
   const originalFiction = isOriginalKidsFiction(record);
-  const sourceLabel = cleanString(record.sourceLabel) ??
-    (originalFiction ? ORIGINAL_KIDS_FICTION_DISCLOSURE : null);
+  const sourceType = originalFiction ? "original_kids_fiction" : cleanString(record.sourceType);
+  const sourceLabel = originalFiction
+    ? resolveOriginalKidsFictionSourceLabel(record.sourceLabel)
+    : cleanString(record.sourceLabel);
   const rawDescription = cleanString(description);
   const rawSocialCaption = cleanString(socialCaption);
   return {
