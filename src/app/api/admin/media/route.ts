@@ -5,6 +5,7 @@ import { supabaseServerAdminCount } from '@/lib/supabase/server';
 import { requireAdminApi } from '@/features/admin/services/admin';
 import { requireAdminStepUpApi } from '@/features/admin/services/security';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
+import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
 import {
   AdminMediaInputError,
   createAdminMediaAsset,
@@ -123,21 +124,19 @@ export async function POST(request: NextRequest) {
       folder: assetFolder,
       createdBy: auth.profile.id,
     });
-    try {
-      await recordAdminAuditEvent({
+    const auditRecorded = await runPostCommitAudit(
+      () => recordAdminAuditEvent({
         action: "media.asset.create",
         permission: "media.manage",
         resourceType: "media_assets",
         resourceId: typeof asset.id === "string" ? asset.id : null,
         metadata: { folder: assetFolder, mimeType: file.type, sizeBytes: file.size, sourceLinked: Boolean(sourceId) },
-      });
-    } catch (auditError) {
-      // The asset row is already committed; returning 500 would invite a duplicate retry.
-      console.warn("[api/admin/media] audit event unavailable after asset creation:", auditError);
-    }
+      }),
+      (auditError) => console.warn("[api/admin/media] audit event unavailable after asset creation:", auditError),
+    );
 
     return NextResponse.json(
-      { asset },
+      { asset, auditRecorded },
       {
         status: 201,
         headers: { 'Cache-Control': 'no-store' },
@@ -185,20 +184,18 @@ export async function PATCH(request: NextRequest) {
       action as 'verify_rights' | 'publish' | 'unpublish',
     );
     if (!result.ok) return responseError(result.error);
-    try {
-      await recordAdminAuditEvent({
+    const auditRecorded = await runPostCommitAudit(
+      () => recordAdminAuditEvent({
         action: `media.asset.${action}`,
         permission: "media.manage",
         resourceType: "media_assets",
         resourceId: id,
-      });
-    } catch (auditError) {
-      // The row-version update is already committed; do not report it as a failed mutation.
-      console.warn("[api/admin/media] audit event unavailable after asset update:", auditError);
-    }
+      }),
+      (auditError) => console.warn("[api/admin/media] audit event unavailable after asset update:", auditError),
+    );
 
     return NextResponse.json(
-      { ok: true },
+      { ok: true, auditRecorded },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
