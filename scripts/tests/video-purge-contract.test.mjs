@@ -318,7 +318,7 @@ assert.ok(
 );
 assert.doesNotMatch(
   failedVideoDeleteAction,
-  /supabaseServerAdminRequest|method:\\s*["']DELETE|recordAdminAuditEvent|revalidatePath|requireAdminStepUp/,
+  /supabaseServerAdminRequest|method:\s*["']DELETE|recordAdminAuditEvent|revalidatePath|requireAdminStepUp/,
   "the legacy bulk-delete server action must not perform database writes or destructive side effects",
 );
 assert.ok(
