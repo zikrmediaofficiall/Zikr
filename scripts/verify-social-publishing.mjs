@@ -127,7 +127,8 @@ if (!videoPublishApproval.includes("export function hasCompleteKidsVideoSeriesMe
     !videoPublishApproval.includes('normalizeVideoMarker(content.contentFormat) === "series_episode"') ||
     !videoGenerator.includes("hasCompleteKidsVideoSeriesMetadata(request.content)") ||
     !videoGenerator.includes("hasCompleteKidsVideoSeriesMetadata(content)") ||
-    !videoPublishApproval.includes("content?.audience === \"kids\"")) {
+    !videoPublishApproval.includes('normalizeVideoAudience(content.audience, false) !== "kids"') ||
+    !videoCatalogPolicy.includes("hasCompleteKidsVideoSeriesMetadata(metadata)")) {
   failures.push("Kids video catalog visibility and social publishing must share one complete series-episode contract");
 }
 if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
