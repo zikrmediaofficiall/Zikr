@@ -24,6 +24,7 @@ import {
   addCalendarDays,
   getPrayerAlertDateKey,
   getPrayerNotificationIdsToCancel,
+  getPrayerNotificationIdsToPreserveForUnresolvedDay,
   formatDateInTimeZone,
   getZonedDateTime,
 } from "@/features/prayer/services/prayer-notification-schedule";
@@ -166,13 +167,26 @@ async function scheduleNativePrayerNotificationsNow(
   const nativeAudio = getNativeAudio("prayer");
   const refreshedPrayerIds = new Set<number>();
   const scheduleEntries: Array<{ id: number; prayer: PrayerKey; scheduleAt: string }> = [];
+  const preserveUnresolvedDay = (dayOffset: number) => {
+    for (const id of getPrayerNotificationIdsToPreserveForUnresolvedDay({
+      dayOffset,
+      prayers: PRAYERS,
+      enabledPrayers: settings.enabledPrayers,
+      idBase: PRAYER_NATIVE_ID_BASE,
+    })) {
+      refreshedPrayerIds.add(id);
+    }
+  };
 
   // Resolve the complete refresh plan before cancelling existing alarms. A
-  // failed future-day lookup must not erase a valid alarm already on-device.
+  // failed or incomplete day lookup must not erase a valid alarm already on-device.
   for (let dayOffset = 0; dayOffset < PRAYER_SCHEDULE_DAYS; dayOffset += 1) {
     if (generation !== nativePrayerScheduleGeneration) return;
     const dateKey = addCalendarDays(today, dayOffset);
-    if (!dateKey) continue;
+    if (!dateKey) {
+      preserveUnresolvedDay(dayOffset);
+      continue;
+    }
 
     let dayTimings: Record<string, string> | null =
       dayOffset === 0 && timings && Object.keys(timings).length > 0
@@ -190,21 +204,25 @@ async function scheduleNativePrayerNotificationsNow(
         ? { ...providerTimings }
         : null;
     }
-    if (!dayTimings) continue;
+    if (!dayTimings) {
+      preserveUnresolvedDay(dayOffset);
+      continue;
+    }
 
-    for (const prayer of PRAYERS) {
+    for (const [prayerIndex, prayer] of PRAYERS.entries()) {
       if (!settings.enabledPrayers[prayer]) continue;
+      const id = PRAYER_NATIVE_ID_BASE + dayOffset * PRAYERS.length + prayerIndex;
       const scheduled = getZonedDateTime(
         dateKey,
         timeZone,
         dayTimings[prayer] ?? "",
       );
-      if (!scheduled) continue;
-
-      const id =
-        PRAYER_NATIVE_ID_BASE +
-        dayOffset * PRAYERS.length +
-        PRAYERS.indexOf(prayer);
+      if (!scheduled) {
+        // A partial provider response must not cancel the last known alarm for
+        // this enabled prayer; only a successfully resolved past time is stale.
+        refreshedPrayerIds.add(id);
+        continue;
+      }
       if (scheduled <= now) continue;
       // A past local time is a resolved schedule, but it must not preserve an
       // older on-device alarm that may still be pending after a timezone change.
