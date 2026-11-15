@@ -169,6 +169,7 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'بصمة المصدر أو المحتوى أو ملف الفيديو غير مكتملة؛ أعد تجهيز الفيديو قبل اعتماده.' }, { status: 422 });
       }
 
+      const approvalReviewContent = { ...reviewContent, approvalSnapshotHash };
       const reviewedAt = new Date().toISOString();
       const qualityReview = {
         ...Object.fromEntries(REQUIRED_VIDEO_APPROVAL_CHECKS.map((key) => [key, true])),
@@ -178,7 +179,7 @@ export async function PATCH(request: NextRequest) {
       };
       const catalogPatch = buildVideoCatalogApprovalPatch({
         metadata: catalog.metadata,
-        requestContent: currentContent,
+        requestContent: approvalReviewContent,
         requestId: id,
         videoUrl: current.video_url,
         sourceHash: current.source_hash,
@@ -194,7 +195,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       const updatedContent = {
-        ...reviewContent,
+        ...approvalReviewContent,
         approvalStatus: 'approved',
         approvalReviewerId: auth.profile.id,
         approvalReviewedAt: reviewedAt,
