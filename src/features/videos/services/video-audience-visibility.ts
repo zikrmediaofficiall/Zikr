@@ -51,7 +51,7 @@ export function hasExplicitKidsVideoIntentMarker(value: unknown): boolean {
   return isKidsVideoPublicPath(record.publicPath);
 }
 
-/** Legacy Kids story rows predate the explicit audience field. */
+/** Normalize encoded and traversal-shaped paths before classifying a Kids destination. */
 function isKidsVideoPublicPath(value: unknown): boolean {
   if (typeof value !== "string" || !value.trim()) return false;
   let pathname = value.trim();
@@ -83,6 +83,7 @@ function isKidsVideoPublicPath(value: unknown): boolean {
   return pathname === "/kids" || pathname.startsWith("/kids/");
 }
 
+/** Legacy Kids story rows predate the explicit audience field. */
 export function isLegacyKidsVideoStoryShape(value: unknown): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
