@@ -49,7 +49,9 @@ const STATUS_CLASSES: Record<Status, string> = {
   failed: "border-red-500/25 bg-red-500/10 text-red-300",
 };
 
-export default function AdminVideoRequestsClient() {
+type AdminVideoRequestsClientProps = { canManageKids: boolean };
+
+export default function AdminVideoRequestsClient({ canManageKids }: AdminVideoRequestsClientProps) {
   const [requests, setRequests] = useState<VideoGenerationRequest[]>([]);
   const [filter, setFilter] = useState<"all" | Status>("all");
   const [loading, setLoading] = useState(true);
@@ -311,6 +313,10 @@ export default function AdminVideoRequestsClient() {
               <section className="mt-6 space-y-4 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-5">
                 {isContentApproved(details.content) ? (
                   <div role="status" className="font-semibold text-emerald-200">تم تسجيل الاعتماد البشري؛ سيُعاد التحقق من الفيديو قبل أي نشر مجدول.</div>
+                ) : isKidsVideoContent(details.content) && !canManageKids ? (
+                  <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
+                    اعتماد فيديوهات الأطفال يتطلب صلاحية إدارة محتوى الأطفال بالإضافة إلى صلاحية إدارة الفيديوهات. يمكنك مراجعة التفاصيل، لكن لا يمكنك تسجيل الاعتماد.
+                  </div>
                 ) : (
                   <>
                     <h3 className="text-lg font-bold text-brand-gold">{isKidsVideoContent(details.content) ? "مراجعة بشرية إلزامية لفيديو الأطفال" : "مراجعة إلزامية قبل النشر العام"}</h3>
