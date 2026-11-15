@@ -531,6 +531,21 @@ assert.doesNotMatch(
   "video-generation deletion must not be authorized by the less-privileged video.manage permission",
 );
 
+const kidsVideoApprovalBlock = videoGenerationRoute.match(
+  /if \(action === ['"]approve_publish['"]\) \{[\s\S]*?(?=if \(action === ["']retry_publish["']\))/,
+)?.[0] ?? "";
+const kidsApprovalGatePosition = kidsVideoApprovalBlock.indexOf("requireAdminApi('kids.manage')");
+const kidsAudiencePosition = kidsVideoApprovalBlock.indexOf("const isKidsVideo = audience === 'kids'");
+const kidsApprovalRpcPosition = kidsVideoApprovalBlock.indexOf("admin_approve_video_generation_request");
+assert.ok(
+  kidsAudiencePosition >= 0 && kidsApprovalGatePosition > kidsAudiencePosition &&
+    kidsApprovalRpcPosition > kidsApprovalGatePosition,
+  "Kids video human approval must require kids.manage after audience resolution and before the atomic approval RPC",
+);
+const videoManagerRole = permissionService.match(/video_manager:\s*\[([\\s\\S]*?)\]/)?.[1] ?? "";
+assert.match(videoManagerRole, /'video\\.manage'/, "video managers retain general video review permission");
+assert.doesNotMatch(videoManagerRole, /'kids\\.manage'/, "video managers do not implicitly receive Kids content management permission");
+
 const clientPrivilegeHardeningMigration = readFileSync(
   "supabase/migrations/20261112103200_revoke_client_non_dml_table_privileges.sql",
   "utf8",
