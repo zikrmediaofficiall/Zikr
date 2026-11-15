@@ -351,8 +351,9 @@ const kidsSeriesFields = [
 const legacyCatalogMetadata = Object.fromEntries(
   Object.entries(catalogMetadata).filter(([key]) => !kidsSeriesFields.includes(key)),
 );
-const legacyRequestContent = { ...catalogRequestContent };
-delete legacyRequestContent.kidsVideoQaStatus;
+const legacyRequestContent = Object.fromEntries(
+  Object.entries(catalogRequestContent).filter(([key]) => key !== "kidsVideoQaStatus"),
+);
 const legacyKidsQaStatus = resolveKidsVideoQaStatusForApproval({
   requestContent: legacyRequestContent,
   catalogMetadata: legacyCatalogMetadata,
