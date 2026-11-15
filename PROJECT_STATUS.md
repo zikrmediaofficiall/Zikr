@@ -1,21 +1,42 @@
 # ZIKR Project Status
 
-## Latest audit continuation — 2026-11-15T13:46:52Z (verified code/test head)
+## Latest audit continuation — 2026-11-15 (verified code/test head)
 
-**State: OPEN / NOT MERGE-READY.** The code/test head `6b7f46b33f4ed2e1f776202f1d8c5890113b1e09` passed the full-scope Quality Gate. The inventory/status reconciliation below is a documentation-only child commit and must pass its own exact-head gate before this batch is called verified.
+**State: OPEN / NOT MERGE-READY.** The verified code/test head is `2e1c3c9ce6b84aca3e2d3b7d5ba6a79336cf4c92`. The full canonical Quality Gate passed on this exact SHA (run `43728160781`, conclusion `success`, log marker `QUALITY_GATE=PASSED_FULL`). CircleCI `config-guard`, `source-verify`, and `application-build-docs` all passed on the same head; the Android Native Login Debug APK workflow also passed (run `43728160831`). The branch is PR #320, based on production main `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. No owner review has been recorded, and no merge or deployment has occurred.
 
-- Repository: `zikrofficial-X/Zikr`; PR [#320](https://github.com/zikrofficial-X/Zikr/pull/320); branch `audit/zikr-kids-daily-priority-20261110`; base `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
-- **Verified code/test head:** `6b7f46b33f4ed2e1f776202f1d8c5890113b1e09`. [Quality Gate run 43720337695](https://github.com/zikrofficial-X/Zikr/actions/runs/43720337695) completed success with `QUALITY_GATE=PASSED_FULL`; its log confirms `pnpm verify` ran on this exact head. Deno checks and all 15 PostgreSQL 17 integration checks passed. CircleCI `config-guard`, `application-build-docs`, and `source-verify` are success.
-- **Current inventory:** 2428 recursive tree entries (1929 blobs, 499 directories); PR #320 changes 595 paths (267 added, 328 modified, 0 deleted). The reconciled manifest has 2425 rows after self-reference exclusions. The reconciled overlay has 593 rows after excluding its own file and the paired manifest.
-- **Reconciled overlay status:** CONTENT_READ_PENDING_TRACE=19, CONTENT_READ_TESTED_PASS=322, FIXED_TESTED_PENDING_LIVE_APPLY=28, REVIEW_REQUIRED=218, SUPERSEDED_SNAPSHOT=6. A changed blob SHA invalidates its previous content-review status; stale paths not re-read in this batch are marked `REVIEW_REQUIRED`, not carried forward as passed.
-- **Inventory defect fixed in this documentation batch:** the previous manifest had 10 absent current paths and 67 SHA mismatches; the previous overlay had 10 missing PR paths and 39 stale SHA rows. The new manifest records every non-self-referential blob/tree; the overlay records every PR-changed path except its own file and the paired manifest.
-- **Review batch:** read the Kids video public-read migration and PostgreSQL integration fixtures, audience/source visibility contract, Kids social queue/detail resolver and regression suite, memorization evaluation/action/recorder, prayer-push cron reconciliation and site-audio orphan-retention safety path. No new reproducible source-code defect was confirmed. `src/lib/supabase/array-response.ts` remains review-required because its import/consumer trace is not yet established.
-- **Governance:** PR #320 remains open and unmerged, with no submitted reviews or requested reviewers. `.github/CODEOWNERS` requires `@Zikrmediaofficial`. No merge or deployment is attempted before owner review and protected-branch acceptance.
-- **Production safety:** no production migration/DDL/DML, Edge Function deploy, cron change, Gemini request, content generation, social publishing, Storage/media/index/secret deletion, Android/iOS release, Vercel deployment or production smoke test was performed. Automatic Vercel Git deployments are disabled; manual release remains owner-gated.
-- **Remaining acceptance:** full review of the remaining overlay paths, owner/CODEOWNERS approval, protected-branch checks, approved production rollout, manual Vercel deployment and smoke checks, and real Android/iOS/OAuth/push device validation. The project is not declared error-free or closed.
+### Verified repair batches since the prior `6b7f46b33f4ed2e1f776202f1d8c5890113b1e09` checkpoint
 
----
+- The admin video-factory create route now rejects an unknown/invalid audience before inserting a generation request; the focused regression test and static contract passed.
+- Production smoke coverage now includes the public Kids video library route and its response contract.
+- The one-off legacy Video QA backfill now validates the canonical Supabase project reference before its first database read and requires both `--apply`, `BACKFILL_APPLY=true`, and the exact `BACKFILL_CONFIRMATION=APPLY_QA_BACKFILL` value before any write. The workflow passes the fixed project reference and typed confirmation. Only dry-run/static tests were run; no backfill apply occurred.
+- Video-provider contract tests now prove that the scheduled free-only worker enables the public Hugging Face providers and cannot make Gemini planning requests even if a Gemini key is present. No content-generation workflow was dispatched.
 
+The latest verification run included the full `pnpm verify` suite, PostgreSQL 17 migration replay/integration checks, Deno checks, and production build. It did not invoke production migrations, Edge Function deployment, Gemini, video generation, social publishing, storage cleanup, or an Android release.
+
+### Repository and closeout inventory
+
+- PR #320: 597 changed paths (269 added, 328 modified, 0 deleted).
+- Repository inventory: 2,429 recursive tree entries (1,930 blobs and 499 directories).
+- Reconciled manifest target: 2,426 entries (the manifest excludes its own blob and the two containing directory-tree entries).
+- Reconciled file-status overlay target: 595 PR paths, excluding the manifest and the overlay itself.
+- Status target for the overlay: 333 `CONTENT_READ_TESTED_PASS`, 210 `REVIEW_REQUIRED`, 18 `PENDING_TRACE`, 28 `FIXED_TESTED_PENDING_LIVE_APPLY`, and 6 `SUPERSEDED`. The repository is not fully reviewed or closed.
+
+### Production safety findings — read-only inspection only
+
+- The live social queue contains 14 Kids `other_video` rows linked to completed generation requests: 11 already published, 1 partial, and 2 queued. All 14 are system-reviewed, have no human review record, and lack `kidsVideoQaStatus`. Production main's `publish-social` workflow runs every 15 minutes and explicitly says manual video approval is not required. The new PR gate is not live on main. **Owner action is urgent:** temporarily hold the main social publisher/these three nonterminal rows before another scheduled attempt, and separately decide what to do with the 11 already-published external posts. No queue row or workflow was changed by this audit.
+- There are 30 completed Kids generation requests with system approval and automated QA passed but no Kids-specific QA status. The public Kids video catalog currently has 31 published internal rows with Kids QA passed; the library's QA gate is distinct from the new human gate for external social delivery.
+- Production `kids_content_public_read` still permits every `published=true` row. A read-only count found 20 published stories without `age_appropriate=true`; the application service filters them, but direct public PostgREST reads are not equivalently restricted. Migration `20261110212000_kids_content_public_read_respects_active_state.sql` adds the database-level active/age-appropriate predicate and is not applied.
+- Production `videos_public_read` is also still `published=true` only. The 31 currently published Kids catalog rows pass Kids QA, but the defense-in-depth predicate in `20261114210000_restrict_public_kids_video_read_to_qa_passed.sql` is not applied.
+- Authenticated table privileges plus admin RLS policies still permit direct writes to `social_publish_queue`, `video_generation_requests`, `kids_content`, `videos`, `media_assets`, and `site_audio_assets`; `super_admin` can directly write `admin_role_assignments`. These paths can bypass the server-side step-up/audit workflows. Migrations `20261111050000_admin_role_assignments_service_role_only.sql` and `20261113190000_harden_admin_managed_content_write_permissions.sql` revoke those direct writes and are not applied.
+- Production migration history has 418 applied versions (latest `20261110170000`); the repository contains 444 migrations (latest `20261115070000`): 26 are pending. No production migration was pushed.
+- The live `zikr-prayer-push-dispatch` pg_cron job is already a single active every-minute job pointing to the canonical Supabase project; the latest cron reconciliation migration should be a no-op for that job.
+- Vercel production remains READY on main SHA `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. There were no production error logs in the last 30 minutes and one transient `fetch failed`/remote socket-close event in the last 24 hours; the older event's detailed logs are outside the available retention window. No candidate deployment or production smoke was run.
+
+### Remaining gates
+
+The remaining 210 review-required paths and 18 pending-trace paths still need actual content review and code-path tracing. The 28 live-apply items require owner-approved, separately verified procedures; the 6 superseded items remain historical. PR #320 still requires CODEOWNERS/owner review. Production queue holds, the 26 migrations, Edge Function deployment, Vercel release/smoke, and decisions about already-published Kids posts are owner-gated. Android debug compilation is not device acceptance; real Android OAuth/login/push testing, iOS build/signing/device acceptance, and provider/account acceptance remain manual. Do not treat the project as error-free or closed.
+
+No production data, storage object, media, index, secret, release, queue row, workflow, or resource was deleted or mutated by this audit. No social publishing, content generation, Gemini request, production migration, Edge Function deployment, Android release, merge, Vercel deployment, or production smoke was triggered.
 ## Latest audit continuation — 2026-11-15T08:24Z
 
 **State: OPEN / NOT MERGE-READY.** The exact code/test head `cfaf0f6bc2d3cde9d4c8f16beebb7c4bd0898896` passed the full-scope verification suite. The documentation refresh in this commit is a child of that verified code/test head and must receive its own exact-head CI verification.
