@@ -8,6 +8,7 @@ import {
   classifyKidsVideoGenerationRequestId,
   resolveKidsVideoSocialPublication,
 } from "../../src/features/social/services/kids-video-social-visibility";
+import { resolveKidsVideoSocialPublicationForDetail } from "../../src/features/social/services/kids-video-social-detail";
 
 const requestId = "60000000-0000-4000-8000-000000000001";
 const queueId = (value: number) =>
@@ -164,6 +165,83 @@ assert.deepEqual(
     publishedAt: "2026-11-14T23:00:00.000Z",
   },
   "only rows with no generation request ID may use the legacy catalog fallback",
+);
+
+const publishedDetail = await resolveKidsVideoSocialPublicationForDetail(
+  requestId,
+  staleCatalogPublication,
+  async <T>(_path: string) => [confirmedQueuePublication] as unknown as T,
+);
+assert.deepEqual(
+  publishedDetail,
+  {
+    status: "verified",
+    publication: {
+      status: "published",
+      platforms: ["facebook"],
+      publishedAt: "2026-11-15T05:00:00.000Z",
+    },
+  },
+  "a detail page must use confirmed live queue delivery state",
+);
+
+const emptyDetail = await resolveKidsVideoSocialPublicationForDetail(
+  requestId,
+  staleCatalogPublication,
+  async <T>(_path: string) => [] as unknown as T,
+);
+assert.deepEqual(
+  emptyDetail,
+  { status: "verified", publication: null },
+  "a successful empty queue read must be distinguished from an unavailable read",
+);
+
+const unavailableDetail = await resolveKidsVideoSocialPublicationForDetail(
+  requestId,
+  staleCatalogPublication,
+  async <T>(_path: string) => {
+    throw new Error("simulated queue read failure");
+  },
+);
+assert.deepEqual(
+  unavailableDetail,
+  { status: "unavailable", reason: "queue_read_failed", publication: null },
+  "a failed queue read must be shown as unknown rather than not published",
+);
+
+let invalidDetailCalls = 0;
+const invalidDetail = await resolveKidsVideoSocialPublicationForDetail(
+  "not-a-request-id",
+  staleCatalogPublication,
+  async <T>(_path: string) => {
+    invalidDetailCalls += 1;
+    return [] as unknown as T;
+  },
+);
+assert.deepEqual(
+  invalidDetail,
+  { status: "unavailable", reason: "invalid_request_id", publication: null },
+);
+assert.equal(invalidDetailCalls, 0, "invalid request IDs must never trigger a queue lookup");
+
+const legacyDetail = await resolveKidsVideoSocialPublicationForDetail(
+  null,
+  staleCatalogPublication,
+  async <T>(_path: string) => {
+    throw new Error("legacy rows must not need a queue lookup");
+  },
+);
+assert.deepEqual(
+  legacyDetail,
+  {
+    status: "verified",
+    publication: {
+      status: "published",
+      platforms: ["youtube"],
+      publishedAt: "2026-11-14T23:00:00.000Z",
+    },
+  },
+  "only rows with no request ID may use the legacy catalog fallback",
 );
 
 console.log("Kids social queue pagination, request-ID classification, and fail-closed publication visibility passed.");
