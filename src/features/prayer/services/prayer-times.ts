@@ -4,9 +4,33 @@ import { ServiceError } from '@/lib/types/common';
 // Use local API proxy to avoid CORS and crawl issues
 const API_BASE = '/api/prayer-times';
 const CACHE_TTL_MS = 60_000;
+const MAX_PRAYER_TIMES_CACHE_ENTRIES = 100;
 
 const prayerTimesCache = new Map<string, { expiresAt: number; data: PrayerTimesResponse | null }>();
 const prayerTimesInFlight = new Map<string, Promise<PrayerTimesResponse | null>>();
+
+function prunePrayerTimesCache(now: number): void {
+  for (const [key, entry] of prayerTimesCache) {
+    if (entry.expiresAt <= now) prayerTimesCache.delete(key);
+  }
+
+  while (prayerTimesCache.size >= MAX_PRAYER_TIMES_CACHE_ENTRIES) {
+    const oldestKey = prayerTimesCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    prayerTimesCache.delete(oldestKey);
+  }
+}
+
+function isValidPrayerDate(date: string | undefined): boolean {
+  if (date === undefined) return true;
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return false;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(date);
+}
+
+function isValidCalculationMethod(method: number): boolean {
+  return Number.isInteger(method) && method >= 0 && method <= 99;
+}
 
 export interface PrayerTime {
   Fajr: string;
@@ -103,11 +127,27 @@ export async function getPrayerTimes(
   date?: string,
   method: number = 4,
 ): Promise<PrayerTimesResponse | null> {
-  const cacheKey = buildPrayerCacheKey(latitude, longitude, date, method);
+  const validLatitude = parsePrayerCoordinate(latitude, -90, 90);
+  const validLongitude = parsePrayerCoordinate(longitude, -180, 180);
+  if (
+    validLatitude === null ||
+    validLongitude === null ||
+    !isValidPrayerDate(date) ||
+    !isValidCalculationMethod(method)
+  ) {
+    return null;
+  }
+
+  const cacheKey = buildPrayerCacheKey(validLatitude, validLongitude, date, method);
   const now = Date.now();
   const cached = prayerTimesCache.get(cacheKey);
 
-  if (cached && cached.expiresAt > now) return cached.data;
+  if (cached && cached.expiresAt > now) {
+    prayerTimesCache.delete(cacheKey);
+    prayerTimesCache.set(cacheKey, cached);
+    return cached.data;
+  }
+  if (cached) prayerTimesCache.delete(cacheKey);
 
   const existingRequest = prayerTimesInFlight.get(cacheKey);
   if (existingRequest) return existingRequest;
@@ -115,6 +155,7 @@ export async function getPrayerTimes(
   const request = (async () => {
     try {
       const data = await fetchPrayerTimesUncached(latitude, longitude, date, method);
+      prunePrayerTimesCache(Date.now());
       prayerTimesCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
       return data;
     } catch (error) {
@@ -140,12 +181,21 @@ export async function getPrayerTimesByCity(
   method: number = 4,
 ): Promise<PrayerTimesResponse | null> {
   const cleanCity = city.trim();
-  if (!cleanCity) return null;
+  const cleanCountry = country?.trim() ?? "";
+  if (
+    !cleanCity ||
+    cleanCity.length > 120 ||
+    cleanCountry.length > 120 ||
+    !isValidPrayerDate(date) ||
+    !isValidCalculationMethod(method)
+  ) {
+    return null;
+  }
 
   const cacheKey = [
     'city',
     cleanCity.toLowerCase(),
-    country?.trim().toLowerCase() ?? '',
+    cleanCountry.toLowerCase(),
     date ?? 'today',
     method,
   ].join('|');
@@ -162,15 +212,16 @@ export async function getPrayerTimesByCity(
       const params = new URLSearchParams({ method: method.toString() });
       if (date) params.append('date', date);
 
-      if (country?.trim()) {
+      if (cleanCountry) {
         params.append('city', cleanCity);
-        params.append('country', country.trim());
+        params.append('country', cleanCountry);
       } else {
         params.append('address', cleanCity);
       }
 
       const { data } = await safeApiFetch<PrayerTimesResponse>(`${API_BASE}?${params.toString()}`);
       const result = data || null;
+      prunePrayerTimesCache(Date.now());
       prayerTimesCache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
       return result;
     } catch (error) {

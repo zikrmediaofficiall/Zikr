@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { getCurrentPrayer, getNextPrayer, parsePrayerTimeMinutes, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
+import { getCurrentPrayer, getNextPrayer, getPrayerTimes, parsePrayerTimeMinutes, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
+import { normalizeSavedPrayerLocation } from "../../src/features/prayer/services/saved-prayer-location";
 import { readFileSync } from "node:fs";
 import { parsePrayerCoordinate } from "../../src/features/prayer/services/prayer-location-validation";
 import {
@@ -220,4 +221,62 @@ assert.match(prayerLocationMigration, /SET search_path = ''/);
 assert.match(prayerLocationMigration, /pg_advisory_xact_lock/);
 assert.match(prayerLocationMigration, /GRANT EXECUTE ON FUNCTION public\.save_default_prayer_location/);
 
-console.log("Prayer-time next-prayer, selected-location scheduling, and push-location contracts passed.");
+
+assert.deepEqual(
+  normalizeSavedPrayerLocation({
+    city: " Alexandria ",
+    country: " Egypt ",
+    latitude: "31.2000",
+    longitude: "29.9000",
+    timezone: "Africa/Cairo",
+  }),
+  {
+    id: undefined,
+    city: "Alexandria",
+    country: "Egypt",
+    latitude: 31.2,
+    longitude: 29.9,
+    timezone: "Africa/Cairo",
+    isDefault: true,
+    updatedAt: null,
+  },
+);
+for (const invalidLocation of [
+  { city: "Alexandria", latitude: "", longitude: 29.9, timezone: "Africa/Cairo" },
+  { city: "Alexandria", latitude: 91, longitude: 29.9, timezone: "Africa/Cairo" },
+  { city: "Alexandria", latitude: 31.2, longitude: 181, timezone: "Africa/Cairo" },
+  { city: "Alexandria", latitude: 31.2, longitude: 29.9, timezone: "Invalid/Timezone" },
+]) {
+  assert.equal(normalizeSavedPrayerLocation(invalidLocation), null,
+    "saved prayer locations must reject blank/out-of-range coordinates and invalid timezones");
+}
+
+const originalFetch = globalThis.fetch;
+let prayerFetchCalls = 0;
+globalThis.fetch = async () => {
+  prayerFetchCalls += 1;
+  return new Response(JSON.stringify({ code: 200, status: "OK", data: {} }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+};
+try {
+  assert.notEqual(await getPrayerTimes(1, 1, "2026-06-15", 4), null);
+  const firstCallCount = prayerFetchCalls;
+  await getPrayerTimes(1, 1, "2026-06-15", 4);
+  assert.equal(prayerFetchCalls, firstCallCount, "identical prayer-time requests must use the TTL cache");
+
+  for (let index = 0; index < 110; index += 1) {
+    await getPrayerTimes(10 + index / 1000, 20 + index / 1000, "2026-06-15", 4);
+  }
+  const beforeOldestLookup = prayerFetchCalls;
+  await getPrayerTimes(1, 1, "2026-06-15", 4);
+  assert.equal(prayerFetchCalls, beforeOldestLookup + 1,
+    "the bounded cache must evict the least-recently-used location instead of growing without limit");
+  assert.equal(await getPrayerTimes(91, 1, "2026-06-15", 4), null,
+    "invalid coordinates must not be sent to the prayer-times API");
+} finally {
+  globalThis.fetch = originalFetch;
+}
+
+console.log("Prayer-time next-prayer, bounded cache, saved-location validation, and push-location contracts passed.");
