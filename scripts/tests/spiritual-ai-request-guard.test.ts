@@ -133,4 +133,26 @@ assert.equal(
   "only the no-store helper may construct a raw Response.json response",
 );
 
+
+const memorizationActionSource = readFileSync("src/app/memorization/actions.ts", "utf8");
+const memorizationRecorderSource = readFileSync("src/app/memorization/voice-recorder.tsx", "utf8");
+const memorizationConstantsSource = readFileSync("src/features/memorization/constants.ts", "utf8");
+const nextConfigSource = readFileSync("next.config.ts", "utf8");
+assert.match(memorizationActionSource, /if \(!hasAudio && !hasTarget && !hasExpected\)/,
+  "memorization evaluation must reject only an empty request, not require audio unconditionally");
+assert.match(memorizationActionSource, /audioProvided: false/,
+  "text-only memorization requests must explicitly disable audio-evaluation claims");
+assert.match(memorizationActionSource, /generateGeminiText\(textFallbackPrompt/,
+  "text-only memorization requests must use the study-plan prompt");
+const memorizationSubmitButton = memorizationRecorderSource.match(/<Button type='submit'[\s\S]*?<\/Button>/)?.[0] ?? "";
+assert.match(memorizationSubmitButton, /disabled=\{isPending\}/,
+  "the evaluation form must allow the text-only study-plan path when no audio blob exists");
+assert.doesNotMatch(memorizationSubmitButton, /!audioBlob/,
+  "absence of a recording must not disable the supported text-only study-plan path");
+assert.match(memorizationSubmitButton, /إنشاء خطة مراجعة/,
+  "the no-audio submit label must describe the study-plan action accurately");
+assert.match(memorizationConstantsSource, /MAX_MEMORIZATION_AUDIO_BYTES = 3 \* 1024 \* 1024/);
+assert.match(nextConfigSource, /serverActions:\s*\{\s*bodySizeLimit:\s*'4mb'\s*\}/,
+  "the server-action body limit must remain above the 3 MiB recording limit");
+
 console.log('Spiritual AI request guard passed: bounded input, rate limiting, source-safe prompts, and question classification.');
