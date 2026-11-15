@@ -5,6 +5,12 @@ import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 import { classifyKidsVideoGenerationRequestId, getConfirmedPublicKidsVideoSocialPlatforms, resolveKidsVideoSocialPublication } from "@/features/social/services/kids-video-social-visibility";
 import { loadKidsSocialQueueRows, type KidsSocialQueueRow } from "@/features/social/services/kids-video-social-query";
 import { resolveKidsVideoPublicDisclosure } from "@/features/videos/services/video-source-contract";
+import {
+  buildVideoApprovalSnapshotHashForRequest,
+  isHumanVideoApprovalRecorded,
+  resolveKidsVideoQaStatusForApproval,
+  type VideoPublishRequestSnapshot,
+} from "@/features/videos/services/video-publish-approval";
 
 export const dynamic = "force-dynamic";
 
@@ -20,22 +26,23 @@ function confirmedSocialPlatforms(row: KidsSocialQueueRow): string[] {
 
 export async function GET() {
   try {
-    // This service enforces published=true, audience=kids, the Kids generator marker,
-    // a passed Kids-specific automated QA snapshot, and playable media.
+    // The service enforces published=true, Kids automated QA, a matching current
+    // generation-request fingerprint, a distinct human review, and playable media.
     const videos = await getKidsGeneratedVideos(60);
     const requestIds = [...new Set(videos.flatMap((video) => {
       const state = classifyKidsVideoGenerationRequestId(video.metadata?.videoGenerationRequestId);
       return state.kind === "valid" ? [state.id] : [];
     }))];
 
-    let requestContentById = new Map<string, Record<string, unknown>>();
+    const requestById = new Map<string, VideoPublishRequestSnapshot & { id: string }>();
     const socialQueueByRequestId = new Map<string, KidsSocialQueueRow[]>();
     let socialQueueReadSucceeded = requestIds.length === 0;
     if (requestIds.length > 0) {
       const filter = requestIds.map(encodeURIComponent).join(",");
       const [requestsResult, socialRowsResult] = await Promise.allSettled([
-        supabaseServerAdminRequest<Array<{ id: string; content: unknown }>>(
-          "/rest/v1/video_generation_requests?id=in.(" + filter + ")&status=eq.completed&select=id,content",
+        supabaseServerAdminRequest<Array<VideoPublishRequestSnapshot & { id: string }>>(
+          "/rest/v1/video_generation_requests?id=in.(" + filter + ")&status=eq.completed&select=id,status,category,video_url,source_hash,content_hash,template_version,content",
+          { timeoutMs: 8000, retries: 1, cache: "no-store" },
         ),
         // Include every Kids queue state so a newer supplemental or failed row
         // cannot hide an older confirmed publication or leave a stale badge.
@@ -44,7 +51,7 @@ export async function GET() {
       const requests = requestsResult.status === "fulfilled" ? requestsResult.value : [];
       const socialRows = socialRowsResult.status === "fulfilled" ? socialRowsResult.value : [];
       if (requestsResult.status === "rejected") {
-        console.warn("[api/kids/videos] Could not load linked story text:", requestsResult.reason);
+        throw new Error("Could not validate current Kids video approval snapshots.");
       }
       if (socialRowsResult.status === "fulfilled") {
         socialQueueReadSucceeded = true;
@@ -52,11 +59,13 @@ export async function GET() {
         console.warn("[api/kids/videos] Could not load linked social posts:", socialRowsResult.reason);
       }
 
-      requestContentById = new Map<string, Record<string, unknown>>();
       for (const row of requests ?? []) {
         const content = asRecord(row.content);
-        if (!isKidsVideoGenerationRequestContent(content)) continue;
-        requestContentById.set(row.id, content);
+        const snapshotHash = buildVideoApprovalSnapshotHashForRequest(row);
+        if (!isKidsVideoGenerationRequestContent(content) ||
+            !snapshotHash ||
+            !isHumanVideoApprovalRecorded(content, snapshotHash)) continue;
+        requestById.set(row.id, row);
       }
       for (const row of socialRows ?? []) {
         if (!row.content_id) continue;
@@ -66,11 +75,32 @@ export async function GET() {
       }
     }
 
-    const feed = videos.map((video) => {
+    const feed = videos.flatMap((video) => {
       const metadata = video.metadata ?? {};
       const requestIdState = classifyKidsVideoGenerationRequestId(metadata.videoGenerationRequestId);
       const requestId = requestIdState.kind === "valid" ? requestIdState.id : "";
-      const requestContent = requestContentById.get(requestId) ?? {};
+      const request = requestById.get(requestId);
+      const requestContent = request ? asRecord(request.content) : {};
+      const snapshotHash = request ? buildVideoApprovalSnapshotHashForRequest(request) : null;
+      const approvedCatalogSnapshot = Boolean(
+        request &&
+        snapshotHash &&
+        isHumanVideoApprovalRecorded(requestContent, snapshotHash) &&
+        isHumanVideoApprovalRecorded(metadata, snapshotHash) &&
+        metadata.approvalSnapshotHash === snapshotHash &&
+        metadata.approvalReviewerId === requestContent.approvalReviewerId &&
+        metadata.approvalReviewedAt === requestContent.approvalReviewedAt &&
+        resolveKidsVideoQaStatusForApproval({
+          requestContent,
+          catalogMetadata: metadata,
+          requestId,
+          videoUrl: request.video_url ?? "",
+          sourceHash: request.source_hash,
+          contentHash: request.content_hash,
+          templateVersion: request.template_version,
+        }) === "passed"
+      );
+      if (!approvedCatalogSnapshot) return [];
       const socialQueueRows = requestIdState.kind === "valid"
         ? socialQueueByRequestId.get(requestId) ?? []
         : [];
@@ -86,7 +116,7 @@ export async function GET() {
           : null;
       const disclosure = resolveKidsVideoPublicDisclosure(metadata, video.description, socialCaption);
 
-      return {
+      return [{
         id: video.id,
         title: video.title,
         slug: video.slug,
@@ -123,7 +153,7 @@ export async function GET() {
           requestIdState.kind !== "valid" || !socialQueueReadSucceeded
             ? "unavailable"
             : "verified",
-      };
+      }];
     });
 
     return NextResponse.json(feed, {
