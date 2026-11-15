@@ -11,7 +11,7 @@
 | GET | `/api/admin/media` | `media.manage` |
 | POST | `/api/admin/media` | `media.manage` |
 | PATCH | `/api/admin/media` | `media.manage` |
-| GET | `/api/admin/overview` | `dashboard.view`; internal video queue counts additionally require `video.manage`; no cross-domain table totals or retired external social queue are returned |
+| GET | `/api/admin/overview` | `dashboard.view` |
 | POST | `/api/admin/page-view` | `admin.access` — records the current admin route after removing query strings and fragments; it is write-only telemetry, not analytics data access |
 | GET | `/api/admin/sections` | `sections.manage` |
 | POST | `/api/admin/sections` | `sections.manage` |
@@ -49,6 +49,8 @@
 | POST | `/api/admin/youtube-facebook/upload-url` | `media.manage` — retired, HTTP 410 |
 
 ## ثوابت إضافية
+
+- استجابة GET `/api/admin/overview` لا تعيد إجماليات جداول متعددة المجالات أو طابور النشر الاجتماعي الخارجي المتقاعد؛ لا تُضمّن أعداد طابور توليد الفيديو إلا لمن يملك `video.manage`، بينما تظل صلاحية دخول المسار نفسها `dashboard.view`.
 
 - مسارات OAuth الخاصة بـFacebook وYouTube ومسارات إدارة طابور النشر الاجتماعي فعّالة ومحمية بالصلاحيات المدرجة أعلاه؛ عمليات النشر/التوليد الحساسة تتطلب `social.publish` مع MFA step-up.
 - بدء OAuth الخاص بـFacebook يتطلب `social.manage` و`social.publish` مع MFA step-up. Callback يتحقق من state ويحفظ اعتماد الصفحة فقط؛ لا يعيد فتح عناصر الطابور ولا يطلق النشر. اعتماد توكن الخادم يتحقق من التوكن ويحفظه فقط، ولا يستأنف الطابور. استئناف العناصر المحجوبة حصريًا عبر `release_auth_blocked_queue` داخل POST `/api/admin/social`، ويتطلب `social.publish` وMFA وتأكيدًا صريحًا والتحقق من اتصال الصفحة؛ ولا يعيد إلا العناصر التي تقع ضمن `SOCIAL_PUBLISH_AFTER`، وتظل العناصر التاريخية الأقدم محجوبة.
