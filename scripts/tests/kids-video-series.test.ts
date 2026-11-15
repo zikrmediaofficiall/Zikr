@@ -323,10 +323,14 @@ assert.ok(
 const kidsVideoServiceSource = readFileSync("src/features/videos/services/videos.ts", "utf8");
 const detailResolverSource = readFileSync("src/features/social/services/kids-video-social-detail.ts", "utf8");
 assert.ok(kidsVideoServiceSource.includes("resolveKidsVideoSocialPublicationForDetail"));
-assert.ok(detailResolverSource.includes('requestIdState.kind === "missing"'));
 assert.ok(
-  detailResolverSource.includes("resolveKidsVideoSocialPublication([], stored, true, true)"),
-  "the detail feed must use stored legacy publication metadata only when no request ID exists",
+  detailResolverSource.includes('requestIdState.kind !== "valid"'),
+  "the detail feed must fail closed when a generation request ID is missing or invalid",
+);
+assert.ok(
+  !detailResolverSource.includes("storedSocialPublication") &&
+    !detailResolverSource.includes("resolveKidsVideoSocialPublication([], stored, true, true)"),
+  "the detail feed must never fall back to stale catalog publication metadata",
 );
 assert.ok(
   detailResolverSource.includes('requestIdState.kind === "invalid"') &&
