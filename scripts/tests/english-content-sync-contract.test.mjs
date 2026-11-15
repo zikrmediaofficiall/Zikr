@@ -101,7 +101,7 @@ assert.ok(
   "required Gemini credentials must be narrowed to a string before the model factory captures the key",
 );
 assert.ok(
-  articleSync.includes('const supabaseUrl = requireEnvironmentValue("SUPABASE_URL");') &&
+  articleSync.includes('const supabaseUrl = assertCanonicalSupabaseProjectUrl(requireEnvironmentValue("SUPABASE_URL"));') &&
     articleSync.includes('const serviceRoleKey = requireEnvironmentValue("SUPABASE_SERVICE_ROLE_KEY");'),
   "Supabase URL and service-role credentials must be validated and narrowed before any queue recovery request",
 );
