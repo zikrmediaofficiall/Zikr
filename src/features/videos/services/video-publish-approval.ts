@@ -28,6 +28,75 @@ export function hasCompleteKidsVideoSeriesMetadata(value: unknown): boolean {
     Number.isInteger(Number(content.seasonNumber)) && Number(content.seasonNumber) > 0 &&
     Number.isInteger(Number(content.episodeNumber)) && Number(content.episodeNumber) > 0;
 }
+
+const KIDS_SERIES_METADATA_FIELDS = [
+  "contentFormat",
+  "aiMode",
+  "sourceType",
+  "seriesId",
+  "seriesTitle",
+  "learningObjective",
+  "seasonNumber",
+  "episodeNumber",
+] as const;
+
+function buildKidsSeriesMetadataPatch(requestContent: Record<string, unknown>, metadata: Record<string, unknown>): Record<string, unknown> | null {
+  if (!hasCompleteKidsVideoSeriesMetadata(requestContent)) return null;
+  const patch: Record<string, unknown> = {};
+  for (const field of KIDS_SERIES_METADATA_FIELDS) {
+    const requested = requestContent[field];
+    const existing = metadata[field];
+    if (existing !== undefined && existing !== null && existing !== "") {
+      const matches = field === "seasonNumber" || field === "episodeNumber"
+        ? Number(existing) === Number(requested)
+        : String(existing).trim() === String(requested).trim();
+      if (!matches) return null;
+    }
+    patch[field] = requested;
+  }
+  return patch;
+}
+
+/**
+ * Legacy Kids requests stored the QA result on the catalog row, while the
+ * request JSON omitted kidsVideoQaStatus. Derive only from a catalog row
+ * tied to the same request, URL, hashes, template and automated-QA snapshot.
+ */
+export function resolveKidsVideoQaStatusForApproval(input: {
+  requestContent: unknown;
+  catalogMetadata: unknown;
+  requestId: string;
+  videoUrl: string;
+  sourceHash: string | null;
+  contentHash: string | null;
+  templateVersion: string | null;
+}): "passed" | null {
+  const requestContent = record(input.requestContent);
+  const metadata = record(input.catalogMetadata);
+  const requestQa = record(requestContent?.automatedVideoQa);
+  const metadataQa = record(metadata?.automatedVideoQa);
+  if (!requestContent || !metadata || normalizeVideoAudience(requestContent.audience, false) !== "kids") return null;
+  if (requestContent.kidsVideoQaStatus != null && normalizeVideoMarker(requestContent.kidsVideoQaStatus) !== "passed") return null;
+  if (
+    normalizeVideoMarker(metadata.kidsVideoQaStatus) !== "passed" ||
+    metadata.generator !== "zikr_internal_video_factory" ||
+    metadata.videoGenerationRequestId !== input.requestId ||
+    metadata.generatedVideoUrl !== input.videoUrl ||
+    metadata.sourceHash !== input.sourceHash ||
+    metadata.contentHash !== input.contentHash ||
+    metadata.templateVersion !== input.templateVersion ||
+    normalizeVideoAudience(metadata.audience, false) !== "kids" ||
+    requestQa?.status !== "passed" ||
+    metadataQa?.status !== "passed" ||
+    typeof requestQa.snapshotHash !== "string" ||
+    !requestQa.snapshotHash ||
+    metadataQa.snapshotHash !== requestQa.snapshotHash ||
+    metadata.mediaState === "purged" ||
+    metadata.mediaState === "unlinked" ||
+    metadata.sourceMediaMissing === true
+  ) return null;
+  return "passed";
+}
 export function hasCompleteVideoApprovalChecklist(value: unknown): value is VideoApprovalChecklist {
   const checklist = record(value);
   return REQUIRED_VIDEO_APPROVAL_CHECKS.every((key) => checklist?.[key] === true);
@@ -167,14 +236,14 @@ export function buildVideoCatalogApprovalPatch(input: {
     metadata.sourceMediaMissing === true
   ) return null;
 
-  if (audience === "kids") {
-    if (
-      normalizeVideoMarker(requestContent.kidsVideoQaStatus) !== "passed" ||
-      normalizeVideoMarker(metadata.kidsVideoQaStatus) !== "passed" ||
-      !hasCompleteKidsVideoSeriesMetadata(requestContent) ||
-      !hasCompleteKidsVideoSeriesMetadata(metadata)
-    ) return null;
-  }
+  const kidsSeriesMetadataPatch = audience === "kids"
+    ? buildKidsSeriesMetadataPatch(requestContent, metadata)
+    : null;
+  if (audience === "kids" && (
+    normalizeVideoMarker(requestContent.kidsVideoQaStatus) !== "passed" ||
+    normalizeVideoMarker(metadata.kidsVideoQaStatus) !== "passed" ||
+    !kidsSeriesMetadataPatch
+  )) return null;
 
   const qualityReview = {
     ...input.checks,
@@ -185,6 +254,7 @@ export function buildVideoCatalogApprovalPatch(input: {
   return {
     metadata: {
       ...metadata,
+      ...(kidsSeriesMetadataPatch ?? {}),
       approvalStatus: "approved",
       approvalReviewerId: reviewerId,
       approvalReviewedAt: input.reviewedAt,
