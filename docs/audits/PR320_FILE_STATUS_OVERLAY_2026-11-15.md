@@ -1,7 +1,7 @@
 # PR #320 file-status overlay — 2026-11-15
-Code/test head: `ce56d065a640b4e5ee38024a28179db15e0a6817`. Current repository/docs/manifest head: `ad35d9c120f9701ec1f632eca1c346ef8150f734`. Exact-head checks: Quality Gate 43760269272 passed; CircleCI Config Validation 43760269290 passed; Android Native Login Debug APK 43760269291 passed. Supabase Preview check 132938540531 was skipped because this branch is not associated with a Supabase Branch; it is not a pass.
+Code/test head: `ce56d065a640b4e5ee38024a28179db15e0a6817`. Current repository/docs/manifest head: `b20d80d415ec890c3aac4663561ad8f2d758f146`. Exact-head checks: Quality Gate 43760844613 passed; CircleCI Config Validation 43760844628 passed; Android Native Login Debug APK 43760844638 passed. Supabase Preview check 132938540531 was skipped because this branch is not associated with a Supabase Branch; it is not a pass.
 Base: `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
-PR changed paths: 625 (96,283 additions, 6,573 deletions; 0 deleted paths).
+PR changed paths: 625 (96,282 additions, 6,573 deletions; 0 deleted paths).
 Rows in this overlay: 623; it excludes this overlay file and the paired repository manifest.
 Status counts: CONTENT_READ_TESTED_PASS=401, FIXED_TESTED_PENDING_LIVE_APPLY=36, REVIEW_REQUIRED=180, SUPERSEDED_SNAPSHOT=6.
 Repository inventory at code/test head: 2,442 recursive tree entries (1,943 blobs, 499 directories); refreshed manifest target: 2,439 entries (excludes `docs`, `docs/audits` ancestor tree hashes and its own blob).
