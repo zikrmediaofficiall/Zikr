@@ -197,7 +197,8 @@ assert.deepEqual(resolvePushSubscriptionWritePlan(null, "  "), { kind: "conflict
 
 const route = readFileSync("src/app/api/push/subscription/route.ts", "utf8");
 assert.match(route, /userClient\s*\.rpc\("save_default_prayer_location"/);
-assert.ok(route.includes("parsePushPrayerContext(parsedBody.value)"));
+assert.ok(route.includes("const body = normalizePushSubscriptionRequestBody(parsedBody.value)"));
+assert.ok(route.includes("parsePushPrayerContext(body)"));
 assert.ok(route.includes("resolvePushSubscriptionWritePlan(existing, user.id)"));
 assert.ok(
   route.includes('.eq("user_id", user.id)') &&
