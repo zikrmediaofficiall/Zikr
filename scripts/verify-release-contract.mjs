@@ -201,7 +201,15 @@ assert.match(
 );
 assert.ok(androidJob.includes("NEXT_PUBLIC_SUPABASE_ANON_KEY:"), "Android job must declare the public Supabase anon key required by preflight");
 assert.ok(!androidJob.includes("\n      SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co"), "Android artifact publisher must not configure a Supabase storage URL");
-assert.ok(!androidJob.includes("SUPABASE_SERVICE_ROLE_KEY"), "Android artifact publisher must not validate the Supabase service-role key");
+const androidSupabaseCredentialLines = androidJob
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => /^(?:SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY):/.test(line));
+assert.deepEqual(
+  androidSupabaseCredentialLines.sort(),
+  ['SUPABASE_SERVICE_ROLE_KEY: ""', 'SUPABASE_URL: ""'],
+  "Android artifact publisher must explicitly shadow inherited Supabase credentials",
+);
 assert.ok(androidJob.includes("GH_TOKEN"), "Android artifact publisher must use a protected GitHub token");
 const releaseWorkflow = circle.split("workflows:\n")[1] ?? "";
 const androidWorkflowJob = releaseWorkflow.split("- android-rebuild:")[1]?.split("\n      - ")[0] ?? "";
