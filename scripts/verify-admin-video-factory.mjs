@@ -385,6 +385,43 @@ if (!worker.includes("VIDEO_PLAN_SYSTEM_INSTRUCTION") ||
   failures.push("video planning must isolate fixed editorial policy from untrusted source data in the Gemini system-instruction channel");
 }
 
+
+const atomicVideoApprovalRoute = read("src/app/api/admin/video-generation/route.ts");
+const atomicVideoApprovalStart = atomicVideoApprovalRoute.indexOf("if (action === 'approve_publish')");
+const atomicVideoApprovalEnd = atomicVideoApprovalRoute.indexOf('if (action === "retry_publish")', atomicVideoApprovalStart);
+const atomicVideoApprovalBlock = atomicVideoApprovalStart >= 0 && atomicVideoApprovalEnd > atomicVideoApprovalStart
+  ? atomicVideoApprovalRoute.slice(atomicVideoApprovalStart, atomicVideoApprovalEnd)
+  : "";
+if (
+  !atomicVideoApprovalBlock.includes("/rest/v1/rpc/admin_approve_video_generation_request") ||
+  !atomicVideoApprovalBlock.includes("p_expected_request_updated_at") ||
+  !atomicVideoApprovalBlock.includes("p_expected_catalog_updated_at") ||
+  !atomicVideoApprovalBlock.includes("p_approved_content") ||
+  !atomicVideoApprovalBlock.includes("p_catalog_metadata") ||
+  atomicVideoApprovalBlock.includes("method: 'PATCH'") ||
+  atomicVideoApprovalBlock.includes('method: "PATCH"')
+) {
+  failures.push("Human video approval must atomically compare-and-set the request and catalog through the service-only approval RPC");
+}
+const atomicVideoApprovalMigration = read("supabase/migrations/20261115153600_admin_video_approval_atomic.sql");
+for (const token of [
+  "CREATE OR REPLACE FUNCTION public.admin_approve_video_generation_request",
+  "FOR UPDATE",
+  "VIDEO_APPROVAL_CONFLICT",
+  "p_approved_content - v_approval_fields",
+  "p_catalog_metadata - v_approval_fields",
+  "REVOKE ALL ON FUNCTION public.admin_approve_video_generation_request",
+  "GRANT EXECUTE ON FUNCTION public.admin_approve_video_generation_request",
+]) {
+  if (!atomicVideoApprovalMigration.includes(token)) {
+    failures.push("Atomic human video approval migration is missing its concurrency, immutability, or service-role-only guard: " + token);
+  }
+}
+const atomicApprovalWorkflow = read(".github/workflows/quality-gate.yml");
+if (!atomicApprovalWorkflow.includes("scripts/tests/video-approval-atomic.integration.sh")) {
+  failures.push("Atomic video approval rollback regression must run in the canonical Quality Gate");
+}
+
 if (failures.length) {
   console.error("ADMIN_VIDEO_FACTORY_CHECK_FAILED");
   for (const failure of failures) console.error(`❌ ${failure}`);
