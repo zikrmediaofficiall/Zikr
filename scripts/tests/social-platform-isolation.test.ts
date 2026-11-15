@@ -1276,4 +1276,22 @@ assert.equal(
   "an inferred auth-shaped error must not override an explicit permanent failure for the same target",
 );
 
+const legacyGlobalPermanentFacebookRecovery = buildFacebookQueueRecoveryPatch(
+  {
+    authBlocked: true,
+    permanentFailure: true,
+    platformResults: {
+      facebook: { ok: false, error: "Facebook OAuthException: access token expired" },
+    },
+    platformAttempts: { facebook: 5 },
+  },
+  ["facebook"],
+  "2026-11-15T00:30:00.000Z",
+);
+assert.equal(
+  legacyGlobalPermanentFacebookRecovery,
+  null,
+  "a legacy global permanent-failure flag without a per-platform ledger must not be cleared by Facebook reauthorization",
+);
+
 console.log("Social platform isolation and independent readiness tests passed.");

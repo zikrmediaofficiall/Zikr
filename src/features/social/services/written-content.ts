@@ -331,20 +331,49 @@ export function isKidsAudience(value: unknown): boolean {
   return audience === "kids" || audience === "kid" || audience === "children" || audience === "child";
 }
 
+function isKidsPublicPath(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const candidate = value.trim();
+  if (!candidate) return false;
+
+  let pathname = candidate;
+  try {
+    pathname = new URL(candidate, "https://zikr.invalid").pathname;
+  } catch {
+    pathname = candidate.split(/[?#]/, 1)[0];
+  }
+
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch {
+    // Malformed paths containing a Kids marker are still reserved fail-closed.
+    return pathname.toLowerCase().includes("kids");
+  }
+
+  pathname = pathname
+    .replace(/\\/g, "/")
+    .replace(/\/+/g, "/")
+    .replace(/\/+$/, "")
+    .toLowerCase();
+  return pathname === "/kids" || pathname.startsWith("/kids/");
+}
+
 export function isKidsWrittenSourceReservation(value: unknown): boolean {
   const metadata = asWrittenRecord(value);
   const sourceMetadata = asWrittenRecord(metadata.source);
-  const publicPath = typeof metadata.publicPath === "string" ? metadata.publicPath : "";
+  const sourceType = typeof sourceMetadata.type === "string" ? sourceMetadata.type.trim().toLowerCase() : "";
+
   return isKidsAudience(metadata.audience) ||
     typeof metadata.kidsContentId === "string" ||
-    sourceMetadata.type === "kids_story" ||
-    publicPath === "/kids" ||
-    publicPath.startsWith("/kids/");
+    typeof metadata.kids_content_id === "string" ||
+    sourceType === "kids_story" ||
+    isKidsPublicPath(metadata.publicPath ?? metadata.public_path);
 }
 
 /** Reject a backfill row when any Kids marker conflicts with a non-Kids source type. */
 export function isSafeWrittenBackfillSource(sourceType: string, metadata: unknown): boolean {
-  return sourceType === "kids_story" || !isKidsWrittenSourceReservation(metadata);
+  const normalizedSourceType = typeof sourceType === "string" ? sourceType.trim().toLowerCase() : "";
+  return normalizedSourceType === "kids_story" || !isKidsWrittenSourceReservation(metadata);
 }
 
 export function isKidsWrittenPostCandidate(

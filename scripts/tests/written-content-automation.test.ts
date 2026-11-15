@@ -24,6 +24,26 @@ assert.equal(isKidsAudience(" KIDS "), true);
 assert.equal(isKidsAudience("children"), true);
 assert.equal(isKidsAudience("general"), false);
 assert.equal(isKidsAudience(null), false);
+assert.equal(isKidsWrittenSourceReservation({ source: { type: " KIDS_STORY " } }), true,
+  "source-type markers must be normalized before reserving Kids content from general publishing");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: " /Kids/story " }), true,
+  "mixed-case and whitespace-padded Kids paths must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "https://zikrmediaofficial.vercel.app/Kids/story?from=admin" }), true,
+  "absolute Kids public URLs must be recognized as Kids content");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "/%6Bids/story" }), true,
+  "percent-encoded Kids path segments must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ public_path: "/kids/story" }), true,
+  "legacy snake-case public paths must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ kids_content_id: "kids-row-1" }), true,
+  "legacy snake-case Kids content IDs must remain reserved");
+assert.equal(isSafeWrittenBackfillSource(" article ", { source: { type: " KIDS_STORY " } }), false,
+  "a non-Kids backfill source must not bypass a normalized Kids source marker");
+assert.equal(isSafeWrittenBackfillSource(" KIDS_STORY ", { audience: "general" }), true,
+  "normalized Kids source types must remain eligible for their separate Kids publishing path");
+assert.equal(isKidsWrittenPostCandidate({
+  content_type: "written_post",
+  metadata: { source: { type: " KIDS_STORY " } },
+}), true, "queue candidate classification must use the normalized Kids reservation policy");
 assert.deepEqual(parseWrittenGenerationRequest({}), { ok: true, value: { category: "auto", batchSize: 1 } });
 assert.deepEqual(parseWrittenGenerationRequest({ category: "kids", batchSize: "2" }), { ok: true, value: { category: "kids", batchSize: 2 } });
 assert.deepEqual(parseWrittenGenerationRequest(null), { ok: false, reason: "invalid_body" });

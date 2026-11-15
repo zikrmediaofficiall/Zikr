@@ -70,6 +70,9 @@ export function buildFacebookQueueRecoveryPatch(
   );
   if (metadata.sourceMediaMissing === true || metadata.authBlocked !== true || facebookTargets.length === 0) return null;
 
+  const hasPermanentFailureMetadata = Array.isArray(metadata.permanentFailurePlatforms);
+  if (!hasPermanentFailureMetadata && metadata.permanentFailure === true) return null;
+
   const declaredBlocked = Array.isArray(metadata.authBlockedPlatforms)
     ? metadata.authBlockedPlatforms.filter((platform): platform is FacebookQueueRecoveryPlatform =>
         platform === "facebook" || platform === "facebook_reels",
@@ -134,8 +137,6 @@ export function buildFacebookQueueRecoveryPatch(
         !blockedTargets.some((target) => target === String(platform)),
       )
     : [];
-  const hasPermanentFailureMetadata = Array.isArray(metadata.permanentFailurePlatforms);
-
   return {
     status: "queued",
     scheduled_at: now,
