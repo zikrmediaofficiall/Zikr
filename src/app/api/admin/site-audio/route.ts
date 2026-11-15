@@ -343,10 +343,13 @@ export async function DELETE(request: NextRequest) {
       .eq("storage_path", asset.storage_path)
       .limit(2);
 
-    if (referenceCheckError) {
+    if (referenceCheckError || !Array.isArray(remainingAssetReferences)) {
       storageCleanupPending = true;
-      console.error("[api/admin/site-audio] reference recheck failed; Storage removal skipped:", referenceCheckError.message);
-    } else if ((remainingAssetReferences ?? []).length > 0) {
+      console.error(
+        "[api/admin/site-audio] reference recheck failed; Storage removal skipped:",
+        referenceCheckError?.message ?? "reference inventory returned an incomplete result",
+      );
+    } else if (remainingAssetReferences.length > 0) {
       storageCleanupSkipped = true;
       const survivingAsset = remainingAssetReferences[0];
       const { data: restoredIntent, error: restoreIntentError } = await db

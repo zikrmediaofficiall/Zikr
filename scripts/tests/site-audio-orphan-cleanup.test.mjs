@@ -6,6 +6,7 @@ import {
   collectExpiredSiteAudioUploadIntents,
   fingerprintSiteAudioStoragePath,
   isSafeSiteAudioUploadIntent,
+  requireSiteAudioArrayResult,
   selectExpiredSiteAudioUploadIntents,
 } from "../cleanup-site-audio-orphans.mjs";
 
@@ -26,6 +27,12 @@ const deletingIntent = { ...validIntent, status: "deleting" };
 const detachedRegisteredIntent = { ...validIntent, status: "registered" };
 
 assert.equal(assertExpectedSupabaseProject("https://zqtssvlvmkzeeyqghqfk.supabase.co", "zqtssvlvmkzeeyqghqfk"), "zqtssvlvmkzeeyqghqfk");
+assert.deepEqual(requireSiteAudioArrayResult([], "fixture"), []);
+assert.throws(
+  () => requireSiteAudioArrayResult(null, "fixture"),
+  /incomplete data; refusing cleanup/,
+  "a null asset-reference or Storage-list response must never be interpreted as an empty inventory",
+);
 assert.throws(() => assertExpectedSupabaseProject("https://other.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
 assert.doesNotThrow(() => assertSiteAudioCleanupApplyConfirmation(false, "", false));
 assert.throws(() => assertSiteAudioCleanupApplyConfirmation(true, "DELETE_UNREFERENCED_SITE_AUDIO_UPLOADS", false), /SITE_AUDIO_UPLOAD_WRITES_PAUSED=true/);
@@ -102,6 +109,9 @@ assert.ok(adminDelete.includes('.eq("status", "deleting")'), "delete finalizatio
 assert.ok(adminDelete.includes('.select("storage_path")') && adminDelete.includes(".maybeSingle()"), "restoring a shared-path intent must confirm that the compare-and-set updated one row");
 assert.ok(adminDelete.includes("restoreIntentError || !restoredIntent"), "a zero-row restore compare-and-set must be surfaced as pending reconciliation");
 assert.ok(adminDelete.indexOf('.from("site_audio_assets")') < adminDelete.indexOf('.remove([asset.storage_path])'), "the delete route must recheck references before removing Storage bytes");
+assert.ok(adminDelete.includes("referenceCheckError || !Array.isArray(remainingAssetReferences)"), "an incomplete asset-reference response must defer Storage removal");
+assert.ok(cleanupScript.includes('requireSiteAudioArrayResult(data, "site-audio asset reference inventory")'));
+assert.ok(cleanupScript.includes('requireSiteAudioArrayResult(data, "site-audio Storage object inventory")'));
 const cleanupLogLines = cleanupScript.split(/\r?\n/).filter((line) => line.includes("console.log("));
 assert.ok(cleanupLogLines.every((line) => !line.includes("intent.storage_path") || line.includes("safePathLogReference(intent.storage_path)")), "public workflow logs must use a path fingerprint instead of owner UUIDs or uploaded filenames");
 assert.match(cleanupScript, /SITE_AUDIO_CLEANUP_CONFIRMATION/);

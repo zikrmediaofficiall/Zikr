@@ -17,6 +17,13 @@ function asString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+export function requireSiteAudioArrayResult(data, label) {
+  if (!Array.isArray(data)) {
+    throw new Error(`${label} returned incomplete data; refusing cleanup.`);
+  }
+  return data;
+}
+
 export function fingerprintSiteAudioStoragePath(value) {
   const storagePath = asString(value);
   if (!storagePath) throw new Error("A site-audio storage path is required for fingerprinting.");
@@ -136,10 +143,11 @@ async function findAssetReference(client, storagePath) {
     .eq("storage_path", storagePath)
     .limit(2);
   if (error) throw new Error("Could not verify site-audio metadata references: " + error.message);
-  if ((data ?? []).length > 1) {
+  const rows = requireSiteAudioArrayResult(data, "site-audio asset reference inventory");
+  if (rows.length > 1) {
     throw new Error("Multiple site-audio metadata rows reference one upload path; refusing cleanup.");
   }
-  return data?.[0] ?? null;
+  return rows[0] ?? null;
 }
 
 async function listExactObject(client, directory, fileName) {
@@ -148,7 +156,8 @@ async function listExactObject(client, directory, fileName) {
     limit: 20,
   });
   if (error) throw new Error("Could not inspect site-audio Storage path: " + error.message);
-  return (data ?? []).find((object) => object.name === fileName) ?? null;
+  const objects = requireSiteAudioArrayResult(data, "site-audio Storage object inventory");
+  return objects.find((object) => object.name === fileName) ?? null;
 }
 
 async function main() {
@@ -181,7 +190,7 @@ async function main() {
       .order("storage_path", { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) throw new Error("Could not read expired site-audio upload intents: " + error.message);
-    return data ?? [];
+    return data;
   });
 
   const validatedExpiredIntents = selectExpiredSiteAudioUploadIntents(expiredIntents, now.getTime());

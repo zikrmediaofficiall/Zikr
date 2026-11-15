@@ -15,6 +15,7 @@ import {
   extractCloudinaryVideoPublicId,
   hasConfirmedPlatformResults,
   collectPaginatedRows,
+  requireArrayResult,
   createStorageInventoryBudget,
   verifyStoragePathsAbsent,
   indexManagedBackupReferences,
@@ -55,6 +56,12 @@ assert.match(
   "only the service role may verify the retention contract guard",
 );
 assert.equal(assertExpectedSupabaseProject(supabaseUrl, "zqtssvlvmkzeeyqghqfk"), "zqtssvlvmkzeeyqghqfk");
+assert.deepEqual(requireArrayResult([], "fixture"), []);
+assert.throws(
+  () => requireArrayResult(null, "fixture"),
+  /incomplete inventory; refusing cleanup/,
+  "null Supabase reference and Android settings pages must fail closed",
+);
 assert.throws(() => assertExpectedSupabaseProject(supabaseUrl, "wrong-project"), /20-character Supabase project ref/);
 assert.throws(() => assertExpectedSupabaseProject("https://other-project.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
 assert.throws(() => assertExpectedSupabaseProject("http://zqtssvlvmkzeeyqghqfk.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
@@ -437,6 +444,7 @@ assert.equal(
 );
 
 const storageRetentionSource = readFileSync(new URL("../cleanup-supabase-storage.mjs", import.meta.url), "utf8");
+assert.doesNotMatch(storageRetentionSource, /data\s*\?\?\s*\[\]/, "incomplete Supabase inventories must never be coerced into empty arrays");
 const capturePatternCalls = (descriptors) => {
   const calls = [];
   for (const descriptor of descriptors) {

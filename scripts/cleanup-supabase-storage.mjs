@@ -27,6 +27,13 @@ function asString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+export function requireArrayResult(data, label) {
+  if (!Array.isArray(data)) {
+    throw new Error(`${label} returned an incomplete inventory; refusing cleanup.`);
+  }
+  return data;
+}
+
 export function assertExpectedSupabaseProject(supabaseUrl, expectedProjectRef) {
   const expected = asString(expectedProjectRef).toLowerCase();
   if (!/^[a-z0-9]{20}$/.test(expected)) {
@@ -825,8 +832,9 @@ async function loadUnexpectedVideoReferences(client, candidatePaths, supabaseUrl
       if (error) {
         throw new Error(`Reference inventory failed for ${pattern.table}.${pattern.column}: ${error.message}`);
       }
-      rows.push(...(data ?? []));
-      if (!data || data.length < 1000) return { pattern, rows };
+      const pageRows = requireArrayResult(data, `Reference inventory for ${pattern.table}.${pattern.column}`);
+      rows.push(...pageRows);
+      if (pageRows.length < 1000) return { pattern, rows };
     }
     throw new Error(`Reference inventory exceeded the safe scan limit for ${pattern.table}.${pattern.column}; refusing cleanup.`);
   }));
@@ -844,8 +852,9 @@ async function loadUnexpectedVideoReferences(client, candidatePaths, supabaseUrl
       .order("id", { ascending: true })
       .range(offset, offset + 999);
     if (error) throw new Error(`Reference inventory failed for content_library.media: ${error.message}`);
-    libraryRows.push(...(data ?? []));
-    if (!data || data.length < 1000) break;
+    const pageRows = requireArrayResult(data, "Reference inventory for content_library.media");
+    libraryRows.push(...pageRows);
+    if (pageRows.length < 1000) break;
   }
   if (libraryRows.length >= 5000) {
     throw new Error("content_library.media exceeded the safe scan limit; refusing cleanup.");
@@ -863,7 +872,7 @@ async function getAndroidReleaseReferences(client) {
     .order("key", { ascending: true })
     .range(0, 999);
   if (error) throw new Error(`Cannot read Android release settings: ${error.message}`);
-  const rows = data ?? [];
+  const rows = requireArrayResult(data, "Android release settings inventory");
   if (rows.length >= 1000) {
     throw new Error("Site settings exceeded the safe scan limit; refusing Android release cleanup.");
   }
@@ -947,7 +956,7 @@ async function main() {
         .order("id", { ascending: true })
         .range(offset, end);
       if (error) throw new Error(`Cannot read social publish queue: ${error.message}`);
-      return data ?? [];
+      return data;
     }, "social_publish_queue.video_url"),
     collectPaginatedRows(async (offset, end) => {
       const { data, error } = await client.from("video_generation_requests")
@@ -955,7 +964,7 @@ async function main() {
         .order("id", { ascending: true })
         .range(offset, end);
       if (error) throw new Error(`Cannot read video generation requests: ${error.message}`);
-      return data ?? [];
+      return data;
     }, "video_generation_requests.video_url"),
     listDirectory(client, VIDEO_BUCKET, VIDEO_PREFIX, storageInventoryBudget),
     listDirectory(client, ANDROID_BUCKET, "android", storageInventoryBudget),
