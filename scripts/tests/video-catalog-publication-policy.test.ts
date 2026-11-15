@@ -213,6 +213,8 @@ const generalVideoMetadataCases: Array<[unknown, boolean, string]> = [
   [undefined, true, "missing metadata remains a legacy general video"],
   [{}, true, "legacy metadata without an audience remains general"],
   [{ audience: null }, true, "a null audience remains a legacy general video"],
+  [{ generator: "zikr_internal_video_factory" }, false, "internal generated videos must declare an explicit audience"],
+  [{ generator: "zikr_internal_video_factory", audience: null }, false, "an internal generated video with a null audience must fail closed"],
   [{ audience: "general" }, true, "the canonical general audience remains visible"],
   [{ audience: "kids" }, false, "Kids audience is excluded from the general catalog"],
   [0, false, "numeric metadata must fail closed instead of becoming a legacy general video"],
