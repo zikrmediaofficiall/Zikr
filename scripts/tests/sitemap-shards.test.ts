@@ -6,7 +6,7 @@ import {
   getSitemapShardCountForEntryCount,
   SITEMAP_PAGE_SIZE,
 } from "../../src/lib/seo/sitemap-shards";
-import { isNoindexPath, siteConfig } from "../../src/lib/site";
+import { appRoutes, isNoindexPath, siteConfig } from "../../src/lib/site";
 
 assert.equal(SITEMAP_PAGE_SIZE, 45_000);
 assert.equal(getSitemapShardCountForEntryCount(0), 1);
@@ -50,7 +50,7 @@ const indexRouteSource = readFileSync("src/app/sitemap-index.xml/route.ts", "utf
 assert.match(sitemapSource, /filterIndexableSitemapRoutes\([\s\S]*uniqueRoutes\(\[\.\.\.staticRoutes, \.\.\.dynamicRoutes\]\)/);
 assert.match(sitemapSource, /item\.type === ["']story["'][\s\S]*item\.metadata\?\.age_appropriate === true/);
 assert.match(sitemapSource, /getSitemapShardCountForEntryCount\(entries\.length\)/);
-assert.ok(siteConfig.appRoutes.some((route) => route.path === "/kids/videos"), "public Kids video library route must be indexable");
+assert.ok(appRoutes.some((route) => route.path === "/kids/videos"), "public Kids video library route must be indexable");
 assert.equal(isNoindexPath("/kids/videos"), false, "public Kids video library and detail routes must remain indexable");
 assert.ok(sitemapSource.includes("getKidsGeneratedVideos(100)"), "sitemap must fetch the QA-filtered public Kids video catalog");
 assert.ok(sitemapSource.includes("route(`/kids/videos/${encodeURIComponent(video.slug)}`"), "sitemap must include individual Kids video detail pages");
