@@ -1,64 +1,25 @@
 # ZIKR Continuous Closeout Ledger
 
-## 2026-11-15 — verified code/test head `2e1c3c9ce6b84aca3e2d3b7d5ba6a79336cf4c92`; production safety review and inventory reconciliation
+## 2026-11-15 — documentation checkpoint `59f69b7ee41a1dd6241b27a3290f2d383732eee1` passed; native/admin safety review
 
-**Checkpoint:** PR #320 / `audit/zikr-kids-daily-priority-20261110`; base main `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. The canonical Quality Gate run `43728160781` passed on exact head `2e1c3c9ce6b84aca3e2d3b7d5ba6a79336cf4c92` with `QUALITY_GATE=PASSED_FULL`. CircleCI `config-guard`, `source-verify`, and `application-build-docs` passed; Android Native Login Debug APK run `43728160831` passed. No CODEOWNERS review is recorded. The PR remains open and unmerged.
+The documentation reconciliation head `59f69b7ee41a1dd6241b27a3290f2d383732eee1` passed the full canonical Quality Gate run `43730026736` (`QUALITY_GATE=PASSED_FULL`). CircleCI `config-guard`, `source-verify`, and `application-build-docs` passed, and Android Native Login Debug APK run `43730026755` passed on that exact head. The current follow-up is documentation-only inventory/status reconciliation and must receive its own final exact-head verification.
 
-### Repair batches verified on exact code/test head
+### Additional code-path review
 
-1. **Audience boundary:** the admin video create API now rejects invalid/unknown audience values before creating a generation request. Focused regression coverage and the admin video-factory verifier passed.
-2. **Kids smoke coverage:** production smoke contract includes the public Kids video library route and validates its route/response contract.
-3. **Legacy QA backfill guard:** the backfill script checks `EXPECTED_PROJECT_REF` against the canonical Supabase URL before the first row read; `--apply` additionally requires `BACKFILL_APPLY=true` and `BACKFILL_CONFIRMATION=APPLY_QA_BACKFILL`. Workflow and static verifier enforce the same contract. Dry-run/apply was not executed.
-4. **Free video provider contract:** the scheduled free-only worker must explicitly enable HF LTX/Wan providers and retain the `VIDEO_FREE_ONLY` gate that prevents Gemini planning even when a key is available. Unit/static tests passed; no video worker was dispatched.
+- **Native OAuth:** read `capacitor.config.json`, Android manifest/Gradle wiring, iOS `Info.plist`, entitlements, Podfile, AppDelegate, callback route, native bridge, Google OAuth integration, canonical-origin/state helpers, and native OAuth contract tests. Android uses the native social-login plugin; iOS follows the browser/custom-scheme callback path. The AASA route validates the configured app identifier and intentionally returns 503 when missing. The code contract is sound, but production `IOS_ASSOCIATED_DOMAIN_APP_ID`/Apple Team ID is not confirmed. The Android assetlinks route exposes a hard-coded release signing fingerprint with optional environment override; owner must compare it with the Play App Signing certificate. Android debug build is not device acceptance; no iOS/Xcode build or device test was run.
+- **Admin role updates:** read the server action, role-update SQL function, self-role migration, service-role-only migration, and integration test. The server action blocks self-role changes and the live RPC is service-role-only, but the production function still lacks the database self-role-change/row-lock guard in pending `20261111020000_admin_role_update_blocks_self_demotion.sql`. Authenticated `super_admin` direct writes to `admin_role_assignments` remain possible until pending `20261111050000_admin_role_assignments_service_role_only.sql` is applied.
+- **Video-generation DELETE safety:** read the full admin GET/PATCH/DELETE route and checked production counts. There are currently zero failed requests, but the bulk failed-request deletion path does not preflight `video_url`, `content.mediaStorage.publicId`, `supabaseOriginalVideoUrl`, or `social_publish_queue.content_id`. The table currently contains 138 requests with `video_url` and 182 with Cloudinary `mediaStorage.publicId`; no failed request exists now. The endpoint was not invoked. Keep it review-required until a safe reference guard/transaction is designed; do not delete request rows as an audit test.
+- **Kids social catalog sync:** the catalog metadata copy is best-effort, not the delivery source of truth. The public Kids detail resolver reads the queue; existing queue pagination tests cover successful, empty, malformed, and failed reads. The verifier and regression suite passed; no publisher was invoked.
 
-### Exact verification evidence
+### Updated owner gates
 
-- Quality Gate workflow run: `43728160781`, success, exact SHA `2e1c3c9ce6b84aca3e2d3b7d5ba6a79336cf4c92`, `QUALITY_GATE=PASSED_FULL`.
-- CircleCI checks: `config-guard`, `source-verify`, `application-build-docs` — all success on `2e1c3c9ce6b84aca3e2d3b7d5ba6a79336cf4c92`.
-- Android Native Login Debug APK workflow run: `43728160831`, success on `2e1c3c9ce6b84aca3e2d3b7d5ba6a79336cf4c92`; this is a debug build, not a device login test or release.
-- The canonical verification included `pnpm verify`, PostgreSQL 17 migration replay/integration checks, Deno checks, and production build. No production action was used as a test.
+The live Kids social queue still has 14 `other_video` rows (11 published, 1 partial, 2 queued), all system-only with no human review and no Kids-specific QA status. Main's 15-minute publisher schedule is active. Owner must hold the three nonterminal rows before another scheduled attempt and decide separately about the 11 already-published posts. No queue/workflow change was made.
 
-### Read-only production findings requiring owner action
+The production RLS, grants, migration count (418 remote / 444 local; 26 pending), prayer cron, and Vercel READY findings remain as in the previous ledger entry. No production migration, function deploy, cron invocation, social publish, video generation, Gemini request, storage cleanup, media deletion, release, merge, Vercel deployment, or production smoke was performed.
 
-- **Immediate social-publishing risk:** 14 Kids `other_video` queue rows are associated with completed Kids generation requests: 11 published, 1 partial, 2 queued. All 14 carry system-only approval, no human review, and no Kids-specific QA status. Production main's `publish-social` workflow runs every 15 minutes and explicitly permits automated-only video approval. PR #320's human Kids approval gate is not on main. Owner should temporarily hold the main publisher or the three nonterminal rows before the next scheduled attempt; the 11 already-published external posts require a separate owner decision. No queue rows/workflows were modified.
-- 30 completed Kids requests have `approvalStatus=approved`, reviewer `system:zikr-video-factory`, automated QA `passed`, and `kidsVideoQaStatus` missing. The 31 published internal Kids catalog rows currently have Kids QA passed; this is the public-library QA condition, not a human social-delivery approval.
-- `kids_content_public_read` in production is only `published=true`. Read-only count: 20 published stories do not have `age_appropriate=true`; application filters hide them, but direct public PostgREST access does not. The pending `20261110212000_kids_content_public_read_respects_active_state.sql` adds the database predicate.
-- `videos_public_read` is also only `published=true`; current published Kids catalog rows pass QA, while pending `20261114210000_restrict_public_kids_video_read_to_qa_passed.sql` adds the defense-in-depth QA predicate.
-- Direct authenticated writes remain possible through current grants/RLS policies on `social_publish_queue`, `video_generation_requests`, `kids_content`, `videos`, `media_assets`, and `site_audio_assets`; `super_admin` can write `admin_role_assignments` directly. Pending `20261111050000_admin_role_assignments_service_role_only.sql` and `20261113190000_harden_admin_managed_content_write_permissions.sql` revoke direct writes so the step-up/audit server routes are authoritative.
-- Production Supabase migration history: 418 applied, latest `20261110170000`; repository: 444, latest `20261115070000`; 26 pending. No `db push` or migration was run.
-- `zikr-prayer-push-dispatch` is already one active every-minute cron job using the canonical project URL; the latest cron reconciliation migration should not alter it.
-- Vercel production deployment is READY on main SHA `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. No errors were logged in the last 30 minutes; one transient `fetch failed`/remote socket-close event exists in the last 24 hours, but its detailed logs are outside retention. No candidate deploy or smoke was run.
+### Review state
 
-### Inventory and file-status reconciliation target
-
-- PR #320 changed paths: 597 (269 added, 328 modified, 0 deleted).
-- Recursive repository inventory: 2,429 entries (1,930 blobs, 499 directories).
-- Manifest: 2,426 entries, excluding its own blob and the two containing directory-tree entries.
-- File-status overlay: 595 PR paths, excluding the manifest and overlay itself.
-- Status counts: 333 `CONTENT_READ_TESTED_PASS`; 210 `REVIEW_REQUIRED`; 18 `PENDING_TRACE`; 28 `FIXED_TESTED_PENDING_LIVE_APPLY`; 6 `SUPERSEDED`.
-- The documentation reconciliation batch updates the project status, ledger, overlay SHAs/statuses, and manifest SHA/size inventory. Its final exact head must receive its own canonical verification before being treated as reconciled.
-
-### Explicitly not performed
-
-No production database mutation, migration push, Edge Function deploy, cron invocation, social publishing, video/content generation, Gemini request, storage cleanup/deletion, media deletion, index/secret/release deletion, Android release, merge, Vercel deployment, or production smoke. No production queue row or workflow was changed. Owner/CODEOWNERS review, the production queue hold, migration approval, deployment approval, and real Android/iOS device acceptance remain outstanding.
-
-### Remaining review state
-
-The project is not closed. 210 paths remain review-required, 18 remain pending trace, 28 require live apply/owner approval, and 6 are superseded. The long-tail repository review must continue file-by-file; only paths with actual content review and evidence may move to `CONTENT_READ_TESTED_PASS`.
-## 2026-11-14T21:34:00Z — PR #320 Android Gradle sync repair and full verification
-
-- Exact code/test head: `47b35b7598f5287c97f07dcde623359060966e04`; base: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; PR changed files: 559; overlay rows: 557.
-- Status counts: REVIEW_REQUIRED=188, CONTENT_READ_TESTED_PASS=286, CONTENT_READ_PENDING_TRACE=53, SUPERSEDED_SNAPSHOT=4, FIXED_TESTED_PENDING_LIVE_APPLY=26.
-- Fixed stale Capacitor Android generated files: all pnpm peer paths now use locked core 7.6.9; the Android project and app build include `capgo-capacitor-social-login` 7.20.0. The mobile verifier and OAuth regression test enforce this contract; the Android debug workflow runs a post-sync `git diff --exit-code`.
-- One intermediate diff check failed only because of a trailing blank line; the file was aligned with the actual `cap sync` output in `47b35b7`. The latest post-sync diff check passed.
-- Quality Gate `43643147440`: success (Deno, 13 PostgreSQL 17 checks, canonical verification). Android Debug APK `43643147491`: success (debug only). CircleCI config validation `43643147495` and the three required CircleCI contexts: success.
-- Native ad-free verifier passed: Monetag/SmartLink/GTM/Funding Choices/AdSense are blocked in Capacitor; no content or ads were generated.
-- iOS uses browser PKCE, so no iOS SocialLogin pod was added. Apple Team ID and AASA app ID remain owner/device acceptance.
-- Production Supabase remains read-only: 23 migrations pending, missing schema/RPC contracts, Kids RLS and Storage policy issues, and stale deployed Edge Functions remain as recorded in the migration ledger. Vercel production remains READY on main `c4560d9`; audit branch not deployed.
-- CODEOWNERS approval absent; branch-protection API inaccessible (403). No merge or deploy. No production mutation, Gemini request, content generation, social publish, storage/media/index/secret deletion, or Android release.
-
----
-
+The overlay target is now 334 content-read/tested-pass, 209 review-required, 18 pending trace, 28 fixed/tested/pending-live-apply, and 6 superseded across 595 overlay rows. The repository manifest target remains 2,426 entries (1,929 blobs, 497 directories), representing 2,429 recursive repository entries after adding the manifest itself and its two excluded directory entries. PR #320 has 597 changed paths (269 added, 328 modified, 0 deleted).
 ## 2026-11-14T20:59:55Z — PR #320 checkpoint, production contract audit and backfill CAS repair
 
 ### Exact Git state
