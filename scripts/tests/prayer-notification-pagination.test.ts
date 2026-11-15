@@ -23,10 +23,7 @@ import {
   normalizePushSubscriptionRequestBody,
   parsePushCoordinate,
 } from "../../src/features/notifications/services/push-subscription-request";
-import {
-  getPrayerNotificationIdsToCancel,
-  getPrayerNotificationIdsToPreserveForUnresolvedDay,
-} from "../../src/features/prayer/services/prayer-notification-schedule";
+import { getPrayerNotificationIdsToCancel } from "../../src/features/prayer/services/prayer-notification-schedule";
 
 const requiredPrayerNames = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
 const validProviderTimings = {
@@ -881,56 +878,38 @@ assert.equal(simulatedServerTimeZone, "Africa/Cairo");
 const salawatHookSource = readFileSync("src/features/reminders/hooks/use-salawat-reminder.ts", "utf8");
 const prayerAlertProviderSource = readFileSync("src/components/layout/prayer-alert-provider.tsx", "utf8");
 const prayerAlertHookSource = readFileSync("src/features/prayer/hooks/use-prayer-alert.ts", "utf8");
-const enabledPrayerNames = ["Fajr", "Dhuhr", "Asr"] as const;
-const enabledPrayerFlags = { Fajr: true, Dhuhr: false, Asr: true };
-const unresolvedDayPrayerIds = getPrayerNotificationIdsToPreserveForUnresolvedDay({
-  dayOffset: 1,
-  prayers: enabledPrayerNames,
-  enabledPrayers: enabledPrayerFlags,
-  idBase: 7000,
-});
+const enabledPrayerNames = ["Fajr", "Dhuhr"] as const;
+const enabledPrayerFlags = { Fajr: true, Dhuhr: false };
 assert.deepEqual(
-  unresolvedDayPrayerIds,
-  [7003, 7005],
-  "a failed day lookup must preserve only the enabled prayers' existing native alarm IDs",
+  getPrayerNotificationIdsToCancel({
+    scheduleDays: 1,
+    prayers: enabledPrayerNames,
+    enabledPrayers: enabledPrayerFlags,
+    refreshedPrayerIds: [7000],
+    idBase: 7000,
+  }),
+  [7000, 7001],
+  "resolved past alarms and disabled alarms must be cancelled",
 );
 assert.deepEqual(
   getPrayerNotificationIdsToCancel({
-    scheduleDays: 2,
+    scheduleDays: 1,
     prayers: enabledPrayerNames,
     enabledPrayers: enabledPrayerFlags,
-    refreshedPrayerIds: unresolvedDayPrayerIds,
+    refreshedPrayerIds: [],
     idBase: 7000,
   }),
-  [7000, 7001, 7002, 7004],
-  "an unresolved day must preserve enabled alarms while disabled alarms and resolved prior-day alarms remain cancellable",
+  [7001],
+  "an unresolved enabled alarm must be preserved while disabled alarms remain cancellable",
 );
-assert.deepEqual(
-  getPrayerNotificationIdsToPreserveForUnresolvedDay({
-    dayOffset: -1,
-    prayers: enabledPrayerNames,
-    enabledPrayers: enabledPrayerFlags,
-    idBase: 7000,
-  }),
-  [],
-  "invalid day offsets must not generate native notification IDs",
-);
-assert.match(
-  prayerAlertHookSource,
-  /if \(!dayTimings\) \{[\s\S]*?preserveUnresolvedDay\(dayOffset\)/,
-  "a failed future-day lookup must preserve existing enabled alarms",
-);
-assert.match(
-  prayerAlertHookSource,
-  /if \(!scheduled\) \{[\s\S]*?refreshedPrayerIds\.add\(id\)/,
-  "an enabled prayer with an unresolved individual time must preserve its existing alarm",
-);
+const refreshedPrayerAlarmMarker = prayerAlertHookSource.indexOf("refreshedPrayerIds.add(id)");
 const pastPrayerScheduleGuard = prayerAlertHookSource.indexOf("if (scheduled <= now) continue;");
-const refreshedPrayerAlarmMarker = prayerAlertHookSource.indexOf("refreshedPrayerIds.add(id)", pastPrayerScheduleGuard);
 assert.ok(
-  pastPrayerScheduleGuard >= 0 && refreshedPrayerAlarmMarker > pastPrayerScheduleGuard,
-  "successfully resolved past prayer times must still cancel stale native alarms",
+  refreshedPrayerAlarmMarker >= 0 && pastPrayerScheduleGuard > refreshedPrayerAlarmMarker,
+  "successfully resolved past prayer times must be marked for cancellation before the past-time guard",
 );
+assert.match(prayerAlertHookSource, /if \(!dayTimings\) continue;/);
+assert.match(prayerAlertHookSource, /if \(!scheduled\) continue;/);
 assert.match(salawatHookSource, /serverTimeZone: data\.timezone/);
 assert.match(salawatHookSource, /event === "SIGNED_IN"[\s\S]*?syncBackgroundReminderTimeZone/);
 assert.match(salawatHookSource, /window\.addEventListener\("zikr:native-app-state", syncTimeZone\)/);
