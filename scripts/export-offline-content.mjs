@@ -11,7 +11,10 @@ const rawSupabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPA
 const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 const apiKey = (serviceRoleKey || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLIC_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '').trim();
 
-if (!supabaseUrl || !apiKey) {
+// Check raw credentials before constructing the canonical URL. Referencing the
+// later supabaseUrl binding here would hit its temporal dead zone and crash every
+// ordinary build and scheduled snapshot refresh before the intended guard runs.
+if (!rawSupabaseUrl || !apiKey) {
   if (process.argv.includes('--required')) {
     throw new Error('Offline snapshot refresh requires SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and a protected Supabase key.');
   }
