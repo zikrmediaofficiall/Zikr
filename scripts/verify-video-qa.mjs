@@ -175,7 +175,7 @@ for (const token of [
     failures.push("Kids video public-read migration missing fail-closed QA-gated RLS contract: " + token);
   }
 }
-if (/metadata->>'audience'\\s*(?:<>|!=)\\s*'kids'/i.test(kidsVideoPublicReadMigration)) {
+if (/metadata->>'audience'\s*(?:<>|!=)\s*'kids'/i.test(kidsVideoPublicReadMigration)) {
   failures.push("Kids video public-read migration must not treat every non-Kids audience value as general");
 }
 if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
