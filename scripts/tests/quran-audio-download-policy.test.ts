@@ -143,7 +143,7 @@ try {
   if (previousWindowDescriptor) {
     Object.defineProperty(globalThis, "window", previousWindowDescriptor);
   } else {
-    delete (globalThis as typeof globalThis & { window?: unknown }).window;
+    Reflect.deleteProperty(globalThis, "window");
   }
 }
 
