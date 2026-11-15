@@ -145,8 +145,9 @@ for (const token of [
   "isHumanVideoApprovalRecorded",
   "inspectVideoQueueItemExternalApproval",
   "buildVideoApprovalSnapshotHash",
-  'snapshot.audience === "kids" && snapshot.kidsVideoQaStatus !== "passed"',
-  'content.kidsVideoQaStatus !== "passed"',
+  "normalizeVideoAudience(snapshot.audience)",
+  'normalizeVideoMarker(snapshot.kidsVideoQaStatus) !== "passed"',
+  'normalizeVideoMarker(content.kidsVideoQaStatus) !== "passed"',
 ]) {
   if (!approvalService.includes(token)) failures.push(`automated QA approval service missing integrity contract: ${token}`);
 }
@@ -179,7 +180,7 @@ if (/metadata->>'audience'\s*(?:<>|!=)\s*'kids'/i.test(kidsVideoPublicReadMigrat
   failures.push("Kids video public-read migration must not treat every non-Kids audience value as general");
 }
 if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
-    !kidsVideoPublication.includes('qualityReview?.mode === "human"') ||
+    !kidsVideoPublication.includes('normalizeVideoMarker(qualityReview.mode) === "human"') ||
     !kidsVideoPublication.includes("REQUIRED_KIDS_VIDEO_HUMAN_REVIEW_CHECKS.every")) {
   failures.push("Kids external publishing must use a separate complete human review record after automated QA");
 }
