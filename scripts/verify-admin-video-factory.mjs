@@ -141,10 +141,11 @@ const invalidCloudinaryUrlBlock = upload.slice(audioUrlParseStart, assetTracking
 if (
   cloudinaryResponseFailureStart < 0 ||
   audioUrlParseStart <= cloudinaryResponseFailureStart ||
-  !cloudinaryResponseFailureBlock.includes("uploadReference: publicId") ||
+  !cloudinaryResponseFailureBlock.includes("recoveryReference") ||
+  !cloudinaryResponseFailureBlock.includes("...recoveryReference") ||
   !cloudinaryResponseFailureBlock.includes("recoveryRequired: true")
 ) {
-  failures.push("ambiguous Cloudinary response failures must retain a recovery reference for possible uploaded assets");
+  failures.push("ambiguous Cloudinary response failures must retain the safe returned recovery reference for possible uploaded assets");
 }
 if (
   audioUrlParseStart < 0 ||
