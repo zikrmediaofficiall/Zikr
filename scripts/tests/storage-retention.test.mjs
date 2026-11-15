@@ -72,6 +72,11 @@ assert.throws(
   /incomplete inventory; refusing cleanup/,
   "an object-shaped response must not be accepted as an empty reference inventory",
 );
+assert.throws(
+  () => requireArrayResult(new Set(), "fixture"),
+  /incomplete inventory; refusing cleanup/,
+  "a non-array iterable must not be accepted as a complete inventory",
+);
 assert.throws(() => assertExpectedSupabaseProject(supabaseUrl, "wrong-project"), /20-character Supabase project ref/);
 assert.throws(() => assertExpectedSupabaseProject("https://other-project.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
 assert.throws(() => assertExpectedSupabaseProject("http://zqtssvlvmkzeeyqghqfk.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
