@@ -240,7 +240,13 @@ export default function AdminVideoStudioClient() {
     const payload = await response.json().catch(() => ({}));
     if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return null;
     if (!response.ok || typeof payload.audioUrl !== "string" || payload.auditRecorded !== true) {
-      throw new Error(payload.error || "تعذر تأكيد تسجيل رفع الصوت في سجل التدقيق؛ لم يتم إرفاقه بطلب الفيديو.");
+      const recoveryReference = typeof payload.uploadReference === "string"
+        ? ` (مرجع الاسترداد: ${payload.uploadReference})`
+        : "";
+      throw new Error(`${payload.error || "تعذر تأكيد تسجيل رفع الصوت في سجل التدقيق؛ لم يتم إرفاقه بطلب الفيديو."}${recoveryReference}`);
+    }
+    if (payload.assetTrackingStatus === "reconciliation_pending") {
+      setWarning("تم رفع التسجيل وتأكيد التدقيق، لكن حالة الأصل تحتاج إلى مراجعة في مكتبة الوسائط.");
     }
     setUploadedAudioUrl(payload.audioUrl);
     return payload.audioUrl as string;
