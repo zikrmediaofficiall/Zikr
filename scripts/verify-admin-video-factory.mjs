@@ -68,6 +68,11 @@ const generationPatch = generation.match(/export async function PATCH\([\s\S]*$/
 if (!generationGet.includes("requireAdminApi('video.manage')")) failures.push("video generation GET must require video.manage");
 if (!generationPatch.includes("requireAdminStepUpApi('video.manage'")) failures.push("video generation PATCH must require video.manage step-up");
 if (!generationDelete.includes("requireAdminStepUpApi('video.delete'")) failures.push("video generation DELETE must require video.delete step-up");
+if (
+  !generationDelete.includes("VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT") ||
+  !generationDelete.includes("status: 410") ||
+  generationDelete.includes("supabaseServerAdminRequest")
+) failures.push("legacy video-generation DELETE must remain disabled until media, catalog, and social-queue references are safely inventoried");
 if (!generation.includes("updated_at=eq.") || !generation.includes("current.updated_at")) failures.push("admin publish retry must use optimistic concurrency");
 
 const retryPublishStart = generation.search(/if\s*\(\s*action\s*===\s*["']retry_publish["']\s*\)/);
