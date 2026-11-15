@@ -9,7 +9,10 @@ export function isAllowedQuranAudioUrl(
   if (typeof value !== "string" || !value.trim()) return false;
 
   try {
-    const url = new URL(value.trim());
+    const rawValue = value.trim();
+    const rawPath = rawValue.replace(/^https?:\/\/[^/]+/i, "").split(/[?#]/, 1)[0];
+    if (/(?:^|\/)(?:\.{1,2})(?:\/|$)/.test(rawPath) || /%(?:2e|2f|5c)/i.test(rawPath)) return false;
+    const url = new URL(rawValue);
     if (url.username || url.password || url.search || url.hash) return false;
 
     const segments = url.pathname.split("/").filter(Boolean);
