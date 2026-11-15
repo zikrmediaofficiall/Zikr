@@ -156,7 +156,7 @@ assert.equal(originalKidsCleanCopy.socialCaption, "A gentle lesson for today.");
 const editorialDisclosure = resolveKidsVideoPublicDisclosure(
   { audience: "kids", sourceType: "editorial", sourceLabel: "Reference: Sahih al-Bukhari" },
   "According to the Qur'an, this story is documented.",
-  "See https://example.com for the source.",
+  "See https://quran.com for the source.",
 );
 assert.equal(
   editorialDisclosure.sourceLabel,
@@ -167,7 +167,7 @@ assert.equal(editorialDisclosure.description, null, "editorial descriptions must
 assert.equal(editorialDisclosure.socialCaption, null, "editorial social copy must reject external source URLs");
 
 assert.equal(
-  resolveVideoSourceDisclosureLine({ sourceType: "editorial", sourceLabel: "Source: Quran.com" }, "https://example.com"),
+  resolveVideoSourceDisclosureLine({ sourceType: "editorial", sourceLabel: "Source: Quran.com" }, "https://quran.com"),
   "محتوى تحريري أصلي من منصة ذِكر — غير منسوب إلى آية أو حديث.",
   "the video worker must replace misleading editorial source labels with the canonical disclosure",
 );
