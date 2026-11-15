@@ -142,6 +142,10 @@ const genericStoryBranch = automationSource.slice(genericStoryStart, kidsSeriesS
 assert.match(genericStoryBranch, /audience:\s*"general"/, "verified public story sources must not be misclassified as Kids series episodes");
 assert.match(genericStoryBranch, /filterGeneralStorySources/, "generic story automation must filter Kids sources from its curated fallback pool");
 assert.match(automationSource, /resolveVideoSourceDisclosureLine\(content,\s*contentSourceUrl\(request\)\)/, "social captions must use audience-aware source disclosure");
+assert.match(automationSource, /containsKidsPersonalDataSolicitation\(reflection\)/, "AI Kids reflections must reject personal-data solicitation");
+assert.match(automationSource, /containsKidsPersonalDataSolicitation\(caption\)/, "AI Kids social captions must reject personal-data solicitation");
+assert.match(automationSource, /const kidsEditorialTextSafe = content\.audience !== "kids"/, "automated video QA must fail closed on unsafe Kids editorial text");
+assert.match(automationSource, /const captionsReviewed = kidsEditorialTextSafe && narrationQuality\.ok/, "unsafe Kids editorial text must prevent a passed video QA snapshot");
 const kidsSeriesEnd = automationSource.indexOf("const reminders =", kidsSeriesStart);
 assert.ok(kidsSeriesEnd > kidsSeriesStart, "Kids series branch must end before general reminder seeding");
 const kidsSeriesBranch = automationSource.slice(kidsSeriesStart, kidsSeriesEnd);
