@@ -224,8 +224,10 @@ const kidsAutomatedApproval = createAutomatedVideoQaApproval({
 });
 assert.equal(kidsAutomatedApproval?.kidsVideoQaStatus, "passed");
 assert.equal(kidsAutomatedApproval?.approvalSnapshotHash, kidsSnapshotHash);
-assert.equal(buildVideoApprovalSnapshotHashForRequest(request), kidsSnapshotHash,
-  "the worker and approval inspector must derive the same request fingerprint");
+assert.notEqual(buildVideoApprovalSnapshotHashForRequest(request), kidsSnapshotHash,
+  "a general-audience request must not reuse a Kids approval fingerprint");
+assert.equal(buildVideoApprovalSnapshotHashForRequest({ ...request, content: completeKidsContent }), kidsSnapshotHash,
+  "the worker and approval inspector must derive the same request fingerprint for the persisted Kids request");
 const kidsAutomatedContent = { ...completeKidsContent, ...kidsAutomatedApproval };
 const kidsAutomatedQueueItem = {
   ...kidsQueueItem,
