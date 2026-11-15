@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
+import { requireAdminApi } from "@/features/admin/services/admin";
 import { requireAdminStepUpApi } from "@/features/admin/services/security";
 import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
@@ -213,6 +214,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "فئة الجمهور غير معروفة؛ تم إيقاف إنشاء الفيديو." }, { status: 422 });
     }
     content = { ...content, audience: requestedAudience };
+
+    if (requestedAudience === "kids") {
+      const kidsAuth = await requireAdminApi("kids.manage");
+      if (!kidsAuth.ok) {
+        return NextResponse.json(
+          { error: kidsAuth.error },
+          { status: kidsAuth.status, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      if (kidsAuth.profile.id !== auth.profile.id) {
+        return NextResponse.json(
+          { error: "Unauthorized" },
+          { status: 401, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+    }
 
     if (typeof content.templateVersionId === "string" && content.templateVersionId.trim()) {
       const versionId = content.templateVersionId.trim();
