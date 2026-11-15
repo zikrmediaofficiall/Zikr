@@ -1,5 +1,6 @@
-const REQUIRED_KIDS_VIDEO_HUMAN_REVIEW_CHECKS = [
 import { normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
+
+const REQUIRED_KIDS_VIDEO_HUMAN_REVIEW_CHECKS = [
   "sourceVerified",
   "audioReviewed",
   "visualsReviewed",

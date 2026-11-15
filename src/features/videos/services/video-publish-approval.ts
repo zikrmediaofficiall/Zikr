@@ -241,13 +241,15 @@ export type VideoPublishRequestSnapshot = {
 export function buildVideoApprovalSnapshotHashForRequest(request: VideoPublishRequestSnapshot | null): string | null {
   if (!request || request.status !== "completed" || !request.video_url) return null;
   const content = record(request.content);
+  const audience = normalizeVideoAudience(content?.audience);
+  if (!audience) return null;
   return buildVideoApprovalSnapshotHash({
     category: request.category,
     sourceHash: request.source_hash,
     contentHash: request.content_hash,
     templateVersion: request.template_version,
     videoUrl: request.video_url,
-    audience: normalizeVideoAudience(content?.audience),
+    audience,
     kidsVideoQaStatus: typeof content?.kidsVideoQaStatus === "string" ? content.kidsVideoQaStatus : null,
   });
 }
@@ -284,7 +286,7 @@ export function inspectVideoQueueItemApproval(input: {
   const approvalStatus = typeof content?.approvalStatus === "string" ? content.approvalStatus : null;
   const audience = normalizeVideoAudience(content?.audience);
   if (!audience) {
-    return { approved: false, reason: "فئة الجمهور غير معروفة؛ تم إيقاف النشر لحين مراجعة البيانات.", snapshotHash: null };
+    return { approved: false, reason: "فئة الجمهور غير معروفة؛ تم إيقاف النشر لحين مراجعة البيانات.", missingChecks: [...REQUIRED_VIDEO_APPROVAL_CHECKS], approvalStatus };
   }
 
   if (audience === "kids" && (
