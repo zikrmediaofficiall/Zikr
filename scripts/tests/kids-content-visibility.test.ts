@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { getKidsQuizQuestions, isKidsContentType, KIDS_CONTENT_TYPES, normalizeKidsVideoEmbedUrl, parseKidsQuizData } from "../../src/features/kids/services/kids-content-validation";
 import { readFileSync } from "node:fs";
-import { getConfirmedPublicKidsVideoSocialPlatforms, isPublicKidsVideoSocialQueueRow, resolveKidsVideoSocialPublication } from "../../src/features/social/services/kids-video-social-visibility";
+import { classifyKidsVideoGenerationRequestId, getConfirmedPublicKidsVideoSocialPlatforms, isPublicKidsVideoSocialQueueRow, resolveKidsVideoSocialPublication } from "../../src/features/social/services/kids-video-social-visibility";
 import { loadKidsSocialQueueRows } from "../../src/features/social/services/kids-video-social-query";
 import {
   normalizeOfflineKidsRows,
@@ -284,7 +284,38 @@ assert.match(kidsVideoDetailPage, /loading="lazy"/, "the public Kids video detai
 assert.ok(kidsVideosApi.includes("loadKidsSocialQueueRows(requestIds"), "the Kids video feed must read the complete paginated Kids social history");
 assert.ok(kidsVideosApi.includes("status=eq.completed"), "only completed generation requests may supply public Kids story metadata");
 assert.ok(kidsVideosApi.includes("isKidsVideoGenerationRequestContent(content)"), "linked request text must be validated as Kids content before it is exposed");
-assert.match(kidsVideosApi, /VIDEO_GENERATION_REQUEST_ID_PATTERN\.test\(id\.trim\(\)\)/, "only valid generation UUIDs may enter the Kids feed Supabase filters");
+assert.ok(
+  kidsVideosApi.includes("classifyKidsVideoGenerationRequestId"),
+  "the Kids feed must classify generation request IDs before constructing Supabase filters",
+);
+assert.deepEqual(
+  classifyKidsVideoGenerationRequestId("123e4567-e89b-42d3-a456-426614174000"),
+  { kind: "valid", id: "123e4567-e89b-42d3-a456-426614174000" },
+  "a valid UUID must be normalized and admitted to the bounded request lookup",
+);
+assert.deepEqual(classifyKidsVideoGenerationRequestId(null), { kind: "missing" });
+assert.deepEqual(classifyKidsVideoGenerationRequestId(undefined), { kind: "missing" });
+assert.deepEqual(classifyKidsVideoGenerationRequestId(""), { kind: "missing" });
+for (const invalidId of [
+  "not-a-uuid",
+  "  ",
+  "123e4567-e89b-42d3-a456-426614174000,evil",
+  "123e4567-e89b-02d3-a456-426614174000",
+  "123e4567-e89b-42d3-0456-426614174000",
+  123,
+  {},
+]) {
+  assert.deepEqual(
+    classifyKidsVideoGenerationRequestId(invalidId),
+    { kind: "invalid" },
+    "malformed request IDs must never enter the Kids feed Supabase filters",
+  );
+}
+assert.ok(
+  kidsVideosApi.includes('return state.kind === "valid" ? [state.id] : [];') &&
+    kidsVideosApi.includes('requestIdState.kind === "valid" ? socialQueueByRequestId.get(requestId) ?? [] : []'),
+  "only validated UUIDs may be used for request and social queue lookups",
+);
 assert.ok(kidsVideosApi.includes("resolveKidsVideoSocialPublication"), "the Kids video feed must aggregate all original and supplemental social queue rows");
 assert.ok(kidsVideosApi.includes("socialQueueReadSucceeded = true"), "stored social badges must be used only after a successful live queue read");
 assert.ok(kidsVideosApi.includes("Promise.allSettled"), "a social queue read failure must be distinguishable from a legitimate empty result");
