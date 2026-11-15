@@ -36,7 +36,7 @@
 | GET | `/api/admin/social/youtube/connect` | `social.manage` + `social.publish` MFA step-up — publishing-capable OAuth |
 | GET | `/api/admin/social/youtube/callback` | `social.manage`, `social.publish` (MFA step-up) — validates upload/read scopes and stores the publishing refresh token |
 | GET | `/api/admin/video/templates` | `video.manage` |
-| POST | `/api/admin/video/templates` | `video.manage` |
+| POST | `/api/admin/video/templates` | `video.manage`, `kids.manage` (Kids templates only) |
 | POST | `/api/admin/videos/[id]/retry` | `video.manage` |
 | GET | `/api/admin/videos/[id]` | `video.manage` |
 | PATCH | `/api/admin/videos/[id]` | `video.manage` |
