@@ -233,24 +233,22 @@ assert.ok(
   "the list feed must treat an empty request-ID set as a successful no-op queue read",
 );
 const kidsVideoServiceSource = readFileSync("src/features/videos/services/videos.ts", "utf8");
-const detailResolverStart = kidsVideoServiceSource.indexOf("async function resolveKidsVideoSocialPublicationForDetail");
-const detailResolverEnd = kidsVideoServiceSource.indexOf("export async function getKidsGeneratedVideoBySlug", detailResolverStart);
-const detailResolverSource = detailResolverStart >= 0 && detailResolverEnd > detailResolverStart
-  ? kidsVideoServiceSource.slice(detailResolverStart, detailResolverEnd)
-  : "";
+const detailResolverSource = readFileSync("src/features/social/services/kids-video-social-detail.ts", "utf8");
+assert.ok(kidsVideoServiceSource.includes("resolveKidsVideoSocialPublicationForDetail"));
 assert.ok(detailResolverSource.includes('requestIdState.kind === "missing"'));
 assert.ok(
-  detailResolverSource.includes("return resolveKidsVideoSocialPublication([], stored, true, true);"),
+  detailResolverSource.includes("resolveKidsVideoSocialPublication([], stored, true, true)"),
   "the detail feed must use stored legacy publication metadata only when no request ID exists",
 );
 assert.ok(
   detailResolverSource.includes('requestIdState.kind === "invalid"') &&
-    detailResolverSource.includes("return null;"),
+    detailResolverSource.includes('reason: "invalid_request_id"'),
   "malformed request IDs must not be treated as legacy rows",
 );
 assert.ok(
-  detailResolverSource.includes("resolveKidsVideoSocialPublication(rows, stored, true, false)"),
-  "a valid request ID with an empty queue history must not fall back to stale catalog metadata",
+  detailResolverSource.includes("loadKidsSocialQueueRows([requestIdState.id], request)") &&
+    detailResolverSource.includes('reason: "queue_read_failed"'),
+  "a failed detail queue read must be distinguishable from a verified empty queue history",
 );
 
 console.log("✅ Kids video series: four series, 24 first-season episodes, 1,000 validated episode variants, and scheduled quota and social publication checks passed.");
