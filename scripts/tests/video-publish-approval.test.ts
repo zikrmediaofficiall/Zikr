@@ -279,7 +279,7 @@ assert.equal(catalogPatch?.metadata.approvalStatus, "approved");
 assert.equal(catalogPatch?.metadata.approvalReviewerId, "admin-user-1");
 assert.equal((catalogPatch?.metadata.qualityReview as Record<string, unknown>).mode, "human");
 assert.equal(catalogPatch?.metadata.storyText, "قصة تعليمية محفوظة كما هي", "catalog approval must preserve existing content metadata");
-assert.equal(catalogMetadata.approvalStatus, undefined, "catalog approval must not mutate the caller's metadata object");
+assert.equal(Object.prototype.hasOwnProperty.call(catalogMetadata, "approvalStatus"), false, "catalog approval must not mutate the caller's metadata object");
 assert.equal(buildVideoCatalogApprovalPatch({
   metadata: { ...catalogMetadata, videoGenerationRequestId: "different-request" },
   requestId: "request-1",
