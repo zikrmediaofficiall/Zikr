@@ -23,6 +23,7 @@ import {
   type DbTafsir,
   type Locale,
 } from "./quran";
+import { isAllowedQuranAudioUrl, isValidQuranAudioDownloadRequest } from "./audio-download-policy";
 
 /** Prefer server-only reads in Production; Preview/Development intentionally use the public read path. */
 const quranDbRequest = async <T>(path: string): Promise<T> => {
@@ -467,7 +468,9 @@ export async function getQuranAudioFromDb(
   surahId: number,
   reciterCode: string,
 ): Promise<
-  | { audio: QuranAudioRecord; reason?: undefined; storage_path?: undefined }
+  | {
+  if (!isValidQuranAudioDownloadRequest(surahId, reciterCode)) return { audio: null, reason: "invalid_audio_request", storage_path: null };
+ audio: QuranAudioRecord; reason?: undefined; storage_path?: undefined }
   | { audio: null; reason: string; storage_path: string | null }
 > {
   const candidates = [...new Set([
@@ -503,9 +506,11 @@ export async function getQuranAudioFromDb(
       if (!fallbackReciter?.baseUrlTemplate) {
         return { audio: null, reason: "reciter_not_found", storage_path: null };
       }
+      const fallbackAudioUrl = `${fallbackReciter.baseUrlTemplate.replace(/\/$/, "")}/${String(surahId).padStart(3, "0")}.mp3`;
+      if (!isAllowedQuranAudioUrl(fallbackAudioUrl)) return { audio: null, reason: "untrusted_audio_url", storage_path: null };
       return {
         audio: {
-          audio_url: `${fallbackReciter.baseUrlTemplate.replace(/\/$/, "")}/${String(surahId).padStart(3, "0")}.mp3`,
+          audio_url: fallbackAudioUrl,
           source_url: "https://www.mp3quran.net/",
           retrieved_at: null,
           storage_url: null,
@@ -520,7 +525,7 @@ export async function getQuranAudioFromDb(
     );
     const row = audio?.[0] ?? null;
 
-    if (row?.storage_status === "ready" && row.storage_url) {
+    if (row?.storage_status === "ready" && row.storage_url && isAllowedQuranAudioUrl(row.storage_url)) {
       return {
         audio: {
           ...row,
@@ -531,14 +536,14 @@ export async function getQuranAudioFromDb(
 
     // Only return a direct external audio URL; Storage is not required.
     const storedUrl = row?.audio_url;
-    const externalUrl =
-      typeof storedUrl === "string" &&
-      /^https?:\/\//i.test(storedUrl) &&
-      !storedUrl.includes(".supabase.co/storage/v1/object/")
-        ? storedUrl
-        : resolvedReciter.base_url_template
-          ? `${resolvedReciter.base_url_template.replace(/\/$/, "")}/${String(surahId).padStart(3, "0")}.mp3`
-          : null;
+    const fallbackAudioUrl = resolvedReciter.base_url_template
+      ? `${resolvedReciter.base_url_template.replace(/\/$/, "")}/${String(surahId).padStart(3, "0")}.mp3`
+      : null;
+    const externalUrl = isAllowedQuranAudioUrl(storedUrl)
+      ? storedUrl
+      : isAllowedQuranAudioUrl(fallbackAudioUrl)
+        ? fallbackAudioUrl
+        : null;
     if (externalUrl) {
       return {
         audio: {
@@ -550,7 +555,7 @@ export async function getQuranAudioFromDb(
 
     return {
       audio: null,
-      reason: row?.storage_status ?? "not_imported",
+      reason: storedUrl || row?.storage_url ? "untrusted_audio_url" : row?.storage_status ?? "not_imported",
       storage_path: row?.storage_path ?? null,
     };
   } catch (error) {
