@@ -257,6 +257,19 @@ if (!socialPublishingService.includes("created_at=gte.${createdSince}") ||
     (socialPublishingService.match(/resolveSocialPublishCutoff\(process\.env\.SOCIAL_PUBLISH_AFTER\)/g) ?? []).length < 2) {
   failures.push("social queue reads and stale recovery must share the validated explicit post-launch cutoff");
 }
+
+const videoHandoffRecoveryStart = videoGenerator.indexOf("export async function recoverPendingVideoSocialQueueEnqueues");
+const videoHandoffRecoveryEnd = videoGenerator.indexOf("export async function processTemplateVideoQueue", videoHandoffRecoveryStart);
+const videoHandoffRecovery = videoHandoffRecoveryStart >= 0 && videoHandoffRecoveryEnd > videoHandoffRecoveryStart
+  ? videoGenerator.slice(videoHandoffRecoveryStart, videoHandoffRecoveryEnd)
+  : "";
+if (!videoHandoffRecovery.includes("resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER)") ||
+    !videoHandoffRecovery.includes("created_at=gte.${encodeURIComponent(publishAfter)}") ||
+    (videoHandoffRecovery.match(/created_at=gte\.\$\{encodeURIComponent\(publishAfter\)\}/g) ?? []).length !== 3 ||
+    !videoHandoffRecovery.includes("buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore, publishAfter)")) {
+  failures.push("completed-video social handoff recovery must enforce the same post-launch cutoff as social queue reads");
+}
+
 const claimStart = socialPublishingService.indexOf("export async function claimPendingSocialPublishItems");
 const claimEnd = socialPublishingService.indexOf("export async function processSocialPublishItem", claimStart);
 const claimBody = socialPublishingService.slice(claimStart, claimEnd);

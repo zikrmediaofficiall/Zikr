@@ -19,6 +19,7 @@ import { videoContentHash, sourceHash } from "../../src/features/videos/provider
 import { buildDuplicateVideoOwnerRecoveryFilter, canRecoverDuplicateVideoRender } from "../../src/features/videos/services/duplicate-video-recovery";
 import { buildMissingMediaQueueRecoveryPatch } from "../../src/features/social/services/platform-availability";
 import { buildVideoSocialQueueUpdateFilter } from "../../src/features/social/services/social-queue-selection";
+import { resolveSocialPublishCutoff } from "../../src/features/social/services/facebook-queue-recovery-policy";
 import { calculateDailyVideoQuotaState } from "../../src/features/videos/services/video-automation-quota";
 import {
   buildContentPublishQueueRecoveryFilter,
@@ -198,6 +199,7 @@ type GeneratedRequest = {
   category: string;
   content: Record<string, unknown>;
   status: string;
+  created_at?: string | null;
   automation_key: string | null;
   error_message?: string | null;
   error_details?: string | null;
@@ -2334,17 +2336,18 @@ export async function recoverPendingVideoSocialQueueEnqueues(
   // queueSocialItems classifies disabled or approval-held publishing as
   // not_required, allowing the processing row to close without creating a
   // social queue item or invoking an external provider.
+  const publishAfter = resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER);
   const candidateLimit = Math.max(1, Math.min(10, Math.floor(limit) || 1));
-  const selectFields = "id,title,description,category,content,status,automation_key,error_message,error_details,video_url,generation_attempts,next_retry_at,updated_at,duration,source_hash,content_hash,template_version,scene,render_duration_ms";
+  const selectFields = "id,title,description,category,content,status,created_at,automation_key,error_message,error_details,video_url,generation_attempts,next_retry_at,updated_at,duration,source_hash,content_hash,template_version,scene,render_duration_ms";
   const [pendingRows, staleRows, retryWaitRows] = await Promise.all([
     supabaseServerAdminRequest<GeneratedRequest[]>(
-      `/rest/v1/video_generation_requests?status=in.(processing,retry_wait)&video_url=not.is.null&content->>socialQueueEnqueueStatus=eq.pending&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
+      `/rest/v1/video_generation_requests?status=in.(processing,retry_wait)&video_url=not.is.null&created_at=gte.${encodeURIComponent(publishAfter)}&content->>socialQueueEnqueueStatus=eq.pending&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
     ),
     supabaseServerAdminRequest<GeneratedRequest[]>(
-      `/rest/v1/video_generation_requests?status=eq.processing&video_url=not.is.null&content->>socialQueueEnqueueStatus=eq.processing&updated_at=lt.${encodeURIComponent(staleBefore)}&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
+      `/rest/v1/video_generation_requests?status=eq.processing&video_url=not.is.null&created_at=gte.${encodeURIComponent(publishAfter)}&content->>socialQueueEnqueueStatus=eq.processing&updated_at=lt.${encodeURIComponent(staleBefore)}&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
     ),
     supabaseServerAdminRequest<GeneratedRequest[]>(
-      `/rest/v1/video_generation_requests?status=eq.retry_wait&video_url=not.is.null&content->>socialQueueEnqueueStatus=eq.processing&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
+      `/rest/v1/video_generation_requests?status=eq.retry_wait&video_url=not.is.null&created_at=gte.${encodeURIComponent(publishAfter)}&content->>socialQueueEnqueueStatus=eq.processing&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
     ),
   ]);
   const candidates = [...new Map(
@@ -2357,7 +2360,7 @@ export async function recoverPendingVideoSocialQueueEnqueues(
   let deferred = 0;
   for (const request of candidates) {
     const videoUrl = request.video_url?.trim() ?? "";
-    const claimFilter = buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore);
+    const claimFilter = buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore, publishAfter);
     if (!claimFilter || !videoUrl) continue;
     const claimNow = new Date().toISOString();
     const claimContent = {
