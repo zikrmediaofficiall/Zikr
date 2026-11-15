@@ -174,7 +174,12 @@ assert.match(videoRetryRoute, /currentRows\[0\]\.status !== 'failed'/, "only fai
 assert.match(videoRetryRoute, /updateVideoRequestStatus\(id, 'pending', undefined, 'failed'\)/, "retry must use a failed-state compare-and-set");
 assert.match(videoAutomationService, /status=eq\.\$\{encodeURIComponent\(expectedStatus\)\}/);
 assert.match(videoAutomationService, /updated_at=eq\.\$\{encodeURIComponent\(expectedUpdatedAt\)\}/, "retry compare-and-set must include the exact updated_at revision");
-assert.match(videoAutomationService, /return Array\.isArray\(updated\) && updated\.length > 0/);
+const updateStatusStart = videoAutomationService.indexOf("export async function updateVideoRequestStatus");
+const metadataStart = videoAutomationService.indexOf("export function generateYoutubeMetadata", updateStatusStart);
+const updateStatus = videoAutomationService.slice(updateStatusStart, metadataStart);
+assert.match(updateStatus, /if \(!Array\.isArray\(updated\)\)/, "malformed update responses must fail closed");
+assert.match(updateStatus, /return updated\.length > 0/, "a valid empty compare-and-set response must remain a conflict");
+assert.match(updateStatus, /throw error;/, "database errors must propagate instead of being reported as a compare-and-set conflict");
 
 
 const recoveredFailed = buildMissingMediaQueueRecoveryPatch({
