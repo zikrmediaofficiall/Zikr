@@ -21,7 +21,7 @@ import { headers } from 'next/headers';
 import { generateGeminiFromAudio, generateGeminiText } from '@/features/spiritual-ai/services/gemini-client';
 import { consumeMemorizationAiRateLimit } from '@/features/spiritual-ai/services/rate-limit';
 import { MAX_MEMORIZATION_AUDIO_BYTES, MEMORIZATION_AUDIO_LIMIT_MESSAGE, MEMORIZATION_RATE_LIMIT_MESSAGE } from '@/features/memorization/constants';
-import { formatMemorizationEvaluation, type MemorizationEvaluation } from '@/features/memorization/evaluation';
+import { formatMemorizationEvaluationResponse } from '@/features/memorization/evaluation';
 import { getTrustedClientAddress } from '@/lib/request/client-address';
 import {
   deleteMemorizationProgress as deleteMemorizationProgressService,
@@ -87,53 +87,18 @@ export async function evaluateMemorizationAction(formData: FormData) {
     audioProvided: false,
   });
 
-  function parseEvaluation(raw: string): MemorizationEvaluation | null {
-    const cleaned = raw
-      .replace(/^\s*```(?:json)?/i, "")
-      .replace(/```\s*$/i, "")
-      .trim();
-    let parsed: unknown = null;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      const first = cleaned.indexOf("{");
-      const last = cleaned.lastIndexOf("}");
-      if (first >= 0 && last > first) {
-        try { parsed = JSON.parse(cleaned.slice(first, last + 1)); } catch { parsed = null; }
-      }
-    }
-    if (!parsed || typeof parsed !== "object") return null;
-    const value = parsed as Record<string, unknown>;
-    const arrayOfStrings = (input: unknown) =>
-      Array.isArray(input)
-        ? input.filter((item): item is string => typeof item === "string").map(item => item.trim()).filter(Boolean).slice(0, 8)
-        : [];
-    const score = Number(value.score);
-    if (!Number.isFinite(score)) return null;
-    return {
-      score: Math.max(0, Math.min(100, Math.round(score))),
-      summary: typeof value.summary === "string" ? value.summary.trim().slice(0, 600) : "",
-      memorization: typeof value.memorization === "string" ? value.memorization.trim().slice(0, 400) : "",
-      errors: arrayOfStrings(value.errors),
-      tajweed: arrayOfStrings(value.tajweed),
-      audioQuality: typeof value.audioQuality === "string" ? value.audioQuality.trim().slice(0, 300) : "",
-      revisionPlan: arrayOfStrings(value.revisionPlan),
-    };
-  }
-
   if (hasAudio) {
     const bytes = Buffer.from(await audio.arrayBuffer()).toString('base64');
     const response = await generateGeminiFromAudio(audioPrompt, { data: bytes, mimeType: audio.type || 'audio/webm' }, MEMORIZATION_SYSTEM_INSTRUCTION);
-    if (response) {
-      const structured = parseEvaluation(response);
-      return structured ? formatMemorizationEvaluation(structured, true) : response;
+    if (!response) {
+      return 'تعذر تقييم التسجيل الصوتي حاليًا. لم تُصدر درجة أو أخطاء على الأداء. حاول لاحقًا.';
     }
+    return formatMemorizationEvaluationResponse(response, true);
   }
 
   const result = await generateGeminiText(textFallbackPrompt, 1600, MEMORIZATION_SYSTEM_INSTRUCTION);
   if (result) {
-    const structured = parseEvaluation(result);
-    return structured ? formatMemorizationEvaluation(structured, false) : result;
+    return formatMemorizationEvaluationResponse(result, false);
   }
 
   return hasTarget

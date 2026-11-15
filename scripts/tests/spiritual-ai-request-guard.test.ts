@@ -12,7 +12,7 @@ import {
   SPIRITUAL_AI_RATE_LIMIT_WINDOW_SECONDS,
 } from '../../src/features/spiritual-ai/services/rate-limit-identity';
 import { classifyQuestion, isCrisisMessage } from '../../src/features/spiritual-ai/services/policy';
-import { formatMemorizationEvaluation } from '../../src/features/memorization/evaluation';
+import { formatMemorizationEvaluation, formatMemorizationEvaluationResponse } from '../../src/features/memorization/evaluation';
 
 assert.deepEqual(sanitizeChatHistory(null), []);
 assert.deepEqual(sanitizeChatHistory('not an array'), []);
@@ -171,6 +171,26 @@ assert.match(textOnlyMemorizationOutput, /لم يتم تقييم تسجيل صو
 assert.doesNotMatch(textOnlyMemorizationOutput, /الدرجة:|أخطاء التسميع|جودة التسجيل|جودة الحفظ|The recitation was strong/);
 assert.match(textOnlyMemorizationOutput, /ملاحظات تعليمية في التجويد/);
 assert.match(textOnlyMemorizationOutput, /خطة المراجعة/);
+const malformedTextOnlyOutput = formatMemorizationEvaluationResponse(
+  "The recitation scored 99/100 and no errors were heard.",
+  false,
+);
+assert.match(malformedTextOnlyOutput, /لم يتم تقييم تسجيل صوتي/);
+assert.doesNotMatch(malformedTextOnlyOutput, /99|100|الدرجة:|أخطاء التسميع|no errors were heard/i,
+  "malformed text-only model prose must never be presented as an audio score or recitation finding");
+const malformedAudioOutput = formatMemorizationEvaluationResponse(
+  "Score: 99/100. No mistakes detected.",
+  true,
+);
+assert.match(malformedAudioOutput, /لم تُصدر درجة/);
+assert.doesNotMatch(malformedAudioOutput, /99|100|الدرجة:|أخطاء التسميع|No mistakes detected/i,
+  "unstructured audio output must not be presented as a validated score or finding");
+
+assert.match(memorizationActionSource, /formatMemorizationEvaluationResponse\(response, true\)/);
+assert.match(memorizationActionSource, /formatMemorizationEvaluationResponse\(result, false\)/);
+assert.match(memorizationActionSource, /if \(!response\)[\s\S]*?لم تُصدر درجة/);
+assert.doesNotMatch(memorizationActionSource, /return structured \? formatMemorizationEvaluation/);
+
 const audioMemorizationOutput = formatMemorizationEvaluation({
   ...sampleMemorizationEvaluation,
   score: 85,
