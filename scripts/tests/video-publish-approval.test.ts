@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
-import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, createAutomatedVideoQaApproval, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
 assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
 assert.equal(hasSuspiciousReligiousAttribution("قَالَ رَسُولُ اللَّهِ ﷺ"), true, "Arabic diacritics must not bypass attribution detection");
@@ -239,5 +239,106 @@ assert.equal(createAutomatedVideoQaApproval({
   checks,
   reviewedAt: "not-a-date",
 }), null);
+
+const catalogMetadata = {
+  generator: "zikr_internal_video_factory",
+  videoGenerationRequestId: "request-1",
+  generatedVideoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+  audience: "kids",
+  kidsVideoQaStatus: "passed",
+  automatedVideoQa: { status: "passed" },
+  contentFormat: "series_episode",
+  aiMode: "original_kids_story",
+  sourceType: "original_kids_fiction",
+  seriesId: "series-1",
+  seriesTitle: "قصص القيم",
+  learningObjective: "تعلم الصدق والأمانة",
+  seasonNumber: 1,
+  episodeNumber: 2,
+  approvalSnapshotHash: kidsSnapshotHash,
+  storyText: "قصة تعليمية محفوظة كما هي",
+};
+const catalogPatch = buildVideoCatalogApprovalPatch({
+  metadata: catalogMetadata,
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+  snapshotHash: kidsSnapshotHash!,
+  reviewerId: "admin-user-1",
+  reviewedAt: now,
+  checks,
+});
+assert.ok(catalogPatch, "a matching Kids catalog record must accept an explicit admin approval");
+assert.equal(catalogPatch?.published, true, "manual approval must publish the internal catalog row");
+assert.equal(catalogPatch?.metadata.approvalStatus, "approved");
+assert.equal(catalogPatch?.metadata.approvalReviewerId, "admin-user-1");
+assert.equal((catalogPatch?.metadata.qualityReview as Record<string, unknown>).mode, "human");
+assert.equal(catalogPatch?.metadata.storyText, "قصة تعليمية محفوظة كما هي", "catalog approval must preserve existing content metadata");
+assert.equal(catalogMetadata.approvalStatus, undefined, "catalog approval must not mutate the caller's metadata object");
+assert.equal(buildVideoCatalogApprovalPatch({
+  metadata: { ...catalogMetadata, videoGenerationRequestId: "different-request" },
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+  snapshotHash: kidsSnapshotHash!,
+  reviewerId: "admin-user-1",
+  reviewedAt: now,
+  checks,
+}), null, "a different generation request must never publish this catalog row");
+assert.equal(buildVideoCatalogApprovalPatch({
+  metadata: { ...catalogMetadata, generatedVideoUrl: "https://media.example.test/other.mp4" },
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+  snapshotHash: kidsSnapshotHash!,
+  reviewerId: "admin-user-1",
+  reviewedAt: now,
+  checks,
+}), null, "a catalog row with a different rendered asset must fail closed");
+assert.equal(buildVideoCatalogApprovalPatch({
+  metadata: { ...catalogMetadata, sourceHash: "different-source" },
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+  snapshotHash: kidsSnapshotHash!,
+  reviewerId: "admin-user-1",
+  reviewedAt: now,
+  checks,
+}), null, "a catalog row with a different source hash must fail closed");
+assert.equal(buildVideoCatalogApprovalPatch({
+  metadata: { ...catalogMetadata, kidsVideoQaStatus: "blocked" },
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+  snapshotHash: kidsSnapshotHash!,
+  reviewerId: "admin-user-1",
+  reviewedAt: now,
+  checks,
+}), null, "Kids catalog publication must require a passed Kids QA result");
+assert.equal(buildVideoCatalogApprovalPatch({
+  metadata: catalogMetadata,
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+  snapshotHash: kidsSnapshotHash!,
+  reviewerId: "system:zikr-video-factory",
+  reviewedAt: now,
+  checks,
+}), null, "the system QA identity cannot impersonate an administrator approval");
 
 console.log("Video publishing approval contract passed.");
