@@ -11,6 +11,7 @@ const createRoute = read("src/app/api/admin/videos/create/route.ts");
 const templatesRoute = read("src/app/api/admin/video/templates/route.ts");
 const narrationUploadRoute = read("src/app/api/admin/video-generation/narration-upload/route.ts");
 const videoUploadRoute = read("src/app/api/admin/videos/upload/route.ts");
+const contentPublisher = read("scripts/jobs/content-publishing.ts");
 const studioClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
 const templateClient = read("src/features/admin/video-templates/components/template-studio-client.tsx");
 const uploadField = read("src/features/admin/components/video-upload-field.tsx");
@@ -65,6 +66,13 @@ assert.ok(narrationUploadPost.indexOf("requireAdminStepUpApi") < narrationUpload
 assert.match(videoUploadRoute, /requireAdminStepUpApi\(['"]video\.manage['"]/);
 const videoUploadPost = videoUploadRoute.slice(videoUploadRoute.indexOf("export async function POST"));
 assert.ok(videoUploadPost.indexOf("requireAdminStepUpApi") < videoUploadPost.indexOf("createPresignedUploadUrl"));
+
+assert.match(contentPublisher, /metadata\.mediaState !== ["']purged["']/,
+  "scheduled video publication must reject media already marked purged");
+assert.match(contentPublisher, /metadata\.mediaState !== ["']unlinked["']/,
+  "scheduled video publication must reject media whose storage link is unlinked");
+assert.match(contentPublisher, /!approval\.approved/,
+  "scheduled video publication must revalidate the source-bound approval snapshot");
 
 assert.match(studioClient, /redirectToAdminStepUp/);
 assert.match(studioClient, /payload\.error === ["']step_up_required["'][\s\S]*?redirectToAdminStepUp\(payload\.nextPath\)/);
