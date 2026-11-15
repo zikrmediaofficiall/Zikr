@@ -101,9 +101,9 @@ export async function evaluateMemorizationAction(formData: FormData) {
     return formatMemorizationEvaluationResponse(result, false);
   }
 
-  return hasTarget
-    ? `لم يتمكن النظام من الاتصال بالذكاء الاصطناعي حاليًا. المقرر المحدد: "${target}". تأكد من تفعيل GEMINI_API_KEY وحاول مجددًا.`
-    : 'سجّل تسميعك الصوتي وحدد الورد للحصول على تقييم الحفظ والتجويد. تأكد من تفعيل GEMINI_API_KEY.';
+  // Text-only mode is a supported local study-plan path; provider downtime
+  // must not turn it into an instruction to record audio or invent a score.
+  return formatMemorizationEvaluationResponse("", false);
 }
 
 // ---------------------------------------------------------------------------
