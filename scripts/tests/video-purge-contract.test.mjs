@@ -144,10 +144,11 @@ assert.ok(
   automationSettingAction.includes('requireAdminStepUp("system.manage", "/admin/automation")'),
   "video automation settings must remain protected by the system-manage MFA step-up action.",
 );
-assert.ok(
-  videoGenerationRoute.includes("const deleteFailed = (body as { deleteFailed?: unknown }).deleteFailed === true;"),
-  "bulk video-request deletion must require an explicit boolean true, not truthy strings such as \"false\".",
-);
+const videoGenerationDelete = videoGenerationRoute.split("export async function DELETE()")[1]?.split("export async function PATCH")[0] ?? "";
+assert.ok(videoGenerationDelete.includes("VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT"), "legacy video request deletion must remain disabled until media, catalog, and queue references are audited");
+assert.ok(videoGenerationDelete.includes("status: 410"), "legacy video request deletion must return 410");
+assert.ok(videoGenerationDelete.includes("requireAdminStepUpApi('video.delete', '/admin/video/requests')"), "disabled legacy endpoint remains step-up protected");
+assert.ok(!videoGenerationDelete.includes("supabaseServerAdminRequest") && !videoGenerationDelete.includes("method: 'DELETE'"), "disabled legacy endpoint must not mutate database rows");
 assert.ok(
   videoGenerationRoute.includes("requireAdminStepUpApi('video.delete', '/admin/video/requests')"),
   "bulk video-request deletion must enforce the server-side video.delete step-up guard.",
