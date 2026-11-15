@@ -48,7 +48,12 @@ export async function GET() {
 
 export async function DELETE() {
   const auth = await requireAdminStepUpApi('video.delete', '/admin/video/requests');
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error, code: auth.error, nextPath: "nextPath" in auth ? auth.nextPath : undefined },
+      { status: auth.status },
+    );
+  }
 
   return NextResponse.json(
     {
