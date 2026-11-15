@@ -979,7 +979,7 @@ assert.doesNotMatch(
 const pushSubscriptionRoute = readFileSync("src/app/api/push/subscription/route.ts", "utf8");
 const pushWorkerSource = readFileSync("supabase/functions/prayer-notification-worker/index.ts", "utf8");
 assert.match(pushSubscriptionRoute, /createAdminClient\(\)/, "the subscription API must use the service-role client");
-assert.match(pushSubscriptionRoute, /parsePushSubscriptionRequestBody\(parsedBody\.value\)/, "the API must validate endpoints through the shared request parser");
+assert.match(pushSubscriptionRoute, /parsePushSubscriptionRequestBody\\(body\\)/, "the API must validate endpoints through the shared request parser");
 assert.match(pushWorkerSource, /isAllowedPushEndpoint/, "the worker must validate legacy endpoints before outbound push requests");
 
 console.log("Prayer notification subscription pagination and delivery lease contracts passed.");
