@@ -16,6 +16,7 @@ import {
 import type { VideoGenerationRequest } from '@/lib/types/video';
 import { sourceHash, videoContentHash } from '../providers/content-hash';
 import { CURRENT_VIDEO_RENDERER_VERSION } from './video-template-version';
+import { resolveYouTubeUploadPrivacy } from './youtube-upload-privacy';
 
 export type { VideoGenerationRequest };
 
@@ -67,11 +68,6 @@ async function getYoutubeAccessToken(): Promise<string> {
     console.error('[video-automation] YouTube token refresh failed:', error);
     throw error instanceof Error ? error : new Error(String(error));
   }
-}
-
-function resolveYoutubePrivacy(): 'public' | 'unlisted' | 'private' {
-  const value = process.env.YOUTUBE_UPLOAD_PRIVACY?.trim().toLowerCase();
-  return value === 'unlisted' || value === 'private' ? value : 'public';
 }
 
 
@@ -437,7 +433,7 @@ export async function publishToYoutube(
           categoryId: metadata.categoryId,
         },
         status: {
-          privacyStatus: resolveYoutubePrivacy(),
+          privacyStatus: resolveYouTubeUploadPrivacy(process.env.YOUTUBE_UPLOAD_PRIVACY),
           selfDeclaredMadeForKids: options.selfDeclaredMadeForKids === true,
           containsSyntheticMedia: options.containsSyntheticMedia === true,
         },
