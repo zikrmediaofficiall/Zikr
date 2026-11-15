@@ -141,9 +141,15 @@ export function resolveKidsVideoSocialPublication(
             typeof platform === "string" && SOCIAL_PLATFORMS.has(platform),
         ))]
       : [];
-    if (storedPlatforms.length === 0) return null;
+    const storedStatus = storedRecord.status;
+    if (
+      storedPlatforms.length === 0 ||
+      (storedStatus !== "published" && storedStatus !== "partial")
+    ) {
+      return null;
+    }
     return {
-      status: storedRecord.status === "published" ? "published" : "partial",
+      status: storedStatus,
       platforms: storedPlatforms,
       publishedAt: typeof storedRecord.publishedAt === "string" &&
         Number.isFinite(Date.parse(storedRecord.publishedAt))

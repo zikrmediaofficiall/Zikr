@@ -271,4 +271,14 @@ assert.deepEqual(
   "only rows with no request ID may use the legacy catalog fallback",
 );
 
+const invalidStoredPublication = {
+  ...staleCatalogPublication,
+  status: "queued",
+};
+assert.equal(
+  resolveKidsVideoSocialPublication([], invalidStoredPublication, true, true),
+  null,
+  "legacy metadata with an unknown queue status must not be promoted to a partial-publication badge",
+);
+
 console.log("Kids social queue pagination, request-ID classification, and fail-closed publication visibility passed.");
