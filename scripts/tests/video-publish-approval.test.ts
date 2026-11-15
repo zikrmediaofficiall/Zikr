@@ -516,8 +516,8 @@ assert.ok(
   "Kids permission must be checked before template resolution and before request persistence",
 );
 const createKidsPermissionGuard = adminVideoCreateRoute.slice(createKidsPermissionGuardIndex, createRequestIndex);
-assert.match(createKidsPermissionGuard, /requireAdminApi\(["']kids\.manage["']\)/);
-assert.match(createKidsPermissionGuard, /kidsAuth\.profile\.id !== auth\.profile\.id/);
+assert.ok(createKidsPermissionGuard.includes('requireAdminApi("kids.manage")'), "Kids generation must require the separate Kids permission");
+assert.ok(createKidsPermissionGuard.includes("kidsAuth.profile.id !== auth.profile.id"), "Kids permission must belong to the same authenticated admin");
 
 assert.match(adminVideoGenerationRoute, /resolveKidsVideoQaStatusForApproval/);
 assert.match(adminVideoGenerationRoute, /requestContent: currentContent/);
