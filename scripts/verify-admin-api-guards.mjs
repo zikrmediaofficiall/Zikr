@@ -109,7 +109,7 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/video-generation/route.ts PATCH": ["video.manage", "kids.manage"],
   "src/app/api/admin/video-generation/sources/route.ts GET": ["video.manage"],
   "src/app/api/admin/video/templates/route.ts GET": ["video.manage"],
-  "src/app/api/admin/video/templates/route.ts POST": ["video.manage"],
+  "src/app/api/admin/video/templates/route.ts POST": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/[id]/retry/route.ts POST": ["video.manage"],
   "src/app/api/admin/videos/[id]/route.ts GET": ["video.manage"],
   "src/app/api/admin/videos/[id]/route.ts PATCH": ["video.manage"],
