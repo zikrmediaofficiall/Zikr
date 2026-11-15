@@ -319,6 +319,9 @@ const catalogMetadata = {
 const catalogRequestContent = {
   ...completeKidsContent,
   ...kidsAutomatedApproval,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
 };
 const catalogApprovalInput = {
   metadata: catalogMetadata,
