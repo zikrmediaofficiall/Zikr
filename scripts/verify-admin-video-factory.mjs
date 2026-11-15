@@ -210,6 +210,8 @@ if (!templateApi.includes("/rest/v1/rpc/admin_create_video_template_version") ||
 if (!templateApi.includes("recordAdminAuditEvent")) failures.push("template actions must be included in the admin audit stream");
 
 const worker = read("scripts/jobs/template-video-automation.ts");
+const approvalRoute = read("src/app/api/admin/video-generation/route.ts");
+const approvalService = read("src/features/videos/services/video-publish-approval.ts");
 if (!worker.includes("async function bindTemplateVersion")) failures.push("video worker must bind requests to an immutable template version");
 if (!worker.includes("request.content.templatePreview === true")) failures.push("template preview mode must be recognized by the renderer");
 if (!worker.includes("if (!isTemplatePreview) aiPlan = await generateAiVideoPlan(request, signal)")) failures.push("internal template previews must avoid external generative planning");
@@ -302,6 +304,29 @@ if (!pkg.scripts["verify"]?.includes("pnpm admin:video:check")) failures.push("v
 if (!read("src/features/videos/services/voice-profiles.ts").includes("hadith_male_msa")) failures.push("canonical hadith male voice profile missing");
 if (!read("src/features/videos/services/narration-quality.ts").includes("evaluateArabicNarrationText")) failures.push("Arabic narration quality validator missing");
 if (!worker.includes("wordsPerSecond")) failures.push("Video worker missing speaking-rate checks");
+for (const token of [
+  "approvalStatus: typeof request.content.approvalStatus === \"string\"",
+  "approvalReviewerId: typeof request.content.approvalReviewerId === \"string\"",
+  "approvalSnapshotHash: typeof request.content.approvalSnapshotHash === \"string\"",
+  "contentFormat: typeof request.content.contentFormat === \"string\"",
+  "aiMode: typeof request.content.aiMode === \"string\"",
+]) {
+  if (!worker.includes(token)) failures.push("Video catalog row must retain the exact generation approval contract: " + token);
+}
+if (!approvalService.includes("buildVideoCatalogApprovalPatch") ||
+    !approvalService.includes("published: true") ||
+    !approvalService.includes("metadata.videoGenerationRequestId !== requestId")) {
+  failures.push("Manual video approval must have a source-locked catalog publication patch");
+}
+for (const token of [
+  "buildVideoCatalogApprovalPatch",
+  "/rest/v1/videos?slug=eq.",
+  "metadata->>videoGenerationRequestId=eq.",
+  "publishedInternally: true",
+  "catalogPublished: true",
+]) {
+  if (!approvalRoute.includes(token)) failures.push("Admin approval must publish only the matching internal video catalog row: " + token);
+}
 
 if (!worker.includes("VIDEO_PLAN_SYSTEM_INSTRUCTION") ||
     !worker.includes("systemInstruction: { parts: [{ text: systemInstruction }] }") ||
