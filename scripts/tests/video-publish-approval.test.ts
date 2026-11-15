@@ -6,7 +6,7 @@ assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an a
 assert.equal(hasSuspiciousReligiousAttribution("قَالَ رَسُولُ اللَّهِ ﷺ"), true, "Arabic diacritics must not bypass attribution detection");
 assert.equal(hasSuspiciousReligiousAttribution("قال تعالى إن الصدق قيمة جميلة"), true);
 assert.equal(hasSuspiciousReligiousAttribution("هذا نص تعليمي عام عن الصدق والأمانة"), false);
-assert.equal(hasSuspiciousReligiousAttribution("بقال رسول الله"), false, "the phrase must not match inside a longer Arabic word");
+assert.equal(hasSuspiciousReligiousAttribution("قالرسول الله"), false, "the phrase must not match when attached to a preceding Arabic word");
 assert.equal(hasSuspiciousReligiousAttribution("رسول اللهي"), false, "the phrase must not match when followed by another Arabic letter");
 assert.equal(hasSuspiciousReligiousAttribution(null), false);
 
