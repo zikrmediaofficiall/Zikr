@@ -227,13 +227,28 @@ assert.deepEqual(
 );
 assert.equal(invalidDetailCalls, 0, "invalid request IDs must never trigger a queue lookup");
 
+const videoServiceSource = readFileSync(
+  new URL("../../src/features/videos/services/videos.ts", import.meta.url),
+  "utf8",
+);
+assert.match(videoServiceSource, /resolveKidsVideoSocialPublicationForDetail/);
+assert.match(videoServiceSource, /socialPublicationCaption:\s*socialPublicationResolution\.caption/);
+assert.match(videoServiceSource, /socialPublicationReadStatus:\s*socialPublicationResolution\.status/);
+assert.equal(
+  (videoServiceSource.match(/resolveKidsVideoSocialPublicationForDetail/g) ?? []).length,
+  2,
+  "the video detail service must be the only resolver caller (one import and one call)",
+);
+
 const detailPageSource = readFileSync(
   new URL("../../src/app/kids/videos/[slug]/page.tsx", import.meta.url),
   "utf8",
 );
-assert.match(detailPageSource, /resolveKidsVideoSocialPublicationForDetail/);
-assert.match(detailPageSource, /socialResolution\.publication/);
-assert.doesNotMatch(detailPageSource, /metadata\.socialPublication\s*&&/);
+assert.doesNotMatch(detailPageSource, /resolveKidsVideoSocialPublicationForDetail/);
+assert.doesNotMatch(detailPageSource, /supabaseServerAdminRequest/);
+assert.match(detailPageSource, /metadata\.socialPublicationCaption/);
+assert.match(detailPageSource, /metadata\.socialPublicationReadStatus/);
+assert.match(detailPageSource, /metadata\.socialPublication/);
 
 const legacyDetail = await resolveKidsVideoSocialPublicationForDetail(
   null,
