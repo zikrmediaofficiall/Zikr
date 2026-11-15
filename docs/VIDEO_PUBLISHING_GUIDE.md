@@ -10,7 +10,7 @@
 | Application build/documentation | CircleCI | `application-build-docs` |
 | Android build/signing | CircleCI | `android-rebuild` |
 | Prayer notifications | Supabase | `prayer-notification-worker` + pg_cron |
-| Source-verified content ingestion | Supabase | `source-verified-content-agent` + pg_cron |
+| Source-verified content agent (currently skip-only; parser work pending) | Supabase | `source-verified-content-agent` + pg_cron |
 
 There is no CircleCI production video worker and no Vercel Cron for video publication. External social publishing is separate from rendering and requires provider preflight and administrator enablement. General-audience video rows require five passing automated QA checks; Kids video rows additionally require a matching human approval record. Source-verified written text rows use the written-content quality gate.
 
@@ -57,7 +57,7 @@ The internal website video catalog and `content_publish_queue` remain independen
 
 ## Monetag SmartLink
 
-Monetag SmartLink placement is limited to approved general-audience website placements: the homepage, public video hub, and eligible general-public footer routes. It is not shown in children's sections or sacred-text/worship-tool interfaces.
+Monetag SmartLink placement is limited to approved general-audience website placements: the homepage promotional section, the dedicated About/Articles placements, and eligible general-public footer routes. The public video hub and individual video-detail routes do not render a SmartLink component; the shared footer is suppressed there. It is not shown in children's sections or sacred-text/worship-tool interfaces.
 
 Monetag links are not appended to YouTube or Facebook descriptions/captions; provider captions use the approved social metadata contract. See `docs/MONETAG_SMARTLINK_PLACEMENT.md` for website placement and verification details.
 
@@ -164,7 +164,7 @@ After deploying, sign in with a ZIKR administrator, open `/admin/social`, and co
 
 Production video generation is configured for a daily target of 20, in four UTC runs (03:17, 09:17, 15:17, 21:17), with a hard daily ceiling of 24. Provider quotas, storage availability, and source validation can reduce the actual number completed. Social publishing runs immediately after a successful video worker and is retried every 15 minutes (UTC minutes 07, 22, 37, 52), five eligible rows per run, with each connected platform checked independently.
 
-External video publishing now uses a verified automated QA policy for the five checks (source, audio, visuals, captions, rights). The worker creates a system QA record only when every check passes and binds it to the exact source, content, template version, and MP4 URL; it revalidates that fingerprint immediately before each upload. Failed or uncertain checks are not auto-approved and are retained in the generation audit without public distribution. Manual review is not required for passing videos.
+External video publishing now uses a verified automated QA policy for the five checks (source, audio, visuals, captions, rights). The worker creates a system QA record only when every check passes and binds it to the exact source, content, template version, and MP4 URL; it revalidates that fingerprint immediately before each upload. Failed or uncertain checks are not auto-approved and are retained in the generation audit without public distribution. Manual review is not required for passing general-audience videos. Kids videos still require a matching human review record for the exact content snapshot; automated QA alone is not sufficient.
 
 The live Supabase project has the private `video_likes` table and the RLS-protected `video_like_counts` summary table. Only authenticated users can add/remove their own likes; the public site reads aggregate counts, not other users' identities.
 

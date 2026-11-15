@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 
-const baseUrl = (process.env.SITE_URL ?? process.env.DEPLOYMENT_URL ?? "").replace(/\/+$/, "");
-assert.ok(baseUrl, "SITE_URL or DEPLOYMENT_URL is required");
+const deploymentUrl = process.env.DEPLOYMENT_URL?.trim();
+const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.SITE_URL?.trim();
+const baseUrl = (deploymentUrl || canonicalUrl || "").replace(/\/+$/, "");
+assert.ok(baseUrl, "DEPLOYMENT_URL, NEXT_PUBLIC_SITE_URL, or SITE_URL is required");
+const parsedBaseUrl = new URL(baseUrl);
+assert.equal(parsedBaseUrl.protocol, "https:", "Production smoke must use HTTPS");
+const allowedOrigins = new Set([parsedBaseUrl.origin]);
+if (canonicalUrl) {
+  const parsedCanonicalUrl = new URL(canonicalUrl);
+  assert.equal(parsedCanonicalUrl.protocol, "https:", "Canonical production URL must use HTTPS");
+  allowedOrigins.add(parsedCanonicalUrl.origin);
+}
 
 const PUBLIC_ROUTES = [
   "/about",
@@ -219,8 +229,11 @@ async function checkEndpoint(check) {
         signal: AbortSignal.timeout(20_000),
       });
       const body = await response.text();
+      const finalUrl = new URL(response.url || url);
       last = `HTTP ${response.status}`;
-      if (response.status === 200) {
+      if (finalUrl.protocol !== "https:" || !allowedOrigins.has(finalUrl.origin)) {
+        last = `HTTP ${response.status} but final response origin ${finalUrl.origin} is not a verified deployment/canonical origin`;
+      } else if (response.status === 200) {
         let jsonPayload;
         if (check.expectedJson) {
           try {

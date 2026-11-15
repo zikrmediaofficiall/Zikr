@@ -1,6 +1,6 @@
 # ZIKR — CircleCI and Supabase environment matrix
 
-**Last updated:** 2026-11-01
+**Last updated:** 2026-11-15
 
 This document covers the current CircleCI CI/release lanes and the Supabase Edge Function runtime. GitHub Actions is the production owner for video/social scheduling. CircleCI does not execute the production video/social worker.
 
@@ -22,18 +22,17 @@ pnpm ci:build:report
 
 - `NEXT_PUBLIC_SUPABASE_URL=https://zqtssvlvmkzeeyqghqfk.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the public anon key; it is not a service-role secret)
-- `SUPABASE_URL=https://zqtssvlvmkzeeyqghqfk.supabase.co`
+- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are deliberately overridden with empty job-level values; the Android build does not use the service-role credential.
 
 The following values must be available before the Android job starts:
 
-- `SUPABASE_SERVICE_ROLE_KEY` — CircleCI project environment variable (required for the server-side asset upload and `android_release` site-setting update)
 - `ANDROID_KEYSTORE_BASE64` — CircleCI context `android-signing`
 - `ANDROID_KEYSTORE_PASSWORD` — CircleCI context `android-signing`
 - `ANDROID_KEY_ALIAS` — CircleCI context `android-signing`
 - `ANDROID_KEY_PASSWORD` — CircleCI context `android-signing`
 - `GH_TOKEN` — CircleCI context `android-signing` (fine-grained token for the guarded GitHub Actions dispatch)
 
-The `android-rebuild` workflow attaches the `android-signing` context for the four protected signing variables. The follow-up `android-release-dispatch` job uses the same context and additionally requires `GH_TOKEN` to dispatch the guarded GitHub recovery workflow after the signed build succeeds. The context must exist in the CircleCI organization and be authorized for this project before the release workflow is run. Keep signing material, service-role credentials, and the GitHub token out of the repository.
+The `android-rebuild` workflow attaches the `android-signing` context and consumes the four protected keystore variables plus `GH_TOKEN` for the guarded recovery dispatch. The follow-up `android-release-dispatch` job attaches the same context only to obtain `GH_TOKEN`; it shadows the four keystore variables with empty job-level values. The context must exist in the CircleCI organization and be authorized for this project before the release workflow is run. Keep signing material, service-role credentials, and the GitHub token out of the repository.
 
 The Android jobs fail early and list missing variable names without printing their values. `GH_TOKEN` must be a protected fine-grained GitHub token scoped to this repository with **Actions: Read and write** permission. The dispatched GitHub Actions workflow uses its own restricted `GITHUB_TOKEN` (`actions: write`, `contents: read`, `statuses: read`) to inspect the exact source commit and dispatch the guarded publisher. Do not move the signing material, service-role key, or GitHub token into the repository or a public workflow file.
 
@@ -65,7 +64,7 @@ Production video/social credentials and schedules live in protected GitHub envir
 - `publish-social.yml` — recurring social publishing.
 - `release-finalization.yml` — controlled production web release and the source-controlled `prayer-notification-worker` Edge Function deployment after database migrations.
 
-The controlled release requires the GitHub Actions **production environment** secret `SUPABASE_ACCESS_TOKEN` in addition to the administrative database URL. The workflow verifies that the token can list the canonical project before any production database mutation, applies and reconciles migrations, rechecks the exact approved `main` SHA, deploys only the changed `prayer-notification-worker` from `supabase/functions/prayer-notification-worker/`, then rechecks `main` before the Vercel deployment. The worker's `verify_jwt = false` setting remains defined in `supabase/config.toml`; the worker performs its own database-backed scheduler-secret validation. Do not trigger this workflow until CODEOWNERS approval and owner release authorization are complete.
+The controlled release requires the GitHub Actions **production environment** secret `SUPABASE_ACCESS_TOKEN` in addition to the administrative database URL. The workflow verifies that the token can list the canonical project before any production database mutation, applies and reconciles migrations, rechecks the exact approved `main` SHA, deploys the source-controlled `prayer-notification-worker`, `source-verified-content-agent`, `spiritual-ai`, and `health` Edge Functions, then rechecks `main` before the Vercel deployment. The worker's `verify_jwt = false` setting remains defined in `supabase/config.toml`; the worker performs its own database-backed scheduler-secret validation. Do not trigger this workflow until CODEOWNERS approval and owner release authorization are complete.
 
 ## Supabase Edge Functions
 
@@ -75,7 +74,7 @@ Requires the canonical Supabase URL/service-role runtime. Its scheduler secret a
 
 ### `source-verified-content-agent`
 
-Uses the configured production content sources and protected service-role runtime. Its cron is owned by Supabase pg_cron.
+The function is currently fail-closed: AlQuran Cloud is catalog-only and no live source parser is implemented for the other configured parser keys. Its pg_cron schedule can record source skips, but this code does not fetch or enqueue source content. Treat source ingestion as not implemented until a parser and end-to-end verification are added.
 
 ### `spiritual-ai`
 
@@ -134,8 +133,9 @@ in jobs that do not require them. This covers `config-guard`, `source-verify`,
 `android-release-draft` verifier. The production Supabase gate receives only
 its Supabase credentials; the scheduled English sync receives only its
 Supabase/Gemini credentials; the Android dispatch job keeps its GitHub Actions
-token but shadows Supabase, Gemini, and keystore values. The signed Android
-rebuild remains the only job that receives the signing context.
+token but shadows Supabase, Gemini, and keystore values. Only the signed Android
+rebuild consumes keystore values; the dispatch job still attaches the same
+context for GH_TOKEN but overrides the four keystore values with empty strings.
 
 CircleCI's documented precedence places job-level `environment` values above
 context and project-level values, so these empty overrides prevent unrelated
