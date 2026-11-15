@@ -7,8 +7,6 @@ import { getKidsGeneratedVideoBySlug } from "@/features/videos/services/videos";
 import { pageMetadata } from "@/lib/site";
 import { resolveVideoMediaUrl } from "@/features/videos/services/video-media-contract";
 import { resolveKidsVideoPublicDisclosure } from "@/features/videos/services/video-source-contract";
-import { resolveKidsVideoSocialPublicationForDetail } from "@/features/social/services/kids-video-social-detail";
-import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 
 export const dynamic = "force-dynamic";
 type KidsVideoLookup =
@@ -68,19 +66,24 @@ export default async function KidsVideoDetailPage({ params }: Props) {
 
   const metadata = video.metadata ?? {};
   const storyText = typeof metadata.storyText === "string" ? metadata.storyText : "";
-  const socialResolution = await resolveKidsVideoSocialPublicationForDetail(
-    metadata.videoGenerationRequestId,
-    metadata.socialPublication,
-    supabaseServerAdminRequest,
-  );
+  const socialPublication = metadata.socialPublication &&
+    typeof metadata.socialPublication === "object" &&
+    !Array.isArray(metadata.socialPublication)
+    ? metadata.socialPublication as { status?: string; platforms?: unknown }
+    : null;
+  const socialPublicationReadStatus = metadata.socialPublicationReadStatus === "verified"
+    ? "verified"
+    : "unavailable";
   const rawSocialCaption = typeof metadata.socialCaption === "string" && metadata.socialCaption.trim()
     ? metadata.socialCaption
-    : socialResolution.caption;
+    : typeof metadata.socialPublicationCaption === "string" && metadata.socialPublicationCaption.trim()
+      ? metadata.socialPublicationCaption
+      : null;
   const disclosure = resolveKidsVideoPublicDisclosure(metadata, video.description, rawSocialCaption);
   const socialCaption = disclosure.socialCaption ?? "";
-  const socialPublication = socialResolution.publication;
-  const socialPublicationReadStatus = socialResolution.status;
-  const publishedPlatforms = socialPublication?.platforms ?? [];
+  const publishedPlatforms = Array.isArray(socialPublication?.platforms)
+    ? socialPublication.platforms.filter((platform): platform is string => typeof platform === "string")
+    : [];
   const mediaUrl = resolveVideoMediaUrl({
     youtube_id: video.youtubeId,
     metadata,
