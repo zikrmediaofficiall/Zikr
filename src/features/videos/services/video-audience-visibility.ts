@@ -45,14 +45,44 @@ export function hasExplicitKidsVideoIntentMarker(value: unknown): boolean {
 
   if (normalizeVideoMarker(record.generationMode) === "free_deterministic_story_factory") return true;
 
-  const sourceId = normalizeVideoMarker(record.sourceId ?? record.curatedSourceId);
+  const sourceId = normalizeVideoMarker(record.sourceId) || normalizeVideoMarker(record.curatedSourceId);
   if (sourceId.startsWith("kids-series:")) return true;
 
-  const publicPath = normalizeVideoMarker(record.publicPath);
-  return publicPath === "/kids" || publicPath.startsWith("/kids/");
+  return isKidsVideoPublicPath(record.publicPath);
 }
 
 /** Legacy Kids story rows predate the explicit audience field. */
+function isKidsVideoPublicPath(value: unknown): boolean {
+  if (typeof value !== "string" || !value.trim()) return false;
+  let pathname = value.trim();
+  try {
+    pathname = new URL(pathname, "https://zikr.invalid").pathname;
+  } catch {
+    pathname = pathname.split(/[?#]/, 1)[0];
+  }
+
+  for (let depth = 0; depth < 5; depth += 1) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(pathname);
+    } catch {
+      return true;
+    }
+    if (decoded === pathname) break;
+    pathname = decoded;
+  }
+  if (/%[0-9a-f]{2}/i.test(pathname)) return true;
+
+  const normalizedSeparators = pathname.replace(/\\/g, "/").replace(/\/+/g, "/");
+  try {
+    pathname = new URL(normalizedSeparators, "https://zikr.invalid").pathname;
+  } catch {
+    return true;
+  }
+  pathname = pathname.replace(/\/+$/, "").toLowerCase();
+  return pathname === "/kids" || pathname.startsWith("/kids/");
+}
+
 export function isLegacyKidsVideoStoryShape(value: unknown): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
