@@ -5,7 +5,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONTAINER_NAME="zikr-client-table-privilege-hardening-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
 
 cleanup() {
+  local exit_code=$?
+  if [[ "$exit_code" -ne 0 ]]; then
+    echo "Client privilege hardening PostgreSQL container logs (exit=$exit_code):" >&2
+    docker logs "$CONTAINER_NAME" >&2 || true
+    docker inspect "$CONTAINER_NAME" --format 'state={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}}' >&2 || true
+  fi
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+  return "$exit_code"
 }
 trap cleanup EXIT
 
