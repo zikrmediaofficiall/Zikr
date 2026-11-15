@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getCurrentUserFavorites } from '@/features/favorites/services/favorites';
+import { getCurrentUserFavorites, type FavoriteItemType } from '@/features/favorites/services/favorites';
 import { getFavoriteHref } from '@/features/favorites/services/favorite-links';
 import { Container } from '@/components/ui/container';
 import { Card } from '@/components/ui/card';

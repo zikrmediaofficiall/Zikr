@@ -26,6 +26,7 @@ assert.doesNotMatch(bookmarkComponent, /itemType\s*=\s*["']quran["']/);
 const favoritesPage = readFileSync("src/app/favorites/page.tsx", "utf8");
 assert.ok(favoritesPage.includes("getFavoriteHref"), "the favorites page must use the tested route resolver");
 assert.match(favoritesPage, /typeLabels:\s*Record<FavoriteItemType,\s*string>/);
+assert.match(favoritesPage, /type FavoriteItemType/);
 assert.doesNotMatch(favoritesPage, /\b(?:article|video):\s*['"]/);
 
 for (const [path, expectedType] of [
