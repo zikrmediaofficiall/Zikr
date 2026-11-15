@@ -324,7 +324,7 @@ const kidsVideoServiceSource = readFileSync("src/features/videos/services/videos
 const detailResolverSource = readFileSync("src/features/social/services/kids-video-social-detail.ts", "utf8");
 assert.ok(kidsVideoServiceSource.includes("resolveKidsVideoSocialPublicationForDetail"));
 assert.ok(
-  detailResolverSource.includes('requestIdState.kind !== "valid"'),
+  detailResolverSource.includes('requestIdState.kind === "missing"'),
   "the detail feed must fail closed when a generation request ID is missing or invalid",
 );
 assert.ok(
