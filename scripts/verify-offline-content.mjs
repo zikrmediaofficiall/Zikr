@@ -161,7 +161,7 @@ if (existsSync(offlineWorkflowPath) &&
       !offlineWorkflow.includes('automation/offline-content-snapshot') ||
       !offlineWorkflow.includes('gh pr create') ||
       !offlineWorkflow.includes('secrets.GH_TOKEN || github.token') ||
-      !offlineWorkflow.includes('if ! gh pr create') ||
+      !offlineWorkflow.includes('if gh pr create') ||
       !offlineWorkflow.includes('::error::GitHub Actions token cannot create pull requests') ||
        !offlineWorkflow.includes('exit 1') ||
       !offlineWorkflow.includes('gh workflow run quality-gate.yml') ||
