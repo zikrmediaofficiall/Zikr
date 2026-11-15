@@ -393,7 +393,6 @@ const mismatchedGeneralCatalogPatch = buildVideoCatalogApprovalPatch({
     approvalReviewedAt: now,
     approvalSnapshotHash: mismatchedGeneralSnapshotHash,
     qualityReview: { ...checks, reviewedAt: now, mode: "human", reviewerId: "admin-user-1" },
-    automatedVideoQa: { ...catalogRequestContent.automatedVideoQa, snapshotHash: mismatchedGeneralSnapshotHash },
   },
   snapshotHash: mismatchedGeneralSnapshotHash!,
 });
