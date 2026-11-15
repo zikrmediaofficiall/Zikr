@@ -34,6 +34,8 @@ assert.equal(isKidsWrittenSourceReservation({ publicPath: "/%6Bids/story" }), tr
   "percent-encoded Kids path segments must remain reserved");
 assert.equal(isKidsWrittenSourceReservation({ public_path: "/kids/story" }), true,
   "legacy snake-case public paths must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "", public_path: "/kids/story" }), true,
+  "an empty camel-case path must not hide a Kids snake-case path");
 assert.equal(isKidsWrittenSourceReservation({ kids_content_id: "kids-row-1" }), true,
   "legacy snake-case Kids content IDs must remain reserved");
 assert.equal(isSafeWrittenBackfillSource(" article ", { source: { type: " KIDS_STORY " } }), false,
