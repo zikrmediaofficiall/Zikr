@@ -33,3 +33,20 @@ export function parseSourceItems(
   // has been implemented and reviewed.
   return { kind: "skipped", reason: "parser_not_implemented" };
 }
+
+
+export type SourceAgentRunStatus = "succeeded" | "partial" | "failed";
+
+/**
+ * A run with unsupported/catalog-only sources is not a full success even when
+ * no request threw. Keep the database status inside its declared CHECK set.
+ */
+export function getSourceAgentRunStatus(summary: {
+  queued: number;
+  skipped: number;
+  failed: number;
+}): SourceAgentRunStatus {
+  if (summary.failed > 0) return summary.queued > 0 ? "partial" : "failed";
+  if (summary.skipped > 0) return "partial";
+  return "succeeded";
+}
