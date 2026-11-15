@@ -64,7 +64,7 @@ for (const invalidPayload of [undefined, null, {}, "[]", 0]) {
   );
 }
 assert.equal(
-  (kidsContentServiceSource.match(/requireSupabaseRows/g) ?? []).length,
+  (kidsContentServiceSource.match(/requireSupabaseRows</g) ?? []).length,
   4,
   "Kids list and detail reads must validate both public rows and service-role visibility rows",
 );
@@ -748,7 +748,7 @@ assert.match(kidsSocialPostsApi, /process\.env\.VERCEL_ENV === "production"/, "a
 assert.match(kidsSocialPostsApi, /status: 503/, "a missing production service-role key must not silently produce an empty Kids posts feed");
 assert.match(kidsSocialPostsApi, /return NextResponse\.json\(\[\]/, "preview and development may retain their intentional empty-feed fallback");
 assert.equal(
-  (kidsSocialPostsApi.match(/requireSupabaseRows/g) ?? []).length,
+  (kidsSocialPostsApi.match(/requireSupabaseRows</g) ?? []).length,
   2,
   "Kids social queue and source lookups must reject malformed/empty HTTP bodies instead of returning a false empty feed",
 );
