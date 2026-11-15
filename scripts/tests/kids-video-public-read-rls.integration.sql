@@ -20,7 +20,7 @@ BEGIN
       'kids-approved'
     )
   ) THEN
-    RAISE EXCEPTION 'anon can read unreviewed Kids, unknown audience, malformed metadata, or unpublished video rows';
+    RAISE EXCEPTION 'anon can read unreviewed Kids, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
   END IF;
 END
 $anon_read$;
@@ -46,7 +46,7 @@ BEGIN
       'kids-approved'
     )
   ) THEN
-    RAISE EXCEPTION 'authenticated non-admin can read unreviewed Kids, unknown audience, malformed metadata, or unpublished video rows';
+    RAISE EXCEPTION 'authenticated non-admin can read unreviewed Kids, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
   END IF;
 END
 $authenticated_read$;
@@ -59,7 +59,7 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 14 THEN
+  IF visible_rows <> 15 THEN
     RAISE EXCEPTION 'service_role must retain full administrative visibility; found %', visible_rows;
   END IF;
 END
