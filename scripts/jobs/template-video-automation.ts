@@ -1900,6 +1900,13 @@ async function registerGeneratedVideoOnSite(
     factorySequence: Number.isInteger(Number(request.content.factorySequence)) ? Number(request.content.factorySequence) : null,
     aiDisclosure: request.content.aiDisclosure ?? null,
     automatedVideoQa: request.content.automatedVideoQa ?? null,
+    approvalStatus: typeof request.content.approvalStatus === "string" ? request.content.approvalStatus : null,
+    approvalReviewerId: typeof request.content.approvalReviewerId === "string" ? request.content.approvalReviewerId : null,
+    approvalReviewedAt: typeof request.content.approvalReviewedAt === "string" ? request.content.approvalReviewedAt : null,
+    approvalSnapshotHash: typeof request.content.approvalSnapshotHash === "string" ? request.content.approvalSnapshotHash : null,
+    qualityReview: request.content.qualityReview ?? null,
+    contentFormat: typeof request.content.contentFormat === "string" ? request.content.contentFormat : null,
+    aiMode: typeof request.content.aiMode === "string" ? request.content.aiMode : null,
     quality: {
       passed: true,
       checks: [
