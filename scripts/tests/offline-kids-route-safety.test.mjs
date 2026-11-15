@@ -60,8 +60,8 @@ assert.deepEqual(
 );
 assert.deepEqual(
   [...getBlockedKidsRoutes([], visibilityRows, ["/kids/unpublished-game", "/kids/inactive-game", "/kids/unsupported-kind"])].sort(),
-  ["/kids/inactive-game", "/kids/unpublished-game", "/kids/unsupported-kind"],
-  "unpublished, inactive and unsupported Kids rows must revoke previously cached detail routes",
+  ["/kids/inactive-game", "/kids/unapproved-story", "/kids/unpublished-game", "/kids/unsupported-kind"],
+  "unpublished, inactive, unsupported and unapproved-story rows must revoke previously cached detail routes",
 );
 assert.deepEqual(
   getPublishedKidsRoutes(currentRows),
