@@ -53,8 +53,12 @@ export function getConfirmedYoutubeFallbackId(row: Record<string, unknown>): str
 }
 
 export type YoutubeQueuePublicationState =
-  | { status: "published"; id: string; publishedAt: string }
-  | { status: "deleted"; deletedAt: string | null }
+  | { status: "published"; id: string; publishedAt: string; supersededDeletedIds: string[] }
+  | { status: "deleted"; deletedAt: string | null; deletedIds: string[] }
+  | { status: "conflict" };
+
+export type YoutubeCatalogReferenceResolution =
+  | { status: "resolved"; youtubeId: string | null; fallbackId: string | null }
   | { status: "conflict" };
 
 /**
@@ -167,10 +171,16 @@ export function resolveLatestConfirmedYoutubeQueueState(
       return { status: "conflict" };
     }
     const publication = newest[0];
+    const activePublicationIds = new Set(latestActivePublications.map((candidate) => candidate.id));
     return {
       status: "published",
       id: publication.id,
       publishedAt: publication.publishedAt,
+      // A different catalog ID may be replaced only when the queue has an
+      // exact, confirmed deletion for that ID and it is no longer active.
+      supersededDeletedIds: [...deletions.keys()]
+        .filter((id) => id !== publication.id && !activePublicationIds.has(id))
+        .sort(),
     };
   }
 
@@ -183,7 +193,58 @@ export function resolveLatestConfirmedYoutubeQueueState(
   const latestDeletion = deletionEvents.reduce((latest, current) =>
     current.timestamp > latest.timestamp ? current : latest,
   );
-  return { status: "deleted", deletedAt: latestDeletion.deletedAt };
+  return {
+    status: "deleted",
+    deletedAt: latestDeletion.deletedAt,
+    deletedIds: [...deletions.keys()].sort(),
+  };
+}
+
+/**
+ * Resolve the catalog's YouTube pointer without silently replacing or clearing
+ * a different remote ID. A superseded ID must have its own confirmed deletion.
+ */
+export function resolveYoutubeCatalogReference(
+  existingYoutubeIdValue: unknown,
+  metadataYoutubeIdValue: unknown,
+  state: YoutubeQueuePublicationState | null,
+): YoutubeCatalogReferenceResolution {
+  const existingYoutubeId = isValidYoutubeId(existingYoutubeIdValue)
+    ? existingYoutubeIdValue.trim()
+    : null;
+  const metadataYoutubeId = isValidYoutubeId(metadataYoutubeIdValue)
+    ? metadataYoutubeIdValue.trim()
+    : null;
+
+  if (state?.status === "conflict") return { status: "conflict" };
+
+  if (state?.status === "deleted") {
+    const catalogIds = [existingYoutubeId, metadataYoutubeId]
+      .filter((value): value is string => Boolean(value));
+    if (catalogIds.some((id) => !state.deletedIds.includes(id))) {
+      return { status: "conflict" };
+    }
+    return { status: "resolved", youtubeId: null, fallbackId: null };
+  }
+
+  if (state?.status === "published") {
+    const staleCatalogIds = [...new Set([existingYoutubeId, metadataYoutubeId]
+      .filter((value): value is string => Boolean(value))
+      .filter((id) => id !== state.id))];
+    if (staleCatalogIds.some((id) => !state.supersededDeletedIds.includes(id))) {
+      return { status: "conflict" };
+    }
+    return { status: "resolved", youtubeId: state.id, fallbackId: state.id };
+  }
+
+  if (existingYoutubeId && metadataYoutubeId && existingYoutubeId !== metadataYoutubeId) {
+    return { status: "conflict" };
+  }
+  return {
+    status: "resolved",
+    youtubeId: existingYoutubeId ?? metadataYoutubeId,
+    fallbackId: metadataYoutubeId,
+  };
 }
 
 /** Keep the catalog's YouTube fallback in sync with an authoritative queue event. */

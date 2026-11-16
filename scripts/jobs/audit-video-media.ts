@@ -6,6 +6,7 @@ import {
   isUnlinkedInternalVideoMedia,
   reconcileYoutubeFallbackMetadata,
   resolveLatestConfirmedYoutubeQueueState,
+  resolveYoutubeCatalogReference,
   type YoutubeQueuePublicationState,
 } from "../../src/features/videos/services/video-media-contract";
 import { supabaseServerAdminExactCount, supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
@@ -163,24 +164,28 @@ async function auditOne(
     ? metadata.videoGenerationRequestId
     : "";
   const queueState = requestId ? youtubePublicationsByRequest.get(requestId) ?? null : null;
-  if (queueState?.status === "conflict") {
-    return { state: "conflict", id: row.id, title: row.title, reason: "multiple_youtube_publications_share_timestamp" };
-  }
   const queuePublication = queueState?.status === "published" ? queueState : null;
   const queueYouTubeId = queuePublication?.id ?? null;
-  const youtubeDeletionConfirmed = queueState?.status === "deleted";
   const existingYouTubeId = validYouTubeId(row.youtube_id);
   const metadataYoutubeId = getConfirmedYoutubeFallbackId({
     youtube_id: row.youtube_id,
     metadata: row.metadata,
   });
-  const candidateYoutubeIds = [existingYouTubeId, metadataYoutubeId, queueYouTubeId]
-    .filter((value): value is string => value !== null);
-  if (!youtubeDeletionConfirmed && new Set(candidateYoutubeIds).size > 1) {
-    return { state: "conflict", id: row.id, title: row.title, reason: "catalog_youtube_id_conflicts_with_confirmed_fallback" };
+  const catalogReference = resolveYoutubeCatalogReference(
+    existingYouTubeId,
+    metadataYoutubeId,
+    queueState,
+  );
+  if (catalogReference.status === "conflict") {
+    return {
+      state: "conflict",
+      id: row.id,
+      title: row.title,
+      reason: "catalog_youtube_id_conflicts_with_confirmed_queue_history",
+    };
   }
-  const confirmedYoutubeFallbackId = youtubeDeletionConfirmed ? null : queueYouTubeId ?? metadataYoutubeId;
-  const youtubeId = youtubeDeletionConfirmed ? null : existingYouTubeId ?? confirmedYoutubeFallbackId;
+  const confirmedYoutubeFallbackId = catalogReference.fallbackId;
+  const youtubeId = catalogReference.youtubeId;
   const hasConfirmedYoutubeFallback = Boolean(
     confirmedYoutubeFallbackId && confirmedYoutubeFallbackId === youtubeId,
   );

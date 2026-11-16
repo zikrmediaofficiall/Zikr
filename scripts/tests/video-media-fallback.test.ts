@@ -8,6 +8,7 @@ import {
   isPurgedInternalVideoMedia,
   reconcileYoutubeFallbackMetadata,
   resolveLatestConfirmedYoutubeQueueState,
+  resolveYoutubeCatalogReference,
   resolveVideoMediaUrl,
   resolveVideoThumbnail,
   resolveVideoYoutubeId,
@@ -31,6 +32,7 @@ const supabaseConfig = readFileSync("supabase/config.toml", "utf8");
 assert.match(supabaseConfig, /max_rows\s*=\s*1000/);
 const mediaAuditScript = readFileSync("scripts/jobs/audit-video-media.ts", "utf8");
 assert.ok(mediaAuditScript.includes("resolveLatestConfirmedYoutubeQueueState"), "media audit must resolve the latest publication/deletion event, not the first successful row");
+assert.ok(mediaAuditScript.includes("resolveYoutubeCatalogReference"), "media audit must reconcile catalog ID changes only when the prior ID has a matching confirmed deletion");
 assert.ok(mediaAuditScript.includes("reconcileYoutubeFallbackMetadata"), "media audit must clear catalog fallback metadata after an explicit YouTube deletion");
 assert.ok(mediaAuditScript.includes("youtubeQueueRowsByRequest"), "media audit must group every queue event for each video-generation request");
 assert.match(mediaAuditScript, /supabaseServerAdminExactCount\("videos"\)/);
@@ -96,7 +98,7 @@ const deletedQueueRow = {
     },
   },
 };
-const deletedYoutubeState = { status: "deleted", deletedAt: "2026-11-12T12:01:00.000Z" } as const;
+const deletedYoutubeState = { status: "deleted", deletedAt: "2026-11-12T12:01:00.000Z", deletedIds: [id] } as const;
 assert.deepEqual(resolveLatestConfirmedYoutubeQueueState([publishedQueueRow, deletedQueueRow]), deletedYoutubeState);
 assert.deepEqual(resolveLatestConfirmedYoutubeQueueState([deletedQueueRow, publishedQueueRow]), deletedYoutubeState,
   "a confirmed YouTube deletion must win independently of queue row order");
@@ -106,7 +108,7 @@ const legacyArrayQueueRow = {
 };
 assert.deepEqual(
   resolveLatestConfirmedYoutubeQueueState([legacyArrayQueueRow]),
-  { status: "published", id, publishedAt: publishedQueueRow.published_at },
+  { status: "published", id, publishedAt: publishedQueueRow.published_at, supersededDeletedIds: [] },
   "legacy array-shaped platform results must remain readable by the media audit",
 );
 const republishedQueueRow = {
@@ -136,7 +138,7 @@ const newerYoutubePublication = {
 };
 assert.deepEqual(
   resolveLatestConfirmedYoutubeQueueState([supersededDeletionRow, newerYoutubePublication]),
-  { status: "published", id: "newVideo999", publishedAt: newerYoutubePublication.published_at },
+  { status: "published", id: "newVideo999", publishedAt: newerYoutubePublication.published_at, supersededDeletedIds: [id] },
   "deleting an older remote YouTube ID must not clear a newer confirmed publication",
 );
 const uncorrelatedDeletionRow = {
@@ -155,7 +157,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   resolveLatestConfirmedYoutubeQueueState([deletedQueueRow, republishedQueueRow]),
-  { status: "published", id: "newVideo999", publishedAt: republishedQueueRow.published_at },
+  { status: "published", id: "newVideo999", publishedAt: republishedQueueRow.published_at, supersededDeletedIds: [id] },
   "a strictly later confirmed republish may restore the YouTube fallback",
 );
 const tiedDeletionRow = {
@@ -173,6 +175,53 @@ assert.deepEqual(
   deletedYoutubeState,
   "a deletion at the exact publication timestamp must win",
 );
+const republishState = {
+  status: "published",
+  id: "newVideo999",
+  publishedAt: "2026-11-12T12:02:00.000Z",
+  supersededDeletedIds: [id],
+} as const;
+assert.deepEqual(
+  resolveYoutubeCatalogReference(id, id, republishState),
+  { status: "resolved", youtubeId: "newVideo999", fallbackId: "newVideo999" },
+  "a new publication may replace the catalog pointer only after the prior remote ID was explicitly deleted",
+);
+assert.deepEqual(
+  resolveYoutubeCatalogReference(id, id, { ...republishState, supersededDeletedIds: [] }),
+  { status: "conflict" },
+  "a different active YouTube ID must not overwrite a catalog ID without its own confirmed deletion",
+);
+assert.deepEqual(
+  resolveYoutubeCatalogReference(id, id, deletedYoutubeState),
+  { status: "resolved", youtubeId: null, fallbackId: null },
+  "a confirmed deletion may clear the exact catalog IDs recorded as deleted",
+);
+assert.deepEqual(
+  resolveYoutubeCatalogReference("otherId99", null, deletedYoutubeState),
+  { status: "conflict" },
+  "a deletion for one remote ID must not clear a different catalog ID",
+);
+assert.deepEqual(
+  resolveYoutubeCatalogReference(null, id, deletedYoutubeState),
+  { status: "resolved", youtubeId: null, fallbackId: null },
+  "a confirmed deletion must also clear a stale metadata-only fallback",
+);
+assert.deepEqual(
+  resolveYoutubeCatalogReference(id, id, null),
+  { status: "resolved", youtubeId: id, fallbackId: id },
+  "matching legacy catalog pointers remain unchanged when no queue event exists",
+);
+assert.deepEqual(
+  resolveYoutubeCatalogReference("otherId99", id, null),
+  { status: "conflict" },
+  "conflicting catalog pointers without queue evidence must remain untouched",
+);
+assert.deepEqual(
+  resolveYoutubeCatalogReference(id, id, { status: "published", id, publishedAt: "2026-11-12T12:03:00.000Z", supersededDeletedIds: [] }),
+  { status: "resolved", youtubeId: id, fallbackId: id },
+  "a later republish of the same remote ID remains the active catalog reference",
+);
+
 const clearedFallbackMetadata = reconcileYoutubeFallbackMetadata(confirmed.metadata, deletedYoutubeState);
 assert.equal(clearedFallbackMetadata.mediaFallbackAvailable, false);
 assert.equal(clearedFallbackMetadata.youtubePublishedVideoId, null);
