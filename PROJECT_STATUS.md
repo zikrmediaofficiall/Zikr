@@ -1,5 +1,20 @@
 # ZIKR Project Status
 
+## Latest audit checkpoint — 2026-11-16 22:26 UTC
+
+**State: OPEN / NOT MERGE-READY.** This checkpoint records a new source review batch and must not be interpreted as a project-wide error-free certification.
+
+- Main source snapshot remains a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; immutable recursive manifest blob remains baace6d0c66ac299edb541c7caceba56eeae19be. No main source file was changed by this documentation update.
+- Current full-repository matrix blob: 5840db07c872cb1aa073cf0e0036690f4c8c25bf; inventory blob: a286dc8fa07664eb98c73fad661eaef0cbe9d713. Matrix covers all 1,959 tracked blobs / 500 directories and now records **1,258 UNREVIEWED files (420 high priority)** and **701 non-UNREVIEWED rows**. The manifest remains immutable and PR-only code was not inserted into it.
+- PR #358 video-like aggregate RLS repair, exact head 1cd16fff5d673e9af1b6aa09b96d78e93566fb2e: GitHub Quality Gate 43925765683, Android Debug 43925765653, and CircleCI config-guard/source-verify/application-build-docs passed. It remains open/unmerged; no owner/CODEOWNERS approval is recorded; its migration has not been applied to production.
+- PR #380 YouTube feed sync compare-and-set repair, exact head 66dde1c4279b6513e395a57ab906b4117a8e82ad: Quality Gate 43969510424 was in progress at the last poll; CircleCI config-guard passed; source-verify and application-build-docs were pending. PR remains draft/open. The fix prevents concurrent public /videos requests from both acquiring the same expired singleton sync lock and prevents stale finalization from overwriting a newer attempt. No YouTube API request was run.
+- PR #375 exact head de8b208fd05b2d407f1042c49926df0155640c99, PR #376 exact head 56360bdb48d39b44f6a13c4b50b8f52070d32f12, PR #377 exact head aebf778509bbdd8daef1589ecbd6a111339f3029, PR #378 exact head db567da1899ed9994cbc2bd1c773b878c3f62823, and PR #379 exact head 0f4ada7d23116bc0c367d0bce10b4aede3fc6f9e all passed their recorded GitHub Quality Gate and Android Debug checks; required CircleCI contexts passed for the relevant PRs. PRs remain unmerged and owner/CODEOWNERS approval is absent.
+- PR #344 documentation checkpoint head 2ce147214fa441b76d573bf8adb71a8e0221fee2 passed Quality Gate 43968935611 and CircleCI config-guard/source-verify/application-build-docs. The present documentation changes create a new head and require fresh exact-head checks; do not reuse the prior result.
+- Production Vercel remains recorded READY on source 00fc4ff6dba9f76a9d59cae28c2270a58cac77d9; current main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7 is not deployed. Formal current-main production smoke remains unverified. No deployment was triggered.
+- No production database mutation, Supabase migration/Edge Function deployment, content generation, Gemini request, social publishing, storage/media cleanup, secret/index change, Android/iOS release, merge or deployment was performed. Device acceptance and owner-only settings/reviews remain outstanding.
+
+---
+
 ## Latest audit checkpoint — 2026-11-16 21:48 UTC.
 
 **State: OPEN / NOT MERGE-READY.** This checkpoint supersedes the older status sections below; their counts and deployment claims are historical.
