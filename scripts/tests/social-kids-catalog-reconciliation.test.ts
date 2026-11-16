@@ -46,10 +46,20 @@ assert.throws(() => buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:
 
 const snapshot = resolveKidsSocialCatalogPublicationSnapshot(queueItem);
 assert.deepEqual(snapshot, { status: "published", platforms: ["facebook", "youtube"] });
-assert.equal(
-  resolveKidsSocialCatalogPublicationSnapshot({ ...queueItem, status: "partial" }),
-  null,
-  "partial queue rows must stay on the normal retry path",
+assert.deepEqual(
+  resolveKidsSocialCatalogPublicationSnapshot({
+    ...queueItem,
+    status: "processing",
+    metadata: {
+      ...queueItem.metadata,
+      platformResults: {
+        facebook: { ok: true, remoteId: "facebook-post-123" },
+        youtube: { ok: false, error: "temporary provider failure" },
+      },
+    },
+  }),
+  { status: "partial", platforms: ["facebook"] },
+  "the live publishing path must persist confirmed partial successes without waiting for the scheduled reconciler",
 );
 assert.equal(
   resolveKidsSocialCatalogPublicationSnapshot({ ...queueItem, metadata: { ...queueItem.metadata, audience: "general" } }),
@@ -68,6 +78,18 @@ assert.equal(
   }),
   null,
   "a published row with a missing target result is inconsistent and must be held",
+);
+assert.deepEqual(
+  resolveKidsSocialCatalogPublicationSnapshot({
+    ...queueItem,
+    status: "processing",
+    metadata: {
+      ...queueItem.metadata,
+      platformResults: { facebook: { ok: true, remoteId: "facebook-post-123" } },
+    },
+  }),
+  { status: "partial", platforms: ["facebook"] },
+  "the in-flight processing row must still sync a confirmed partial provider result after queue finalization",
 );
 assert.equal(
   resolveKidsSocialCatalogPublicationSnapshot({

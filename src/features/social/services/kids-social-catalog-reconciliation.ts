@@ -20,7 +20,7 @@ export type KidsSocialCatalogQueueItem = {
 };
 
 export type KidsSocialCatalogPublicationSnapshot = {
-  status: "published";
+  status: "published" | "partial";
   platforms: SocialPlatform[];
 };
 
@@ -64,7 +64,7 @@ export function resolveKidsSocialCatalogPublicationSnapshot(
   item: KidsSocialCatalogQueueItem,
 ): KidsSocialCatalogPublicationSnapshot | null {
   if (
-    item.status !== "published" ||
+    !["processing", "queued", "partial", "failed", "published"].includes(item.status) ||
     !isVideoContentType(item.content_type) ||
     !item.content_id?.trim() ||
     !item.video_url?.trim() ||
@@ -83,8 +83,12 @@ export function resolveKidsSocialCatalogPublicationSnapshot(
     const row = result as { ok?: unknown; remoteId?: unknown };
     return row.ok === true && typeof row.remoteId === "string" && row.remoteId.trim().length > 0;
   });
-  if (platforms.length !== targetValidation.platforms.length) return null;
-  return { status: "published", platforms };
+  if (platforms.length === 0) return null;
+  if (item.status === "published" && platforms.length !== targetValidation.platforms.length) return null;
+  return {
+    status: platforms.length === targetValidation.platforms.length ? "published" : "partial",
+    platforms,
+  };
 }
 
 export function isKidsSocialCatalogPublicationInSync(
