@@ -779,3 +779,39 @@ Project: `zqtssvlvmkzeeyqghqfk` (Zikrofficial), ACTIVE_HEALTHY, eu-west-2, Postg
 ## Deployed prayer worker source parity — 2026-11-16
 
 Supabase reports `prayer-notification-worker` ACTIVE v80, `verify_jwt=false`, artifact SHA `d6230db867bc33dd6cbd9243f759eef321e478a692dfaf1c1f4a82276447b740`. Read-only `get_edge_function` source retrieval was compared byte-for-byte with main for all eight returned files (entrypoint, pagination, eligibility, time-zone, schedule-fetch, delivery lease, push endpoint allowlist and async serial queue); all eight match main. The deployed v80 therefore still contains the pre-fix scheduler-auth ordering and `dubai: 8` method mapping. PR #373 corrects repository source/tests only; no Edge Function deployment or invocation was performed.
+
+
+## Extended live contract, RLS and Storage reconciliation — 2026-11-16
+
+This read-only PostgreSQL 17 inspection supersedes the older “missing deployed contracts” lists and the older Kids/Storage policy snapshots above. No SQL mutation, migration apply, Edge Function invocation, cron invocation, object upload or deletion was performed.
+
+### Applied migration set and RPC signatures
+
+- Remote migration history contains 449 versions through `20261116045100_require_linked_request_for_public_kids_videos`; the main snapshot has 449 migration files. Exact version-set comparison returned 449 shared, 0 local-only, 0 remote-only, 0 duplicate local IDs and 0 duplicate remote IDs. One shared version (`20261106213918`) has a descriptive filename mismatch only; its version ID is present remotely.
+- `public.save_default_prayer_location(text,text,numeric,numeric,text)` exists, SECURITY INVOKER, empty search_path; EXECUTE is granted to authenticated and service_role, not anon. The earlier double-precision signature check was incorrect.
+- `public.admin_update_user_role(uuid,text,uuid)` exists, SECURITY INVOKER, empty search_path; EXECUTE is service_role-only. The server action and SQL contract use this three-argument signature; the old four-argument signature recorded in earlier notes does not exist and is not used.
+- `public.update_video_storage_retention(uuid,uuid,text,jsonb,boolean)` exists, SECURITY INVOKER, empty search_path; EXECUTE is service_role-only. The prior two-argument signature in older notes was incorrect.
+- `public.video_storage_retention_contract_ready()` exists, SECURITY INVOKER, empty search_path; EXECUTE is service_role-only.
+- `public.plan_background_reminder_deliveries(timestamptz)` exists, SECURITY INVOKER, empty search_path; its live definition uses the stored IANA timezone and quiet-hour window and EXECUTE is service_role-only.
+- The live catalog contains `background_reminder_preferences.timezone`, `youtube_sync_state.playlists` and `public.site_audio_upload_intents`. Earlier notes describing these as absent are superseded.
+
+### Kids/public read controls
+
+- `kids_content` has RLS enabled and anon SELECT privilege, but its public-read policy requires `published IS TRUE`, `is_active IS TRUE`, and for `type='story'`, `metadata->>'age_appropriate'='true'`. The current read-only count is 65 total/published-active rows and 6 explicitly age-approved rows; the remaining 59 are not returned by that public policy. Earlier claims that the 20 legacy stories were still directly reachable through the current policy are stale.
+- `kids_game_questions` has RLS enabled, no anon SELECT table grant, authenticated SELECT only through the admin-only policy, and currently 0 rows. No public correct-answer exposure was observed.
+- `kids_game_levels` has anon/authenticated SELECT grants, but the public policy requires the level to be published and its parent game to be published. The previous claim that the live policy lacked the parent check is stale.
+- `videos` public reads require the applicable QA/human-approval gate, a non-system reviewer, a linked generation request and matching fingerprints for Kids-marked content; general video reads reject Kids markers. No content was read or changed through a public API in this check.
+
+### RLS, table grants and Storage
+
+- RLS is enabled on `kids_content`, `kids_games`, `kids_game_questions`, `kids_game_levels`, `videos`, `video_generation_requests`, `social_publish_queue`, `site_audio_assets`, `site_audio_upload_intents`, `admin_role_assignments`, `background_reminder_preferences` and `youtube_sync_state`.
+- `social_publish_queue`, `video_generation_requests`, `site_audio_assets`, `site_audio_upload_intents` and `youtube_sync_state` have service_role-only table grants; `admin_role_assignments` grants authenticated SELECT only (RLS remains in force) and service_role DML. No direct authenticated client write path was found for these tables.
+- Current `storage.objects` policies permit owner-scoped writes only in the user-owned `avatars`, `media`, `audio` and `documents` buckets. No direct write policy exists for `videos`, `site-audio` or `public-assets`.
+- Live bucket metadata: `videos` 50 MiB, `site-audio` 50 MiB, `public-assets` no bucket size limit. The latter has no direct client write policy. No bucket or object was changed.
+- `site_audio_upload_intents.asset_id` is a foreign key with `ON DELETE SET NULL`; it is unindexed and remains an advisor notice. No index was created or dropped.
+
+### Background jobs observed (read-only)
+
+- Active: prayer push dispatch every minute; source-verified content agent daily at 03:00 UTC; history cleanup daily at 03:30 UTC.
+- Inactive: legacy `zikr-youtube-facebook-sync` cron. Its stored command still references the old Supabase project ID `ymxdswkaxafakugktsim`; it was left inactive and unchanged. Do not reactivate without updating the target and revalidating OAuth/provider configuration.
+- No media-cleanup cron exists. The audit did not invoke any cron, content-generation workflow, Gemini request, social publisher, cleanup worker or Edge Function.
