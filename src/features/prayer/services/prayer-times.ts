@@ -164,9 +164,9 @@ function isValidPrayerTimesResponse(value: unknown): value is PrayerTimesRespons
     typeof meta.school === "string" &&
     Boolean(meta.school.trim()) &&
     typeof hijri.day === "string" &&
-    /^\\d{1,2}$/.test(hijri.day) &&
+    /^\d{1,2}$/.test(hijri.day) &&
     typeof hijri.year === "string" &&
-    /^\\d{3,4}$/.test(hijri.year) &&
+    /^\d{3,4}$/.test(hijri.year) &&
     typeof hijriMonth.ar === "string" &&
     Boolean(hijriMonth.ar.trim())
   );

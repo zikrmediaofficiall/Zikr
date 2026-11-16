@@ -325,6 +325,15 @@ try {
   };
   assert.equal(await getPrayerTimesByCity("Malformed City"), null,
     "city lookups must reject provider responses with an invalid IANA timezone");
+  mockPrayerResponse = {
+    ...validPrayerResponse,
+    data: {
+      ...validPrayerResponse.data,
+      date: { hijri: { ...validPrayerResponse.data.date.hijri, day: "invalid" } },
+    },
+  };
+  assert.equal(await getPrayerTimes(4, 4, "2026-06-15", 4), null,
+    "provider Hijri date fields must be validated before the response is cached");
 } finally {
   globalThis.fetch = originalFetch;
 }
