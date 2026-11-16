@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { getVisibleAdminSearchSourceKeys } from "../../src/features/admin/services/admin-search-visibility";
+import { ADMIN_SEARCH_ACCESS_PERMISSIONS, getVisibleAdminSearchSourceKeys } from "../../src/features/admin/services/admin-search-visibility";
+import { hasAdminPermission, type AdminRole } from "../../src/features/admin/services/permissions";
 
 test("admin search only queries sources covered by the effective role", () => {
   assert.deepEqual(
@@ -50,4 +51,33 @@ test("admin search applies the effective role before issuing service-role reads"
   assert.match(platformSource, /searchAdminContent\(query: string, role: AdminRole\)/);
   assert.match(platformSource, /getVisibleAdminSearchSourceKeys\(role\)\.map/);
   assert.match(pageSource, /searchAdminContent\(query, profile\.role\)/);
+});
+
+
+test("admin search route admits roles that can access at least one source", () => {
+  const roles: AdminRole[] = [
+    "user",
+    "admin",
+    "super_admin",
+    "content_manager",
+    "editor",
+    "video_manager",
+    "social_manager",
+    "moderator",
+    "seo_manager",
+    "analyst",
+    "support",
+  ];
+  for (const role of roles) {
+    const canSeeSource = getVisibleAdminSearchSourceKeys(role).length > 0;
+    const canEnterSearch = ADMIN_SEARCH_ACCESS_PERMISSIONS.some((permission) =>
+      hasAdminPermission(role, permission),
+    );
+    assert.equal(canEnterSearch, canSeeSource, `route access and source visibility must agree for ${role}`);
+  }
+
+  const pageSource = readFileSync("src/app/admin/search/page.tsx", "utf8");
+  const adminSource = readFileSync("src/features/admin/services/admin.ts", "utf8");
+  assert.match(pageSource, /requireAnyAdminPermission\(ADMIN_SEARCH_ACCESS_PERMISSIONS\)/);
+  assert.match(adminSource, /permissions\.some\(\(permission\) => hasAdminPermission\(profile\.role, permission\)\)/);
 });
