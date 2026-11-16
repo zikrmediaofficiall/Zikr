@@ -1,12 +1,12 @@
 # ZIKR Project Status
 
-## Latest audit checkpoint — 2026-11-16 13:03 UTC
+## Latest audit checkpoint — 2026-11-16 13:07 UTC
 
 - Current main source head: `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` (tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`).
 - Full repository inventory: 2459 recursive entries, 1959 tracked blobs, 500 directories. The exact manifest and per-file status matrix are recorded in `docs/audits/REPOSITORY_INVENTORY_a0f51cdc3fc31503.md`.
 - Production Vercel is READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main is 4 commits ahead. The Apple AASA endpoint currently returns 503; Android assetlinks returns 200.
 - Supabase migrations are aligned at 449/449; all 93 public tables have RLS enabled.
-- Open repair PRs: #337–#343. #337–#342 have green Quality Gate and CircleCI checks; #343's corrected head is awaiting rerun. None is merged.
+- Open repair PRs: #337–#343. #337–#343 have green Quality Gate and CircleCI checks; #343 also passed the Android Debug APK job. All remain unmerged. None is merged.
 - Independent CODEOWNERS approval is blocked: `@Zikrmediaofficial` is not a repository collaborator, and the authenticated author cannot self-approve. No merge or deployment is authorized by this checkpoint.
 - Repository-wide audit remains open: all files not individually reviewed are explicitly `UNREVIEWED` in the matrix. Physical-device and Apple Team ID acceptance remain owner/manual tasks.
 
