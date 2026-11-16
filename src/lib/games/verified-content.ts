@@ -1,4 +1,5 @@
-import { kidsContent, type KidsQuizQuestion } from "@/features/kids/data/content";
+import { kidsContent, type KidsItem, type KidsQuizQuestion } from "@/features/kids/data/content";
+import { isKidsContentPubliclyVisible } from "@/features/kids/services/kids-content-visibility";
 
 export type VerifiedQuizQuestion = KidsQuizQuestion & {
   category: string;
@@ -23,8 +24,8 @@ function isQuestion(value: unknown): value is KidsQuizQuestion {
   );
 }
 
-export function getVerifiedKidsQuizQuestions(): VerifiedQuizQuestion[] {
-  return kidsContent.flatMap(item => {
+export function getVerifiedKidsQuizQuestions(items: readonly KidsItem[] = kidsContent): VerifiedQuizQuestion[] {
+  return items.filter(isKidsContentPubliclyVisible).flatMap(item => {
     const questions = item.quiz_data?.questions?.filter(isQuestion) ?? [];
     if (questions.length === 0) return [];
     return questions.map(question => ({
@@ -48,7 +49,7 @@ export type VerifiedWuduContent = {
 };
 
 export function getVerifiedWuduContent(): VerifiedWuduContent {
-  const source = kidsContent.find(item => item.slug === "wudu-steps");
+  const source = kidsContent.find(item => item.slug === "wudu-steps" && isKidsContentPubliclyVisible(item));
   const steps = source?.wudu_steps?.filter(
     step =>
       Number.isInteger(step.order) &&
@@ -78,7 +79,7 @@ function getApprovedScenarioQuestionsFromSources(): VerifiedQuizQuestion[] {
   const seenQuestionTexts = new Set<string>();
 
   return APPROVED_SCENARIO_SOURCE_SLUGS.flatMap(sourceSlug => {
-    const source = kidsContent.find(item => item.slug === sourceSlug);
+    const source = kidsContent.find(item => item.slug === sourceSlug && isKidsContentPubliclyVisible(item));
     const questions = source?.quiz_data?.questions?.filter(isQuestion) ?? [];
 
     return questions.flatMap(question => {
@@ -113,7 +114,7 @@ export type VerifiedMemoryPair = {
 };
 
 export function getVerifiedMemoryPairs(): VerifiedMemoryPair[] {
-  const source = kidsContent.find(item => item.slug === "game-memory-dhikr-cards");
+  const source = kidsContent.find(item => item.slug === "game-memory-dhikr-cards" && isKidsContentPubliclyVisible(item));
   return source?.memory_pairs?.filter(
     pair =>
       typeof pair.id === "string" &&
