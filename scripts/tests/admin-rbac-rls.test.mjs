@@ -425,7 +425,7 @@ assert.doesNotMatch(
 const legacyVideoPatch = videoRoute.match(/export async function PATCH\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
 assert.match(
   legacyVideoPatch,
-  /body\.status !== 'pending'[\s\S]*?currentRows\[0\]\.status !== 'failed'[\s\S]*?updateVideoRequestStatus\(id, 'pending', undefined, 'failed'\)/,
+  /body\.status !== 'pending'[\s\S]*?current\.status !== 'failed'[\s\S]*?requireAdminApi\(['"]kids\.manage['"]\)[\s\S]*?updateVideoRequestStatus\(id, 'pending', undefined, 'failed', current\.updated_at\)/,
   "the legacy request reset must be limited to failed rows and use the compare-and-set retry service",
 );
 assert.match(
@@ -439,8 +439,9 @@ assert.doesNotMatch(
   "unrestricted status mutation must not remain reachable through the legacy route",
 );
 assert.match(videoAutomation, /select=content,status,updated_at/);
-assert.match(videoAutomation, /expectedUpdatedAt = existingRow\.updated_at/);
-assert.match(videoAutomation, /&updated_at=eq\.\$\{encodeURIComponent\(expectedUpdatedAt\)\}/,
+assert.match(videoAutomation, /expectedRowUpdatedAt = existingRow\.updated_at/);
+assert.match(videoAutomation, /expectedUpdatedAt && existingRow\.updated_at !== expectedUpdatedAt/);
+assert.match(videoAutomation, /&updated_at=eq\.\$\{encodeURIComponent\(expectedRowUpdatedAt\)\}/,
   "failed-request retry must compare the same row version that supplied its preserved content metadata");
 
 
