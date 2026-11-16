@@ -169,8 +169,14 @@ if (!upload.includes("uploadReference") || !studioClient.includes("مرجع ال
 const cloudinaryResponseFailureStart = upload.indexOf(
   "if (!upload.ok || !result.secure_url || result.public_id !== publicId)",
 );
-const audioUrlParseStart = upload.indexOf("let audioUrl: URL", cloudinaryResponseFailureStart);
-const invalidCloudinaryUrlStart = upload.indexOf("if (audioUrl.protocol", audioUrlParseStart);
+const audioUrlParseStart = upload.indexOf(
+  "const parsedUpload = parseAdminNarrationAssetUrl(result.secure_url, cloudName)",
+  cloudinaryResponseFailureStart,
+);
+const invalidCloudinaryUrlStart = upload.indexOf(
+  "if (!parsedUpload || parsedUpload.publicId !== publicId)",
+  audioUrlParseStart,
+);
 const assetTrackingStart = upload.indexOf("let mediaAssetId", invalidCloudinaryUrlStart);
 const cloudinaryResponseFailureBlock = upload.slice(cloudinaryResponseFailureStart, audioUrlParseStart);
 const invalidCloudinaryUrlBlock = upload.slice(audioUrlParseStart, assetTrackingStart);
@@ -187,8 +193,11 @@ if (
   audioUrlParseStart < 0 ||
   invalidCloudinaryUrlStart <= audioUrlParseStart ||
   assetTrackingStart <= invalidCloudinaryUrlStart ||
+  !invalidCloudinaryUrlBlock.includes("parsedUpload.publicId !== publicId") ||
   !invalidCloudinaryUrlBlock.includes("uploadReference: publicId") ||
-  !invalidCloudinaryUrlBlock.includes("recoveryRequired: true")
+  !invalidCloudinaryUrlBlock.includes("recoveryRequired: true") ||
+  !upload.includes("secureUrl: parsedUpload.url") ||
+  !upload.includes("audioUrl: parsedUpload.url")
 ) {
   failures.push("invalid or non-canonical Cloudinary URLs must retain a recovery reference for the uploaded asset");
 }
