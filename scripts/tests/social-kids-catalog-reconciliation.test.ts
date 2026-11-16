@@ -154,6 +154,13 @@ assert.ok(reconciler.includes("markKidsCatalogSyncState"));
 assert.ok(reconciler.includes("hasEnoughCandidates: () => false"), "the bounded inventory must be read before row writes");
 assert.doesNotMatch(reconciler, /publishFacebook|publishToFacebook|publishToYoutube/, "catalog reconciliation must not call external providers");
 
+const workflow = readFileSync(".github/workflows/publish-social.yml", "utf8");
+assert.match(
+  workflow,
+  /SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED:\s*\$\{\{\s*vars\.SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED\s*\|\|\s*'false'\s*\}\}/,
+  "the production publisher must pass through the opt-in catalog-only reconciliation flag and keep it disabled by default",
+);
+
 const worker = readFileSync("scripts/jobs/social-publishing.ts", "utf8");
 assert.ok(worker.includes("reconcilePublishedKidsVideoCatalog()"), "the scheduled worker must run the opt-in reconciler");
 const operations = readFileSync("docs/admin/SOCIAL_PUBLISHING_OPERATIONS.md", "utf8");
