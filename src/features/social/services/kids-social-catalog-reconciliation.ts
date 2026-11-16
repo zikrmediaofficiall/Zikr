@@ -111,6 +111,20 @@ export function isKidsSocialCatalogPublicationInSync(
   return existing.length === expected.length && existing.every((platform, index) => platform === expected[index]);
 }
 
+export function shouldResetKidsCatalogSyncAfterPublicationChange(
+  currentSyncStatus: unknown,
+  previousSnapshot: KidsSocialCatalogPublicationSnapshot | null,
+  nextSnapshot: KidsSocialCatalogPublicationSnapshot | null,
+): boolean {
+  if (currentSyncStatus !== "synced" || !nextSnapshot) return false;
+  if (!previousSnapshot) return true;
+  if (previousSnapshot.status !== nextSnapshot.status) return true;
+  const previousPlatforms = [...previousSnapshot.platforms].sort();
+  const nextPlatforms = [...nextSnapshot.platforms].sort();
+  return previousPlatforms.length !== nextPlatforms.length ||
+    previousPlatforms.some((platform, index) => platform !== nextPlatforms[index]);
+}
+
 export function buildKidsCatalogSyncFailureState(
   metadata: Record<string, unknown> | null | undefined,
   reason: string,
