@@ -79,7 +79,9 @@ test("admin search route admits roles that can access at least one source", () =
   const pageSource = readFileSync("src/app/admin/search/page.tsx", "utf8");
   const adminSource = readFileSync("src/features/admin/services/admin.ts", "utf8");
   const verifierSource = readFileSync("scripts/verify-admin-pages.mjs", "utf8");
+  const governanceVerifierSource = readFileSync("scripts/verify-admin-governance.mjs", "utf8");
   assert.match(pageSource, /requireAnyAdminPermission\(ADMIN_SEARCH_ACCESS_PERMISSIONS\)/);
   assert.match(adminSource, /permissions\.some\(\(permission\) => hasAdminPermission\(profile\.role, permission\)\)/);
   assert.ok(verifierSource.includes("/requireAnyAdminPermission\\(/"), "the canonical admin page verifier must recognize the any-permission guard");
+  assert.ok(governanceVerifierSource.includes("/requireAnyAdminPermission\\(/"), "the admin governance verifier must recognize the any-permission guard");
 });
