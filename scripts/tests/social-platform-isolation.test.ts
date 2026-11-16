@@ -428,12 +428,21 @@ const recoveredAllTargetsStart = revalidatedPublisherSource.indexOf("if (allTarg
 const providerAttemptStart = revalidatedPublisherSource.indexOf("const inFlightStartedAt", recoveredAllTargetsStart);
 const recoveredAllTargetsBody = revalidatedPublisherSource.slice(recoveredAllTargetsStart, providerAttemptStart);
 assert.ok(
-  recoveredAllTargetsBody.includes("published_at: item.published_at ?? new Date().toISOString()"),
-  "reconciling a queue row whose provider results already succeeded must persist a published_at timestamp",
+  recoveredAllTargetsBody.includes("const publishedAt = existingPublishedAt ?? new Date().toISOString()") &&
+    recoveredAllTargetsBody.includes("published_at: publishedAt"),
+  "reconciling a queue row whose provider results already succeeded must persist a valid published_at timestamp",
 );
 assert.ok(
-  recoveredAllTargetsBody.includes("await syncYouTubeVideoReferenceToCatalog(item, previous.youtube)"),
-  "the no-provider-call recovery path must persist an already-confirmed YouTube ID to the public catalog",
+  recoveredAllTargetsBody.includes("await syncYouTubeVideoReferenceToCatalog(publishedItem, previous.youtube)"),
+  "the no-provider-call recovery path must persist an already-confirmed YouTube ID using the persisted queue timestamp",
+);
+assert.ok(
+  recoveredAllTargetsBody.includes("syncKidsSocialPublicationToCatalog(publishedItem, previousMetadata)"),
+  "the no-provider-call recovery path must reconcile the Kids catalog using the persisted queue timestamp",
+);
+assert.ok(
+  revalidatedPublisherSource.includes("previousPublishedAt ?? (successes.length > 0 ? new Date().toISOString() : null)"),
+  "a retry without a new provider success must preserve a known publication timestamp and only backfill one when prior success exists",
 );
 
 const legacyArrayResults = {

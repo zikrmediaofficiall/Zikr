@@ -1503,7 +1503,9 @@ export async function processSocialPublishItem(
   const previousPublishedAt = typeof item.published_at === "string" && Number.isFinite(Date.parse(item.published_at))
     ? item.published_at
     : null;
-  const publishedAt = newlyConfirmedSuccess ? new Date().toISOString() : previousPublishedAt;
+  const publishedAt = newlyConfirmedSuccess
+    ? new Date().toISOString()
+    : previousPublishedAt ?? (successes.length > 0 ? new Date().toISOString() : null);
   const previousKidsCatalogSnapshot = resolveKidsSocialCatalogPublicationSnapshot(item);
   const publishedItem: SocialPublishQueueItem = {
     ...item,
