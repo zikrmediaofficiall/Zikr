@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T21:48:52.502Z (reconciled with exact-head PR #375 verification and review-gate state)
+Updated: 2026-11-16T22:26:15.466Z (reconciled with 2026-11-17 video/admin source review and PR #358/#380 evidence)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T21:48:52.502Z (reconciled with exact-head PR #375 verificati
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `18b28fa97fe24219d58b9cccacb196fbbf12bdf1`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `5840db07c872cb1aa073cf0e0036690f4c8c25bf`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -38,15 +38,12 @@ The manifest includes every recursive tree entry (files and directories). The st
 
 - `DOCS_RECONCILIATION_PENDING`: 4
 - `FIX_PENDING_PR337`: 5
-- `FIX_PENDING_PR338`: 4
+- `FIX_PENDING_PR338`: 3
 - `FIX_PENDING_PR339`: 2
 - `FIX_PENDING_PR340`: 3
 - `FIX_PENDING_PR341`: 1
 - `FIX_PENDING_PR343`: 2
 - `FIX_PENDING_PR343_PR376_PR377_PR378_PR379`: 1
-- `FIX_PENDING_PR379`: 4
-- `FIX_PENDING_PR378`: 3
-- `FIX_PENDING_PR377`: 1
 - `FIX_PENDING_PR346`: 1
 - `FIX_PENDING_PR347`: 2
 - `FIX_PENDING_PR349`: 5
@@ -54,6 +51,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR351`: 2
 - `FIX_PENDING_PR352`: 3
 - `FIX_PENDING_PR353`: 4
+- `FIX_PENDING_PR358`: 2
 - `FIX_PENDING_PR362`: 3
 - `FIX_PENDING_PR369`: 1
 - `FIX_PENDING_PR370`: 4
@@ -62,22 +60,36 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR374`: 1
 - `FIX_PENDING_PR375`: 2
 - `FIX_PENDING_PR376`: 2
+- `FIX_PENDING_PR377`: 1
+- `FIX_PENDING_PR378`: 3
+- `FIX_PENDING_PR379`: 4
+- `FIX_PENDING_PR380`: 2
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 39
-- `REVIEWED_PARTIAL`: 69
+- `REVIEWED_PARTIAL`: 68
 - `REVIEWED_PERMISSION_SCAN`: 88
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 66
-- `REVIEWED_SOURCE_ONLY`: 300
+- `REVIEWED_REGRESSION_COVERAGE`: 72
+- `REVIEWED_SOURCE_ONLY`: 304
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1271
+- `UNREVIEWED`: 1258
 
-High-priority unreviewed files: **431**. The matrix has 1959 file rows; 681 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **420**. The matrix has 1959 file rows; 701 are not marked `UNREVIEWED`.
+
+## Review batch — 2026-11-17 (video feed, admin audit, template contracts)
+
+- Read the full post-commit audit helper and its regression test/consumer contracts; read the admin audio-choice field and confirmed no repository consumer; read the public video-like component, its API route, and the aggregate-count migration; read the YouTube feed integration and playlist-cache test; read template configuration, deterministic creative variation, their API/worker call sites, type declarations, and registered tests.
+- Found a reproducible concurrency defect in YouTube feed sync: the public `/videos` server-render path can enter `syncYoutubeFeed()`; an unconditional upsert is not an atomic lock, so concurrent requests can both pass the cooldown read and call the YouTube API. The final success/error upserts can also overwrite a newer attempt. PR #380 exact head `66dde1c4279b6513e395a57ab906b4117a8e82ad` adds compare-and-set lock acquisition and attempt-scoped finalization plus focused regression tests. Quality Gate run `43969510424` was in progress; CircleCI config-guard passed; source-verify/application-build-docs were pending. No provider request was run.
+- PR #358 exact head `1cd16fff5d673e9af1b6aa09b96d78e93566fb2e` hardens public video-like aggregate RLS and adds explicit viewer filtering; Quality Gate `43925765683`, Android Debug `43925765653`, and all three CircleCI contexts passed. The migration remains unmerged/unapplied and owner review is absent. Read-only production snapshot had zero aggregate rows; no production data changed.
+- Existing template tests cover audience-specific asset allowlists, immutable template versions, Kids permission binding, preview isolation and audio-policy wiring. Creative variation tests cover deterministic retry stability and Kids-specific hooks/scenes. Post-commit audit tests cover best-effort behavior and mutation-before-audit ordering. No defect found in these inspected modules.
+- Matrix now records 1,258 UNREVIEWED files (420 high priority), with 701 non-UNREVIEWED rows. Immutable manifest remains anchored to main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; no PR-only file was inserted into the manifest.
+- No YouTube provider call, content generation, Gemini request, social publishing, production database mutation, storage/media operation, native release, merge or deployment was performed.
+
 
 ## Review batch — 2026-11-16 21:15 UTC
 
