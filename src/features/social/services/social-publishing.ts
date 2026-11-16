@@ -1,5 +1,6 @@
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 import { assertCloudinaryVideoUrl } from "@/features/videos/services/video-media-url";
+import { evaluateVideoCatalogPublication, type VideoCatalogPublicationDecision } from "@/features/social/services/video-catalog-publication-policy";
 import { publishFacebookReelWithIds, publishToFacebook, publishToYoutube } from "@/features/videos/services/video-automation";
 import { getServerEnv } from "@/lib/env";
 import { getYouTubeUploadRefreshToken } from "@/features/social/services/youtube-oauth-credentials";
@@ -137,6 +138,47 @@ async function hasVideoApprovalForQueueItem(item: SocialPublishQueueItem): Promi
     console.error("[social-publishing] Automated QA lookup failed; holding video item:", item.id, error);
     return false;
   }
+}
+
+async function checkVideoCatalogPublication(item: SocialPublishQueueItem): Promise<VideoCatalogPublicationDecision> {
+  if (!isVideoContentType(item.content_type)) return { status: "approved" };
+  if (!item.content_id || !item.video_url) {
+    return { status: "blocked", reason: "Video queue item is missing its generation request ID or source URL." };
+  }
+
+  try {
+    const rows = await supabaseServerAdminRequest<Array<{ published: boolean | null; metadata: unknown }>>(
+      "/rest/v1/videos?metadata->>videoGenerationRequestId=eq." +
+        encodeURIComponent(item.content_id) +
+        "&select=published,metadata&limit=2",
+    );
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { status: "pending", reason: "The video is not registered in the public catalog yet." };
+    }
+    if (rows.length !== 1) {
+      return { status: "blocked", reason: "The video generation request maps to multiple catalog rows." };
+    }
+
+    return evaluateVideoCatalogPublication({
+      contentId: item.content_id,
+      queuedVideoUrl: item.video_url,
+      queueAudience: item.metadata?.audience,
+      queueKidsContentQaStatus: item.metadata?.kidsContentQaStatus,
+      row: rows[0],
+    });
+  } catch (error) {
+    console.error("[social-publishing] Video catalog publication check failed; holding queue item:", item.id, error);
+    return { status: "pending", reason: "The public video catalog could not be verified." };
+  }
+}
+
+function hasPriorSuccessfulSocialPlatform(metadata: Record<string, unknown> | null): boolean {
+  const results = normalizeSocialPlatformResults(metadata?.platformResults);
+  return Object.values(results).some((result) => {
+    if (!result || typeof result !== "object" || Array.isArray(result)) return false;
+    const record = result as Record<string, unknown>;
+    return record.ok === true && typeof record.remoteId === "string" && record.remoteId.trim().length > 0;
+  });
 }
 
 type WrittenPostSourceApproval = "not_applicable" | "approved" | "blocked" | "unavailable";
@@ -563,6 +605,13 @@ async function publishPlatform(
     if (!(await hasVideoApprovalForQueueItem(item))) {
       return { platform, ok: false, approvalBlocked: true, error: "Video held because automated QA is missing, incomplete or stale." };
     }
+    const catalogApproval = await checkVideoCatalogPublication(item);
+    if (catalogApproval.status === "blocked") {
+      return { platform, ok: false, error: "Video catalog approval is blocked: " + catalogApproval.reason };
+    }
+    if (catalogApproval.status === "pending") {
+      return { platform, ok: false, approvalBlocked: true, error: "Video catalog publication is pending: " + catalogApproval.reason };
+    }
     const publication =
       platform === "facebook"
         ? item.video_url
@@ -623,12 +672,13 @@ async function syncKidsSocialPublicationToCatalog(
   try {
     const rows = await supabaseServerAdminRequest<Array<{
       id: string;
+      published: boolean | null;
       metadata: Record<string, unknown> | null;
       updated_at: string | null;
     }>>(
       "/rest/v1/videos?metadata->>videoGenerationRequestId=eq." +
         encodeURIComponent(item.content_id) +
-        "&metadata->>audience=eq.kids&select=id,metadata,updated_at&limit=2",
+        "&metadata->>audience=eq.kids&select=id,published,metadata,updated_at&limit=2",
     );
     if (!Array.isArray(rows) || rows.length !== 1) {
       if (Array.isArray(rows) && rows.length > 1) {
@@ -638,6 +688,7 @@ async function syncKidsSocialPublicationToCatalog(
     }
 
     const row = rows[0];
+    if (row.published !== true) return;
     if (typeof row.updated_at !== "string" || !Number.isFinite(Date.parse(row.updated_at))) {
       console.warn("[social-publishing] Kids catalog row has no valid updated_at; refusing an unversioned metadata update:", item.content_id);
       return;
@@ -660,7 +711,7 @@ async function syncKidsSocialPublicationToCatalog(
       },
     };
     const query = "/rest/v1/videos?id=eq." + encodeURIComponent(row.id) +
-      "&updated_at=eq." + encodeURIComponent(row.updated_at);
+      "&published=eq.true&updated_at=eq." + encodeURIComponent(row.updated_at);
     const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(query, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Prefer: "return=representation" },
@@ -944,6 +995,38 @@ export async function processSocialPublishItem(
     const updated = await markQueueItem(item.id, "queued", {
       error_message: "Video held for automated qa check before public publishing.",
       metadata: { ...(item.metadata ?? {}), approvalBlocked: true },
+    }, claimLease);
+    return updated ? "approval_blocked" : "deferred";
+  }
+
+  const videoCatalogApproval = await checkVideoCatalogPublication(item);
+  if (videoCatalogApproval.status === "blocked") {
+    const updated = await markQueueItem(item.id, hasPriorSuccessfulSocialPlatform(item.metadata) ? "partial" : "failed", {
+      scheduled_at: null,
+      error_message: "Video catalog approval is blocked: " + videoCatalogApproval.reason,
+      metadata: {
+        ...(item.metadata ?? {}),
+        videoCatalogApprovalBlocked: true,
+        videoCatalogPublicationPending: false,
+        videoCatalogApprovalReason: videoCatalogApproval.reason,
+        videoCatalogPublicationRetryAt: null,
+        manualReconciliationRequired: true,
+      },
+    }, claimLease);
+    return updated ? "approval_blocked" : "deferred";
+  }
+  if (videoCatalogApproval.status === "pending") {
+    const nextRetryAt = new Date(Date.now() + 15 * 60_000).toISOString();
+    const updated = await markQueueItem(item.id, hasPriorSuccessfulSocialPlatform(item.metadata) ? "partial" : "queued", {
+      scheduled_at: nextRetryAt,
+      error_message: "Video catalog publication is pending: " + videoCatalogApproval.reason,
+      metadata: {
+        ...(item.metadata ?? {}),
+        videoCatalogApprovalBlocked: false,
+        videoCatalogPublicationPending: true,
+        videoCatalogApprovalReason: videoCatalogApproval.reason,
+        videoCatalogPublicationRetryAt: nextRetryAt,
+      },
     }, claimLease);
     return updated ? "approval_blocked" : "deferred";
   }

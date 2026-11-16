@@ -224,7 +224,7 @@ const youtubeCatalogSync = youtubeCatalogSyncStart >= 0 && youtubeCatalogSyncEnd
   ? socialPublishingService.slice(youtubeCatalogSyncStart, youtubeCatalogSyncEnd)
   : "";
 if (!kidsCatalogSync.includes('typeof row.updated_at !== "string"') ||
-    !kidsCatalogSync.includes('"&updated_at=eq." + encodeURIComponent(row.updated_at)') ||
+    !kidsCatalogSync.includes('"&published=eq.true&updated_at=eq." + encodeURIComponent(row.updated_at)') ||
     kidsCatalogSync.includes('(row.updated_at ? "&updated_at=eq."')) {
   failures.push("Kids catalog social metadata writes must require an exact valid updated_at revision");
 }
