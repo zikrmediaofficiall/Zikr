@@ -7,7 +7,7 @@ import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit'
 import { supabaseServerAdminRequest } from '@/lib/supabase/server';
 import type { VideoGenerationRequest } from '@/lib/types/video';
 import { updateVideoRequestStatus } from '@/features/videos/services/video-automation';
-import { canViewVideoRequestContent, resolveVideoRequestAudience } from '@/features/videos/services/video-audience-visibility';
+import { canViewVideoRequestRow, resolveVideoRequestAudience } from '@/features/videos/services/video-audience-visibility';
 
 const VIDEO_REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -24,7 +24,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     if (!item) return NextResponse.json({ error: 'Video request not found' }, { status: 404 });
     const kidsAuth = await requireAdminApi('kids.manage');
     const canManageKids = kidsAuth.ok && kidsAuth.profile.id === auth.profile.id;
-    if (!canViewVideoRequestContent(item, canManageKids)) {
+    if (!canViewVideoRequestRow(item, canManageKids)) {
       return NextResponse.json({ error: 'Video request not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
     }
     return NextResponse.json(item, { headers: { 'Cache-Control': 'no-store' } });

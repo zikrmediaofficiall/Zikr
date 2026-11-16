@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { canViewVideoRequestContent, isKidsVideoContentMarker, normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
+import { canViewVideoRequestRow, isKidsVideoContentMarker, normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
 import { requireAdminApi } from '@/features/admin/services/admin';
 import { requireAdminStepUpApi } from '@/features/admin/services/security';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
@@ -37,7 +37,7 @@ export async function GET() {
 
     const kidsAuth = await requireAdminApi("kids.manage");
     const canManageKids = kidsAuth.ok && kidsAuth.profile.id === auth.profile.id;
-    const items = (rows ?? []).filter((row) => canViewVideoRequestContent(row, canManageKids));
+    const items = (rows ?? []).filter((row) => canViewVideoRequestRow(row, canManageKids));
     const counts = { total: items.length, pending: 0, processing: 0, completed: 0, failed: 0 };
     for (const row of items) {
       if (row.status in counts) counts[row.status as keyof typeof counts] += 1;

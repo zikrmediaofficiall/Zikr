@@ -141,14 +141,18 @@ export function resolveVideoRequestAudience(value: unknown): VideoRequestAudienc
 /** General video managers must not read child-directed request content. */
 export function canViewVideoRequestContent(value: unknown, canManageKids: boolean): boolean {
   if (canManageKids) return true;
+  const resolution = resolveVideoRequestAudience(value);
+  return resolution.ok && resolution.audience === "general";
+}
+
+/** Request-row reads must validate the required JSONB payload and row-level category. */
+export function canViewVideoRequestRow(value: unknown, canManageKids: boolean): boolean {
+  if (canManageKids) return true;
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  const nestedContent = record.content && typeof record.content === "object" && !Array.isArray(record.content)
-    ? record.content as Record<string, unknown>
-    : null;
-  const candidate = nestedContent
-    ? { ...record, ...nestedContent, category: record.category ?? nestedContent.category }
-    : record;
+  if (!record.content || typeof record.content !== "object" || Array.isArray(record.content)) return false;
+  const content = record.content as Record<string, unknown>;
+  const candidate = { ...content, category: record.category ?? content.category };
   const resolution = resolveVideoRequestAudience(candidate);
   return resolution.ok && resolution.audience === "general";
 }

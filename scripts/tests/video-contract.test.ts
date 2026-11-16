@@ -6,6 +6,7 @@ import { CURRENT_VIDEO_RENDERER_VERSION } from "../../src/features/videos/servic
 import { filterGeneralStorySources, resolveKidsVideoPublicDisclosure, resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
 import {
   canViewVideoRequestContent,
+  canViewVideoRequestRow,
   canViewVideoTemplateAudience,
   isKidsVideoSource,
   resolveVideoRequestAudience,
@@ -27,9 +28,13 @@ assert.equal(canViewVideoRequestContent({ audience: "kids" }, false), false);
 assert.equal(canViewVideoRequestContent({ sourceType: "story", type: "story" }, false), false);
 assert.equal(canViewVideoRequestContent({ audience: "unknown" }, false), false);
 assert.equal(canViewVideoRequestContent({ audience: "kids" }, true), true);
-assert.equal(canViewVideoRequestContent({ category: "kids", content: { type: "story" } }, false), false);
-assert.equal(canViewVideoRequestContent({ category: "story", content: { audience: "kids" } }, false), false);
-assert.equal(canViewVideoRequestContent({ category: "story", content: { audience: "general" } }, false), true);
+assert.equal(canViewVideoRequestRow({ category: "kids", content: { type: "story" } }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "story", content: { audience: "kids" } }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "story", content: { audience: "general" } }, false), true);
+assert.equal(canViewVideoRequestRow({ category: "kids", content: { audience: "general" } }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "story", content: null }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "story", content: "invalid" }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "kids", content: { audience: "kids" } }, true), true);
 assert.equal(canViewVideoTemplateAudience("general", false), true);
 assert.equal(canViewVideoTemplateAudience("kids", false), false);
 assert.equal(canViewVideoTemplateAudience("unknown", false), false);
