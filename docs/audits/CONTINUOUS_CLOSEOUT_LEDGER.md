@@ -2839,3 +2839,6 @@ No production SQL mutation, migration execution, data repair, content generation
 - Free API provider remains disabled in the production workflow; its returned video URL lacks a dedicated host/redirect allowlist if later enabled. HF output downloader restricts to trusted Hugging Face origins, 256 MiB and MP4 signature. No provider was called.
 
 - Latest reconciled inventory blob: `61a84d6498294f2929957730fa83105e84e266b3`; project-status blob: `d714b53bb68008333107912c00c7cda7b60005c1`; current main-to-production distance: four commits.
+
+
+- PR #374 verification: exact head `32894db0fdf7e7abbb456879e45669ada9964335` passed GitHub Quality Gate run `43959124758` (canonical `pnpm verify:pr` after the test was added to `package.json`), Android Native Login Debug APK run `43959124757`, and CircleCI config-guard. The PR remains open/unmerged for owner/CODEOWNERS review.
