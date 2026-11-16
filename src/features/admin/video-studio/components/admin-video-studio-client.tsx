@@ -335,6 +335,7 @@ export default function AdminVideoStudioClient() {
       setSourceId("");
       setAudioFile(null);
       setUploadedAudioUrl("");
+      setUploadedAudioAssetId("");
     } catch (cause) {
       setError(
         cause instanceof Error
