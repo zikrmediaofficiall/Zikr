@@ -19,13 +19,10 @@ DECLARE
   v_request public.video_generation_requests%ROWTYPE;
   v_catalog public.videos%ROWTYPE;
   v_request_approval_fields text[] := ARRAY[
-    'approvalStatus', 'approvalReviewerId', 'approvalReviewedAt', 'approvalSnapshotHash', 'qualityReview',
-    'kidsVideoQaStatus'
+    'approvalStatus', 'approvalReviewerId', 'approvalReviewedAt', 'approvalSnapshotHash', 'qualityReview'
   ];
   v_catalog_approval_fields text[] := ARRAY[
-    'approvalStatus', 'approvalReviewerId', 'approvalReviewedAt', 'approvalSnapshotHash', 'qualityReview',
-    'contentFormat', 'aiMode', 'sourceType', 'seriesId', 'seriesTitle', 'learningObjective',
-    'seasonNumber', 'episodeNumber'
+    'approvalStatus', 'approvalReviewerId', 'approvalReviewedAt', 'approvalSnapshotHash', 'qualityReview'
   ];
   v_check text;
   v_request_rows integer;
@@ -41,6 +38,14 @@ BEGIN
      OR jsonb_typeof(p_catalog_metadata) IS DISTINCT FROM 'object' THEN
     RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: required approval fields are missing'
       USING ERRCODE = '22023';
+  END IF;
+
+  IF p_approved_content->>'audience' = 'kids' THEN
+    v_request_approval_fields := v_request_approval_fields || ARRAY['kidsVideoQaStatus'];
+    v_catalog_approval_fields := v_catalog_approval_fields || ARRAY[
+      'contentFormat', 'aiMode', 'sourceType', 'seriesId', 'seriesTitle', 'learningObjective',
+      'seasonNumber', 'episodeNumber'
+    ];
   END IF;
 
   IF p_approved_content->>'approvalStatus' IS DISTINCT FROM 'approved'
@@ -150,7 +155,9 @@ BEGIN
   END IF;
 
   IF p_approved_content->>'audience' = 'kids' THEN
-    IF p_approved_content->>'kidsVideoQaStatus' IS DISTINCT FROM 'passed'
+    IF v_catalog.metadata->>'audience' IS DISTINCT FROM 'kids'
+       OR p_catalog_metadata->>'audience' IS DISTINCT FROM 'kids'
+       OR p_approved_content->>'kidsVideoQaStatus' IS DISTINCT FROM 'passed'
        OR v_catalog.metadata->>'kidsVideoQaStatus' IS DISTINCT FROM 'passed'
        OR p_catalog_metadata->>'kidsVideoQaStatus' IS DISTINCT FROM 'passed'
        OR p_approved_content->>'kidsVideoQaStatus' IS DISTINCT FROM p_catalog_metadata->>'kidsVideoQaStatus'
@@ -160,32 +167,8 @@ BEGIN
        OR nullif(btrim(p_approved_content->>'seriesId'), '') IS NULL
        OR nullif(btrim(p_approved_content->>'seriesTitle'), '') IS NULL
        OR nullif(btrim(p_approved_content->>'learningObjective'), '') IS NULL
-       OR NOT (CASE
-         WHEN jsonb_typeof(p_approved_content->'seasonNumber') = 'number' THEN
-           (p_approved_content->>'seasonNumber')::numeric > 0
-           AND trunc((p_approved_content->>'seasonNumber')::numeric) = (p_approved_content->>'seasonNumber')::numeric
-         WHEN jsonb_typeof(p_approved_content->'seasonNumber') = 'string' THEN
-           CASE
-             WHEN nullif(btrim(p_approved_content->>'seasonNumber'), '') IS NULL
-               OR regexp_replace(p_approved_content->>'seasonNumber', '[0-9]', '', 'g') <> '' THEN false
-             ELSE (p_approved_content->>'seasonNumber')::numeric > 0
-               AND trunc((p_approved_content->>'seasonNumber')::numeric) = (p_approved_content->>'seasonNumber')::numeric
-           END
-         ELSE false
-       END)
-       OR NOT (CASE
-         WHEN jsonb_typeof(p_approved_content->'episodeNumber') = 'number' THEN
-           (p_approved_content->>'episodeNumber')::numeric > 0
-           AND trunc((p_approved_content->>'episodeNumber')::numeric) = (p_approved_content->>'episodeNumber')::numeric
-         WHEN jsonb_typeof(p_approved_content->'episodeNumber') = 'string' THEN
-           CASE
-             WHEN nullif(btrim(p_approved_content->>'episodeNumber'), '') IS NULL
-               OR regexp_replace(p_approved_content->>'episodeNumber', '[0-9]', '', 'g') <> '' THEN false
-             ELSE (p_approved_content->>'episodeNumber')::numeric > 0
-               AND trunc((p_approved_content->>'episodeNumber')::numeric) = (p_approved_content->>'episodeNumber')::numeric
-           END
-         ELSE false
-       END)
+       OR coalesce(p_approved_content->>'seasonNumber' ~ '^[1-9][0-9]*$', false) IS NOT TRUE
+       OR coalesce(p_approved_content->>'episodeNumber' ~ '^[1-9][0-9]*$', false) IS NOT TRUE
        OR p_catalog_metadata->>'contentFormat' IS DISTINCT FROM p_approved_content->>'contentFormat'
        OR p_catalog_metadata->>'aiMode' IS DISTINCT FROM p_approved_content->>'aiMode'
        OR p_catalog_metadata->>'sourceType' IS DISTINCT FROM p_approved_content->>'sourceType'
@@ -194,14 +177,19 @@ BEGIN
        OR p_catalog_metadata->>'learningObjective' IS DISTINCT FROM p_approved_content->>'learningObjective'
        OR p_catalog_metadata->>'seasonNumber' IS DISTINCT FROM p_approved_content->>'seasonNumber'
        OR p_catalog_metadata->>'episodeNumber' IS DISTINCT FROM p_approved_content->>'episodeNumber'
+       OR v_request.content->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'
+       OR v_catalog.metadata->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'
        OR p_approved_content->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'
        OR p_catalog_metadata->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'
-       OR p_approved_content->'automatedVideoQa'->>'snapshotHash'
-          IS DISTINCT FROM p_catalog_metadata->'automatedVideoQa'->>'snapshotHash' THEN
+       OR coalesce(p_approved_content->'automatedVideoQa'->>'snapshotHash' ~ '^[a-f0-9]{64}$', false) IS NOT TRUE
+       OR p_approved_content->'automatedVideoQa'->>'snapshotHash' IS DISTINCT FROM v_request.content->'automatedVideoQa'->>'snapshotHash'
+       OR p_approved_content->'automatedVideoQa'->>'snapshotHash' IS DISTINCT FROM v_catalog.metadata->'automatedVideoQa'->>'snapshotHash'
+       OR p_approved_content->'automatedVideoQa'->>'snapshotHash' IS DISTINCT FROM p_catalog_metadata->'automatedVideoQa'->>'snapshotHash' THEN
       RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: Kids QA or series evidence does not match the approved catalog snapshot'
         USING ERRCODE = '22023';
     END IF;
   END IF;
+
   IF (p_catalog_metadata - v_catalog_approval_fields)
      IS DISTINCT FROM (v_catalog.metadata - v_catalog_approval_fields) THEN
     RAISE EXCEPTION 'VIDEO_APPROVAL_INVALID: catalog metadata changed outside the approval fields'

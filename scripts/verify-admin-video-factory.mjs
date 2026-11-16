@@ -497,6 +497,13 @@ for (const token of [
   "kidsVideoQaStatus",
   "seriesId",
   "automatedVideoQa",
+  "v_request_approval_fields := v_request_approval_fields || ARRAY['kidsVideoQaStatus']",
+  "v_catalog_approval_fields := v_catalog_approval_fields || ARRAY[",
+  "v_catalog.metadata->>'audience' IS DISTINCT FROM 'kids'",
+  "v_request.content->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'",
+  "v_catalog.metadata->'automatedVideoQa'->>'status' IS DISTINCT FROM 'passed'",
+  "coalesce(p_approved_content->>'seasonNumber' ~ '^[1-9][0-9]*$', false) IS NOT TRUE",
+  "p_approved_content->'automatedVideoQa'->>'snapshotHash' IS DISTINCT FROM v_request.content->'automatedVideoQa'->>'snapshotHash'",
   "REVOKE ALL ON FUNCTION public.admin_approve_video_generation_request",
   "GRANT EXECUTE ON FUNCTION public.admin_approve_video_generation_request",
 ]) {
