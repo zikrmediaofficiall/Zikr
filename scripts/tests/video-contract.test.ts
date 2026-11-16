@@ -22,6 +22,8 @@ assert.deepEqual(resolveVideoRequestAudience({ audience: null, sourceType: "stor
 assert.deepEqual(resolveVideoRequestAudience({ audience: "general", sourceType: "original_kids_fiction" }), { ok: false, reason: "audience_marker_conflict" });
 assert.deepEqual(resolveVideoRequestAudience({ audience: "general", contentFormat: "series_episode" }), { ok: false, reason: "audience_marker_conflict" });
 assert.deepEqual(resolveVideoRequestAudience({ audience: "general", ageGroup: "children" }), { ok: false, reason: "audience_marker_conflict" });
+assert.deepEqual(resolveVideoRequestAudience({ audience: "general", ageGroup: "6-8" }), { ok: false, reason: "audience_marker_conflict" });
+assert.equal(canViewVideoRequestRow({ category: "story", content: { audience: "general", ageGroup: "6-8" } }, false), false);
 assert.equal(canViewVideoRequestRow({ category: "story", content: { audience: "general", contentFormat: "series_episode" } }, false), false);
 assert.deepEqual(resolveVideoRequestAudience({ audience: "unknown" }), { ok: false, reason: "unknown_audience" });
 assert.deepEqual(resolveVideoRequestAudience(null), { ok: false, reason: "invalid_content" });

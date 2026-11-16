@@ -65,7 +65,7 @@ CREATE POLICY videos_public_read
               OR lower(btrim(coalesce(metadata->>'type', ''))) IN ('kids_story', 'kids_story_episode', 'kids_video', 'kids_story_video')
               OR lower(btrim(coalesce(metadata->>'contentType', ''))) IN ('kids_video', 'kids_story_video')
               OR lower(btrim(coalesce(metadata->>'contentFormat', ''))) = 'series_episode'
-              OR lower(btrim(coalesce(metadata->>'ageGroup', ''))) IN ('kids', 'kid', 'children', 'child', 'preschool', 'elementary', 'middle_school')
+              OR coalesce(btrim(metadata->>'ageGroup'), '') <> ''
               OR lower(btrim(coalesce(metadata->>'generationMode', ''))) = 'free_deterministic_story_factory'
               OR lower(btrim(coalesce(metadata->>'sourceId', ''))) LIKE 'kids-series:%'
               OR lower(btrim(coalesce(metadata->>'curatedSourceId', ''))) LIKE 'kids-series:%'

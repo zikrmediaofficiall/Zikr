@@ -48,7 +48,7 @@ export function hasExplicitKidsVideoIntentMarker(value: unknown): boolean {
 
   if (normalizeVideoMarker(record.contentFormat) === "series_episode") return true;
   const ageGroup = normalizeVideoMarker(record.ageGroup);
-  if (["kids", "kid", "children", "child", "preschool", "elementary", "middle_school"].includes(ageGroup)) return true;
+  if (ageGroup) return true;
 
   if (normalizeVideoMarker(record.generationMode) === "free_deterministic_story_factory") return true;
 
