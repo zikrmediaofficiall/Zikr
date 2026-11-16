@@ -855,7 +855,7 @@ export async function reconcilePublishedKidsVideoCatalog(limit = KIDS_SOCIAL_CAT
   }
 
   const pageSize = Math.max(1, Math.min(KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE, Math.floor(limit) || 1));
-  const cutoff = resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER);
+  const cutoff = resolveSocialPublishCutoff(process.env.SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER ?? "1970-01-01T00:00:00.000Z");
   const scan = await scanSocialQueueCandidatePages<SocialPublishQueueItem>({
     pageSize,
     maxRows: KIDS_SOCIAL_CATALOG_RECONCILIATION_MAX_ROWS,

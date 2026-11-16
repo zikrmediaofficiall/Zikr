@@ -1,3 +1,17 @@
+import {
+  getManualReconciliationPlatforms,
+  hasMalformedSocialPlatformResults,
+  normalizeSocialPlatformResults,
+  type SocialPlatform,
+  type SocialPlatformMetadata,
+} from "./platform-availability";
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
 /**
  * Returns whether a confirmed provider deletion applies to the delivery that
  * is currently stored on a social queue row.
@@ -40,4 +54,42 @@ export function isSocialPlatformDeletionCurrent(
   return !Number.isFinite(publishedAt) ||
     !Number.isFinite(deletedAt) ||
     deletedAt >= publishedAt;
+}
+
+/**
+ * True only for a confirmed provider delivery with a nonblank remote ID that
+ * is not deleted or held for manual reconciliation.
+ */
+export function isSocialPlatformDeliveryActive(
+  metadata: Record<string, unknown> | null | undefined,
+  platform: string,
+  publishedAt: unknown,
+): boolean {
+  if (platform !== "facebook" && platform !== "facebook_reels" && platform !== "youtube") return false;
+  if (getManualReconciliationPlatforms(metadata as SocialPlatformMetadata).includes(platform as SocialPlatform)) return false;
+  if (hasMalformedSocialPlatformResults(metadata?.platformResults)) return false;
+
+  const result = asRecord(normalizeSocialPlatformResults(metadata?.platformResults)[platform]);
+  const remoteId = typeof result?.remoteId === "string" ? result.remoteId.trim() : "";
+  if (
+    result?.ok !== true ||
+    remoteId.length === 0 ||
+    (result.platform !== undefined && result.platform !== platform)
+  ) {
+    return false;
+  }
+
+  const deletions = asRecord(metadata?.platformDeletions);
+  return !isSocialPlatformDeletionCurrent(deletions?.[platform], remoteId, publishedAt);
+}
+
+/**
+ * A malformed result ledger is still a ledger and must block the legacy
+ * "published with no per-platform result" fallback.
+ */
+export function hasSocialPlatformResultLedger(
+  metadata: Record<string, unknown> | null | undefined,
+): boolean {
+  return hasMalformedSocialPlatformResults(metadata?.platformResults) ||
+    Object.keys(normalizeSocialPlatformResults(metadata?.platformResults)).length > 0;
 }

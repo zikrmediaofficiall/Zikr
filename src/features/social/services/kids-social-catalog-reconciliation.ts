@@ -38,7 +38,7 @@ export function buildKidsSocialCatalogReconciliationQuery(
   limit: number,
 ): string {
   if (!Number.isFinite(Date.parse(cutoff))) {
-    throw new Error("Kids catalog reconciliation requires a valid social-publish cutoff.");
+    throw new Error("Kids catalog reconciliation requires a valid reconciliation cutoff.");
   }
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE) {
     throw new Error("Kids catalog reconciliation page size is outside its bounded scan.");
@@ -52,9 +52,9 @@ export function buildKidsSocialCatalogReconciliationQuery(
     "metadata->>audience=eq.kids",
     "metadata->>kidsContentQaStatus=eq.passed",
     "or=(metadata->>kidsCatalogSyncStatus.is.null,metadata->>kidsCatalogSyncStatus.eq.pending)",
-    "created_at=gte." + encodeURIComponent(cutoff),
+    "updated_at=gte." + encodeURIComponent(cutoff),
     "select=" + select,
-    "order=created_at.asc,id.asc",
+    "order=updated_at.asc,id.asc",
     "limit=" + limit,
     "offset=" + offset,
   ].join("&");
