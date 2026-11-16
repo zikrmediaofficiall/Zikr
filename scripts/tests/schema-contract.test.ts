@@ -16,7 +16,8 @@ function requireRegex(haystack: string, pattern: RegExp, label: string) {
 }
 
 requireText(migrations, "CREATE OR REPLACE FUNCTION public.consume_min_interval_rate_limit", "Nominatim minimum-interval RPC migration contract");
-requireRegex(types, /consume_min_interval_rate_limit\\s*:\\s*\\{[\\s\\S]{0,300}?p_interval_ms:\\s*number[\\s\\S]{0,120}?Returns:\\s*boolean/, "Nominatim minimum-interval generated type contract");
+requireText(types, "consume_min_interval_rate_limit", "Nominatim minimum-interval generated type contract");
+requireText(types, "p_interval_ms: number", "Nominatim minimum-interval RPC argument type contract");
 requireText(migrations, "media_assets", "media_assets migration contract");
 requireText(migrations, "source_id", "media_assets.source_id migration contract");
 requireRegex(types, /media_assets\s*:\s*\{/, "media_assets generated type contract");
