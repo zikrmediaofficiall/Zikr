@@ -273,17 +273,19 @@ export async function getCompanionBySlug(
             : null,
       };
 
-      const stories = await supabaseServerAnonRequest<Record<string, unknown>[]>(
-        `/rest/v1/companion_stories?select=id,companion_id,title_ar,title_en,content_ar,content_en,story_type,order_num&companion_id=eq.${encodeURIComponent(String(row.id))}&order=order_num.asc&limit=100`,
-      ).catch((error) => {
+      let dbStories: CompanionStory[] = [];
+      try {
+        const storyRows = await supabaseServerAnonRequest<Record<string, unknown>[]>(
+          `/rest/v1/companion_stories?select=id,companion_id,title_ar,title_en,content_ar,content_en,story_type,order_num&companion_id=eq.${encodeURIComponent(String(row.id))}&order=order_num.asc&limit=100`,
+        );
+        dbStories = storyRows.map(mapStoryRow);
+      } catch (error) {
         console.error("[companions] Failed to load companion stories:", error);
-        return [];
-      });
+      }
 
-      const dbStories = stories.map(mapStoryRow);
       return {
         ...companion,
-        stories: dbStories.length ? dbStories : localStories,
+        stories: dbStories,
       };
       }
     } catch (error) {
@@ -304,7 +306,7 @@ export async function getCompanionBySlug(
       death_place_ar: null,
       death_year: null,
       metadata: null,
-      stories: localStories,
+      stories: isSupabaseConfigured() ? [] : localStories,
     };
   }
 
