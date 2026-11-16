@@ -35,3 +35,7 @@ psql=(docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U postgres -d zi
 "${psql[@]}" -f /workspace/scripts/tests/kids-game-db-trigger.integration-setup.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261101090000_harden_kids_game_result_insert_contract.sql
 "${psql[@]}" -f /workspace/scripts/tests/kids-game-db-trigger.integration.sql
+
+# The RPC-level test delays the insert trigger so concurrent retries all reach
+# the duplicate lookup together; it verifies one stored result and one XP award.
+bash "$ROOT_DIR/scripts/tests/kids-game-rpc-idempotency.integration.sh"
