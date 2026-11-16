@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { isSupabaseConfigured, supabaseServerAnonRequest } from "@/lib/supabase/server";
+import { resolveCanonicalPublished } from "@/lib/data/content-merge";
 import { getDatabasePublicationState } from "@/lib/data/publication-visibility";
 import { shouldSuppressOfflineFallback } from "@/lib/data/publication-visibility-contract";
 import { COMPANIONS } from "@/features/companions/data/fallback";
@@ -202,9 +203,9 @@ export async function getPublishedCompanions(): Promise<CompanionSummary[]> {
   }
 
   const database = isSupabaseConfigured() ? await getDatabaseCompanions() : null;
-  if (database?.length) return database;
-
   const fallback = offline.length ? offline : FALLBACK_COMPANIONS;
+  if (database?.length) return resolveCanonicalPublished(database, fallback);
+
   return filterOfflineCompanionsByPublicationState(fallback);
 }
 
