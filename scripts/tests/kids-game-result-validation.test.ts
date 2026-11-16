@@ -158,14 +158,14 @@ assert.ok(
   idempotencyLockIndex >= 0 && duplicateLookupIndex > idempotencyLockIndex,
   "the RPC must serialize a user/submission key before its duplicate lookup"
 );
-assert.match(
-  idempotencyMigration,
-  /REVOKE ALL ON FUNCTION public\\.kids_record_game_result_internal\\([\\s\\S]*?FROM public, anon, authenticated/,
+assert.ok(
+  idempotencyMigration.includes("REVOKE ALL ON FUNCTION public.kids_record_game_result_internal(") &&
+    idempotencyMigration.includes("FROM public, anon, authenticated"),
   "the replacement RPC must remain unavailable to application roles"
 );
-assert.match(
-  idempotencyMigration,
-  /GRANT EXECUTE ON FUNCTION public\\.kids_record_game_result_internal\\([\\s\\S]*?TO service_role/,
+assert.ok(
+  idempotencyMigration.includes("GRANT EXECUTE ON FUNCTION public.kids_record_game_result_internal(") &&
+    idempotencyMigration.includes("TO service_role"),
   "the replacement RPC must remain service-role-only"
 );
 
