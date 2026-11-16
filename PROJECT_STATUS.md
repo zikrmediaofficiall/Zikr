@@ -2051,3 +2051,5 @@ The audit is not closed; continue the remaining review-required and pending-trac
 - Current remote migration ledger blob: `2bd6469ec4b9fa680a4c138c46757ae535fc1f26`. It records the exact 449/449 migration version set and the extended live RPC signatures, Kids RLS, Storage grants/bucket limits and cron state; older “missing deployed contract” lists are superseded.
 
 - The current PR #378 head `dbfe0c440e317557a7e9eef0c8837d30da6527bd` has now passed Quality Gate `43972345412`, Android Debug APK `43972345453` and CircleCI config-guard; the legacy biography test correction is included. The prior db567da check snapshot is superseded.
+
+- The current PR #378 head `dbfe0c440e317557a7e9eef0c8837d30da6527bd` passed Quality Gate `43972345412`, Android Debug APK `43972345453` and CircleCI config-guard. The Arabic-text requirement remains enforced for all published biographies; only missing legacy sources are grandfathered.
