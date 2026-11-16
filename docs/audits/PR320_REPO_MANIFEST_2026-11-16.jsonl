@@ -37,7 +37,7 @@
 {"path":"CLAUDE.md","type":"blob","mode":"100644","sha":"43c994c2d3617f947bcb5adf1933e21dabe46bb5","size":11}
 {"path":"DEPLOYMENT_CHECKLIST.md","type":"blob","mode":"100644","sha":"c7fb700b9f3750df36ba34609e812be3d58f0232","size":6124}
 {"path":"DOCUMENTATION_INDEX.md","type":"blob","mode":"100644","sha":"e35e031001e2d2f53a5378f995332e39101de204","size":2280}
-{"path":"PROJECT_STATUS.md","type":"blob","mode":"100644","sha":"ef5af78843d357e677f7c31524851afac875bce7","size":310827}
+{"path":"PROJECT_STATUS.md","type":"blob","mode":"100644","sha":"9e24eecee72004d9b644034bd67bf8c14982426d","size":316345}
 {"path":"README.md","type":"blob","mode":"100644","sha":"e458476419e0b9f17f78b642ab351f2ea7cf5709","size":6272}
 {"path":"RELEASE_STATUS.md","type":"blob","mode":"100644","sha":"eb55791949000356a7723e993123b7fb92c71b40","size":7698}
 {"path":"SECURITY.md","type":"blob","mode":"100644","sha":"76b48b3cf1291ed25b069840586979de649c255b","size":1557}
@@ -211,8 +211,8 @@
 {"path":"docs/audits/ADMIN_CONTROL_CENTER_2.0_EXECUTION_2026-11-06.md","type":"blob","mode":"100644","sha":"645787f9652f1f2368c54d127e798f2ad2da7c58","size":10603}
 {"path":"docs/audits/ADMIN_CONTROL_CENTER_CLOSEOUT_2026-11-06.md","type":"blob","mode":"100644","sha":"400a77eab1cbb9db7f6f8ebfc5ac2e3f1794887f","size":6156}
 {"path":"docs/audits/ARCHITECTURE_MAP_2026-11-01.md","type":"blob","mode":"100644","sha":"b96835e6a1dc30d40568bbc9891d7d5278a4b2b0","size":20353}
-{"path":"docs/audits/CONTINUOUS_CLOSEOUT_LEDGER.md","type":"blob","mode":"100644","sha":"9c559847f708f1159d1b80921114489bec4a1eec","size":346532}
-{"path":"docs/audits/FILE_STATUS_MATRIX_2026-11-01.md","type":"blob","mode":"100644","sha":"a85f8da8198806d00e322b1d670cccb01f583d59","size":716240}
+{"path":"docs/audits/CONTINUOUS_CLOSEOUT_LEDGER.md","type":"blob","mode":"100644","sha":"8c2b21af893b760858e64bf48133ddf61501fcce","size":352050}
+{"path":"docs/audits/FILE_STATUS_MATRIX_2026-11-01.md","type":"blob","mode":"100644","sha":"7fcabc478f93f18522118e3feead7bf398670e98","size":721758}
 {"path":"docs/audits/PG_CRON_RUNTIME_AUDIT_2026-11-01.md","type":"blob","mode":"100644","sha":"ff7b66e92013a552b66739d82bbebe129e59dd87","size":2496}
 {"path":"docs/audits/PLATFORM_READINESS_2026-11-01.md","type":"blob","mode":"100644","sha":"5b27b9db34b7c8605da2cf25d4b2fed82d2cf0a6","size":9625}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-12.md","type":"blob","mode":"100644","sha":"db70e3574a7f2bc45c1c654bd20e509f58a9a4b7","size":45782}
@@ -225,7 +225,7 @@
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14T1150Z.md","type":"blob","mode":"100644","sha":"b844a5d989c99dabdc60c36e2e3670c05272f90f","size":125235}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14T1157Z.md","type":"blob","mode":"100644","sha":"797aa1a5222f3a980cc7494af1009565f71bd014","size":156060}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-15.md","type":"blob","mode":"100644","sha":"ac7d29d77a833df93c86acb7c2b8b56ee234835b","size":181909}
-{"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-16.md","type":"blob","mode":"100644","sha":"429386e42189eaa4b6afcc7b4e3d2268a7d788c2","size":183843}
+{"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-16.md","type":"blob","mode":"100644","sha":"a2fc0f4c60404aa15a2d7414ef504a8afef208be","size":184174}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1336Z.md","type":"blob","mode":"100644","sha":"34f0a6fcf665aa056ad4aef36ce24a725b03b6c4","size":156598}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1357Z.md","type":"blob","mode":"100644","sha":"c762b6ae6535214bb5f5693af6627bf2bf391b63","size":156734}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1421Z.md","type":"blob","mode":"100644","sha":"a165a403422d7ed44e04e94e55429d62f739500f","size":157358}
@@ -478,7 +478,7 @@
 {"path":"public/video/templates/night.svg","type":"blob","mode":"100644","sha":"6c36312bb51736bed33644df164afecb7ef1b282","size":1272}
 {"path":"public/video/templates/paper.svg","type":"blob","mode":"100644","sha":"e64d12fd855cb59d7b1095d8f01d711538409506","size":1001}
 {"path":"public/video/templates/rose.svg","type":"blob","mode":"100644","sha":"d7a38daf4f6b540656435500715840fc94e567d7","size":1069}
-{"path":"scripts","type":"tree","mode":"040000","sha":"4d29946a63f20d82ff8a5b8ae0978eb6156e0156"}
+{"path":"scripts","type":"tree","mode":"040000","sha":"83b46a76db03fe7921885252df8f7cc3f7a0ccd7"}
 {"path":"scripts/cleanup-site-audio-orphans.mjs","type":"blob","mode":"100644","sha":"43095fed8ccb3c4ba2f8f21202730423cf0b2508","size":14123}
 {"path":"scripts/cleanup-supabase-storage.mjs","type":"blob","mode":"100644","sha":"eb40aaea3ee221a1b7b93d8560961e5fe419160b","size":53678}
 {"path":"scripts/ensure-ffmpeg.mjs","type":"blob","mode":"100644","sha":"0130b13b09fa88090f66435698f7623eed84ecdd","size":3245}
@@ -509,7 +509,7 @@
 {"path":"scripts/restore-quran-tafsir.sh","type":"blob","mode":"100644","sha":"19005af5048fda3db88a1b2c866b3a48f5eb0858","size":5472}
 {"path":"scripts/run-background-jobs.ts","type":"blob","mode":"100644","sha":"2640dc91d485dae517fa8c27bf758e620835a3f0","size":19444}
 {"path":"scripts/sync-hadith-english.ts","type":"blob","mode":"100644","sha":"c02bba423632eb1ce0be46cb5bbf1f2430ca21bd","size":4886}
-{"path":"scripts/tests","type":"tree","mode":"040000","sha":"62ebc52c6cc5981fbb8aa8ee159764de84426f55"}
+{"path":"scripts/tests","type":"tree","mode":"040000","sha":"14bf2091c44fdaf8e2f65429fa3ebe4228b52753"}
 {"path":"scripts/tests/admin-api-body-limits.test.mjs","type":"blob","mode":"100644","sha":"61148dd7263e9b7c78e6d462b35b2e04ab47b5ae","size":2222}
 {"path":"scripts/tests/admin-content-write-safety.test.mjs","type":"blob","mode":"100644","sha":"096b2cbef674c0d20ea533acd7ac4d980a588800","size":7688}
 {"path":"scripts/tests/admin-dashboard-visibility.test.ts","type":"blob","mode":"100644","sha":"236b8c8e038883e136a5d0c47c616f660c9bc74b","size":4620}
@@ -565,7 +565,7 @@
 {"path":"scripts/tests/kids-content-active-rls.integration.sh","type":"blob","mode":"100755","sha":"9f33b3e84ad4697e3db339e0698e2af524f88f77","size":1348}
 {"path":"scripts/tests/kids-content-active-rls.integration.sql","type":"blob","mode":"100644","sha":"24689bd83ef531d843c97380b9781b9108070bf0","size":5115}
 {"path":"scripts/tests/kids-content-manifest.test.ts","type":"blob","mode":"100644","sha":"67656de7b0bfe2cf9922287b8ad42380d856351a","size":10624}
-{"path":"scripts/tests/kids-content-visibility.test.ts","type":"blob","mode":"100644","sha":"ff4dd46180d273e8fd566d137b39aafacbdff8ed","size":71221}
+{"path":"scripts/tests/kids-content-visibility.test.ts","type":"blob","mode":"100644","sha":"3e677df7f3dd5ec489020719b6f057708287ac0a","size":72418}
 {"path":"scripts/tests/kids-game-db-trigger.integration-setup.sql","type":"blob","mode":"100644","sha":"fc26b87084e81d4406957e08d25d7b810990142e","size":626}
 {"path":"scripts/tests/kids-game-db-trigger.integration.sh","type":"blob","mode":"100644","sha":"61b2cd4a98ba1a873c2c4770bb137d12b0a445e3","size":1184}
 {"path":"scripts/tests/kids-game-db-trigger.integration.sql","type":"blob","mode":"100644","sha":"6f9141fbcdd155869ece60986808b3cf7cf8b4d1","size":7053}
@@ -764,7 +764,7 @@
 {"path":"scripts/verify-video-queue-priority.mjs","type":"blob","mode":"100644","sha":"981537f1cfda2d8530d9b58f47a4f1d27ac90dc3","size":8955}
 {"path":"scripts/verify-voice-factory.mjs","type":"blob","mode":"100644","sha":"c8ed24a9e914b99cc575b286a3975a5f698e22eb","size":4833}
 {"path":"scripts/video-engine-check.mjs","type":"blob","mode":"100644","sha":"c7dc9156901847f4b7666ead969b0f1c4aee2040","size":3597}
-{"path":"src","type":"tree","mode":"040000","sha":"ea615c6f3d9613d01ddc917a57f59f995ea4e02d"}
+{"path":"src","type":"tree","mode":"040000","sha":"8f436786141dcba2c15ae079821608baa737f2d8"}
 {"path":"src/app","type":"tree","mode":"040000","sha":"fc6c7d9a7909fd69bfca57f4f976b5b1c09b8a4f"}
 {"path":"src/app/.well-known","type":"tree","mode":"040000","sha":"dcb9fe013f06ef5cef5793ed0a93ed9dd9d64d98"}
 {"path":"src/app/.well-known/apple-app-site-association","type":"tree","mode":"040000","sha":"17603ee013fbf8a22408ca5bfd576ca0c8d3f140"}
@@ -1391,7 +1391,7 @@
 {"path":"src/components/ui/progress.tsx","type":"blob","mode":"100644","sha":"2a1686870e0ee7322df746927bd29a1fffbb2671","size":815}
 {"path":"src/components/ui/section-header.tsx","type":"blob","mode":"100644","sha":"14e6cfd227d14c275b95de09d967f58bbdfb5f97","size":444}
 {"path":"src/components/ui/share-button.tsx","type":"blob","mode":"100644","sha":"f6ca603a531c0911d995000e52409beb79941901","size":2334}
-{"path":"src/features","type":"tree","mode":"040000","sha":"c37e5cf0f8e62148831df90f483020de034651b3"}
+{"path":"src/features","type":"tree","mode":"040000","sha":"f7ad52b85fc0bb5dd06579a1475574caf85de817"}
 {"path":"src/features/adhkar","type":"tree","mode":"040000","sha":"ea5779d99a7f6e6f378a44396d7c62103d123bef"}
 {"path":"src/features/adhkar/components","type":"tree","mode":"040000","sha":"33462c6167c041b5b5aa76f836c448ba83a858f4"}
 {"path":"src/features/adhkar/components/adhkar-page.tsx","type":"blob","mode":"100644","sha":"c20b2c0866d4d3ff32d13951fc9d0a3f717f2cfa","size":14232}
@@ -1542,7 +1542,7 @@
 {"path":"src/features/home","type":"tree","mode":"040000","sha":"abf77272f588d1c68de2cd30c72df5e9d1aeecca"}
 {"path":"src/features/home/components","type":"tree","mode":"040000","sha":"83f4e2b55c744456f5b4dae692774f993110e994"}
 {"path":"src/features/home/components/home-interactive.tsx","type":"blob","mode":"100644","sha":"1a4bd1c46e52bed3013b3006892a39bde4fbc27c","size":11782}
-{"path":"src/features/kids","type":"tree","mode":"040000","sha":"9640c1ec72e05fd12c10ea0736c9b55a02716577"}
+{"path":"src/features/kids","type":"tree","mode":"040000","sha":"a765e85c70f2794df80198d0d07a5d8c48c015d4"}
 {"path":"src/features/kids/components","type":"tree","mode":"040000","sha":"55c676bcdaceb1a66970eeb79ce9685df291e57b"}
 {"path":"src/features/kids/components/games","type":"tree","mode":"040000","sha":"4ba6d5d0b99d2beba617e0e354bf6f768cca344c"}
 {"path":"src/features/kids/components/games/game-shell.tsx","type":"blob","mode":"100644","sha":"379e009868651946eb1096cc1043264f4cdce92d","size":32284}
@@ -1573,12 +1573,12 @@
 {"path":"src/features/kids/data/games-levels-enhanced.ts","type":"blob","mode":"100644","sha":"702a4781f3aae035bf70f5d568118c5d9b7653ba","size":36591}
 {"path":"src/features/kids/data/navigation.ts","type":"blob","mode":"100644","sha":"375f5a40cfd99fc2838c841f236c63dcbd9cdcaa","size":2890}
 {"path":"src/features/kids/data/stories.ts","type":"blob","mode":"100644","sha":"4ce86f620c618c5b35f4fb16f78de9a09ef71121","size":5081}
-{"path":"src/features/kids/services","type":"tree","mode":"040000","sha":"1b4f055cd20f95de106ee85a09b1a4bdf84e04b4"}
+{"path":"src/features/kids/services","type":"tree","mode":"040000","sha":"b88e38f83f51d1c1753138f4e5ed5d1f60d6ba4f"}
 {"path":"src/features/kids/services/client-address.ts","type":"blob","mode":"100644","sha":"2784dc4cbd899870d533c56b67c488ef5a5b4600","size":72}
 {"path":"src/features/kids/services/games.ts","type":"blob","mode":"100644","sha":"6f7a88d5daac31e252e99cc0812ad464738edad7","size":6530}
 {"path":"src/features/kids/services/kids-content-validation.ts","type":"blob","mode":"100644","sha":"56886ff5049f4fd527e10afbce480d03b5fea9f0","size":5238}
-{"path":"src/features/kids/services/kids-content-visibility.ts","type":"blob","mode":"100644","sha":"4c2881ccf12745196f2254bf6b7d828ce183bc31","size":3459}
-{"path":"src/features/kids/services/kids-content.ts","type":"blob","mode":"100644","sha":"25b7caf504fde5dbf250c81f2eb0654b3c5b873f","size":7275}
+{"path":"src/features/kids/services/kids-content-visibility.ts","type":"blob","mode":"100644","sha":"758ade160329d9f7c218a91b37de005c80ecccab","size":4023}
+{"path":"src/features/kids/services/kids-content.ts","type":"blob","mode":"100644","sha":"b0ad5d70079c32adc3218d413bca0db90a30d55d","size":7216}
 {"path":"src/features/kids/services/kids-offline-content.ts","type":"blob","mode":"100644","sha":"36f41a142068a992c60d00a4579fc08e5eb5f5f8","size":2509}
 {"path":"src/features/kids/services/kids-video-request-visibility.ts","type":"blob","mode":"100644","sha":"dbb3ff3d7c85f4379ea635156477cbe676eb3bc5","size":221}
 {"path":"src/features/kids/services/share-rate-limit.ts","type":"blob","mode":"100644","sha":"c7550eae6bd1f2ca1ce46e061161e58d664a7775","size":1165}
@@ -1930,8 +1930,8 @@
 {"path":"src/styles/tokens.css","type":"blob","mode":"100644","sha":"f9fc69685b24f4b68db55c4e9540db627d0dc7ca","size":109}
 {"path":"src/types","type":"tree","mode":"040000","sha":"ed7beedbbd51d2876b6f8df51f0297b85064c17c"}
 {"path":"src/types/google-generative-ai.d.ts","type":"blob","mode":"100644","sha":"2d5ebb0892e545705089a6a66472ea0b3ca40ee6","size":816}
-{"path":"supabase","type":"tree","mode":"040000","sha":"39708950ca2905de4e00eb2809044502fcfd62cf"}
-{"path":"supabase/REMOTE_MIGRATION_LEDGER.md","type":"blob","mode":"100644","sha":"e4a4dad0533a0afae484638b4cd124d38f1c8ebe","size":66352}
+{"path":"supabase","type":"tree","mode":"040000","sha":"0d2a53d7e6d052113f258d8be609f61ca49bb1e3"}
+{"path":"supabase/REMOTE_MIGRATION_LEDGER.md","type":"blob","mode":"100644","sha":"8b3b4f2803e74a6eaf4fc364461e44545aab8f2f","size":72857}
 {"path":"supabase/config.toml","type":"blob","mode":"100644","sha":"6cc36f584cef7f27221b5ce9574741d18b55a3e4","size":2412}
 {"path":"supabase/functions","type":"tree","mode":"040000","sha":"a717c75b47851af0a479361b74ac8a34cacd4b3e"}
 {"path":"supabase/functions/_shared","type":"tree","mode":"040000","sha":"f52ff4ade2244925ac7ca990c7d66347163cdb54"}
