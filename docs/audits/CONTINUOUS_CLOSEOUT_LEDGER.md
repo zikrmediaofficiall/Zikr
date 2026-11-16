@@ -2785,3 +2785,15 @@ No production SQL mutation, migration execution, data repair, content generation
 - PR #373 was expanded on the same dedicated audit branch. It now extracts a pure resolver, maps `dubai -> 16`, `gulf/gulf-region -> 8`, preserves the Umm al-Qura fallback, aligns the client label map to official IDs 0–23 and 99, and adds focused tests in both prayer test suites.
 - Current exact PR head: `c603ee90a07f86ff07f17c23e4a65ca9f130cc2b`; 7 commits ahead, 0 behind, 5 files changed. The previous auth-only head `ef440389dbbbb65d954ccd213e54b1c00c455441` passed full Quality Gate and all CircleCI checks; that does not certify the expanded head. Fresh exact-head CI is pending.
 - No production preference rows, prayer-time endpoint, Edge Function, scheduler-secret RPC, notification, or database write was used.
+
+
+## Live Supabase migration and prayer contract verification — 2026-11-16
+
+- Project metadata: `zqtssvlvmkzeeyqghqfk`, ACTIVE_HEALTHY, eu-west-2, PostgreSQL 17.11.0.018.
+- Remote `list_migrations`: 449 versions, latest `20261116045100_require_linked_request_for_public_kids_videos`.
+- Main snapshot manifest: 449 migration files. Exact set comparison: 449 shared, zero local-only, zero remote-only, zero duplicate IDs. One descriptive-name mismatch only: `20261106213918` local `video_likes`, remote `20261106214000_video_likes`; version IDs match.
+- `save_default_prayer_location` migration `20261114040000` is present remotely. PostgreSQL confirms the function exists, SECURITY INVOKER, empty search_path, authenticated/service_role EXECUTE, anon denied. This supersedes prior status text saying the RPC was missing.
+- PostgreSQL ACL query confirms `get_push_scheduler_secret` and `consume_admin_rate_limit` are service-role-only; `plan_background_reminder_deliveries` is also service-role-only.
+- RLS inspection: `prayer_locations`, `prayer_preferences`, `prayer_schedule_cache`, `prayer_notification_deliveries`, and `push_subscriptions` all have RLS enabled. Owner-scoped policies protect locations/preferences/deliveries; schedule cache has a false public policy; push subscriptions has no client policies or table grants. Anon SELECT grants on locations/cache do not bypass RLS.
+- Deployed prayer worker v80 was read-only retrieved. It still has the pre-fix auth ordering and `dubai: 8`; PR #373 corrects these in source, but deployment remains owner-gated. No worker, RPC, provider prayer-time endpoint or notification was invoked.
+- No production migration, DDL/DML, RLS change, RPC mutation, Edge Function deployment, Storage mutation or production data change occurred.
