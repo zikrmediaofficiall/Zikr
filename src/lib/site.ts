@@ -68,6 +68,9 @@ import type { Metadata } from "next";
  * Public editorial/content sections remain indexable so their substantive
  * content can be discovered by search engines.
  */
+// The Kids landing shells are noindex, but approved story detail pages remain indexable.
+const NOINDEX_EXACT_PATHS = new Set(["/kids", "/kids/adventures"]);
+
 const NOINDEX_PATHS = new Set([
   "/admin",
   "/api",
@@ -96,9 +99,12 @@ const NOINDEX_PATHS = new Set([
 
 export function isNoindexPath(path: string): boolean {
   const normalized = path.split("?")[0].replace(/\/$/, "") || "/";
-  return Array.from(NOINDEX_PATHS).some(
-    blockedPath =>
-      normalized === blockedPath || normalized.startsWith(`${blockedPath}/`),
+  return (
+    NOINDEX_EXACT_PATHS.has(normalized) ||
+    Array.from(NOINDEX_PATHS).some(
+      blockedPath =>
+        normalized === blockedPath || normalized.startsWith(`${blockedPath}/`),
+    )
   );
 }
 
