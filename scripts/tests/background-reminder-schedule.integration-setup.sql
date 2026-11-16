@@ -34,7 +34,7 @@ CREATE TABLE public.background_reminder_preferences (
 );
 
 GRANT USAGE ON SCHEMA public TO authenticated;
-GRANT INSERT, UPDATE ON TABLE public.background_reminder_preferences TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.background_reminder_preferences TO authenticated;
 
 CREATE TABLE public.prayer_locations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -112,3 +112,44 @@ INSERT INTO public.push_subscriptions (id, user_id, endpoint, p256dh, auth, is_a
 VALUES
   ('30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'https://push.example/subscription/1', '1234567890123456', '12345678', true),
   ('30000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 'https://push.example/subscription/2', 'abcdefghijklmnop', 'abcdefgh', true);
+
+-- Mirror the production owner-scoped PostgREST contract so the trigger test
+-- proves authenticated writes reach the database guard only for the row owner.
+CREATE SCHEMA IF NOT EXISTS auth;
+
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $function$
+  SELECT nullif(pg_catalog.current_setting('request.jwt.claim.sub', true), '')::uuid;
+$function$;
+
+GRANT USAGE ON SCHEMA auth TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+
+ALTER TABLE public.background_reminder_preferences ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS background_reminder_preferences_select_own
+  ON public.background_reminder_preferences;
+CREATE POLICY background_reminder_preferences_select_own
+  ON public.background_reminder_preferences
+  FOR SELECT TO authenticated
+  USING ((SELECT auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS background_reminder_preferences_insert_own
+  ON public.background_reminder_preferences;
+CREATE POLICY background_reminder_preferences_insert_own
+  ON public.background_reminder_preferences
+  FOR INSERT TO authenticated
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS background_reminder_preferences_update_own
+  ON public.background_reminder_preferences;
+CREATE POLICY background_reminder_preferences_update_own
+  ON public.background_reminder_preferences
+  FOR UPDATE TO authenticated
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
