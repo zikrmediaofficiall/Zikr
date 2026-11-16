@@ -35,3 +35,23 @@ export function getVisibleAdminSearchSourceKeys(
       hasAdminPermission(role, ADMIN_SEARCH_SOURCE_PERMISSIONS[source]),
     );
 }
+
+
+export function getAdminSearchResultHref(item: {
+  type: string;
+  slug: string | null;
+  published: boolean;
+}): string {
+  if (item.type === "مقال" && item.slug) {
+    return item.published ? `/articles/${encodeURIComponent(item.slug)}` : "/admin/content";
+  }
+  if (item.type === "قصة" && item.slug) {
+    return item.published ? `/stories/${encodeURIComponent(item.slug)}` : "/admin/content";
+  }
+  if (item.type === "فيديو") {
+    // The admin video catalog includes drafts and Kids-only entries that public routes intentionally hide.
+    return "/admin/video";
+  }
+  if (item.type === "حديث" || item.type === "دعاء") return "/admin/knowledge";
+  return "/admin/content";
+}
