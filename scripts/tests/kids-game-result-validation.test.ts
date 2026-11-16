@@ -91,6 +91,31 @@ assert.equal(
   null,
   "invalid idempotency keys must be rejected"
 );
+assert.equal(
+  validateGameResultPayload({ ...valid, clientSubmissionId: undefined }),
+  null,
+  "missing idempotency keys must be rejected rather than replaced with a fresh server-generated ID"
+);
+
+const legacyRoute = readFileSync(
+  "src/app/api/kids/games/submit-result/route.ts",
+  "utf8",
+);
+assert.match(
+  legacyRoute,
+  /clientSubmissionId:\s*legacyBody\.clientSubmissionId\s*\?\?\s*request\.headers\.get\(["']idempotency-key["']\)/,
+  "the deprecated endpoint must accept only a stable client body/header idempotency key",
+);
+assert.doesNotMatch(
+  legacyRoute,
+  /randomUUID|legacy_\$\{/,
+  "the deprecated endpoint must never mint a new key for a retry",
+);
+assert.match(
+  legacyRoute,
+  /status:\s*result\.success\s*\?\s*200\s*:\s*result\.status/,
+  "missing or malformed idempotency keys must preserve the service HTTP 400 response",
+);
 
 const migration = readFileSync(
   "supabase/migrations/20261101090000_harden_kids_game_result_insert_contract.sql",
@@ -107,4 +132,4 @@ assert.ok(migration.includes("interval '1 minute'"));
 assert.ok(migration.includes("SELECT count(*) FROM jsonb_object_keys(NEW.metadata)"));
 assert.ok(migration.includes("'level', 'combo', 'completed'"), "database metadata validation must allow server-generated result fields");
 assert.ok(migration.includes("'letter-lab'"));
-console.log("Kids game result validation passed: bounded metadata, registered score limits, and database insert guard.");
+console.log("Kids game result validation passed: bounded metadata, registered score limits, stable idempotency, and database insert guard.");
