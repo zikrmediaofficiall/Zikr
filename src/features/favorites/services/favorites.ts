@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import { isFavoriteItemType, type FavoriteItemType } from "./favorite-links";
+import { isFavoriteId, isFavoriteItemType, type FavoriteItemType } from "./favorite-links";
 
 export type { FavoriteItemType } from "./favorite-links";
 
@@ -106,7 +106,7 @@ export async function removeCurrentUserFavoriteById(
   if (!session) return { ok: false, error: "Unauthorized" };
 
   const normalizedId = id.trim();
-  if (!normalizedId || normalizedId.length > 200) {
+  if (!isFavoriteId(normalizedId)) {
     return { ok: false, error: "Invalid" };
   }
 
