@@ -53,8 +53,8 @@ export function getConfirmedYoutubeFallbackId(row: Record<string, unknown>): str
 }
 
 export type YoutubeQueuePublicationState =
-  | { status: "published"; id: string; publishedAt: string; supersededDeletedIds: string[] }
-  | { status: "deleted"; deletedAt: string | null; deletedIds: string[] }
+  | { status: "published"; id: string; publishedAt: string; supersededDeletedIds: readonly string[] }
+  | { status: "deleted"; deletedAt: string | null; deletedIds: readonly string[] }
   | { status: "conflict" };
 
 export type YoutubeCatalogReferenceResolution =
