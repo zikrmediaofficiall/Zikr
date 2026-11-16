@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -40,6 +40,8 @@ import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig, video
 import { CURRENT_VIDEO_RENDERER_VERSION, versionedTemplateLabel } from "../../src/features/videos/services/video-template-version";
 import { AI_VISUAL_POLICY_VERSION, aiVisualPolicyPromptLine } from "../../src/features/videos/providers/ai-visual-policy";
 import { createVideoProviderRouter } from "../../src/features/videos/providers/provider-router";
+import { resolveFreeVideoProviderDownloadUrl } from "../../src/features/videos/providers/free-api-provider";
+import { MAX_PROVIDER_VIDEO_BYTES, readBoundedMediaResponse } from "../../src/features/videos/providers/media-response";
 import { getDefaultVideoVoiceProfile, getVideoVoiceProfile } from "../../src/features/videos/services/voice-profiles";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
 import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
@@ -101,7 +103,7 @@ async function uploadGeneratedVideoToCloudinary(bytes: Uint8Array, storageKey: s
   if (!cloudName || !apiKey || !apiSecret) {
     throw new Error("Cloudinary video upload is not configured; refusing to use Supabase Storage as a fallback.");
   }
-  if (bytes.byteLength <= 0 || bytes.byteLength > 50 * 1024 * 1024) {
+  if (bytes.byteLength <= 0 || bytes.byteLength > MAX_PROVIDER_VIDEO_BYTES) {
     throw new Error("Generated MP4 must be between 1 byte and 50 MiB before Cloudinary upload.");
   }
   const safeKey = storageKey.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "video";
@@ -1495,14 +1497,29 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       if (aiResult.ok && aiResult.localPath) {
         aiVideoPath = aiResult.localPath;
       } else if (aiResult.ok && aiResult.videoUrl) {
-        const response = await fetch(aiResult.videoUrl, {
+        const remoteVideoUrl = aiResult.provider === "free_api"
+          ? resolveFreeVideoProviderDownloadUrl(
+              aiResult.videoUrl,
+              process.env.FREE_VIDEO_PROVIDER_URL ?? "",
+              process.env.FREE_VIDEO_PROVIDER_ALLOWED_HOSTS ?? "",
+            )
+          : null;
+        if (!remoteVideoUrl) {
+          throw new Error("AI provider returned a video URL outside the configured HTTPS host allowlist.");
+        }
+        const response = await fetch(remoteVideoUrl, {
+          redirect: "error",
           signal: videoOperationSignal(signal, 60_000),
         });
         if (!response.ok) {
           throw new Error("AI provider returned a video URL that could not be downloaded.");
         }
+        const videoBytes = await readBoundedMediaResponse(response, MAX_PROVIDER_VIDEO_BYTES);
+        if (videoBytes.byteLength < 1024) {
+          throw new Error("AI provider video download is empty or suspiciously small.");
+        }
         aiVideoPath = temp + "/ai-source.mp4";
-        await writeFile(aiVideoPath, new Uint8Array(await response.arrayBuffer()));
+        await writeFile(aiVideoPath, videoBytes);
       }
       request.content = {
         ...request.content,
@@ -1652,6 +1669,10 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     throwIfVideoLeaseAborted(signal);
     const renderDurationMs = Date.now() - renderStartedAt;
 
+    const outputStats = await stat(outputPath);
+    if (!outputStats.isFile() || outputStats.size < 1024 || outputStats.size > MAX_PROVIDER_VIDEO_BYTES) {
+      throw new Error("Rendered MP4 must be between 1 KiB and 50 MiB before it is read into memory.");
+    }
     const bytes = await readFile(outputPath);
     const storageKey = request.automation_key || request.id;
     const uploadedMedia = await uploadGeneratedVideoToCloudinary(bytes, storageKey, signal);
