@@ -99,7 +99,7 @@ export default async function AdminBattlesPage() {
         <section className="space-y-4">
           <p className="text-xs text-brand-cream/35 mr-1">{battles.length} غزوة في قاعدة البيانات</p>
           {battles.map((battle) => {
-            const currentVideoId = battle.metadata?.youtube_video_id ?? '';
+            const currentVideoId = typeof battle.metadata?.youtube_video_id === 'string' ? battle.metadata.youtube_video_id : '';
             return (
               <Card key={battle.id} className="p-6 space-y-4">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
