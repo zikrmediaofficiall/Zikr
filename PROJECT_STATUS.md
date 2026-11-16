@@ -1933,3 +1933,11 @@ The audit is not closed; continue the remaining review-required and pending-trac
 - The direct Edge Function worker caller is sequential and checks the database schedule cache before fetching, but has no provider-wide limiter for new location/date cache misses. This remains a separate open risk.
 - PR #356 Nominatim guard exact head `1c7cf83f44e8b10670098ca15aa34b2d536b8f8d` passed Quality Gate `43934145528` with `QUALITY_GATE=PASSED_FULL`, CircleCI source/application/config, and Android Debug APK `43934145480`; it remains draft/unmerged pending owner review.
 - No Aladhan/Nominatim request, production rate-limit RPC, migration, database mutation, worker invocation, notification delivery, content generation, Gemini request, social publishing, storage change, Android/iOS release, Vercel deployment or production smoke test was triggered.
+
+
+## Prayer notification worker auth preflight — 2026-11-16
+
+- Read the full 1,062-line `supabase/functions/prayer-notification-worker/index.ts` and all direct imported modules, plus the canonical worker regression test and `supabase/config.toml`.
+- Confirmed the worker is intentionally `verify_jwt=false` and authenticates with the private scheduler bearer. Found that a POST with no/malformed Authorization header still performed the service-role `get_push_scheduler_secret` RPC before returning 401; the source-verified content agent already avoids that lookup for an empty bearer.
+- PR #373: `https://github.com/zikrofficial-X/Zikr/pull/373`; exact head `ef440389dbbbb65d954ccd213e54b1c00c455441`. It parses a strict non-empty Bearer header before the RPC, rejects empty secret state, preserves constant-time comparison and adds a canonical regression assertion. At the last poll, GitHub Quality Gate run `43957999023` was queued; CircleCI config-guard passed, source-verify and application-build-docs were pending. The PR remains draft/open pending exact-head checks and owner/CODEOWNERS review.
+- No Edge Function was invoked and no scheduler secret, schedule, subscription, delivery, notification, or production data was read or mutated by this audit.
