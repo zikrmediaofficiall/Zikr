@@ -1,6 +1,6 @@
 # ZIKR Project Status
 
-## Latest audit checkpoint — 2026-11-16 22:43 UTC
+## Latest audit checkpoint — 2026-11-16 22:49 UTC
 
 **State: OPEN / NOT MERGE-READY.** This is an evidence checkpoint, not a project-wide error-free certification.
 
@@ -9,7 +9,7 @@
 - PR #381 narration provenance / worker SSRF repair: exact head 06103c8627c264d4cf497ed93c68859d09b0a958. The first head 739e21736c3274b056e6a1afaad166c6cf2d5ed7 failed at the admin-video-factory verifier because it still expected the removed ownCloudinaryAudioUrl helper; that assertion was corrected in 06103c8. The corrected exact-head Quality Gate is in progress; CircleCI exact-head source-verify/application-build-docs results were pending at the last poll. The repair strips client-controlled audio URLs, requires a current-admin audit-ready media_assets row, validates worker audio provenance, rejects redirects and bounds streaming to 15 MiB. No audio upload or generation was run.
 - PR #380 YouTube feed sync CAS repair: exact head 66dde1c4279b6513e395a57ab906b4117a8e82ad passed Quality Gate 43969510424 and CircleCI config-guard/source-verify/application-build-docs. It remains draft/open; no owner review is recorded; no YouTube API request or production mutation was run.
 - PR #358 video-like aggregate RLS repair: exact head 1cd16fff5d673e9af1b6aa09b96d78e93566fb2e passed Quality Gate 43925765683, Android Debug 43925765653, and all three CircleCI contexts. It remains open/unmerged; no owner approval is recorded; its migration is not applied to production.
-- PR #375 exact head de8b208fd05b2d407f1042c49926df0155640c99, PR #376 exact head 56360bdb48d39b44f6a13c4b50b8f52070d32f12, PR #377 exact head aebf778509bbdd8daef1589ecbd6a111339f3029, PR #378 exact head db567da1899ed9994cbc2bd1c773b878c3f62823, and PR #379 exact head 0f4ada7d23116bc0c367d0bce10b4aede3fc6f9e passed their recorded GitHub Quality Gate/Android Debug checks and relevant CircleCI contexts. They remain unmerged and CODEOWNERS approval is absent.
+- PR #375 exact head de8b208fd05b2d407f1042c49926df0155640c99, PR #376 exact head 56360bdb48d39b44f6a13c4b50b8f52070d32f12, PR #377 exact head aebf778509bbdd8daef1589ecbd6a111339f3029, PR #378 current exact head dbfe0c440e317557a7e9eef0c8837d30da6527bd, and PR #379 exact head 0f4ada7d23116bc0c367d0bce10b4aede3fc6f9e passed their recorded GitHub Quality Gate/Android Debug checks and relevant CircleCI contexts. PR #378 current checks: Quality Gate 43972345412, Android Debug APK 43972345453 and CircleCI config-guard passed after preserving Arabic-text validation for legacy published biographies. They remain unmerged and CODEOWNERS approval is absent.
 - PR #344 documentation reconciliation branch current head `b39c897d8268714988f58cffcfd3330033d6cb39`; Quality Gate `43972775109` is in progress, CircleCI config-guard passed, source-verify/application-build-docs pending. No merge until all exact-head checks and owner review pass.
 - Production Vercel remains recorded READY on source 00fc4ff6dba9f76a9d59cae28c2270a58cac77d9; current main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7 is not deployed. Formal current-main production smoke remains unverified.
 - CODEOWNERS is @Zikrmediaofficial. Reviewer requests did not register and no human approval is recorded; green automated checks do not substitute for owner review.
