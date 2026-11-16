@@ -119,6 +119,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Save the prayer context before creating/updating the active subscription.
+    // If the location RPC or preference write is unavailable, do not leave a
+    // push endpoint registered while returning an error to the client.
+    await upsertPrayerContext(admin, userClient, user.id, prayerContext);
+
     const now = new Date().toISOString();
     const subscriptionPatch = {
       p256dh: parsed.p256dh,
@@ -171,7 +176,6 @@ export async function POST(request: NextRequest) {
       if (!inserted) throw new Error("Failed to save the push subscription.");
     }
 
-    await upsertPrayerContext(admin, userClient, user.id, prayerContext);
     return NextResponse.json({ ok: true }, { status: writePlan.kind === "insert" ? 201 : 200 });
   } catch (error) {
     console.error("[push] Failed to save subscription:", error);
