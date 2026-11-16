@@ -12,7 +12,7 @@ export async function GET() {
     const kidsAuth = await requireAdminApi('kids.manage');
     const canManageKids = kidsAuth.ok && kidsAuth.profile.id === auth.profile.id;
     const requests = await getAllVideoRequests();
-    const visibleRequests = requests.filter((request) => canViewVideoRequestContent(request.content, canManageKids));
+    const visibleRequests = requests.filter((request) => canViewVideoRequestContent(request, canManageKids));
     return NextResponse.json(visibleRequests, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[api] Failed to fetch video requests:', error);

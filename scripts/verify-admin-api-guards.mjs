@@ -206,9 +206,9 @@ if (
 }
 const legacyVideoRetrySource = readFileSync(join(apiRoot, "videos/[id]/route.ts"), "utf8");
 const videoReadRoutes = [
-  ["video-generation/route.ts", "canViewVideoRequestContent(row.content, canManageKids)"],
-  ["videos/route.ts", "canViewVideoRequestContent(request.content, canManageKids)"],
-  ["videos/[id]/route.ts", "canViewVideoRequestContent(item.content, canManageKids)"],
+  ["video-generation/route.ts", "canViewVideoRequestContent(row, canManageKids)"],
+  ["videos/route.ts", "canViewVideoRequestContent(request, canManageKids)"],
+  ["videos/[id]/route.ts", "canViewVideoRequestContent(item, canManageKids)"],
   ["video/templates/route.ts", "canViewVideoTemplateAudience(template.audience, canManageKids)"],
   ["video-generation/sources/route.ts", "!isKidsVideoSource(source)"],
 ];

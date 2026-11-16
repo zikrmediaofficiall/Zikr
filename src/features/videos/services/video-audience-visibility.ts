@@ -32,6 +32,9 @@ export function hasExplicitKidsVideoIntentMarker(value: unknown): boolean {
   const audience = normalizeVideoMarker(record.audience);
   if (["kids", "kid", "children", "child"].includes(audience)) return true;
 
+  const category = normalizeVideoMarker(record.category);
+  if (["kids", "kid", "children", "child", "kids_story", "kids_video"].includes(category)) return true;
+
   const sourceType = normalizeVideoMarker(record.sourceType);
   if (["original_kids_fiction", "kids_story", "kids_story_episode"].includes(sourceType)) return true;
 
@@ -138,7 +141,15 @@ export function resolveVideoRequestAudience(value: unknown): VideoRequestAudienc
 /** General video managers must not read child-directed request content. */
 export function canViewVideoRequestContent(value: unknown, canManageKids: boolean): boolean {
   if (canManageKids) return true;
-  const resolution = resolveVideoRequestAudience(value);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const nestedContent = record.content && typeof record.content === "object" && !Array.isArray(record.content)
+    ? record.content as Record<string, unknown>
+    : null;
+  const candidate = nestedContent
+    ? { ...record, ...nestedContent, category: record.category ?? nestedContent.category }
+    : record;
+  const resolution = resolveVideoRequestAudience(candidate);
   return resolution.ok && resolution.audience === "general";
 }
 

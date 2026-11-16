@@ -24,7 +24,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     if (!item) return NextResponse.json({ error: 'Video request not found' }, { status: 404 });
     const kidsAuth = await requireAdminApi('kids.manage');
     const canManageKids = kidsAuth.ok && kidsAuth.profile.id === auth.profile.id;
-    if (!canViewVideoRequestContent(item.content, canManageKids)) {
+    if (!canViewVideoRequestContent(item, canManageKids)) {
       return NextResponse.json({ error: 'Video request not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
     }
     return NextResponse.json(item, { headers: { 'Cache-Control': 'no-store' } });
