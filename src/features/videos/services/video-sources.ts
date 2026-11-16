@@ -208,11 +208,11 @@ async function storySource(slug: string): Promise<VideoSource | null> {
   let rows: StoryRow[] | null = null;
   try {
     rows = await supabaseServerAdminRequest<StoryRow[]>(
-      `/rest/v1/stories?slug=eq.${encodeURIComponent(slug)}&published=eq.true&select=id,slug,title,summary,content,published&limit=1`
+      `/rest/v1/stories?slug=eq.${encodeURIComponent(slug)}&published=eq.true&is_approved=eq.true&user_id=is.null&select=id,slug,title,summary,content,published&limit=1`
     );
   } catch {
     rows = await supabaseServerAdminRequest<StoryRow[]>(
-      `/rest/v1/stories?slug=eq.${encodeURIComponent(slug)}&published=eq.true&select=id,slug,title,content,published&limit=1`
+      `/rest/v1/stories?slug=eq.${encodeURIComponent(slug)}&published=eq.true&is_approved=eq.true&user_id=is.null&select=id,slug,title,content,published&limit=1`
     );
   }
   const story = rows?.[0];
@@ -320,11 +320,11 @@ export async function listVideoSources(
     let stories: StoryRow[] | null = null;
     try {
       stories = await supabaseServerAdminRequest<StoryRow[]>(
-        "/rest/v1/stories?published=eq.true&select=id,slug,title,summary,content,published&order=created_at.desc&limit=100"
+        "/rest/v1/stories?published=eq.true&is_approved=eq.true&user_id=is.null&select=id,slug,title,summary,content,published&order=created_at.desc&limit=100"
       );
     } catch {
       stories = await supabaseServerAdminRequest<StoryRow[]>(
-        "/rest/v1/stories?published=eq.true&select=id,slug,title,content,published&order=created_at.desc&limit=100"
+        "/rest/v1/stories?published=eq.true&is_approved=eq.true&user_id=is.null&select=id,slug,title,content,published&order=created_at.desc&limit=100"
       );
     }
     return stories
