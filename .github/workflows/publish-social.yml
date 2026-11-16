@@ -95,9 +95,11 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "::error::Missing Supabase service-role secret." >&2; exit 1; }
-          test -n "${CLOUDINARY_CLOUD_NAME:-}" || { echo "::error::Missing Cloudinary cloud name." >&2; exit 1; }
-          test -n "${CLOUDINARY_API_KEY:-}" || { echo "::error::Missing Cloudinary API key." >&2; exit 1; }
-          test -n "${CLOUDINARY_API_SECRET:-}" || { echo "::error::Missing Cloudinary API secret." >&2; exit 1; }
+          cloudinary_ready=true
+          if [[ -z "${CLOUDINARY_CLOUD_NAME:-}" || -z "${CLOUDINARY_API_KEY:-}" || -z "${CLOUDINARY_API_SECRET:-}" ]]; then
+            cloudinary_ready=false
+            echo "::warning::Cloudinary credentials are incomplete; external publishing is disabled for this run. Catalog-only Kids reconciliation may still run."
+          fi
 
           facebook_ready=false
           facebook_insights_ready=false
@@ -177,6 +179,7 @@ jobs:
 
           {
             echo "### Social publishing readiness"
+            echo "- Cloudinary credentials ready for provider publishing and media cleanup: $cloudinary_ready"
             echo "- Facebook publishing requested: $FACEBOOK_PUBLISHING_REQUESTED"
             echo "- Facebook credential ready for publishing: $facebook_ready"
             echo "- Facebook Reels insights permission granted (optional): $facebook_insights_ready"
@@ -193,7 +196,10 @@ jobs:
           echo "YouTube client secret configured: $youtube_client_secret_present"
           echo "YouTube OAuth credential and scope readiness: $youtube_scopes_ready"
           echo "YouTube upload readiness: $youtube_ready"
-          if [[ "$facebook_ready" != "true" && "$youtube_ready" != "true" ]]; then
+          if [[ "$cloudinary_ready" != "true" ]]; then
+            echo "::warning::Cloudinary is unavailable; external publishing is skipped. The catalog-only Kids reconciliation worker will still run when explicitly enabled."
+            echo "SOCIAL_PUBLISH_ENABLED=false" >> "$GITHUB_ENV"
+          elif [[ "$facebook_ready" != "true" && "$youtube_ready" != "true" ]]; then
             echo "::warning::No social provider has a verified publishing credential. Publishing is skipped; no queue item will be claimed."
             echo "SOCIAL_PUBLISH_ENABLED=false" >> "$GITHUB_ENV"
           fi
