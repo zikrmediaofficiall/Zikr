@@ -1477,7 +1477,7 @@ export async function processSocialPublishItem(
     inFlightStartedAt,
     attemptCompletedAt,
   );
-  const publishMetadata = {
+  const publishMetadata: Record<string, unknown> = {
     ...completedMetadata,
     attempts,
     maxAttempts,
