@@ -1,5 +1,6 @@
 import { isVideoContentType } from "../../videos/services/video-publish-approval";
-import { normalizeSocialPlatformResults, type SocialPlatform } from "./platform-availability";
+import { getManualReconciliationPlatforms, normalizeSocialPlatformResults, type SocialPlatform } from "./platform-availability";
+import { resolveKidsVideoSocialPublication } from "./kids-video-social-visibility";
 import { validateStoredSocialTargetPlatforms } from "./social-queue-selection";
 
 export const KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE = 25;
@@ -39,11 +40,11 @@ export function buildKidsSocialCatalogReconciliationQuery(
   if (!Number.isFinite(Date.parse(cutoff))) {
     throw new Error("Kids catalog reconciliation requires a valid social-publish cutoff.");
   }
-  if (!Number.isSafeInteger(offset) || offset < 0 || offset >= KIDS_SOCIAL_CATALOG_RECONCILIATION_MAX_ROWS) {
-    throw new Error("Kids catalog reconciliation offset is outside its bounded scan.");
-  }
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE) {
     throw new Error("Kids catalog reconciliation page size is outside its bounded scan.");
+  }
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > KIDS_SOCIAL_CATALOG_RECONCILIATION_MAX_ROWS - limit) {
+    throw new Error("Kids catalog reconciliation offset is outside its bounded scan.");
   }
   const select = "id,content_type,content_id,title,body,image_url,video_url,target_platforms,status,scheduled_at,published_at,error_message,metadata,created_at,updated_at";
   return [
@@ -69,25 +70,102 @@ export function resolveKidsSocialCatalogPublicationSnapshot(
     !item.content_id?.trim() ||
     !item.video_url?.trim() ||
     item.metadata?.audience !== "kids" ||
-    item.metadata?.kidsContentQaStatus !== "passed"
+    item.metadata?.kidsContentQaStatus !== "passed" ||
+    item.metadata?.kidsCatalogSyncManualReconciliationRequired === true ||
+    getManualReconciliationPlatforms(item.metadata).length > 0
   ) {
     return null;
   }
 
   const targetValidation = validateStoredSocialTargetPlatforms(item.target_platforms);
   if (!targetValidation.ok) return null;
-  const results = normalizeSocialPlatformResults(item.metadata?.platformResults);
-  const platforms = targetValidation.platforms.filter((platform) => {
-    const result = results[platform];
-    if (!result || typeof result !== "object" || Array.isArray(result)) return false;
-    const row = result as { ok?: unknown; remoteId?: unknown };
-    return row.ok === true && typeof row.remoteId === "string" && row.remoteId.trim().length > 0;
-  });
+
+  const publicationAt = typeof item.published_at === "string" && Number.isFinite(Date.parse(item.published_at))
+    ? item.published_at
+    : item.updated_at;
+  if (!Number.isFinite(Date.parse(publicationAt))) return null;
+  const resolved = resolveKidsVideoSocialPublication(
+    [{ ...item, status: "partial", published_at: publicationAt }],
+    null,
+    true,
+    false,
+  );
+  if (!resolved) return null;
+
+  const platforms = targetValidation.platforms.filter((platform) => resolved.platforms.includes(platform));
   if (platforms.length === 0) return null;
-  if (item.status === "published" && platforms.length !== targetValidation.platforms.length) return null;
+
+  const missingPlatforms = targetValidation.platforms.filter((platform) => !platforms.includes(platform));
+  if (item.status === "published" && missingPlatforms.length > 0) {
+    const results = normalizeSocialPlatformResults(item.metadata?.platformResults);
+    const deletions = asRecord(item.metadata?.platformDeletions);
+    const manualReconciliationPlatforms = getManualReconciliationPlatforms(item.metadata);
+    const everyMissingPlatformWasDeleted = missingPlatforms.every((platform) => {
+      const result = asRecord(results[platform]);
+      const deletion = asRecord(deletions[platform]);
+      const remoteId = typeof result.remoteId === "string" ? result.remoteId.trim() : "";
+      return !manualReconciliationPlatforms.includes(platform) &&
+        deletion.status === "deleted" &&
+        remoteId.length > 0 &&
+        typeof deletion.remoteId === "string" &&
+        deletion.remoteId.trim() === remoteId;
+    });
+    if (!everyMissingPlatformWasDeleted) return null;
+  }
+
   return {
     status: platforms.length === targetValidation.platforms.length ? "published" : "partial",
     platforms,
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+/**
+ * Reopen the best-effort catalog mirror after a confirmed remote deletion.
+ * Manual holds are preserved; only a new, verified deletion can reset a normal
+ * pending/synced marker for a Kids video.
+ */
+export function buildKidsCatalogDeletionSyncPatch(
+  contentType: unknown,
+  metadata: Record<string, unknown> | null | undefined,
+  deletion: unknown,
+): Record<string, unknown> {
+  if (
+    typeof contentType !== "string" ||
+    !isVideoContentType(contentType) ||
+    metadata?.audience !== "kids" ||
+    asRecord(deletion).status !== "deleted"
+  ) {
+    return {};
+  }
+
+  if (
+    metadata.kidsCatalogSyncManualReconciliationRequired === true ||
+    getManualReconciliationPlatforms(metadata).length > 0
+  ) return {};
+
+  const currentStatus = metadata.kidsCatalogSyncStatus;
+  if (
+    currentStatus === "held" ||
+    (currentStatus !== null &&
+      currentStatus !== undefined &&
+      currentStatus !== "pending" &&
+      currentStatus !== "synced")
+  ) {
+    return {};
+  }
+
+  return {
+    kidsCatalogSyncStatus: "pending",
+    kidsCatalogSyncAttempts: 0,
+    kidsCatalogSyncLastAttemptAt: null,
+    kidsCatalogSyncLastError: null,
+    kidsCatalogSyncSyncedAt: null,
   };
 }
 

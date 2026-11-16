@@ -7,6 +7,7 @@ import { getKidsGeneratedVideoBySlug } from "@/features/videos/services/videos";
 import { pageMetadata } from "@/lib/site";
 import { resolveVideoMediaUrl } from "@/features/videos/services/video-media-contract";
 import { resolveKidsVideoPublicDisclosure } from "@/features/videos/services/video-source-contract";
+import { resolveKidsVideoDetailSocialCaption } from "@/features/social/services/kids-video-social-detail";
 
 export const dynamic = "force-dynamic";
 type KidsVideoLookup =
@@ -28,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const result = await loadVideo(slug);
   const video = result.status === "loaded" ? result.video : null;
-  const disclosure = video ? resolveKidsVideoPublicDisclosure(video.metadata, video.description, video.metadata?.socialCaption) : null;
+  const disclosure = video ? resolveKidsVideoPublicDisclosure(video.metadata, video.description, resolveKidsVideoDetailSocialCaption(video.metadata)) : null;
   return pageMetadata({
     title: result.status === "error" ? "الفيديو غير متاح مؤقتًا" : video?.title ?? "فيديو أطفال غير موجود",
     description: result.status === "error" ? "تعذر تحميل بيانات الفيديو مؤقتًا. حاول مرة أخرى لاحقًا." : disclosure?.description ?? disclosure?.sourceLabel ?? "فيديو من مكتبة الأطفال في ذِكر.",
@@ -74,11 +75,7 @@ export default async function KidsVideoDetailPage({ params }: Props) {
   const socialPublicationReadStatus = metadata.socialPublicationReadStatus === "verified"
     ? "verified"
     : "unavailable";
-  const rawSocialCaption = typeof metadata.socialCaption === "string" && metadata.socialCaption.trim()
-    ? metadata.socialCaption
-    : typeof metadata.socialPublicationCaption === "string" && metadata.socialPublicationCaption.trim()
-      ? metadata.socialPublicationCaption
-      : null;
+  const rawSocialCaption = resolveKidsVideoDetailSocialCaption(metadata);
   const disclosure = resolveKidsVideoPublicDisclosure(metadata, video.description, rawSocialCaption);
   const socialCaption = disclosure.socialCaption ?? "";
   const publishedPlatforms = Array.isArray(socialPublication?.platforms)

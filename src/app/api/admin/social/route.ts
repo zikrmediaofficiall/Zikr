@@ -19,6 +19,7 @@ import { unblockYouTubeAuthBlockedQueue } from "@/features/social/services/youtu
 import { getFacebookPageAudienceSnapshot } from "@/features/social/services/facebook-reels-insights";
 import { getTrafficRevenueSnapshot } from "@/features/admin/services/traffic-revenue";
 import { inspectVideoQueueItemExternalApproval, isVideoContentType, type VideoPublishRequestSnapshot } from "@/features/videos/services/video-publish-approval";
+import { buildKidsCatalogDeletionSyncPatch } from "@/features/social/services/kids-social-catalog-reconciliation";
 import { deleteSocialPlatformPost, type SocialDeletionPlatform } from "@/features/social/services/social-deletion";
 import { claimSocialQueuePlatformDeletion, patchSocialQueueMetadataWithCas } from "@/features/social/services/social-queue-metadata";
 import { isSocialPlatformDeletionCurrent } from "@/features/social/services/social-deletion-visibility";
@@ -1147,7 +1148,10 @@ export async function POST(request: NextRequest) {
             expectedStatus: "published",
             expectedVideoUrl: item.video_url,
             expectedPlatformRemoteId: { platform, remoteId },
-            patch: { platformDeletions: { [platform]: existingDeletions[platform] } },
+            patch: {
+              platformDeletions: { [platform]: existingDeletions[platform] },
+              ...buildKidsCatalogDeletionSyncPatch(item.content_type, item.metadata, existingDeletions[platform]),
+            },
           }).catch((error) => {
             console.error("[api/admin/social] Could not persist provider deletion result:", item.id, platform, error);
             return false;
