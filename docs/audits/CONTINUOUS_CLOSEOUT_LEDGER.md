@@ -2405,3 +2405,12 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 - When enabled, it runs even if Cloudinary/Facebook/YouTube credentials later disable external publishing. It is a metadata-only catalog reconciliation, not social publishing or content generation; it rechecks current human approval/fingerprint, uses bounded pagination and CAS, fails closed during video purge, and has no provider publish calls.
 - The focused test verifies the call occurs before the external publishing gate, the opt-in default, bounded scan, approval recheck and absence of provider calls. No workflow or database mutation was triggered by this audit.
 - Updated matrix blob `3f6abdcad0c9bd255ac3ae1850d5ffc2f2ff2ef9`; 1721 files remain unreviewed.
+
+
+## 2026-11-16 13:48 UTC — Supabase Auth and native Google OAuth review
+
+- Canonical production origin is enforced before PKCE verifier creation; local loopback is explicitly allow-listed; preview OAuth remains on its deployment origin. Web callback uses same-origin next-path validation and Supabase PKCE. Native callback accepts only the exact app scheme or canonical HTTPS bridge with `native=1`, rejects credentials/ports, carries the Supabase flow ID, and the Capacitor handler exchanges the code using the saved flow ID before navigating to a sanitized path.
+- `/api/auth/profile-sync` requires a valid authenticated user and no-store response. Its service-role payload is constrained to the authenticated user's ID/email and blank-only display/avatar values; it never accepts role/assignment data. The profile trigger blocks non-service role/email changes. Profile updates validate lengths, locale, timezone and numeric ranges.
+- The profile-sync endpoint has no explicit rate limiter, but the operation is idempotent and scoped to the authenticated user's own profile; no cross-user or role escalation path was reproduced. Full profile/avatar UI review remains open.
+- `auth-safe-next-path`, `oauth-origin`, `native-google-oauth-contract`, `profile-sync`, `safe-redirect`, and `auth-password-security` tests are included in `pnpm test`; main Quality Gate passed. No OAuth flow was initiated.
+- Matrix blob `1a85c1ec06e99c330f234b2f7d306c299f009dca`; 1695 files remain unreviewed.
