@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T19:09:00Z
+Updated: 2026-11-16T19:22:00Z
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T19:09:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `ddadfd2f5c8b230df3197d12939bdc11955fef06`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `a2937495aae47668a02d77727f7cd553b41877be`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -50,6 +50,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR351`: 2
 - `FIX_PENDING_PR352`: 3
 - `FIX_PENDING_PR353`: 4
+- `FIX_PENDING_PR362`: 3
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
@@ -61,9 +62,9 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_PRODUCTION_APPLIED`: 32
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 27
-- `REVIEWED_SOURCE_ONLY`: 214
+- `REVIEWED_SOURCE_ONLY`: 217
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1471
+- `UNREVIEWED`: 1465
 
 High-priority unreviewed files: **550**.
 
@@ -234,10 +235,10 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - **Open governance and acceptance:** PRs #352/#353 and this documentation PR remain drafts pending authorized CODEOWNERS review. `.github/CODEOWNERS` requires `@Zikrmediaofficial`, whose collaborator permission lookup returned null. Manual iOS simulator/device and Android device acceptance, Apple associated-domain configuration, and post-deploy smoke checks remain open.
 - No production DB mutation, migration application, content generation, Gemini request, social publishing, Storage deletion, Android release, merge, Vercel deployment, or production smoke test was performed.
 
-## Reconciled audit batch — 2026-11-16 19:09 UTC
+## Reconciled audit batch — 2026-11-16 19:22 UTC
 
 - Repository snapshot remains main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; this audit branch changes only audit documentation.
-- Authoritative matrix blob: ddadfd2f5c8b230df3197d12939bdc11955fef06. Current inventory: 1,959 tracked blobs, 1,471 still unreviewed (550 high priority), 488 reviewed; the matrix is the per-file source of truth.
+- Authoritative matrix blob: a2937495aae47668a02d77727f7cd553b41877be. Current inventory: 1,959 tracked blobs, 1,465 still unreviewed (550 high priority), 494 reviewed; the matrix is the per-file source of truth.
 - Main is five commits ahead of historical verification/deployment source 26ae58fdd2220897511544e9475eab28979f88f5. Full Quality Gate passed on PR #350/#351 heads based on main a0f51; CircleCI contexts on main pass. The production deployment last recorded READY is still associated with 26ae; not rechecked this run. vercel.json has Git deployment disabled, so deployment requires an authorized manual action after owner review.
 - Read-only Supabase verification of configured project zqtssvlvmkzeeyqghqfk (Zikrofficial): ACTIVE_HEALTHY, 449 applied migrations through 20261116045100, 103 tables including storage, zero RLS-disabled tables, nine buckets. Current Kids/video policies match the reviewed migrations. No migration, DDL, DML, function deployment or storage mutation was performed.
 - Current production automation: written-content generation is scheduled 15 7,13,19 UTC and uses Gemini; it creates unpublished article drafts and service-role content_publish_queue entries (+5 minutes), plus Kids social drafts from already published/active/age-appropriate stories. The AI video worker runs 17 3,9,15,21 UTC in free-only mode with BACKGROUND_JOB_TARGET=videos and VIDEO_AUTOMATION_DRY_RUN=false; this also drains all due site content queue tables (articles/stories/etc.) through CAS-guarded publication, but not external social. Social publishing is a separate 7,22,37,52 UTC workflow that can publish public YouTube/Facebook when provider credentials and database settings permit. CircleCI English-content sync runs daily at 04:17 UTC and uses Gemini plus Supabase service-role writes. Prayer dispatch is every minute; source verification is daily. None of these workflows/functions was dispatched by this audit.
@@ -261,3 +262,5 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 
 - Admin permission audit: all 47 canonical navigation pages were read and each page-level permission/step-up guard matches its navigation permission; the step-up return path is same-origin `/admin` only. Kids admin controls are role-gated and the server action has exact-object Cloudinary orphan compensation with fail-closed ambiguous-outcome retention. The video-purge endpoint returns 409 for both files and memory scopes before destructive code.
 - Offline/auth verification: PR #342 exact head e38c9d69cb7d9ef0aac2f1992d10b96538533563 passed full Quality Gate 43869724449 and all CircleCI contexts; it refreshes only manifest version/generatedAt. PR #345 exact head 19e4cb65aaf16d3fed3229a31fcb64e950282b4f passed Quality Gate 43874520989, Android Debug APK 43874520946 and all CircleCI contexts; it registers an existing auth-safe-next-path regression test omitted from main's canonical test command.
+
+- Confirmed public visibility defect: five live `companions` rows are unpublished; `salman-al-farisi` overlaps the static fallback mapping and `getCompanionBySlug` returns fallback content without checking authoritative publication state. PR #362 adds the bounded service-role publication check and regression coverage; exact head f1ef2b5581efdf46b984cf5aef95e24edff0678c, Quality Gate 43938459239 in progress, not merged.
