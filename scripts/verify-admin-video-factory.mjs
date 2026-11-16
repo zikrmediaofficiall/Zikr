@@ -124,6 +124,32 @@ if (upload.includes("/storage/v1/object/videos/")) failures.push("narration uplo
 const mediaAssetsService = read("src/features/media/services/media-assets.ts");
 const narrationRecovery = read("src/features/media/services/narration-upload-recovery.ts");
 const studioClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
+const createVideoRoute = read("src/app/api/admin/videos/create/route.ts");
+const audioWorker = read("scripts/jobs/template-video-automation.ts");
+if (
+  !createVideoRoute.includes("delete content.audioUrl") ||
+  !createVideoRoute.includes("delete content.audioSource") ||
+  !createVideoRoute.includes("isReadyAdminNarrationAsset") ||
+  !createVideoRoute.includes("humanAudioAssetId")
+) {
+  failures.push("video creation must discard client audio URLs and require the current admin's ready, audited media_assets row");
+}
+if (
+  !studioClient.includes('assetTrackingStatus !== "ready"') ||
+  !studioClient.includes("uploadedAudioAssetId") ||
+  !studioClient.includes("humanAudioAssetId")
+) {
+  failures.push("studio must not attach narration until the media asset is audit-ready and must send its exact asset ID");
+}
+if (
+  !audioWorker.includes("resolveVideoAudioSource") ||
+  !audioWorker.includes("isReadyAdminNarrationAsset") ||
+  !audioWorker.includes("readBoundedAudioResponse") ||
+  !audioWorker.includes('redirect: "error"') ||
+  !audioWorker.includes("MAX_VIDEO_AUDIO_BYTES")
+) {
+  failures.push("video worker must restrict audio fetches to canonical Quran or tracked Cloudinary narration, reject redirects, and bound response bytes");
+}
 if (!upload.includes("registerAdminNarrationAsset") || !upload.includes("markAdminNarrationAssetAuditRecorded")) {
   failures.push("Cloudinary narration uploads must be durably registered in media_assets before audit success is reported");
 }
