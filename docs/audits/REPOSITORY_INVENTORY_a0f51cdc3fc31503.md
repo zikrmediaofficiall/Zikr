@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T22:26:15.466Z (reconciled with 2026-11-17 video/admin source review and PR #358/#380 evidence)
+Updated: 2026-11-16T22:42:30.906Z (reconciled with PR #381 narration provenance/SSRF repair and current exact-head CI state)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T22:26:15.466Z (reconciled with 2026-11-17 video/admin source
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `f5f2289379585cdce6cfda5e198422822421654c`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `e09ee8b61942891ce1ed858c44beb5034d3a5faf`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -64,22 +64,33 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR378`: 3
 - `FIX_PENDING_PR379`: 4
 - `FIX_PENDING_PR380`: 2
+- `FIX_PENDING_PR381`: 2
+- `FIX_PENDING_PR381_PARTIAL_REVIEW`: 3
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 45
-- `REVIEWED_PARTIAL`: 68
-- `REVIEWED_PERMISSION_SCAN`: 88
+- `REVIEWED_PARTIAL`: 67
+- `REVIEWED_PERMISSION_SCAN`: 86
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 72
+- `REVIEWED_REGRESSION_COVERAGE`: 74
 - `REVIEWED_SOURCE_ONLY`: 304
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1253
+- `UNREVIEWED`: 1248
 
-High-priority unreviewed files: **415**. The matrix has 1959 file rows; 706 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **414**. The matrix has 1959 file rows; 711 are not marked `UNREVIEWED`.
+
+## Review batch — 2026-11-17 (narration provenance and worker SSRF guard)
+
+- Read the admin video studio upload/create path, narration-upload API, media-assets registration/audit helpers, recovery-reference helper, admin create route, and the worker audio fetch path. The create route copied caller-controlled content.audioUrl/audioSource and the worker fetched any HTTPS URL server-side; the audio body was downloaded with unbounded arrayBuffer. The separate humanAudioUrl check only validated a Cloudinary-looking prefix, not a matching media_assets row or uploader.
+- PR #381 exact head `06103c8627c264d4cf497ed93c68859d09b0a958` strips client-supplied audio provenance, requires the exact current-admin media asset ID/URL/public ID with audio type, Cloudinary purpose, audit_recorded=true, upload_state=ready, unpublished state, allowed MIME and <=15 MiB; the client stops on reconciliation_pending and sends the asset ID; the worker accepts only canonical Quran ayah audio or tracked Cloudinary narration, rejects redirects, and streams with a 15 MiB bound.
+- First PR #381 head `739e21736c3274b056e6a1afaad166c6cf2d5ed7` reached Quality Gate but failed because the existing admin-video-factory verifier still expected the removed `ownCloudinaryAudioUrl` helper. The verifier was corrected in `06103c8627c264d4cf497ed93c68859d09b0a958`; new exact-head Quality Gate and CircleCI results are pending. No failed check was bypassed.
+- The 3,019-line worker and large studio client remain only partially reviewed; this batch closes the audio path only, not their other branches. New helper `src/features/media/services/video-audio-source.ts` is PR-only and is intentionally not inserted into the immutable main manifest/matrix.
+- No content generation, TTS/Gemini, Cloudinary upload/delete, social publishing, production DB mutation, storage cleanup, release, merge or deployment was performed.
+
 
 ## Review batch — 2026-11-17 (video feed, admin audit, template contracts)
 
