@@ -111,6 +111,11 @@ assert.doesNotMatch(videoFactoryVerifier, /metadata->>videoGenerationRequestId=e
   "the atomic approval RPC replaces the former PostgREST catalog compare-and-set filter");
 
 const verifierRun = spawnSync(process.execPath, ["scripts/verify-admin-video-factory.mjs"], { encoding: "utf8" });
+assert.match(videoFactoryVerifier, /p_expected_request_updated_at/);
+assert.match(videoFactoryVerifier, /p_expected_catalog_updated_at/);
+assert.doesNotMatch(videoFactoryVerifier, /metadata->>videoGenerationRequestId=eq\./,
+  "the atomic approval RPC replaces the former PostgREST catalog compare-and-set filter");
+
 assert.equal(
   verifierRun.status,
   0,
