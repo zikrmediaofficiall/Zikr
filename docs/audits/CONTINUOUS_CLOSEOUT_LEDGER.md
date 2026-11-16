@@ -2900,7 +2900,7 @@ No production SQL mutation, migration execution, data repair, content generation
 - Reconciled pointers at this checkpoint: matrix `18b28fa97fe24219d58b9cccacb196fbbf12bdf1`; inventory `2d30386921bf238a0f9aae20fc40372cd5a77196`; project status `3e40519766a635e1efe943da3c4eee9394ffa30e`; immutable main manifest `baace6d0c66ac299edb541c7caceba56eeae19be`.
 
 
-- PR #378 exact head `db567da1899ed9994cbc2bd1c773b878c3f62823` passed canonical GitHub Quality Gate `43966305899`, Android Native Login Debug APK `43966303793` and CircleCI config-guard. New records default to draft and first publication requires Arabic text/source (hadith also grade); existing published biographies missing source remain untouched for manual owner/editor remediation.
+- PR #378 was updated to exact head `dbfe0c440e317557a7e9eef0c8837d30da6527bd` after preserving Arabic-text validation for legacy published biographies. Current Quality Gate `43972345412` pending, Android Debug APK `43972345453` in progress and CircleCI config-guard pending; prior passes apply only to previous head db567da. New records default to draft and first publication requires Arabic text/source (hadith also grade); existing published biographies missing source remain untouched for manual owner/editor remediation.
 - PR #377 exact head `aebf778509bbdd8daef1589ecbd6a111339f3029` passed Quality Gate `43965088015`, Android Debug APK `43965089158` and CircleCI config-guard; owner review pending.
 
 
@@ -2934,8 +2934,8 @@ No production SQL mutation, migration execution, data repair, content generation
 - Main source blob: YouTube integration `6ac67f8de465a82c446cef9b3116d7d5ebd235eb`; like route `ab8681830ca8946bc769773e3c301a8a52b7f214`; aggregate migration `b1d7d221b98c6274b99808493e77e3cb1d7207e8`; template config `a0b0dd0eb1b26b33cc12ea0b3cfc5849a4613b1e`; creative variation `50ce96af56a4f058e2b68d657a0ea9178ce5fc68`.
 - PR #358 exact head: `1cd16fff5d673e9af1b6aa09b96d78e93566fb2e` (all recorded required checks passed; owner review absent).
 - PR #380 exact head: `66dde1c4279b6513e395a57ab906b4117a8e82ad` (Quality Gate in progress; CircleCI config-guard passed; source-verify/application-build-docs pending at last poll).
-- Matrix blob: `d2a649e5eba0c31814fdc77752b15592682055b7` — 1,258 UNREVIEWED (420 high priority), 701 non-UNREVIEWED.
-- Inventory blob: `f2e8a3b48e2cb1f33e52597c01f824bbba4017ed`.
+- Matrix blob: `f5f2289379585cdce6cfda5e198422822421654c` — 1,258 UNREVIEWED (420 high priority), 701 non-UNREVIEWED.
+- Inventory blob: `4eb6ed2b6cf3acd818e6d79380446bd5779a4141`.
 - Project status blob: `1fc01e92864d541a0cb0044ef20bea2e3aac182c`.
 - Immutable manifest blob: `baace6d0c66ac299edb541c7caceba56eeae19be`.
 
@@ -3005,3 +3005,5 @@ No production SQL mutation, migration execution, data repair, content generation
 - PR #381 is open; corrected exact-head checks are not yet complete. Owner/CODEOWNERS review is not recorded.
 - PR #380 YouTube CAS exact head `66dde1c4279b6513e395a57ab906b4117a8e82ad` subsequently passed Quality Gate `43969510424` and all three CircleCI contexts; owner review remains absent.
 - Current main remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; production Vercel remains recorded READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`. Current-main production smoke is unverified.
+
+- Remote migration ledger blob `2bd6469ec4b9fa680a4c138c46757ae535fc1f26` records 449 exact-matched migrations, correct deployed RPC signatures/ACLs, current Kids RLS, Storage and cron evidence. Older missing-contract/signature entries are superseded.
