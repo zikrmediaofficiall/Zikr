@@ -12,6 +12,7 @@ const files = {
   scholars: "src/features/scholars/services/scholars.ts",
   migrationOne: "supabase/migrations/20261030043335_arabic_full_text_search_v2.sql",
   migrationTwo: "supabase/migrations/20261030044153_arabic_search_surahs_and_content_library.sql",
+  searchContract: "src/features/search/services/search-contract.ts",
 };
 const contents = Object.fromEntries(
   await Promise.all(Object.entries(files).map(async ([key, path]) => [key, await readFile(path, "utf8")])),
@@ -29,6 +30,9 @@ for (const key of ["migrationOne", "migrationTwo"]) {
   if (!contents[key].includes("searchable_normalized")) failures.push(`${key} does not define normalized search schema`);
 }
 if (!contents.migrationOne.includes("private.normalize_arabic_search_text")) failures.push("canonical database normalizer is missing from migration history");
+if (!contents.searchContract.includes('"content"')) failures.push("public search result contract omits the content-library type");
+if (!contents.search.includes("isPublicSearchResultType(row.type)")) failures.push("indexed search response filter does not use the shared result-type contract");
+if (!contents.search.includes('getPublicContentLibrary(1000, "ar")')) failures.push("legacy search fallback omits approved content-library items");
 for (const key of normalizedFields) {
   if (!contents[key].includes("searchable_normalized=plfts(simple).")) failures.push(`${key} does not use PostgREST configured plain-text search syntax`);
 }
