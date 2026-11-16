@@ -37,8 +37,8 @@ const audioUrl = `https://res.cloudinary.com/${cloudName}/video/upload/v17300000
 const parsedAudio = parseAdminNarrationAssetUrl(audioUrl, cloudName);
 assert.deepEqual(parsedAudio, { url: audioUrl, publicId });
 assert.equal(parseAdminNarrationAssetUrl("https://attacker.example/audio-human-123e4567-e89b-42d3-a456-426614174000.mp3", cloudName), null);
-assert.equal(parseAdminNarrationAssetUrl("https://res.cloudinary.com/other/video/upload/${publicId}.mp3", cloudName), null);
-assert.equal(parseAdminNarrationAssetUrl("https://res.cloudinary.com/zikr-media/video/upload/${publicId}.mp3?redirect=https://127.0.0.1", cloudName), null);
+assert.equal(parseAdminNarrationAssetUrl("https://res.cloudinary.com/other/video/upload/" + publicId + ".mp3", cloudName), null);
+assert.equal(parseAdminNarrationAssetUrl("https://res.cloudinary.com/zikr-media/video/upload/" + publicId + ".mp3?redirect=https://127.0.0.1", cloudName), null);
 
 const quranBase = "https://verses.quran.com/Alafasy/mp3";
 const quranUrl = `${quranBase}/001001.mp3`;
