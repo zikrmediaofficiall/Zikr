@@ -1,5 +1,6 @@
 import { safeApiFetch } from '@/lib/services/http';
 import { ServiceError } from '@/lib/types/common';
+import { parsePrayerCoordinate } from './prayer-location-validation';
 
 // Use local API proxy to avoid CORS and crawl issues
 const API_BASE = '/api/prayer-times';
@@ -23,7 +24,7 @@ function prunePrayerTimesCache(now: number): void {
 
 function isValidPrayerDate(date: string | undefined): boolean {
   if (date === undefined) return true;
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const parsed = new Date(`${date}T00:00:00.000Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(date);
 }
@@ -154,7 +155,7 @@ export async function getPrayerTimes(
 
   const request = (async () => {
     try {
-      const data = await fetchPrayerTimesUncached(latitude, longitude, date, method);
+      const data = await fetchPrayerTimesUncached(validLatitude, validLongitude, date, method);
       prunePrayerTimesCache(Date.now());
       prayerTimesCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
       return data;
@@ -202,7 +203,12 @@ export async function getPrayerTimesByCity(
   const now = Date.now();
   const cached = prayerTimesCache.get(cacheKey);
 
-  if (cached && cached.expiresAt > now) return cached.data;
+  if (cached && cached.expiresAt > now) {
+    prayerTimesCache.delete(cacheKey);
+    prayerTimesCache.set(cacheKey, cached);
+    return cached.data;
+  }
+  if (cached) prayerTimesCache.delete(cacheKey);
 
   const existingRequest = prayerTimesInFlight.get(cacheKey);
   if (existingRequest) return existingRequest;

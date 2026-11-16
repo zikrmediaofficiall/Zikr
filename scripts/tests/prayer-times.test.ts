@@ -275,6 +275,12 @@ try {
     "the bounded cache must evict the least-recently-used location instead of growing without limit");
   assert.equal(await getPrayerTimes(91, 1, "2026-06-15", 4), null,
     "invalid coordinates must not be sent to the prayer-times API");
+  assert.equal(await getPrayerTimes(1, 1, "not-a-date", 4), null,
+    "invalid date strings must be rejected before network access");
+  assert.equal(await getPrayerTimes(1, 1, "2026-02-30", 4), null,
+    "impossible calendar dates must be rejected before network access");
+  assert.equal(await getPrayerTimes(1, 1, "2026-06-15", 100), null,
+    "unsupported calculation method identifiers must be rejected before network access");
 } finally {
   globalThis.fetch = originalFetch;
 }
