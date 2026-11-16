@@ -2722,3 +2722,35 @@ No production SQL mutation, migration execution, data repair, content generation
 - Read `robots.ts`, `sitemap.ts`, sitemap-index and shard route, shared `siteConfig`/noindex helper, PWA manifest, `llms.txt`, Apple App Site Association and Android assetlinks routes, plus the sitemap/SEO/production-smoke regression scripts. Robots intentionally leaves public noindex routes crawlable; sitemap/index/shards use canonical origin, bounded numeric IDs, XML escaping and shared noindex filtering. Prior production smoke records robots, sitemap and sitemap-index HTTP 200.
 - `/kids` and `/kids/adventures` layouts use `pageMetadata` without noindex, so their sitemap inclusion is correct. Approved age-appropriate story details are separately included. PR #371 was closed unmerged after the proposed noindex change was disproved by actual layout metadata; no production code changed.
 - Apple App Site Association returns 503 until the owner configures the actual Apple Team ID plus `.com.zikr.app` in Vercel Production and redeploys. Android assetlinks uses a release fingerprint fallback plus environment override; owner must verify it matches Play App Signing. No association settings were changed.
+
+
+## 2026-11-16 — Public prayer-times API rate-limit review
+
+### Source and consumer trace
+
+- Re-read the full `src/app/api/prayer-times/route.ts`, the browser client service `src/features/prayer/services/prayer-times.ts`, the canonical `scripts/tests/prayer-times.test.ts`, the trusted proxy address helper, the contact HMAC identity helper and service, the existing service-role-only `consume_admin_rate_limit` migration, and the direct Aladhan fetch path in `supabase/functions/prayer-notification-worker/index.ts`.
+- The public route validates exactly one location mode, bounds city/country/address values, validates coordinates/date/method, uses a fixed Aladhan origin, applies an 8-second timeout and one-hour identical-URL fetch cache. It did not have a shared per-client quota, so unique valid locations bypassed the cache.
+- The browser service has a bounded 100-entry, 60-second in-memory LRU cache and in-flight deduplication, but these are process-local and do not enforce a server-side quota across clients or Vercel instances.
+- The Edge Function worker reads the DB schedule cache and fetches only on misses, processing the bounded subscription batch sequentially. Its direct provider path still has no shared provider-wide quota; this remains an explicit separate follow-up.
+
+### Repair batch — PR #372
+
+- Added `src/features/prayer/services/rate-limit.ts` on branch `audit/zikr-prayer-times-api-rate-limit-20261116`.
+- Updated `src/app/api/prayer-times/route.ts` to resolve the trusted proxy address and consume the shared atomic `consume_admin_rate_limit` RPC before any Aladhan fetch.
+- Quota: 30 requests per client per 60 seconds. The actor UUID is HMAC-derived with the existing server secret; raw IP addresses are not stored.
+- Exhaustion returns HTTP 429 with `Retry-After: 60`; RPC/configuration failure returns HTTP 503 and prevents the upstream request.
+- Added assertions to `scripts/tests/prayer-times.test.ts`, already registered in the canonical `pnpm test` chain. They verify the shared RPC, HMAC actor, quota, fail-closed behavior and limiter-before-fetch ordering.
+- Exact base: `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. Exact PR head: `31a8ae1fac58d02709f054a0361ed902da1807c5`. Compare reports 3 commits ahead, 0 behind, 3 files changed.
+- At the last exact-head poll: CircleCI `config-guard` passed; `source-verify` and `application-build-docs` were pending; no GitHub Quality Gate run had appeared. PR #372 remains draft/open and requires exact-head full verification plus authorized CODEOWNERS review.
+
+### Related exact-head evidence
+
+- PR #356 Nominatim request-policy repair exact head `1c7cf83f44e8b10670098ca15aa34b2d536b8f8d`: Quality Gate run `43934145528` completed success, including the PostgreSQL 17 global minimum-interval integration and full canonical verification; Android Debug APK run `43934145480` passed; CircleCI `source-verify`, `application-build-docs`, and `config-guard` passed. It remains draft/unmerged pending owner review.
+
+### Inventory reconciliation and safety
+
+- Main source snapshot and manifest remain unchanged: main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
+- Matrix now classifies `src/app/api/prayer-times/route.ts` as `FIX_PENDING_PR372` and `scripts/tests/prayer-times.test.ts` as `REVIEWED_PARTIAL`. The new PR-only rate-limit service is not inserted into the main snapshot manifest or file matrix.
+- Counts: 1,344 UNREVIEWED files (479 high priority), 53 REVIEWED_PARTIAL, and 615 files in reviewed/pending categories.
+- The remote Supabase migration ledger is unchanged: PR #372 uses an existing RPC and adds no migration.
+- No production rate-limit RPC, Aladhan/Nominatim request, worker invocation, notification delivery, migration, database mutation, content generation, Gemini request, social publishing, storage change/deletion, release, merge, deployment or production smoke was performed.
