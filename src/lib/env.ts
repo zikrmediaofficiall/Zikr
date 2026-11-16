@@ -229,6 +229,7 @@ export function getEnvAudit() {
       "AUTH_CALLBACK_URL",
       "GEMINI_API_KEY",
       "GEMINI_MODEL",
+      "NOMINATIM_BASE_URL",
       "YOUTUBE_API_KEY",
       "YOUTUBE_CLIENT_ID",
       "YOUTUBE_CLIENT_SECRET",
