@@ -1,7 +1,10 @@
 const ALLOWED_NARRATION_MIME_TYPES = new Set([
   "audio/mpeg",
+  "audio/mp3",
   "audio/mp4",
+  "audio/x-m4a",
   "audio/wav",
+  "audio/x-wav",
   "audio/ogg",
   "audio/webm",
 ]);
