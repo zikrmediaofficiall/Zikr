@@ -85,7 +85,7 @@ assert.match(
 );
 assert.match(
   timezoneGuardMigration,
-  /REVOKE ALL ON FUNCTION private\.enforce_background_reminder_timezone\(\) FROM PUBLIC, anon, authenticated[\s\S]*?GRANT EXECUTE ON FUNCTION private\.enforce_background_reminder_timezone\(\) TO authenticated, service_role/i,
+  /REVOKE ALL ON FUNCTION private\.enforce_background_reminder_timezone\(\)\s+FROM PUBLIC, anon, authenticated[\s\S]*?GRANT EXECUTE ON FUNCTION private\.enforce_background_reminder_timezone\(\) TO authenticated, service_role/i,
   "only authenticated and service_role may execute the non-RPC trigger function",
 );
 const reminderService = readFileSync("src/features/reminders/services/reminder-preferences.ts", "utf8");
