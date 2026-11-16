@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T21:46:04.909Z (reconciled against the exact matrix and current audit checkpoint)
+Updated: 2026-11-16T21:47:19.335Z (exact-head PR #375 checks reconciled)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T21:46:04.909Z (reconciled against the exact matrix and curre
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `0f99c9eb18d5f3d0ac1100c329a3bc62fd476f18`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `e934d8189335a72ec0046f2ce45eb9242ccdd5c2`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -370,3 +370,9 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Read admin health/dashboard permission and count paths; source layout filters navigation by effective role, page/API guards remain in place, and queue availability is rendered as unavailable rather than zero. The global admin-search service-role permission leak found in the concurrent review remains tracked separately as PR #376, exact head `56360bdb48d39b44f6a13c4b50b8f52070d32f12`; this pass did not overwrite it.
 - Main snapshot and immutable manifest remain anchored to `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; PR-only helper is not inserted into the main manifest until merge. Current status: 1278 UNREVIEWED files (435 high priority); 681 other file rows have a non-UNREVIEWED status.
 - No production function, database, cron job, content source, provider, social publisher, storage object, Android release, merge or deployment was touched.
+
+
+## Exact-head verification update — 2026-11-16T21:47Z
+
+- PR #375 exact head `de8b208fd05b2d407f1042c49926df0155640c99` passed GitHub Quality Gate run `43962517196`; the job's canonical source/architecture gate, Supabase Edge Function Deno type-check, and all PostgreSQL 17 integration steps passed. CircleCI `config-guard`, `source-verify`, and `application-build-docs` all passed. Supabase Preview was skipped and is not counted as a pass.
+- PR #375 remains open/unmerged because the required CODEOWNERS owner approval is absent; explicit notification comment `6930245521` is posted. No deployment or production function/cron invocation occurred.
