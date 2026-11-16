@@ -39,6 +39,13 @@ assert.ok(search.includes('type: "content"'));
 assert.ok(migration3.includes("'content'::text"));
 assert.equal(isPublicSearchResultType("content"), true, "approved content-library search results must be retained");
 assert.equal(isPublicSearchResultType("admin"), false, "unknown result types must be rejected");
+
+const searchRoute = readFileSync("src/app/api/search/route.ts", "utf8");
+const cachedResponse = searchRoute.slice(searchRoute.indexOf("if (cached &&"), searchRoute.indexOf("if (cached)"));
+const uncachedResponse = searchRoute.slice(searchRoute.indexOf("const results = await globalSearch"), searchRoute.indexOf("} catch (error)"));
+assert.match(searchRoute, /const SEARCH_CACHE_HEADERS = \{[\s\S]*?Cache-Control:[\s\S]*?public, max-age=60, stale-while-revalidate=300/);
+assert.match(cachedResponse, /headers: SEARCH_CACHE_HEADERS/, "cache-hit responses must retain the public cache policy");
+assert.match(uncachedResponse, /headers: SEARCH_CACHE_HEADERS/, "cache-miss responses must use the same public cache policy");
 assert.ok(migration2.includes("quran_surahs_searchable_normalized_idx"));
 assert.ok(migration2.includes("content_library_searchable_normalized_idx"));
 assert.ok(migration3.includes("searchable_tags_normalized"));
