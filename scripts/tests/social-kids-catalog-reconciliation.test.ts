@@ -47,6 +47,11 @@ assert.throws(() => buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:
 const snapshot = resolveKidsSocialCatalogPublicationSnapshot(queueItem);
 assert.deepEqual(snapshot, { status: "published", platforms: ["facebook", "youtube"] });
 assert.deepEqual(
+  resolveKidsSocialCatalogPublicationSnapshot({ ...queueItem, status: "processing" }),
+  { status: "published", platforms: ["facebook", "youtube"] },
+  "the live in-flight row must resolve to a published snapshot after every target has a confirmed remote ID",
+);
+assert.deepEqual(
   resolveKidsSocialCatalogPublicationSnapshot({
     ...queueItem,
     status: "processing",
