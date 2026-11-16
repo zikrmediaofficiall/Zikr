@@ -26,9 +26,8 @@ export function validateKnowledgePublication(
   const source = input.source?.trim() ?? "";
   const grade = input.grade?.trim() ?? "";
 
-  if (input.kind === "biography" && input.wasPublished) return null;
-
   if (!arabicText) return "النص العربي مطلوب قبل النشر.";
+  if (input.kind === "biography" && input.wasPublished) return null;
   if (!source) return "المصدر أو المرجع مطلوب قبل النشر.";
   if (input.kind === "hadith" && !grade) {
     return "درجة الحديث مطلوبة قبل النشر.";
