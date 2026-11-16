@@ -13,7 +13,7 @@ Updated: 2026-11-16T17:44:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `49cc0a13ec93f287f3c113ea72095959da8a6d38`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `b646dea3a16948ea37bed28aeb8f2ad0b6715c18`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -61,9 +61,9 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_PRODUCTION_APPLIED`: 32
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 26
-- `REVIEWED_SOURCE_ONLY`: 185
+- `REVIEWED_SOURCE_ONLY`: 187
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1497
+- `UNREVIEWED`: 1495
 
 High-priority unreviewed files: **563**.
 
@@ -237,7 +237,7 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 ## Reconciled audit batch — 2026-11-16 17:44 UTC
 
 - Repository snapshot remains main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; this audit branch changes only audit documentation.
-- Authoritative matrix blob: 49cc0a13ec93f287f3c113ea72095959da8a6d38. Current inventory: 1,959 tracked blobs, 1,497 still unreviewed (563 high priority), 462 reviewed; the matrix is the per-file source of truth.
+- Authoritative matrix blob: b646dea3a16948ea37bed28aeb8f2ad0b6715c18. Current inventory: 1,959 tracked blobs, 1,495 still unreviewed (563 high priority), 464 reviewed; the matrix is the per-file source of truth.
 - Main is five commits ahead of historical verification/deployment source 26ae58fdd2220897511544e9475eab28979f88f5. Full Quality Gate passed on PR #350/#351 heads based on main a0f51; CircleCI contexts on main pass. The production deployment last recorded READY is still associated with 26ae; not rechecked this run. vercel.json has Git deployment disabled, so deployment requires an authorized manual action after owner review.
 - Read-only Supabase verification of configured project zqtssvlvmkzeeyqghqfk (Zikrofficial): ACTIVE_HEALTHY, 449 applied migrations through 20261116045100, 103 tables including storage, zero RLS-disabled tables, nine buckets. Current Kids/video policies match the reviewed migrations. No migration, DDL, DML, function deployment or storage mutation was performed.
 - Current production automation: written-content generation is scheduled 15 7,13,19 UTC and uses Gemini; AI video generation is scheduled 17 3,9,15,21 UTC in free-only mode; social publishing is scheduled 7,22,37,52 UTC each hour and can publish public YouTube/Facebook when provider credentials and database settings permit. CircleCI English-content sync runs daily at 04:17 UTC and uses Gemini plus Supabase service-role writes. Prayer dispatch is every minute; source verification is daily. None of these workflows/functions was dispatched by this audit.
@@ -248,4 +248,4 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Open repair PRs: #337 (Kids catalog/provider-gate separation; full Quality Gate + CircleCI pass), #339 (YouTube ID/thumbnail reconciliation; full pass), #343 (iOS App ID guard; full pass and Android debug APK, owner App ID required), #347 (path-aware release checks and guarded manual Android tag retry; full Quality Gate 43886674997 and CircleCI pass), #349 (prayer timezone migration; full pass), #350 (native splash; full pass and Android debug APK), #351 (signing-path ignore; full pass), #352 (favorite UUID validation; full pass), #353 (legacy Kids result idempotency; full Quality Gate 43920546145 and CircleCI pass; migration remains PR-only). All remain unmerged pending authorized CODEOWNERS review. PR #344 remains the audit-documentation PR.
 - No production publishing, content generation, Gemini request, Android release, migration, function deployment, Vercel deployment, smoke test or storage deletion was triggered.
 
-- Android release guard note: current main excludes direct workflow_dispatch on tag refs; PR #347 adds an explicit retry=true tag path with retry-flag, canonical notes, exact tag SHA, existing draft/non-prerelease release, signed android-rebuild and CODEOWNER preflight. No current main tag-dispatch bypass was reproduced; no release was triggered.
+- Android release guard note: current main recovery dispatcher can target a tag, but the publisher rejects workflow_dispatch on tag refs, so tag-based recovery is fail-closed but incomplete; no current bypass was reproduced. PR #347 adds an explicit retry=true tag path with retry flag, canonical notes, exact tag SHA, existing draft/non-prerelease release, signed android-rebuild and CODEOWNER preflight. No release was triggered.
