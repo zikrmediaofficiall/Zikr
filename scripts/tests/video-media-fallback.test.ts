@@ -326,9 +326,11 @@ const generalVideoDetailEnd = generalVideoService.indexOf("function hasPassedKid
 assert.ok(generalVideoDetailStart >= 0 && generalVideoDetailEnd > generalVideoDetailStart);
 assert.match(generalVideoService.slice(generalVideoDetailStart, generalVideoDetailEnd), /cache: "no-store"/, "public video details must not remain cached after moderation or publication changes");
 const kidsVideoService = readFileSync("src/features/videos/services/videos.ts", "utf8");
+const kidsVideoSocialDetailService = readFileSync("src/features/social/services/kids-video-social-detail.ts", "utf8");
 const kidsListStart = kidsVideoService.indexOf("export async function getKidsGeneratedVideos");
-const kidsListEnd = kidsVideoService.indexOf("const VIDEO_GENERATION_REQUEST_ID_PATTERN", kidsListStart);
+const kidsListEnd = kidsVideoService.indexOf("export async function getKidsGeneratedVideoBySlug", kidsListStart);
 assert.ok(kidsListStart >= 0 && kidsListEnd > kidsListStart, "Kids video list query must remain in its dedicated service");
+assert.ok(kidsVideoSocialDetailService.includes("classifyKidsVideoGenerationRequestId"), "Kids detail publication status must use the shared request-ID classifier");
 const kidsListSource = kidsVideoService.slice(kidsListStart, kidsListEnd);
 for (const filter of [
   "published=eq.true",

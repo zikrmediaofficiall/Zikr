@@ -16,6 +16,7 @@ import {
 import {
   buildFacebookCredentialValidationFilter,
   readStoredFacebookCredential,
+  unblockFacebookAuthBlockedQueue,
 } from "../../src/features/social/services/facebook-credentials";
 
 const publishOnlyScopes = ["pages_show_list", "pages_read_engagement", "pages_manage_posts"];
@@ -260,5 +261,109 @@ assert.doesNotMatch(
   /(?:website|cover_url|followers_count|likes_count|following_count):\s*null/,
   "YouTube sync must omit profile fields it does not fetch so existing values survive upserts",
 );
+
+const recoveryCutoff = "2026-11-01T00:00:00.000Z";
+const malformedRecoveryPaths: string[] = [];
+const malformedRecoveryRequest = async <T,>(path: string): Promise<T> => {
+  malformedRecoveryPaths.push(path);
+  return { unexpected: true } as T;
+};
+await assert.rejects(
+  unblockFacebookAuthBlockedQueue(malformedRecoveryRequest, recoveryCutoff),
+  /Facebook queue recovery inventory was not an array/,
+  "a malformed Facebook recovery inventory must fail closed rather than look like an empty queue",
+);
+assert.equal(malformedRecoveryPaths.length, 1, "a malformed inventory must stop before any queue-row mutation");
+
+let emptyRecoveryCalls = 0;
+const emptyRecoveryRequest = async <T,>(_path: string): Promise<T> => {
+  emptyRecoveryCalls += 1;
+  return [] as unknown as T;
+};
+assert.equal(
+  await unblockFacebookAuthBlockedQueue(emptyRecoveryRequest, recoveryCutoff),
+  0,
+  "a valid empty Facebook recovery inventory must remain a successful no-op",
+);
+assert.equal(emptyRecoveryCalls, 1);
+
+
+
+
+const malformedRowCalls: string[] = [];
+const malformedRowRequest = async <T,>(path: string): Promise<T> => {
+  malformedRowCalls.push(path);
+  return [{ id: "", status: "failed" }] as T;
+};
+await assert.rejects(
+  unblockFacebookAuthBlockedQueue(malformedRowRequest, recoveryCutoff),
+  /invalid or non-monotonic row ID/,
+  "a malformed row with no stable cursor must fail closed before queue mutation",
+);
+assert.equal(malformedRowCalls.length, 1, "malformed page validation must stop before issuing a PATCH");
+
+const nonMonotonicRowCalls: string[] = [];
+const nonMonotonicRowRequest = async <T,>(path: string): Promise<T> => {
+  nonMonotonicRowCalls.push(path);
+  return [{ id: "row-b" }, { id: "row-a" }] as T;
+};
+await assert.rejects(
+  unblockFacebookAuthBlockedQueue(nonMonotonicRowRequest, recoveryCutoff),
+  /invalid or non-monotonic row ID/,
+  "an unordered page must fail closed rather than advancing an unsafe cursor",
+);
+assert.equal(nonMonotonicRowCalls.length, 1);
+
+const paginatedRecoveryRows = Array.from({ length: 251 }, (_, index) => ({
+  id: "00000000-0000-4000-8000-" + String(index + 1).padStart(12, "0"),
+  target_platforms: ["facebook"],
+  metadata: {
+    authBlocked: true,
+    authBlockedPlatforms: ["facebook"],
+    platformResults: {
+      facebook: { ok: false, error: "Facebook access token expired" },
+    },
+  },
+  status: index % 2 === 0 ? "failed" : "partial",
+  updated_at: "2026-11-12T06:00:00.000Z",
+  created_at: "2026-11-12T05:00:00.000Z",
+}));
+const recoveryPageCursors: Array<string | null> = [];
+const recoveryPatchIds: string[] = [];
+let firstRecoveryPatchPath = "";
+const paginatedRecoveryRequest = async <T,>(path: string, init?: RequestInit): Promise<T> => {
+  if (init?.method === "PATCH") {
+    const match = /[?&]id=eq\.([^&]+)/.exec(path);
+    assert.ok(match, "every recovery PATCH must retain an exact row ID filter");
+    const id = decodeURIComponent(match[1]);
+    recoveryPatchIds.push(id);
+    if (!firstRecoveryPatchPath) firstRecoveryPatchPath = path;
+    return [{ id }] as T;
+  }
+
+  const cursorMatch = /[?&]id=gt\.([^&]+)/.exec(path);
+  const cursor = cursorMatch ? decodeURIComponent(cursorMatch[1]) : null;
+  recoveryPageCursors.push(cursor);
+  return paginatedRecoveryRows
+    .filter((row) => cursor === null || row.id > cursor)
+    .slice(0, 250) as T;
+};
+const paginatedReleased = await unblockFacebookAuthBlockedQueue(
+  paginatedRecoveryRequest,
+  recoveryCutoff,
+);
+assert.equal(paginatedReleased, 251, "reauthorization recovery must process rows beyond the first 250-row page");
+assert.deepEqual(
+  recoveryPageCursors,
+  [null, paginatedRecoveryRows[249].id],
+  "the next page must begin after the last ID from the preceding page",
+);
+assert.equal(recoveryPatchIds.length, 251);
+assert.equal(recoveryPatchIds[0], paginatedRecoveryRows[0].id);
+assert.equal(recoveryPatchIds[250], paginatedRecoveryRows[250].id);
+assert.match(firstRecoveryPatchPath, /status=eq.failed/);
+assert.match(firstRecoveryPatchPath, /updated_at=eq.2026-11-12T06%3A00%3A00.000Z/);
+assert.match(firstRecoveryPatchPath, /created_at=eq.2026-11-12T05%3A00%3A00.000Z/);
+assert.match(firstRecoveryPatchPath, /metadata->>authBlocked=eq.true/);
 
 console.log("Facebook credential row-shape and validation CAS checks passed.");

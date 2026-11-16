@@ -13,6 +13,8 @@ site_url = "https://zikrmediaofficial.vercel.app"
 additional_redirect_urls = [
   "com.zikr.app://auth/callback",
   "http://localhost:3000/**",
+  "http://127.0.0.1:3000/**",
+  "http://[::1]:3000/**",
   "https://zikrmediaofficial.vercel.app/auth/callback",
 ]
 jwt_expiry = 3600
@@ -52,6 +54,12 @@ allowed_mime_types = ["audio/mpeg", "audio/mp4", "audio/ogg", "audio/wav"]
 public = false
 file_size_limit = "20MiB"
 allowed_mime_types = ["application/pdf"]
+
+# Video bucket — bounded by the current Supabase Free plan per-file ceiling.
+[storage.buckets.videos]
+public = true
+file_size_limit = "50MiB"
+allowed_mime_types = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"]
 
 [functions.health]
 verify_jwt = false

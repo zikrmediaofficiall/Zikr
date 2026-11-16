@@ -6,6 +6,10 @@ on:
     paths:
       - ".github/workflows/refresh-offline-content.yml"
       - "scripts/export-offline-content.mjs"
+      - "scripts/lib/offline-kids-route-safety.mjs"
+      - "scripts/lib/offline-previous-snapshot.mjs"
+      - "scripts/lib/offline-export-parent-scope.mjs"
+      - "scripts/lib/offline-export-route-pruning.mjs"
       - "scripts/verify-offline-content.mjs"
   schedule:
     - cron: "41 2 * * *"
@@ -119,12 +123,14 @@ jobs:
               --body "Automated refresh of the validated public offline-content snapshot from canonical Supabase tables. The exporter enforces dataset floors and retains only the integrity-checked tafsir fallback. This PR changes public JSON snapshots only; it does not apply migrations or modify database/storage records. Merge only after the Quality Gate passes."; then
               echo "Created offline snapshot pull request."
             else
-              echo "::warning::GitHub Actions token cannot create pull requests in this repository. The validated snapshot branch was pushed; create the PR through the trusted GitHub integration or configure a write-scoped GH_TOKEN secret."
+              echo "::error::GitHub Actions token cannot create pull requests in this repository. The validated snapshot branch was pushed, but no reviewable PR exists. Configure the approved PR-creation permission or a write-scoped GH_TOKEN secret, then rerun this workflow."
               {
                 echo "### Offline snapshot PR creation blocked"
                 echo "The snapshot branch was pushed and validated, but the current GitHub Actions token is not allowed to create pull requests."
                 echo "Branch: ${OFFLINE_CONTENT_BRANCH}"
+                echo "This workflow is failing closed so a missing review PR cannot be reported as success."
               } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
             fi
           else
             echo "Updated existing offline snapshot PR #${pr_number}."

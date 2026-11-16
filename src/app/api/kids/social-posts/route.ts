@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
+import { requireSupabaseRows } from "@/lib/supabase/array-response";
 import { getServerEnv } from "@/lib/env";
 import {
   buildPublicKidsWrittenPost,
@@ -28,11 +29,14 @@ export async function GET() {
   }
 
   try {
-    const rows = await supabaseServerAdminRequest<KidsWrittenQueueRow[]>(
-      "/rest/v1/social_publish_queue?content_type=eq.written_post&status=in.%28published%2Cpartial%29&published_at=not.is.null&metadata->>audience=eq.kids&select=id,content_type,content_id,title,body,target_platforms,status,published_at,metadata&order=published_at.desc&limit=60",
+    const rows = requireSupabaseRows<KidsWrittenQueueRow>(
+      await supabaseServerAdminRequest<unknown>(
+        "/rest/v1/social_publish_queue?content_type=eq.written_post&status=in.%28published%2Cpartial%29&published_at=not.is.null&metadata->>audience=eq.kids&select=id,content_type,content_id,title,body,target_platforms,status,published_at,metadata&order=published_at.desc&limit=60",
+      ),
+      "Kids written-post queue query",
     );
     const candidateIds = [...new Set(
-      (rows ?? [])
+      rows
         .map((row) => row.content_id)
         .filter((id): id is string => typeof id === "string" && UUID_PATTERN.test(id)),
     )];
@@ -45,11 +49,14 @@ export async function GET() {
     // A post can remain in the social queue after its source story is unpublished.
     // Re-check the live source state so removed or no-longer-age-appropriate stories
     // cannot continue appearing in the public Kids feed.
-    const sources = await supabaseServerAdminRequest<CurrentKidsStory[]>(
-      "/rest/v1/kids_content?id=in.(" + candidateIds.join(",") + ")&type=eq.story&published=eq.true&is_active=eq.true&metadata->>age_appropriate=eq.true&select=id,slug,title_ar,age_group,type,published,is_active,metadata",
+    const sources = requireSupabaseRows<CurrentKidsStory>(
+      await supabaseServerAdminRequest<unknown>(
+        "/rest/v1/kids_content?id=in.(" + candidateIds.join(",") + ")&type=eq.story&published=eq.true&is_active=eq.true&metadata->>age_appropriate=eq.true&select=id,slug,title_ar,age_group,type,published,is_active,metadata",
+      ),
+      "Kids story visibility query",
     );
-    const sourceById = new Map((sources ?? []).map((source) => [source.id, source]));
-    const items = (rows ?? []).flatMap((row) => {
+    const sourceById = new Map(sources.map((source) => [source.id, source]));
+    const items = rows.flatMap((row) => {
       const source = row.content_id ? sourceById.get(row.content_id) : undefined;
       if (!source) return [];
       const item = buildPublicKidsWrittenPost(row, source);

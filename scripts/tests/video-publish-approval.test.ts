@@ -1,5 +1,42 @@
 import assert from "node:assert/strict";
-import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, createAutomatedVideoQaApproval, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+import { readFileSync } from "node:fs";
+import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
+import { hasExplicitKidsVideoIntentMarker, isGeneralAudienceVideoMetadata, isKidsVideoContentMarker, normalizeVideoAudience } from "../../src/features/videos/services/video-audience-visibility";
+import { isKidsVideoGenerationRequestContent } from "../../src/features/kids/services/kids-video-request-visibility";
+import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, resolveKidsVideoQaStatusForApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
+assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
+assert.equal(hasSuspiciousReligiousAttribution("قَالَ رَسُولُ اللَّهِ ﷺ"), true, "Arabic diacritics must not bypass attribution detection");
+assert.equal(hasSuspiciousReligiousAttribution("قال تعالى إن الصدق قيمة جميلة"), true);
+assert.equal(hasSuspiciousReligiousAttribution("هذا نص تعليمي عام عن الصدق والأمانة"), false);
+assert.equal(hasSuspiciousReligiousAttribution("قالرسول الله"), false, "the phrase must not match when attached to a preceding Arabic word");
+assert.equal(hasSuspiciousReligiousAttribution("رسول اللهي"), false, "the phrase must not match when followed by another Arabic letter");
+assert.equal(hasSuspiciousReligiousAttribution(null), false);
+assert.equal(normalizeVideoAudience("family"), null, "unknown audience markers must be rejected at video creation");
+assert.equal(normalizeVideoAudience(" KIDS "), "kids", "recognized audience markers must be canonicalized");
+assert.equal(normalizeVideoAudience(undefined), "general", "legacy requests without an audience remain general");
+assert.equal(hasExplicitKidsVideoIntentMarker({ audience: "general", sourceType: " ORIGINAL_KIDS_FICTION " }), true,
+  "explicit Kids provenance must remain a Kids marker even when the stored audience is mislabeled");
+assert.equal(hasExplicitKidsVideoIntentMarker({ audience: "general", publicPath: "/%256Bids/story" }), true,
+  "nested-encoded Kids public paths must not bypass audience classification");
+assert.equal(hasExplicitKidsVideoIntentMarker({ audience: "general", sourceId: "", curatedSourceId: "kids-series:little-good-steps:s1:e1" }), true,
+  "an empty primary source ID must not hide a Kids curated source ID");
+assert.equal(hasExplicitKidsVideoIntentMarker({ audience: "general", sourceId: "general:story:1", curatedSourceId: "kids-series:little-good-steps:s1:e1" }), true,
+  "a general primary source ID must not hide a Kids curated source ID");
+assert.equal(isKidsVideoContentMarker({ audience: "general", sourceType: "original_kids_fiction" }), true);
+assert.equal(isKidsVideoContentMarker({ sourceType: "story", type: "story" }), true,
+  "legacy story requests without an audience must retain the existing Kids classification");
+assert.equal(isKidsVideoContentMarker({ audience: "general", sourceType: "story", type: "story" }), false,
+  "an explicitly general story must not be reclassified as Kids");
+assert.equal(isGeneralAudienceVideoMetadata({ audience: "general", sourceType: "original_kids_fiction" }), false,
+  "Kids-marked catalog metadata must never enter the general public feed");
+assert.equal(isGeneralAudienceVideoMetadata({ sourceType: "story", type: "story" }), false,
+  "legacy story metadata without an audience must remain outside the general public feed");
+assert.equal(isGeneralAudienceVideoMetadata({ audience: "general", sourceType: "story", type: "story" }), true);
+assert.equal(isKidsVideoGenerationRequestContent({ audience: "general", sourceType: "original_kids_fiction" }), true,
+  "Kids provenance must be recognized independently of a conflicting audience marker");
+assert.equal(isKidsVideoGenerationRequestContent({ audience: "general", sourceType: "story", type: "story" }), false);
+
 const checks: VideoApprovalChecklist = { sourceVerified: true, audioReviewed: true, visualsReviewed: true, captionsReviewed: true, rightsReviewed: true };
 const now = "2026-10-21T12:00:00.000Z";
 const snapshot = {
@@ -16,7 +53,7 @@ const content = {
   approvalReviewerId: "admin-user-1",
   approvalReviewedAt: now,
   approvalSnapshotHash: snapshotHash,
-  qualityReview: { ...checks, reviewedAt: now },
+  qualityReview: { ...checks, reviewedAt: now, mode: "human", reviewerId: "admin-user-1" },
 };
 const request = {
   status: "completed",
@@ -41,6 +78,9 @@ assert.equal(isVideoQueueItemApprovedForPublishing(queueItem), true);
 const kidsSnapshot = { ...snapshot, audience: "kids", kidsVideoQaStatus: "passed" };
 const kidsSnapshotHash = buildVideoApprovalSnapshotHash(kidsSnapshot);
 assert.equal(typeof kidsSnapshotHash, "string");
+assert.equal(hasCompleteKidsVideoSeriesMetadata(null), false, "null Kids metadata must fail closed");
+assert.equal(hasCompleteKidsVideoSeriesMetadata("kids"), false, "primitive Kids metadata must fail closed");
+assert.equal(isHumanVideoApprovalRecorded(null, kidsSnapshotHash), false, "null human-review metadata must fail closed");
 assert.equal(buildVideoApprovalSnapshotHash({ ...kidsSnapshot, kidsVideoQaStatus: "blocked" }), null);
 const completeKidsContent = {
   ...content,
@@ -61,7 +101,28 @@ const kidsQueueItem = {
   contentType: "kids_video",
   request: { ...request, content: completeKidsContent },
 };
+assert.equal(
+  inspectVideoQueueItemExternalApproval({
+    ...kidsQueueItem,
+    request: { ...request, content: null },
+  }).approved,
+  false,
+  "null Kids request content must fail closed without throwing",
+);
 assert.equal(isVideoQueueItemApprovedForPublishing(kidsQueueItem), true);
+const mismatchedKidsIntentRequest = {
+  ...request,
+  content: { ...content, audience: "general", sourceType: "original_kids_fiction", aiMode: "original_kids_story" },
+};
+assert.equal(buildVideoApprovalSnapshotHashForRequest(mismatchedKidsIntentRequest), null,
+  "a general audience hash must not be generated for content carrying explicit Kids provenance");
+const mismatchedKidsIntentApproval = inspectVideoQueueItemApproval({
+  ...queueItem,
+  request: mismatchedKidsIntentRequest,
+});
+assert.equal(mismatchedKidsIntentApproval.approved, false,
+  "Kids-marked requests with a general audience must fail closed before publishing");
+assert.match(mismatchedKidsIntentApproval.reason ?? "", /علامات محتوى الأطفال/);
 assert.equal(isVideoQueueItemApprovedForPublishing({
   ...kidsQueueItem,
   request: { ...request, content: { ...completeKidsContent, kidsVideoQaStatus: "blocked" } },
@@ -214,6 +275,44 @@ const kidsAutomatedApproval = createAutomatedVideoQaApproval({
 });
 assert.equal(kidsAutomatedApproval?.kidsVideoQaStatus, "passed");
 assert.equal(kidsAutomatedApproval?.approvalSnapshotHash, kidsSnapshotHash);
+assert.notEqual(buildVideoApprovalSnapshotHashForRequest(request), kidsSnapshotHash,
+  "a general-audience request must not reuse a Kids approval fingerprint");
+assert.equal(buildVideoApprovalSnapshotHashForRequest({ ...request, content: completeKidsContent }), kidsSnapshotHash,
+  "the worker and approval inspector must derive the same request fingerprint for the persisted Kids request");
+const kidsAutomatedContent = { ...completeKidsContent, ...kidsAutomatedApproval };
+const kidsAutomatedQueueItem = {
+  ...kidsQueueItem,
+  request: { ...request, content: kidsAutomatedContent },
+};
+assert.equal(isVideoApprovalRecorded(kidsAutomatedContent, kidsSnapshotHash), true,
+  "automated Kids QA remains a valid internal screening record");
+assert.equal(isHumanVideoApprovalRecorded(kidsAutomatedContent, kidsSnapshotHash), false,
+  "the system QA identity must never count as a human Kids review");
+assert.equal(inspectVideoQueueItemApproval(kidsAutomatedQueueItem).approved, true,
+  "the internal website publication gate retains its existing automated-QA policy");
+assert.equal(inspectVideoQueueItemExternalApproval(kidsAutomatedQueueItem).approved, false,
+  "Kids videos must not be sent to external platforms on automated QA alone");
+assert.match(inspectVideoQueueItemExternalApproval(kidsAutomatedQueueItem).reason ?? "", /اعتماد بشري موثق/);
+assert.equal(isVideoQueueItemApprovedForPublishing(kidsAutomatedQueueItem), false);
+const humanApprovedKidsContent = {
+  ...kidsAutomatedContent,
+  approvalReviewerId: "admin-user-1",
+  approvalReviewedAt: now,
+  qualityReview: { ...checks, reviewedAt: now, mode: "human", reviewerId: "admin-user-1" },
+};
+assert.equal(isHumanVideoApprovalRecorded(humanApprovedKidsContent, kidsSnapshotHash), true);
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: humanApprovedKidsContent },
+}), true, "a matching human review must release the Kids video for external publishing");
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: { ...humanApprovedKidsContent, qualityReview: { ...humanApprovedKidsContent.qualityReview, reviewerId: "different-admin" } } },
+}), false, "a mismatched human reviewer marker must fail closed");
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...kidsQueueItem,
+  request: { ...request, content: { ...humanApprovedKidsContent, approvalReviewerId: "system:zikr-video-factory" } },
+}), false, "the automated QA identity must not impersonate a human reviewer");
 assert.equal(createAutomatedVideoQaApproval({
   snapshot: { ...kidsSnapshot, kidsVideoQaStatus: "blocked" },
   checks,
@@ -229,5 +328,276 @@ assert.equal(createAutomatedVideoQaApproval({
   checks,
   reviewedAt: "not-a-date",
 }), null);
+
+const catalogMetadata = {
+  generator: "zikr_internal_video_factory",
+  videoGenerationRequestId: "request-1",
+  generatedVideoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+  audience: "kids",
+  kidsVideoQaStatus: "passed",
+  automatedVideoQa: { status: "passed", snapshotHash: kidsSnapshotHash },
+  sourceType: "original_kids_fiction",
+  contentFormat: "series_episode",
+  aiMode: "original_kids_story",
+  seriesId: "series-1",
+  seriesTitle: "قصص القيم",
+  learningObjective: "تعلم الصدق والأمانة",
+  seasonNumber: 1,
+  episodeNumber: 2,
+  approvalSnapshotHash: kidsSnapshotHash,
+  mediaState: "active",
+  storyText: "قصة تعليمية محفوظة كما هي",
+};
+const catalogRequestContent = {
+  ...completeKidsContent,
+  ...kidsAutomatedApproval,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+};
+const catalogApprovalInput = {
+  metadata: catalogMetadata,
+  requestContent: catalogRequestContent,
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+  snapshotHash: kidsSnapshotHash!,
+  reviewerId: "admin-user-1",
+  reviewedAt: now,
+  checks,
+};
+const catalogPatch = buildVideoCatalogApprovalPatch(catalogApprovalInput);
+assert.ok(catalogPatch, "a matching, unpurged Kids catalog record must accept an explicit admin approval");
+assert.equal(Object.prototype.hasOwnProperty.call(catalogPatch, "published"), false, "manual approval must not bypass the scheduled internal content-publishing queue");
+assert.equal(catalogPatch?.metadata.approvalStatus, "approved");
+assert.equal(catalogPatch?.metadata.approvalReviewerId, "admin-user-1");
+assert.equal((catalogPatch?.metadata.qualityReview as Record<string, unknown>).mode, "human");
+assert.equal(catalogPatch?.metadata.storyText, "قصة تعليمية محفوظة كما هي", "catalog approval must preserve existing content metadata");
+const mismatchedGeneralSnapshotHash = buildVideoApprovalSnapshotHash({ ...snapshot, audience: "general" });
+const mismatchedGeneralCatalogPatch = buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: {
+    ...catalogMetadata,
+    audience: "general",
+    approvalSnapshotHash: mismatchedGeneralSnapshotHash,
+    automatedVideoQa: { ...catalogMetadata.automatedVideoQa, snapshotHash: mismatchedGeneralSnapshotHash },
+  },
+  requestContent: {
+    ...catalogRequestContent,
+    audience: "general",
+    approvalStatus: "approved",
+    approvalReviewerId: "admin-user-1",
+    approvalReviewedAt: now,
+    approvalSnapshotHash: mismatchedGeneralSnapshotHash,
+    qualityReview: { ...checks, reviewedAt: now, mode: "human", reviewerId: "admin-user-1" },
+  },
+  snapshotHash: mismatchedGeneralSnapshotHash!,
+});
+assert.equal(mismatchedGeneralCatalogPatch, null,
+  "a general approval snapshot must not approve catalog metadata carrying explicit Kids provenance");
+
+const kidsSeriesFields = [
+  "contentFormat", "aiMode", "sourceType", "seriesId", "seriesTitle",
+  "learningObjective", "seasonNumber", "episodeNumber",
+];
+const legacyCatalogMetadata = Object.fromEntries(
+  Object.entries(catalogMetadata).filter(([key]) => !kidsSeriesFields.includes(key)),
+);
+const legacyRequestContent = Object.fromEntries(
+  Object.entries(catalogRequestContent).filter(([key]) => key !== "kidsVideoQaStatus"),
+);
+const legacyKidsQaStatus = resolveKidsVideoQaStatusForApproval({
+  requestContent: legacyRequestContent,
+  catalogMetadata: legacyCatalogMetadata,
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+});
+assert.equal(legacyKidsQaStatus, "passed", "a matching catalog QA record may backfill the missing legacy request QA marker");
+const legacyCatalogPatch = buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: legacyCatalogMetadata,
+  requestContent: { ...legacyRequestContent, kidsVideoQaStatus: legacyKidsQaStatus },
+});
+assert.ok(legacyCatalogPatch, "legacy Kids catalog rows may receive series metadata copied from the matching approved request");
+assert.equal(legacyCatalogPatch?.metadata.seriesId, "series-1");
+assert.equal(legacyCatalogPatch?.metadata.seriesTitle, "قصص القيم");
+assert.equal(legacyCatalogPatch?.metadata.kidsVideoQaStatus, "passed");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: legacyCatalogMetadata,
+  requestContent: legacyRequestContent,
+}), null, "catalog QA must be explicitly reconciled into the request before approval");
+assert.equal(resolveKidsVideoQaStatusForApproval({
+  requestContent: legacyRequestContent,
+  catalogMetadata: { ...legacyCatalogMetadata, kidsVideoQaStatus: "blocked" },
+  requestId: "request-1",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+}), null, "blocked catalog Kids QA must never be promoted");
+assert.equal(resolveKidsVideoQaStatusForApproval({
+  requestContent: legacyRequestContent,
+  catalogMetadata: legacyCatalogMetadata,
+  requestId: "different-request",
+  videoUrl: snapshot.videoUrl,
+  sourceHash: snapshot.sourceHash,
+  contentHash: snapshot.contentHash,
+  templateVersion: snapshot.templateVersion,
+}), null, "catalog QA must be tied to the exact generation request");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...legacyCatalogMetadata, seriesId: "different-series" },
+  requestContent: { ...legacyRequestContent, kidsVideoQaStatus: "passed" },
+}), null, "conflicting catalog series metadata must fail closed");
+
+assert.equal(Object.prototype.hasOwnProperty.call(catalogMetadata, "approvalStatus"), false, "catalog approval must not mutate the caller's metadata object");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, videoGenerationRequestId: "different-request" },
+}), null, "a different generation request must never update this catalog row");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, generatedVideoUrl: "https://media.example.test/other.mp4" },
+}), null, "a catalog row with a different rendered asset must fail closed");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, sourceHash: "different-source" },
+}), null, "a catalog row with a different source hash must fail closed");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, kidsVideoQaStatus: "blocked" },
+}), null, "Kids catalog approval must require a passed catalog QA result");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  requestContent: { ...catalogRequestContent, kidsVideoQaStatus: "blocked" },
+}), null, "Kids catalog approval must require a passed request QA result");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, mediaState: "purged" },
+}), null, "manual approval must not restore or expose purged media");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, mediaState: "unlinked" },
+}), null, "manual approval must not expose unlinked media");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, sourceMediaMissing: true },
+}), null, "manual approval must not expose missing source media");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, approvalSnapshotHash: "different-hash" },
+}), null, "catalog approval must reject a stale approval fingerprint");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  metadata: { ...catalogMetadata, automatedVideoQa: { status: "passed", snapshotHash: "b".repeat(64) } },
+}), null, "catalog approval must reject stale automated QA metadata even when source fields still match");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  requestContent: { ...catalogRequestContent, approvalStatus: "awaiting_human_review" },
+}), null, "manual review must not override a failed or missing automated QA approval");
+assert.equal(buildVideoCatalogApprovalPatch({
+  ...catalogApprovalInput,
+  reviewerId: "system:zikr-video-factory",
+}), null, "the system QA identity cannot impersonate an administrator approval");
+
+const normalizedKidsSnapshotHash = buildVideoApprovalSnapshotHash({
+  ...kidsSnapshot,
+  audience: " KIDS ",
+  kidsVideoQaStatus: " PASSED ",
+});
+assert.equal(normalizedKidsSnapshotHash, kidsSnapshotHash);
+
+const normalizedHumanKidsContent = {
+  ...humanApprovedKidsContent,
+  audience: " KIDS ",
+  sourceType: " ORIGINAL_KIDS_FICTION ",
+  aiMode: " ORIGINAL_KIDS_STORY ",
+  contentFormat: " SERIES_EPISODE ",
+};
+assert.equal(hasCompleteKidsVideoSeriesMetadata(normalizedHumanKidsContent), true);
+assert.equal(isHumanVideoApprovalRecorded(normalizedHumanKidsContent, kidsSnapshotHash), true);
+assert.equal(
+  inspectVideoQueueItemExternalApproval({
+    ...kidsQueueItem,
+    request: { ...request, content: normalizedHumanKidsContent },
+  }).approved,
+  true,
+  "normalized Kids markers must preserve a valid matching human review",
+);
+
+const unknownAudienceQueueItem = {
+  ...kidsQueueItem,
+  request: {
+    ...request,
+    content: { ...humanApprovedKidsContent, audience: "family" },
+  },
+};
+assert.equal(
+  inspectVideoQueueItemApproval(unknownAudienceQueueItem).approved,
+  false,
+  "unknown non-empty audience markers must fail closed instead of being treated as general",
+);
+
+const adminVideoGenerationRoute = readFileSync("src/app/api/admin/video-generation/route.ts", "utf8");
+assert.match(adminVideoGenerationRoute, /normalizeVideoAudience\(currentContent\.audience\)/);
+assert.match(adminVideoGenerationRoute, /isKidsVideoContentMarker\(currentContent\)/);
+assert.ok(
+  adminVideoGenerationRoute.indexOf("isKidsVideoContentMarker(currentContent)") <
+    adminVideoGenerationRoute.indexOf("const catalogSlug"),
+  "conflicting Kids metadata must be rejected before catalog reads or approval mutations",
+);
+assert.match(adminVideoGenerationRoute, /isKidsVideoContentMarker\(currentContent\)/);
+assert.ok(
+  adminVideoGenerationRoute.indexOf("isKidsVideoContentMarker(currentContent)") <
+    adminVideoGenerationRoute.indexOf("const catalogSlug"),
+  "conflicting Kids metadata must be rejected before catalog reads or approval mutations",
+);
+assert.doesNotMatch(adminVideoGenerationRoute, /currentContent\.audience === ["']kids["']/);
+const adminVideoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
+assert.match(adminVideoCreateRoute, /normalizeVideoAudience\(content\.audience\)/);
+assert.match(adminVideoCreateRoute, /hasExplicitKidsVideoIntentMarker/);
+assert.match(adminVideoCreateRoute, /submittedKidsIntent/);
+assert.match(adminVideoCreateRoute, /audience: source\.audience \?\? "general"/);
+assert.match(adminVideoCreateRoute, /hasExplicitKidsVideoIntentMarker/);
+assert.match(adminVideoCreateRoute, /submittedKidsIntent/);
+assert.match(adminVideoCreateRoute, /audience: source\.audience \?\? "general"/);
+assert.doesNotMatch(adminVideoCreateRoute, /content\.audience === ["']kids["']/);
+const createAudienceGuardIndex = adminVideoCreateRoute.indexOf("const requestedAudience = normalizeVideoAudience(content.audience);");
+const createTemplateBranchIndex = adminVideoCreateRoute.indexOf('if (typeof content.templateVersionId === "string"');
+const createRequestIndex = adminVideoCreateRoute.indexOf("const result = await createVideoGenerationRequest({");
+assert.ok(
+  createAudienceGuardIndex >= 0 &&
+    createAudienceGuardIndex < createTemplateBranchIndex &&
+    createTemplateBranchIndex < createRequestIndex,
+  "unknown audience values must be rejected before optional template handling and before request persistence",
+);
+const createAudienceGuard = adminVideoCreateRoute.slice(createAudienceGuardIndex, createTemplateBranchIndex);
+assert.match(createAudienceGuard, /if \(!requestedAudience\)/);
+assert.match(createAudienceGuard, /audience: requestedAudience/);
+assert.match(createAudienceGuard, /submittedKidsIntent \|\| hasExplicitKidsVideoIntentMarker\(content\)/,
+  "Kids provenance must be reconciled before the request is persisted");
+const createKidsPermissionGuardIndex = adminVideoCreateRoute.indexOf('if (requestedAudience === "kids")');
+assert.ok(
+  createKidsPermissionGuardIndex > createAudienceGuardIndex &&
+    createKidsPermissionGuardIndex < createTemplateBranchIndex &&
+    createKidsPermissionGuardIndex < createRequestIndex,
+  "Kids permission must be checked before template resolution and before request persistence",
+);
+const createKidsPermissionGuard = adminVideoCreateRoute.slice(createKidsPermissionGuardIndex, createRequestIndex);
+assert.ok(createKidsPermissionGuard.includes('requireAdminApi("kids.manage")'), "Kids generation must require the separate Kids permission");
+assert.ok(createKidsPermissionGuard.includes("kidsAuth.profile.id !== auth.profile.id"), "Kids permission must belong to the same authenticated admin");
+
+assert.match(adminVideoGenerationRoute, /resolveKidsVideoQaStatusForApproval/);
+assert.match(adminVideoGenerationRoute, /requestContent: currentContent/);
+assert.match(adminVideoGenerationRoute, /kidsVideoQaStatus: verifiedKidsVideoQaStatus/);
 
 console.log("Video publishing approval contract passed.");

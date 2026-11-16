@@ -29,6 +29,9 @@ const socialQueueMetadataService = read("src/features/social/services/social-que
 const cleanupPolicy = read("src/features/social/services/published-video-cleanup.ts");
 const youtubeCredentials = read("src/features/social/services/youtube-oauth-credentials.ts");
 const videoPublishApproval = read("src/features/videos/services/video-publish-approval.ts");
+const kidsVideoPublication = read("src/features/videos/services/kids-video-publication.ts");
+const videoCatalogPolicy = read("src/features/social/services/video-catalog-publication-policy.ts");
+const kidsCatalogReconciliationPolicy = read("src/features/social/services/kids-social-catalog-reconciliation.ts");
 const backgroundJobSettings = read("src/features/videos/services/background-job-settings.ts");
 const videoAutomation = read("src/features/videos/services/video-automation.ts");
 const socialWorkflow = read(".github/workflows/publish-social.yml");
@@ -110,7 +113,7 @@ if (!runner.includes('"social"') || runner.includes("reconcileCompletedVideoSoci
 if (!videoWorkflow.includes('AUTO_VIDEO_PUBLISH_ENABLED: "true"') ||
     !videoWorkflow.includes('AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"') ||
     !videoWorkflow.includes('BACKGROUND_JOB_TARGET: "videos"')) {
-  failures.push("video generation must enqueue only automated-QA-approved social candidates without a manual review gate");
+  failures.push("video generation may enqueue automated-QA candidates, but Kids external delivery must retain its separate human-review gate");
 }
 if (!videoGenerator.includes("async function queueSocialItems") ||
     !videoGenerator.includes("socialQueueResult = await withLeaseHeartbeat(") ||
@@ -122,11 +125,24 @@ if (!videoGenerator.includes("async function queueSocialItems") ||
   failures.push("only new renders and their explicit pending handoff marker may create social queue items; historical completed requests must not be reconciled");
 }
 if (!videoPublishApproval.includes("export function hasCompleteKidsVideoSeriesMetadata") ||
-    !videoPublishApproval.includes('content.contentFormat === "series_episode"') ||
+    !videoPublishApproval.includes('normalizeVideoMarker(content.contentFormat) === "series_episode"') ||
     !videoGenerator.includes("hasCompleteKidsVideoSeriesMetadata(request.content)") ||
     !videoGenerator.includes("hasCompleteKidsVideoSeriesMetadata(content)") ||
-    !videoPublishApproval.includes("content?.audience === \"kids\"")) {
+    !videoPublishApproval.includes('normalizeVideoAudience(content.audience, false) !== "kids"') ||
+    !videoCatalogPolicy.includes("hasCompleteKidsVideoSeriesMetadata(metadata)")) {
   failures.push("Kids video catalog visibility and social publishing must share one complete series-episode contract");
+}
+if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
+    !videoPublishApproval.includes("inspectVideoQueueItemExternalApproval") ||
+    !videoPublishApproval.includes("isHumanVideoApprovalRecorded") ||
+    !videoCatalogPolicy.includes("hasHumanKidsVideoApproval")) {
+  failures.push("Kids external social publishing must require a matching human review record in both the generation request and public catalog");
+}
+if (!socialPublishingService.includes("buildVideoApprovalSnapshotHashForRequest") ||
+    !socialPublishingService.includes("expectedApprovalSnapshotHash") ||
+    !videoCatalogPolicy.includes("automatedVideoQa.snapshotHash !== expectedApprovalSnapshotHash") ||
+    !videoCatalogPolicy.includes("hasHumanKidsVideoApproval(metadata, expectedApprovalSnapshotHash)")) {
+  failures.push("the social worker must bind both catalog automated QA and Kids human review to the current generation-request fingerprint");
 }
 if (!videoGenerator.includes("getYouTubeUploadRefreshToken") ||
     !videoGenerator.includes("getOptionalFacebookPageCredentials") ||
@@ -142,8 +158,8 @@ if (youtubeCredentials.includes("export async function getYouTubeUploadRefreshTo
   failures.push("YouTube upload credential-store errors must propagate to retryable publishing paths instead of appearing unconfigured");
 }
 if (!socialPublishingService.includes("hasVideoApprovalForQueueItem") ||
-    !socialPublishingService.includes("Video held because automated QA is missing") ||
-    !socialPublishingService.includes("Automated QA lookup failed; holding video item")) {
+    !socialPublishingService.includes("Video held because automated QA or Kids human review is missing") ||
+    !socialPublishingService.includes("Video approval lookup failed; holding video item")) {
   failures.push("the social worker must fail closed and revalidate the automated QA snapshot before provider calls");
 }
 if (!socialPublishingService.includes("syncYouTubeVideoReferenceToCatalog") ||
@@ -224,9 +240,27 @@ const youtubeCatalogSync = youtubeCatalogSyncStart >= 0 && youtubeCatalogSyncEnd
   ? socialPublishingService.slice(youtubeCatalogSyncStart, youtubeCatalogSyncEnd)
   : "";
 if (!kidsCatalogSync.includes('typeof row.updated_at !== "string"') ||
+    !kidsCatalogSync.includes('if (row.published !== true)') ||
     !kidsCatalogSync.includes('"&published=eq.true&updated_at=eq." + encodeURIComponent(row.updated_at)') ||
-    kidsCatalogSync.includes('(row.updated_at ? "&updated_at=eq."')) {
-  failures.push("Kids catalog social metadata writes must require an exact valid updated_at revision");
+    kidsCatalogSync.includes('(row.updated_at ? "&updated_at=eq."') ||
+    !kidsCatalogSync.includes("isKidsSocialCatalogPublicationInSync(existing, snapshot)") ||
+    !kidsCatalogSync.includes("return { ok: false, reason:")) {
+  failures.push("Kids catalog social metadata writes must be idempotent, report failed compare-and-set updates, and require a published row with an exact updated_at revision");
+}
+const kidsCatalogReconcilerStart = socialPublishingService.indexOf("export async function reconcilePublishedKidsVideoCatalog");
+const kidsCatalogReconcilerEnd = socialPublishingService.indexOf("\nasync function syncYouTubeVideoReferenceToCatalog", kidsCatalogReconcilerStart);
+const kidsCatalogReconciler = kidsCatalogReconcilerStart >= 0 && kidsCatalogReconcilerEnd > kidsCatalogReconcilerStart
+  ? socialPublishingService.slice(kidsCatalogReconcilerStart, kidsCatalogReconcilerEnd)
+  : "";
+if (!kidsCatalogReconciliationPolicy.includes("SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED") ||
+    !kidsCatalogReconciliationPolicy.includes("kidsCatalogSyncStatus.eq.pending") ||
+    !kidsCatalogReconciler.includes("checkVideoCatalogPublication(item)") ||
+    !kidsCatalogReconciler.includes("syncKidsSocialPublicationToCatalog(item, item.metadata ?? {})") ||
+    !kidsCatalogReconciler.includes("markKidsCatalogSyncState") ||
+    !kidsCatalogReconciler.includes("hasEnoughCandidates: () => false") ||
+    /publishFacebook|publishToFacebook|publishToYoutube/.test(kidsCatalogReconciler) ||
+    !socialWorker.includes("reconcilePublishedKidsVideoCatalog()")) {
+  failures.push("Kids catalog metadata failures must have a bounded opt-in, approval-revalidated, provider-free reconciliation path");
 }
 if (!youtubeCatalogSync.includes('typeof row.updated_at !== "string"') ||
     !youtubeCatalogSync.includes('"&updated_at=eq." + encodeURIComponent(row.updated_at)') ||
@@ -242,6 +276,19 @@ if (!socialPublishingService.includes("created_at=gte.${createdSince}") ||
     (socialPublishingService.match(/resolveSocialPublishCutoff\(process\.env\.SOCIAL_PUBLISH_AFTER\)/g) ?? []).length < 2) {
   failures.push("social queue reads and stale recovery must share the validated explicit post-launch cutoff");
 }
+
+const videoHandoffRecoveryStart = videoGenerator.indexOf("export async function recoverPendingVideoSocialQueueEnqueues");
+const videoHandoffRecoveryEnd = videoGenerator.indexOf("export async function processTemplateVideoQueue", videoHandoffRecoveryStart);
+const videoHandoffRecovery = videoHandoffRecoveryStart >= 0 && videoHandoffRecoveryEnd > videoHandoffRecoveryStart
+  ? videoGenerator.slice(videoHandoffRecoveryStart, videoHandoffRecoveryEnd)
+  : "";
+if (!videoHandoffRecovery.includes("resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER)") ||
+    !videoHandoffRecovery.includes("created_at=gte.${encodeURIComponent(publishAfter)}") ||
+    (videoHandoffRecovery.match(/created_at=gte\.\$\{encodeURIComponent\(publishAfter\)\}/g) ?? []).length !== 3 ||
+    !videoHandoffRecovery.includes("buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore, publishAfter)")) {
+  failures.push("completed-video social handoff recovery must enforce the same post-launch cutoff as social queue reads");
+}
+
 const claimStart = socialPublishingService.indexOf("export async function claimPendingSocialPublishItems");
 const claimEnd = socialPublishingService.indexOf("export async function processSocialPublishItem", claimStart);
 const claimBody = socialPublishingService.slice(claimStart, claimEnd);
@@ -250,6 +297,16 @@ if (claimBody.includes("await retryPendingPublishedVideoCleanup(")) {
 }
 if ((socialWorker.match(/retryPendingPublishedVideoCleanup\(/g) ?? []).length !== 1) {
   failures.push("the social worker must run published-video cleanup exactly once per queue poll");
+}
+const retentionSummaryStart = socialPublishingService.indexOf("export async function retryPendingPublishedVideoCleanup(");
+const retentionSummaryEnd = socialPublishingService.indexOf("export async function processSocialPublishItem(", retentionSummaryStart);
+const retentionSummary = retentionSummaryStart >= 0 && retentionSummaryEnd > retentionSummaryStart
+  ? socialPublishingService.slice(retentionSummaryStart, retentionSummaryEnd)
+  : "";
+if (!retentionSummary.includes("markedForRetention") ||
+    retentionSummary.includes("cleaned") ||
+    !socialWorker.includes("Published video staging-retention markers refreshed")) {
+  failures.push("published-video staging retention must report metadata markers, not claim media has been deleted");
 }
 if (!socialPublishingService.includes("shouldRetryPublishedVideoCleanup(item.metadata)") ||
     !cleanupPolicy.includes("metadata?.stagingCleanupDeferred !== true") ||
@@ -424,10 +481,10 @@ if (!adminClient.includes('const REMOTE_DELETE_PLATFORMS = new Set<string>(["fac
   failures.push("YouTube remote deletion must remain disabled in the UI while the least-privilege OAuth policy excludes delete scopes");
 }
 if (adminClient.includes("اعتمد الفيديو أولًا") ||
-    adminClient.includes("موقوف لمراجعة الجودة") ||
-    !adminClient.includes("فحوص الجودة الآلية غير مكتملة") ||
-    !adminClient.includes("تنتقل للنشر تلقائيًا")) {
-  failures.push("social center must show automated QA diagnostics and must not prompt for manual video approval");
+    !adminClient.includes("مراجعة الفيديو غير مكتملة") ||
+    !adminClient.includes("فيديوهات الأطفال تحتاج اعتمادًا بشريًا موثقًا") ||
+    !adminClient.includes("الفيديوهات العامة المؤهلة تنتقل للنشر تلقائيًا")) {
+  failures.push("social center must explain the Kids human-review gate while preserving automatic publishing for eligible general-audience videos");
 }
 if (!writtenWorker.includes('"articles"') ||
     !writtenWorker.includes("content_publish_queue") ||

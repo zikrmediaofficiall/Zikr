@@ -11,14 +11,14 @@ import { toast } from "sonner";
 
 type BookmarkButtonProps = {
   keyRef: string;
-  itemType?: FavoriteItemType;
+  itemType: FavoriteItemType;
   /** Pre-fetched value from server to avoid an extra round-trip per item */
   initialSaved?: boolean;
 };
 
 export function BookmarkButton({
   keyRef,
-  itemType = "quran",
+  itemType,
   initialSaved,
 }: BookmarkButtonProps) {
   const [isClient, setIsClient] = useState(false);

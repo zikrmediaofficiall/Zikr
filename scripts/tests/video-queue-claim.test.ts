@@ -23,9 +23,17 @@ import { buildNextRowVersionUpdatedAt } from "../../src/lib/supabase/row-version
 const videoWorkerSource = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 const socialWorkerSource = readFileSync("scripts/jobs/social-publishing.ts", "utf8");
 const backgroundJobsSource = readFileSync("scripts/run-background-jobs.ts", "utf8");
+assert.match(videoWorkerSource, /resolveSocialPublishCutoff\(process\.env\.SOCIAL_PUBLISH_AFTER\)/);
+assert.equal(
+  (videoWorkerSource.match(/created_at=gte\.\$\{encodeURIComponent\(publishAfter\)\}/g) ?? []).length,
+  3,
+  "every pending, stale, and retry-wait social handoff recovery scan must honor the post-launch source cutoff",
+);
+assert.match(videoWorkerSource, /buildVideoSocialQueueRecoveryClaimFilter\(request, staleBefore, publishAfter\)/);
 
 const now = "2026-11-11T22:59:00.000Z";
 const updatedAt = "2026-11-11T22:40:00.000Z";
+const socialPublishAfter = "2026-11-06T20:00:00.000Z";
 
 test("CAS writes always advance their updated_at row-version token", () => {
   const sameMillisecond = new Date("2026-11-11T22:40:00.000Z");
@@ -187,12 +195,44 @@ test("pending social queue handoffs can be claimed immediately by exact row vers
       id: "request/4",
       status: "processing",
       video_url: generatedVideoUrl,
+      created_at: socialPublishAfter,
       updated_at: updatedAt,
       content: { socialQueueEnqueueStatus: "pending" },
-    }, "2026-11-11T23:00:00.000Z"),
+    }, "2026-11-11T23:00:00.000Z", socialPublishAfter),
     "id=eq.request%2F4&status=eq.processing&video_url=eq." +
       encodeURIComponent(generatedVideoUrl) +
-      "&updated_at=eq.2026-11-11T22%3A40%3A00.000Z&content->>socialQueueEnqueueStatus=eq.pending",
+      "&updated_at=eq.2026-11-11T22%3A40%3A00.000Z&created_at=eq.2026-11-06T20%3A00%3A00.000Z&content->>socialQueueEnqueueStatus=eq.pending",
+  );
+});
+
+test("pre-activation completed renders cannot be re-enqueued into the post-launch social queue", () => {
+  const candidate = {
+    id: "old-request",
+    status: "processing",
+    video_url: generatedVideoUrl,
+    created_at: "2026-11-06T19:59:59.999Z",
+    updated_at: updatedAt,
+    content: { socialQueueEnqueueStatus: "pending" },
+  };
+  assert.equal(
+    buildVideoSocialQueueRecoveryClaimFilter(candidate, "2026-11-11T23:00:00.000Z", socialPublishAfter),
+    null,
+    "a pre-activation render must not be converted into a new post-cutoff social queue row",
+  );
+  assert.equal(
+    buildVideoSocialQueueRecoveryClaimFilter({ ...candidate, created_at: undefined }, "2026-11-11T23:00:00.000Z", socialPublishAfter),
+    null,
+    "missing source creation time must fail closed",
+  );
+  assert.equal(
+    buildVideoSocialQueueRecoveryClaimFilter({ ...candidate, created_at: "not-a-date" }, "2026-11-11T23:00:00.000Z", socialPublishAfter),
+    null,
+    "invalid source creation time must fail closed",
+  );
+  assert.equal(
+    buildVideoSocialQueueRecoveryClaimFilter({ ...candidate, created_at: socialPublishAfter }, "2026-11-11T23:00:00.000Z", "not-a-date"),
+    null,
+    "invalid cutoff must fail closed",
   );
 });
 
@@ -202,15 +242,16 @@ test("stale social queue handoffs are recoverable but live leases are not", () =
     id: "request-5",
     status: "processing",
     video_url: generatedVideoUrl,
+    created_at: socialPublishAfter,
     updated_at: updatedAt,
     content: { socialQueueEnqueueStatus: "processing" },
   };
-  assert.ok(buildVideoSocialQueueRecoveryClaimFilter(candidate, staleBefore));
+  assert.ok(buildVideoSocialQueueRecoveryClaimFilter(candidate, staleBefore, socialPublishAfter));
   assert.equal(
     buildVideoSocialQueueRecoveryClaimFilter({
       ...candidate,
       updated_at: "2026-11-11T23:00:01.000Z",
-    }, staleBefore),
+    }, staleBefore, socialPublishAfter),
     null,
     "a non-stale processing lease must remain owned by the current worker",
   );
@@ -218,14 +259,14 @@ test("stale social queue handoffs are recoverable but live leases are not", () =
     buildVideoSocialQueueRecoveryClaimFilter({
       ...candidate,
       updated_at: "not-a-date",
-    }, staleBefore),
+    }, staleBefore, socialPublishAfter),
     null,
   );
   assert.equal(
     buildVideoSocialQueueRecoveryClaimFilter({
       ...candidate,
       content: { socialQueueEnqueueStatus: "queued" },
-    }, staleBefore),
+    }, staleBefore, socialPublishAfter),
     null,
   );
 });
@@ -236,12 +277,13 @@ test("retry_wait handoffs are adopted by the recovery worker without rerendering
       id: "request-7",
       status: "retry_wait",
       video_url: generatedVideoUrl,
+      created_at: socialPublishAfter,
       updated_at: "2026-11-11T22:59:59.000Z",
       content: { socialQueueEnqueueStatus: "processing" },
-    }, "2026-11-11T23:00:00.000Z"),
+    }, "2026-11-11T23:00:00.000Z", socialPublishAfter),
     "id=eq.request-7&status=eq.retry_wait&video_url=eq." +
       encodeURIComponent(generatedVideoUrl) +
-      "&updated_at=eq.2026-11-11T22%3A59%3A59.000Z&content->>socialQueueEnqueueStatus=eq.processing",
+      "&updated_at=eq.2026-11-11T22%3A59%3A59.000Z&created_at=eq.2026-11-06T20%3A00%3A00.000Z&content->>socialQueueEnqueueStatus=eq.processing",
   );
 });
 
@@ -444,7 +486,9 @@ test("failed social enqueue remains recoverable and cannot complete the video re
   assert.ok(videoWorkerSource.includes("recoverPendingVideoSocialQueueEnqueues("));
   assert.ok(videoWorkerSource.includes("content->>socialQueueEnqueueStatus=eq.pending"));
   assert.ok(videoWorkerSource.includes("content->>socialQueueEnqueueStatus=eq.processing"));
-  assert.ok(videoWorkerSource.includes("buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore)"));
+  assert.ok(videoWorkerSource.includes("buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore, publishAfter)"));
+  assert.ok(videoWorkerSource.includes("resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER)"));
+  assert.equal((videoWorkerSource.match(/created_at=gte\.\$\{encodeURIComponent\(publishAfter\)\}/g) ?? []).length, 3);
   assert.ok(videoWorkerSource.includes("buildVideoSocialQueueRecoveryLeaseFilter("));
   assert.ok(videoWorkerSource.includes("status=in.(processing,retry_wait)"));
   assert.ok(videoWorkerSource.includes("catch (handoffPersistError)"));

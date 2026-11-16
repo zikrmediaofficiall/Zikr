@@ -123,3 +123,23 @@ assert.ok(
   defaultFunctionMigration.includes("BEGIN;") && defaultFunctionMigration.includes("COMMIT;"),
   "default function privilege hardening must be transactional",
 );
+
+const pushSubscriptionAccessMigration = readFileSync(
+  "supabase/migrations/20261114200000_restrict_push_subscriptions_to_service_role.sql",
+  "utf8",
+);
+assert.match(
+  pushSubscriptionAccessMigration,
+  /REVOKE ALL PRIVILEGES ON TABLE public\.push_subscriptions\s+FROM PUBLIC, anon, authenticated/i,
+  "push subscriptions must be server-managed because endpoint validation is enforced in the API and worker",
+);
+assert.match(
+  pushSubscriptionAccessMigration,
+  /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\.push_subscriptions\s+TO service_role/i,
+  "service_role must retain the only required DML path for push subscriptions",
+);
+assert.doesNotMatch(
+  pushSubscriptionAccessMigration,
+  /DELETE FROM|TRUNCATE TABLE|DROP TABLE/i,
+  "the push access migration must not delete subscriptions or alter storage",
+);

@@ -196,6 +196,15 @@ for (const token of [
 if (!sidebar.includes('placeholder="ابحث في الأقسام..."')) failures.push("desktop admin navigation search is missing");
 if (!sidebar.includes('aria-label="اختيار مجموعة الإدارة"') || !sidebar.includes('value={open ?? ""}')) failures.push("mobile admin navigation must use a compact accessible group selector");
 if (!dashboard.includes("hasAdminPermission") || !dashboard.includes("availableHrefs")) failures.push("dashboard quick links and section cards must be filtered by the signed-in role");
+const dashboardVisibility = read("src/features/admin/services/admin-dashboard-visibility.ts");
+if (!dashboard.includes("getVisibleAdminDashboardCountSections") || !dashboard.includes("visibleCountSections.map")) {
+  failures.push("dashboard inventory counts must use the permission-filtered section list");
+}
+if (!dashboardVisibility.includes("ADMIN_DASHBOARD_COUNT_PERMISSIONS") ||
+    !dashboardVisibility.includes("permission ? hasAdminPermission(role, permission) : false")) {
+  failures.push("dashboard inventory counts must be explicitly permission-mapped and fail closed for unknown tables");
+}
+
 if (!dashboard.includes("AdminModuleDirectory groups={availableGroups}")) failures.push("dashboard must use the permission-filtered interactive module directory");
 if (!moduleDirectory.includes("FAVORITES_KEY") || !moduleDirectory.includes("RECENTS_KEY") || !moduleDirectory.includes("visibleGroups")) failures.push("admin directory must provide favorites, recent pages, and searchable group filtering");
 if (

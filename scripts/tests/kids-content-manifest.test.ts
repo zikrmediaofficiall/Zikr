@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { kidsContent } from "../../src/features/kids/data/content";
+import { kidsContent, type KidsItem } from "../../src/features/kids/data/content";
+import { isKidsContentPubliclyVisible } from "../../src/features/kids/services/kids-content-visibility";
 import { GAME_REGISTRY, type GameId } from "../../src/lib/games/registry";
 import {
   getAllKidsGameContentManifests,
@@ -56,10 +57,55 @@ for (const entry of manifest) {
 const quizSources = manifest.find(entry => entry.gameId === "zikr-quiz")!.source.references;
 const quizSourceSet = new Set(quizSources);
 const verifiedQuestions = getVerifiedKidsQuizQuestions();
+const sampleQuestion = { text: "سؤال تجريبي", options: ["أ", "ب"], correctAnswer: 0 };
+const unapprovedStoryQuiz: KidsItem = {
+  id: "unapproved-story-quiz",
+  title_ar: "قصة غير معتمدة",
+  title_en: "Unapproved story",
+  slug: "unapproved-story-quiz",
+  type: "story",
+  age_group: "6-8",
+  metadata: { age_appropriate: false },
+  quiz_data: { questions: [sampleQuestion] },
+};
+const legacyStoryQuiz: KidsItem = {
+  ...unapprovedStoryQuiz,
+  id: "legacy-story-quiz",
+  slug: "legacy-story-quiz",
+  metadata: undefined,
+};
+const approvedStoryQuiz: KidsItem = {
+  ...unapprovedStoryQuiz,
+  id: "approved-story-quiz",
+  slug: "approved-story-quiz",
+  metadata: { age_appropriate: true },
+};
+const nonStoryQuiz: KidsItem = {
+  ...unapprovedStoryQuiz,
+  id: "non-story-quiz",
+  slug: "non-story-quiz",
+  type: "quiz",
+  metadata: undefined,
+};
+assert.deepEqual(getVerifiedKidsQuizQuestions([unapprovedStoryQuiz]), [],
+  "unapproved static story questions must not enter the public Kids game pool");
+assert.deepEqual(getVerifiedKidsQuizQuestions([legacyStoryQuiz]), [],
+  "legacy stories without explicit age approval must not enter the public Kids game pool");
+assert.equal(getVerifiedKidsQuizQuestions([approvedStoryQuiz])[0]?.sourceSlug, "approved-story-quiz",
+  "explicitly age-approved story questions remain available");
+assert.equal(getVerifiedKidsQuizQuestions([nonStoryQuiz])[0]?.sourceSlug, "non-story-quiz",
+  "non-story quiz content keeps its existing public game contract");
 assert.ok(verifiedQuestions.length >= 20, "the verified quiz adapter must provide enough source-backed questions");
 assert.ok(
   verifiedQuestions.every(question => contentBySlug.has(question.sourceSlug)),
   "every quiz question must preserve its originating Kids content slug",
+);
+assert.ok(
+  verifiedQuestions.every(question => {
+    const source = contentBySlug.get(question.sourceSlug);
+    return source !== undefined && isKidsContentPubliclyVisible(source);
+  }),
+  "the public Kids game pool must exclude questions from unapproved story sources",
 );
 assert.ok(
   verifiedQuestions.filter(question => quizSourceSet.has(question.sourceSlug)).length >= 20,
@@ -101,6 +147,13 @@ assert.deepEqual(roadQuestions, scenarios, "Road and Mosque Adventure pool conte
 assert.ok(
   scenarios.every(question => approvedScenarioSources.has(question.sourceSlug)),
   "scenario prompts must remain traceable to the approved source set",
+);
+assert.ok(
+  scenarios.every(question => {
+    const source = contentBySlug.get(question.sourceSlug);
+    return source !== undefined && isKidsContentPubliclyVisible(source);
+  }),
+  "scenario game prompts must only use publicly visible, age-approved Kids sources",
 );
 const normalizedPrompts = scenarios.map(question => question.text.trim().replace(/\s+/g, " ").toLocaleLowerCase());
 assert.equal(new Set(normalizedPrompts).size, scenarios.length, "scenario prompts must not repeat after whitespace normalization");

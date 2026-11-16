@@ -1,5 +1,8 @@
 "use client";
 
+import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video-publication";
+import { isKidsVideoContentMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Container } from "@/components/ui/container";
@@ -19,8 +22,17 @@ const APPROVAL_CHECKS: ReadonlyArray<{ key: ApprovalCheckKey; label: string }> =
   { key: "rightsReviewed", label: "تحققت من حقوق استخدام الصوت والصور والعناصر." },
 ];
 function isContentApproved(content: unknown): boolean {
-  return Boolean(content && typeof content === "object" && !Array.isArray(content)
-    && (content as Record<string, unknown>).approvalStatus === "approved");
+  if (!content || typeof content !== "object" || Array.isArray(content)) return false;
+  const record = content as Record<string, unknown>;
+  const audience = resolveVideoRequestAudience(record);
+  if (!audience.ok) return false;
+  return audience.audience === "kids"
+    ? hasHumanKidsVideoApproval(record)
+    : record.approvalStatus === "approved";
+}
+
+function isKidsVideoContent(content: unknown): boolean {
+  return isKidsVideoContentMarker(content);
 }
 
 const STATUS_LABELS: Record<Status, string> = {
@@ -39,7 +51,9 @@ const STATUS_CLASSES: Record<Status, string> = {
   failed: "border-red-500/25 bg-red-500/10 text-red-300",
 };
 
-export default function AdminVideoRequestsClient() {
+type AdminVideoRequestsClientProps = { canManageKids: boolean };
+
+export default function AdminVideoRequestsClient({ canManageKids }: AdminVideoRequestsClientProps) {
   const [requests, setRequests] = useState<VideoGenerationRequest[]>([]);
   const [filter, setFilter] = useState<"all" | Status>("all");
   const [loading, setLoading] = useState(true);
@@ -132,7 +146,7 @@ export default function AdminVideoRequestsClient() {
       const responseData = await response.json().catch(() => ({}));
       if (!response.ok && responseData.error === "step_up_required" && redirectToAdminStepUp(responseData.nextPath)) return;
       if (!response.ok) throw new Error(responseData.error || "تعذر اعتماد الفيديو للنشر.");
-      setMessage("تم تسجيل مراجعة الجودة. سينتقل الفيديو إلى طابور النشر عند المزامنة المجدولة.");
+      setMessage("تم تسجيل الاعتماد البشري. سيُعاد فحص الفيديو قبل إدخاله إلى طوابير النشر المجدولة؛ لا يحدث نشر فوري.");
       setDetails(null); await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر اعتماد الفيديو للنشر.");
@@ -215,7 +229,11 @@ export default function AdminVideoRequestsClient() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>التفاصيل</Button>
-                  {request.status === "failed" && <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button>}
+                  {request.status === "failed" && (() => {
+                    const retryAudience = resolveVideoRequestAudience(request.content);
+                    const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
+                    return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
+                  })()}
                 </div>
               </div>
               {request.error_message && (
@@ -300,11 +318,15 @@ export default function AdminVideoRequestsClient() {
             {details.status === "completed" && details.video_url && (
               <section className="mt-6 space-y-4 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-5">
                 {isContentApproved(details.content) ? (
-                  <div role="status" className="font-semibold text-emerald-200">تم اعتماد الفيديو للمزامنة مع طابور النشر.</div>
+                  <div role="status" className="font-semibold text-emerald-200">تم تسجيل الاعتماد البشري؛ سيُعاد التحقق من الفيديو قبل أي نشر مجدول.</div>
+                ) : isKidsVideoContent(details.content) && !canManageKids ? (
+                  <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
+                    اعتماد فيديوهات الأطفال يتطلب صلاحية إدارة محتوى الأطفال بالإضافة إلى صلاحية إدارة الفيديوهات. يمكنك مراجعة التفاصيل، لكن لا يمكنك تسجيل الاعتماد.
+                  </div>
                 ) : (
                   <>
-                    <h3 className="text-lg font-bold text-brand-gold">مراجعة إلزامية قبل النشر العام</h3>
-                    <p className="text-sm leading-6 text-brand-cream/60">شاهد الفيديو كاملًا واستمع إلى الصوت. لن يُنشر هذا الفيديو اجتماعيًا قبل إكمال جميع الفحوص وتسجيل الاعتماد.</p>
+                    <h3 className="text-lg font-bold text-brand-gold">{isKidsVideoContent(details.content) ? "مراجعة بشرية إلزامية لفيديو الأطفال" : "مراجعة إلزامية قبل النشر العام"}</h3>
+                    <p className="text-sm leading-6 text-brand-cream/60">{isKidsVideoContent(details.content) ? "اجتياز الفحص الآلي لا يراجع الإطارات فعليًا. شاهد الفيديو كاملًا واستمع إلى الصوت وسجّل اعتمادًا بشريًا موثقًا قبل النشر الخارجي." : "شاهد الفيديو كاملًا واستمع إلى الصوت. لن يُنشر هذا الفيديو اجتماعيًا قبل إكمال جميع الفحوص وتسجيل الاعتماد."}</p>
                     <div className="space-y-3">
                       {APPROVAL_CHECKS.map((check) => (
                         <label key={check.key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-brand-gold/10 bg-black/15 p-3 text-sm leading-6 text-brand-cream/80">

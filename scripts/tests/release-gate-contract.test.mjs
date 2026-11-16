@@ -7,6 +7,68 @@ const releaseWorkflow = readFileSync(".github/workflows/release-finalization.yml
 const androidReleaseWorkflow = readFileSync(".github/workflows/publish-android-release-assets.yml", "utf8");
 const gate = readFileSync("scripts/verify-release-gates.mjs", "utf8");
 
+const circleCiConfig = readFileSync(".circleci/config.yml", "utf8");
+const androidDraftStart = circleCiConfig.indexOf("  android-release-draft:");
+const androidRebuildStart = circleCiConfig.indexOf("  android-rebuild:", androidDraftStart);
+const androidDraftJob = circleCiConfig.slice(androidDraftStart, androidRebuildStart);
+assert.ok(androidDraftStart >= 0 && androidRebuildStart > androidDraftStart, "the read-only Android release verifier must remain a distinct CircleCI job");
+assert.doesNotMatch(androidDraftJob, /context:\s*\n\s*-\s*android-signing/, "read-only Android release verification must not receive the Android signing context");
+assert.doesNotMatch(
+  androidDraftJob,
+  /^\s*(?:GH_TOKEN|ANDROID_KEYSTORE_BASE64|ANDROID_KEYSTORE_PASSWORD|ANDROID_KEY_ALIAS|ANDROID_KEY_PASSWORD):\s*(?!"")\S.*$/m,
+  "read-only Android release verification must not contain non-empty release-write or signing secret values",
+);
+// The empty job-level values intentionally shadow inherited CircleCI context secrets.
+// expectBlankCircleCiEnv below verifies the exact empty assignments for this read-only job.
+assert.doesNotMatch(androidDraftJob, /Authorization:\s*"Bearer"/, "public release metadata verification must not need a write-capable GitHub token");
+assert.ok(
+  androidDraftJob.includes('const repository = "zikrofficial-X/Zikr";') &&
+    androidDraftJob.includes('"https://api.github.com/repos/" + repository'),
+  "the verifier must continue to inspect the public canonical GitHub repository",
+);
+const workflowStart = circleCiConfig.indexOf("\nworkflows:");
+const workflowConfig = circleCiConfig.slice(workflowStart);
+const androidRebuildInvocationStart = workflowConfig.indexOf("      - android-rebuild:");
+const androidDispatchInvocationStart = workflowConfig.indexOf("      - android-release-dispatch:", androidRebuildInvocationStart);
+const nextInvocationAfterDispatch = workflowConfig.indexOf("\n      - ", androidDispatchInvocationStart + 1);
+const androidRebuildInvocation = workflowConfig.slice(androidRebuildInvocationStart, androidDispatchInvocationStart);
+const androidDispatchInvocation = workflowConfig.slice(androidDispatchInvocationStart, nextInvocationAfterDispatch >= 0 ? nextInvocationAfterDispatch : undefined);
+assert.match(androidRebuildInvocation, /context:\s*\n\s*-\s*android-signing/, "the signed Android build must retain its protected signing context");
+assert.match(androidDispatchInvocation, /context:\s*\n\s*-\s*android-signing/, "the release dispatch must retain its protected release context for GH_TOKEN only");
+const draftInvocationStart = circleCiConfig.indexOf("      - android-release-draft:");
+const draftInvocationEnd = circleCiConfig.indexOf("      - supabase-production-gate:", draftInvocationStart);
+const draftInvocation = circleCiConfig.slice(draftInvocationStart, draftInvocationEnd);
+assert.ok(draftInvocation.includes("only: main"), "the read-only release verifier must remain restricted to canonical main");
+assert.doesNotMatch(draftInvocation, /context:\s*\n\s*-\s*android-signing/, "the main-only read-only release check must not inherit signing secrets");
+const extractCircleCiJob = (name) => {
+  const start = circleCiConfig.indexOf("  " + name + ":\n");
+  if (start < 0) return "";
+  const tail = circleCiConfig.slice(start + 3);
+  const next = /\n  [a-z0-9-]+:\n/.exec(tail);
+  return circleCiConfig.slice(start, next ? start + 3 + next.index : undefined);
+};
+const expectBlankCircleCiEnv = (jobName, names) => {
+  const job = extractCircleCiJob(jobName);
+  assert.ok(job, "CircleCI job " + jobName + " must exist");
+  for (const name of names) {
+    const expected = "      " + name + ": \"\"";
+    assert.ok(job.includes(expected), jobName + " must shadow unused secret " + name);
+  }
+};
+const secretNames = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY", "GH_TOKEN",
+  "ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"];
+for (const jobName of ["config-guard", "source-verify", "application-build-docs", "security-audit", "android-release-draft"]) {
+  expectBlankCircleCiEnv(jobName, secretNames);
+}
+expectBlankCircleCiEnv("supabase-production-gate", ["GEMINI_API_KEY", "GH_TOKEN",
+  "ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"]);
+expectBlankCircleCiEnv("english-content-sync", ["GH_TOKEN", "ANDROID_KEYSTORE_BASE64",
+  "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"]);
+expectBlankCircleCiEnv("android-rebuild", ["GEMINI_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+expectBlankCircleCiEnv("android-release-dispatch", ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY",
+  "GEMINI_API_KEY", "ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"]);
+
+
 assert.match(workflow, /checks:\s*read/);
 assert.match(workflow, /statuses:\s*read/);
 assert.match(workflow, /pull-requests:\s*read/);

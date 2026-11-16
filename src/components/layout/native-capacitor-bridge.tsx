@@ -18,6 +18,10 @@ import { ensureNativeNotificationChannels } from "@/features/notifications/servi
 import { syncQuranReminderFromAccount } from "@/features/notifications/services/quran-reminder";
 import { PRODUCTION_URL } from "@/lib/site";
 import { sanitizeInternalPath } from "@/lib/safe-redirect";
+import {
+  isAllowedQuranAudioUrl,
+  isSafeQuranAudioDownloadPath,
+} from "@/features/quran/services/audio-download-policy";
 
 type CapacitorPlugin = Record<
   string,
@@ -38,9 +42,10 @@ type CapacitorWindow = Window & {
     haptic: (style?: "LIGHT" | "MEDIUM" | "HEAVY") => Promise<void>;
     pickImage: () => Promise<unknown>;
     writeFile: (path: string, data: string) => Promise<unknown>;
-    downloadFile: (url: string, path: string) => Promise<{ path?: string; uri?: string }>;
+    downloadFile: (url: string, path: string) => Promise<{ path?: string; uri?: string; sizeBytes?: number }>;
     deleteFile: (path: string) => Promise<void>;
     getFileUrl: (path: string) => Promise<string | null>;
+    getFileInfo: (path: string) => Promise<{ size?: number } | null>;
     getNetworkStatus: () => Promise<unknown>;
     scheduleLocalNotification: (notification: {
       id: number;
@@ -50,6 +55,7 @@ type CapacitorWindow = Window & {
       sound?: string;
       channelId?: string;
     }) => Promise<void>;
+    checkNotificationPermission: () => Promise<unknown>;
     requestNotificationPermission: () => Promise<unknown>;
     requestLocationPermission: () => Promise<unknown>;
     checkExactNotificationSetting: () => Promise<unknown>;
@@ -114,18 +120,27 @@ function installNativeFacade(
       });
     },
     async downloadFile(url, path) {
+      if (!isAllowedQuranAudioUrl(url) || !isSafeQuranAudioDownloadPath(path)) {
+        throw new Error("Blocked an untrusted Quran audio download request.");
+      }
       const filesystem = plugins.Filesystem;
       if (filesystem?.downloadFile) {
-        const result = await filesystem.downloadFile({
+        const result = (await filesystem.downloadFile({
           url,
           path,
           directory: "DATA",
           recursive: true,
-        });
-        return (result as { path?: string; uri?: string }) ?? { path };
+        })) as { path?: string; uri?: string } | undefined;
+        const actualPath = result?.path || path;
+        const fileInfo = (await filesystem.stat?.({ path: actualPath, directory: "DATA" })) as { size?: number } | undefined;
+        return {
+          path: actualPath,
+          uri: result?.uri,
+          sizeBytes: typeof fileInfo?.size === "number" && Number.isFinite(fileInfo.size) ? fileInfo.size : undefined,
+        };
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, { credentials: "omit", cache: "no-store" });
       if (!response.ok) throw new Error("Audio download failed");
       const bytes = new Uint8Array(await response.arrayBuffer());
       let binary = "";
@@ -141,20 +156,27 @@ function installNativeFacade(
         directory: "DATA",
         recursive: true,
       });
-      return { path };
+      return { path, sizeBytes: bytes.byteLength };
     },
     async deleteFile(path) {
+      if (!isSafeQuranAudioDownloadPath(path)) throw new Error("Blocked an unsafe Quran audio file deletion path.");
       await plugins.Filesystem?.deleteFile?.({
         path,
         directory: "DATA",
       });
     },
     async getFileUrl(path) {
+      if (!isSafeQuranAudioDownloadPath(path)) return null;
       const uriResult = (await plugins.Filesystem?.getUri?.({
         path,
         directory: "DATA",
       })) as { uri?: string } | undefined;
       return uriResult?.uri ? Capacitor.convertFileSrc(uriResult.uri) : null;
+    },
+    async getFileInfo(path) {
+      if (!isSafeQuranAudioDownloadPath(path)) return null;
+      const fileInfo = (await plugins.Filesystem?.stat?.({ path, directory: "DATA" })) as { size?: number } | undefined;
+      return typeof fileInfo?.size === "number" && Number.isFinite(fileInfo.size) ? { size: fileInfo.size } : null;
     },
     async getNetworkStatus() {
       return plugins.Network?.getStatus?.();
@@ -182,6 +204,9 @@ function installNativeFacade(
           },
         ],
       });
+    },
+    async checkNotificationPermission() {
+      return plugins.LocalNotifications?.checkPermissions?.();
     },
     async requestNotificationPermission() {
       return plugins.LocalNotifications?.requestPermissions?.();

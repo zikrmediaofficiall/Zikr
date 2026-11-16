@@ -25,6 +25,8 @@ export function GET() {
         { '/': '/articles/*' },
         { '/': '/dua' },
         { '/': '/dua/*' },
+        // Preserve Universal Links for the legacy plural alias that redirects to /dua.
+        { '/': '/duas' },
         { '/': '/stories' },
         { '/': '/stories/*' },
         { '/': '/kids' },

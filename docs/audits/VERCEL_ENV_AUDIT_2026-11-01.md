@@ -47,3 +47,13 @@ The connected Vercel action set supports listing, reading, creating, and editing
 ## Correction — 2026-11-10
 
 The application reads `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `src/features/admin/services/traffic-revenue.ts` for server-side GA4 OAuth. They are not obsolete Google sign-in variables. The current Vercel inventory contains those two names but does not contain `GA4_REFRESH_TOKEN` or `GA4_PROPERTY_ID`, so GA4 reporting is not configured. Google sign-in remains configured in Supabase Auth and uses `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` for the public client. No environment values were read or changed.
+
+
+## 2026-11-15 read-only recheck
+
+- Vercel project: `zikrmediaofficial` (`prj_bnBQb7DIXB5iE2mZJAghtAoZuKGs`), Node.js `22.x`, domain `zikrmediaofficial.vercel.app`.
+- Latest production deployment: `dpl_4d8m4a1W4iL7fZrVvP5zq6s2cN9h`, state READY, source commit `c4560d9`. No deployment was triggered.
+- Missing environment keys: `IOS_ASSOCIATED_DOMAIN_APP_ID`, `GA4_PROPERTY_ID`, `GA4_REFRESH_TOKEN`. The AASA endpoint therefore remains unconfigured and GA4 server-side reporting cannot be completed.
+- `SOCIAL_SYNC_SECRET`, `GITHUB_DISPATCH_TOKEN` and `GH_TOKEN` are present in the inspected Vercel environment listing; values were not decrypted or compared. This does not prove the GitHub Actions `GH_TOKEN` used by `refresh-offline-content.yml` is available or write-scoped.
+- Project metadata reports `live=false` while a production deployment is READY; owner should confirm this field is expected. SSO protection is enabled except for configured custom domains.
+- No environment values were changed and no secrets were read.

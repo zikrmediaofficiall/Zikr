@@ -3,6 +3,32 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DEFAULT_AUDIO_SETTINGS, getAudioChoice, getNativeAudio, normalizeAudioSettings, registerAudioChoices } from "../../src/lib/audio/config";
 import { ensureNativeNotificationChannels } from "../../src/features/notifications/services/native-notification-channels";
+import { getNotificationPermission, requestNotificationPermission } from "../../src/features/notifications/services/notifications";
+import { hasDismissedNotificationBanner, persistNotificationBannerDismissal } from "../../src/features/notifications/services/notification-banner-storage";
+
+let persistedDismissal: string | null = null;
+assert.equal(hasDismissedNotificationBanner(() => ({
+  getItem: () => persistedDismissal,
+  setItem: (_key: string, value: string) => { persistedDismissal = value; },
+})), false);
+persistNotificationBannerDismissal(() => ({
+  getItem: () => persistedDismissal,
+  setItem: (_key: string, value: string) => { persistedDismissal = value; },
+}));
+assert.equal(persistedDismissal, "1");
+assert.equal(hasDismissedNotificationBanner(() => ({
+  getItem: () => persistedDismissal,
+  setItem: () => undefined,
+})), true);
+assert.equal(
+  hasDismissedNotificationBanner(() => { throw new Error("session storage blocked"); }),
+  false,
+  "a blocked sessionStorage getter must not prevent the opt-in banner from rendering",
+);
+assert.doesNotThrow(
+  () => persistNotificationBannerDismissal(() => { throw new Error("session storage blocked"); }),
+  "a blocked sessionStorage getter must not prevent the banner from closing",
+);
 
 const iosPrayer = getNativeAudio("prayer", "ios");
 const iosDhikr = getNativeAudio("dhikr", "ios");
@@ -138,6 +164,14 @@ const bridgeSource = readFileSync(
   resolve(process.cwd(), "src/components/layout/native-capacitor-bridge.tsx"),
   "utf8",
 );
+const notificationBannerSource = readFileSync(
+  resolve(process.cwd(), "src/components/layout/notification-permission-banner.tsx"),
+  "utf8",
+);
+const profileSettingsSource = readFileSync(
+  resolve(process.cwd(), "src/features/profile/components/profile-local-settings.tsx"),
+  "utf8",
+);
 const prayerSource = readFileSync(
   resolve(process.cwd(), "src/features/prayer/hooks/use-prayer-alert.ts"),
   "utf8",
@@ -183,5 +217,72 @@ assert.match(bridgeEffect, /return \(\) => \{\s*disposed = true;/);
 assert.match(bridgeSource, /zikr:native-audio-channels-ready/);
 assert.match(prayerSource, /zikr:native-audio-channels-ready/);
 assert.match(salawatSource, /zikr:native-audio-channels-ready/);
+assert.match(prayerSource, /getNotificationPermission/);
+assert.match(prayerSource, /zikr:native-ready/);
+assert.match(prayerSource, /zikr:native-notification-permission/);
+assert.doesNotMatch(prayerSource, /setNotificationPermission\(Notification\.permission/);
+
+const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
+try {
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      zikrNative: {
+        checkNotificationPermission: async () => ({ display: "granted" }),
+        requestNotificationPermission: async () => ({ display: "denied" }),
+      },
+    },
+  });
+  assert.equal(await getNotificationPermission(), "granted",
+    "native permission checks must read the LocalNotifications display state");
+  assert.equal(await requestNotificationPermission(), "denied",
+    "native permission requests must return the plugin's actual display state");
+
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      zikrNative: {
+        checkNotificationPermission: async () => undefined,
+        requestNotificationPermission: async () => undefined,
+      },
+    },
+  });
+  assert.equal(await getNotificationPermission(), "unsupported",
+    "an unavailable native permission result must not be treated as granted");
+  assert.equal(await requestNotificationPermission(), "unsupported",
+    "a missing native permission result must never create a false grant");
+
+  Object.defineProperty(globalThis, "window", { configurable: true, value: {} });
+  assert.equal(await getNotificationPermission(), "unsupported",
+    "the permission service must fail closed when neither native nor web notifications exist");
+  assert.equal(await requestNotificationPermission(), "unsupported");
+} finally {
+  if (originalWindowDescriptor) {
+    Object.defineProperty(globalThis, "window", originalWindowDescriptor);
+  } else {
+    Reflect.deleteProperty(globalThis, "window");
+  }
+}
+
+assert.match(
+  bridgeSource,
+  /async checkNotificationPermission\(\) \{\s*return plugins\.LocalNotifications\?\.checkPermissions\?\.\(\);\s*\}/,
+  "the native bridge must expose LocalNotifications.checkPermissions",
+);
+assert.match(profileSettingsSource, /new CustomEvent\("zikr:show-notification-banner", \{ detail: \{ force: true \} \}\)/,
+  "the explicit settings action must be able to reopen a previously dismissed banner");
+assert.match(notificationBannerSource, /zikr:show-notification-banner/);
+assert.match(notificationBannerSource, /getNotificationPermission/);
+assert.match(notificationBannerSource, /hasDismissedNotificationBanner/);
+assert.match(notificationBannerSource, /persistNotificationBannerDismissal/);
+assert.match(notificationBannerSource, /detail\?\.force === true/);
+assert.match(notificationBannerSource, /if \(dismissed && !force\) return;/);
+assert.doesNotMatch(notificationBannerSource, /if \(dismissed\) return;/,
+  "a prior dismissal must not prevent the explicit settings event listener from registering");
+assert.doesNotMatch(notificationBannerSource, /sessionStorage\.getItem|sessionStorage\.setItem/,
+  "the banner must route storage access through the failure-safe adapter");
+assert.match(notificationBannerSource, /requestNotificationPermission/);
+assert.doesNotMatch(notificationBannerSource, /Notification\.requestPermission/,
+  "the permission banner must not bypass the native-aware permission service");
 
 console.log("Native notification audio asset and channel-refresh contract passed.");

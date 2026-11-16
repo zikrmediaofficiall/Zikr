@@ -88,6 +88,11 @@ jobs:
         run: pnpm admin:role-db:check
         timeout-minutes: 5
 
+      - name: Verify atomic video approval updates against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/video-approval-atomic.integration.sh
+        timeout-minutes: 5
+
       - name: Verify background reminder scheduling against PostgreSQL 17
         shell: bash
         run: bash scripts/tests/background-reminder-schedule.integration.sh
@@ -113,6 +118,11 @@ jobs:
         run: bash scripts/tests/kids-content-active-rls.integration.sh
         timeout-minutes: 5
 
+      - name: Verify public video audience RLS against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/kids-video-public-read-rls.integration.sh
+        timeout-minutes: 5
+
       - name: Verify client table privilege hardening against PostgreSQL 17
         shell: bash
         run: bash scripts/tests/client-table-privilege-hardening.integration.sh
@@ -131,6 +141,11 @@ jobs:
       - name: Verify source-agent cron reconciliation against PostgreSQL 17
         shell: bash
         run: bash scripts/tests/source-agent-cron-reconcile.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify prayer push cron reconciliation against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/prayer-push-cron-reconcile.integration.sh
         timeout-minutes: 5
 
       - name: Verify scheduled content active-queue uniqueness against PostgreSQL 17

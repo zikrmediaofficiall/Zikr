@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildDuplicateVideoOwnerRecoveryFilter, buildDuplicateVideoOwnerVideoUrlFilter, canRecoverDuplicateVideoRender } from "../../src/features/videos/services/duplicate-video-recovery";
+import { buildDuplicateVideoOwnerRecoveryFilter, buildDuplicateVideoOwnerVideoUrlFilter, canRecoverDuplicateVideoRender, resolveUniqueDuplicateVideoSiteRecord } from "../../src/features/videos/services/duplicate-video-recovery";
 import type { DuplicateVideoHashOwner } from "../../src/features/videos/services/duplicate-video-recovery";
 import { calculateDailyVideoQuotaState } from "../../src/features/videos/services/video-automation-quota";
 import { buildMissingMediaQueueRecoveryPatch } from "../../src/features/social/services/platform-availability";
@@ -19,6 +19,17 @@ const candidate = {
   sourceHash: "source-hash-1",
   templateVersion: "renderer-v4",
 };
+
+const explicitMissingSiteRecord = resolveUniqueDuplicateVideoSiteRecord([]);
+assert.equal(explicitMissingSiteRecord, null, "only a verified empty row array may represent a missing catalog record");
+const verifiedSiteRecord = { published: false, metadata: { mediaState: "purged" } };
+assert.deepEqual(resolveUniqueDuplicateVideoSiteRecord([verifiedSiteRecord]), verifiedSiteRecord);
+assert.throws(() => resolveUniqueDuplicateVideoSiteRecord(null), /unique catalog lookup response/);
+assert.throws(() => resolveUniqueDuplicateVideoSiteRecord(undefined), /unique catalog lookup response/);
+assert.throws(() => resolveUniqueDuplicateVideoSiteRecord([verifiedSiteRecord, verifiedSiteRecord]), /unique catalog lookup response/);
+assert.throws(() => resolveUniqueDuplicateVideoSiteRecord([null]), /invalid catalog row/);
+assert.throws(() => resolveUniqueDuplicateVideoSiteRecord([{ published: "unknown", metadata: {} }]), /invalid catalog visibility contract/);
+
 
 assert.equal(
   buildDuplicateVideoOwnerVideoUrlFilter(null),
@@ -170,11 +181,17 @@ assert.deepEqual(
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 const videoAutomationService = readFileSync("src/features/videos/services/video-automation.ts", "utf8");
 const videoRetryRoute = readFileSync("src/app/api/admin/videos/[id]/retry/route.ts", "utf8");
-assert.match(videoRetryRoute, /currentRows\[0\]\.status !== 'failed'/, "only failed video requests may be retried");
-assert.match(videoRetryRoute, /updateVideoRequestStatus\(id, 'pending', undefined, 'failed'\)/, "retry must use a failed-state compare-and-set");
+assert.match(videoRetryRoute, /current\.status !== 'failed'/, "only failed video requests may be retried");
+assert.match(videoRetryRoute, /updateVideoRequestStatus\(id, 'pending', undefined, 'failed', current\.updated_at\)/, "retry must use a failed-state compare-and-set against the audience-authorized revision");
 assert.match(videoAutomationService, /status=eq\.\$\{encodeURIComponent\(expectedStatus\)\}/);
-assert.match(videoAutomationService, /updated_at=eq\.\$\{encodeURIComponent\(expectedUpdatedAt\)\}/, "retry compare-and-set must include the exact updated_at revision");
-assert.match(videoAutomationService, /return Array\.isArray\(updated\) && updated\.length > 0/);
+assert.match(videoAutomationService, /updated_at=eq\.\$\{encodeURIComponent\(expectedRowUpdatedAt\)\}/, "retry compare-and-set must include the exact updated_at revision");
+assert.match(videoAutomationService, /expectedUpdatedAt && existingRow\.updated_at !== expectedUpdatedAt/, "retry must reject a row whose audience changed after authorization");
+const updateStatusStart = videoAutomationService.indexOf("export async function updateVideoRequestStatus");
+const metadataStart = videoAutomationService.indexOf("export function generateYoutubeMetadata", updateStatusStart);
+const updateStatus = videoAutomationService.slice(updateStatusStart, metadataStart);
+assert.match(updateStatus, /if \(!Array\.isArray\(updated\)\)/, "malformed update responses must fail closed");
+assert.match(updateStatus, /return updated\.length > 0/, "a valid empty compare-and-set response must remain a conflict");
+assert.match(updateStatus, /throw error;/, "database errors must propagate instead of being reported as a compare-and-set conflict");
 
 
 const recoveredFailed = buildMissingMediaQueueRecoveryPatch({
@@ -287,6 +304,8 @@ assert.ok(
 assert.match(worker, /calculateDailyVideoQuotaState\(todaysRows \?\? \[\]\)/);
 assert.match(worker, /const slot = dailyQuota\.nextSlot \+ i/);
 assert.ok(worker.includes("canRecoverDuplicateVideoRender"), "the video worker must use the recovery decision contract");
+assert.ok(worker.includes("resolveUniqueDuplicateVideoSiteRecord(duplicateSiteRows)"), "duplicate recovery must fail closed on malformed catalog lookups");
+assert.ok(worker.includes("&select=published,metadata&limit=2"), "duplicate recovery must detect multiple catalog rows instead of silently selecting one");
 const duplicateRecoveryFilterCall = worker.indexOf("buildDuplicateVideoOwnerRecoveryFilter(");
 const duplicateUrlArgument = worker.indexOf("duplicate.video_url", duplicateRecoveryFilterCall);
 const duplicateRevisionArgument = worker.indexOf("duplicate.updated_at", duplicateUrlArgument);

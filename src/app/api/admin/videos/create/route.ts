@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { hasExplicitKidsVideoIntentMarker, normalizeVideoAudience } from "@/features/videos/services/video-audience-visibility";
+import { requireAdminApi } from "@/features/admin/services/admin";
 import { requireAdminStepUpApi } from "@/features/admin/services/security";
 import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
@@ -100,9 +102,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let content: Record<string, unknown> = isObject(body.content)
-      ? { ...body.content }
-      : {};
+    const submittedContent = isObject(body.content) ? body.content : {};
+    const submittedKidsIntent = hasExplicitKidsVideoIntentMarker(submittedContent);
+    let content: Record<string, unknown> = { ...submittedContent };
     const qualityProfile = {
       version: "2026.1",
       audience: category === "other" ? "general" : "family",
@@ -163,7 +165,7 @@ export async function POST(request: NextRequest) {
         prompt: source.text,
         aiMode: "source_locked",
         sourceVerifiedAtRequest: true,
-        ...(source.audience ? { audience: source.audience } : {}),
+        audience: source.audience ?? "general",
         ...(source.seriesId ? { seriesId: source.seriesId } : {}),
         ...(source.seriesTitle ? { seriesTitle: source.seriesTitle } : {}),
         ...(Number.isInteger(source.seasonNumber) ? { seasonNumber: source.seasonNumber } : {}),
@@ -207,6 +209,34 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    const requestedAudience = normalizeVideoAudience(content.audience);
+    if (!requestedAudience) {
+      return NextResponse.json({ error: "فئة الجمهور غير معروفة؛ تم إيقاف إنشاء الفيديو." }, { status: 422 });
+    }
+    if ((submittedKidsIntent || hasExplicitKidsVideoIntentMarker(content)) && requestedAudience !== "kids") {
+      return NextResponse.json(
+        { error: "توجد علامات محتوى أطفال مع فئة جمهور عامة؛ حدّد فئة الأطفال وامتلك صلاحية إدارة قسم الأطفال." },
+        { status: 422 },
+      );
+    }
+    content = { ...content, audience: requestedAudience };
+
+    if (requestedAudience === "kids") {
+      const kidsAuth = await requireAdminApi("kids.manage");
+      if (!kidsAuth.ok) {
+        return NextResponse.json(
+          { error: kidsAuth.error },
+          { status: kidsAuth.status, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      if (kidsAuth.profile.id !== auth.profile.id) {
+        return NextResponse.json(
+          { error: "Unauthorized" },
+          { status: 401, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+    }
+
     if (typeof content.templateVersionId === "string" && content.templateVersionId.trim()) {
       const versionId = content.templateVersionId.trim();
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(versionId)) {
@@ -231,7 +261,6 @@ export async function POST(request: NextRequest) {
       if (!template || !config || !isVideoTemplateAssetAllowedForAudience(config.assetKey, template.audience)) {
         return NextResponse.json({ error: "إعدادات القالب لا تجتاز تحقق محرك الرندر." }, { status: 422 });
       }
-      const requestedAudience = content.audience === "kids" ? "kids" : "general";
       if (requestedAudience !== template.audience) {
         return NextResponse.json({ error: "القالب المختار لا يتوافق مع فئة الجمهور لهذا الفيديو." }, { status: 422 });
       }

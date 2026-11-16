@@ -72,6 +72,10 @@ Native social:
 
 The canonical Meta variable name is `FACEBOOK_GRAPH_API_VERSION`. `META_GRAPH_API_VERSION` is retired.
 
+Manual written-content generation uses `WRITTEN_CONTENT_ALLOW_KIDS` (default `false`). The scheduled generator explicitly enables Kids source selection; admin-triggered `auto` or `kids` requests pass `true` only when the caller has `kids.manage`. A social-only manager's automatic selection and legacy backfill remain general-audience only.
+
+When `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED=true`, the scheduled social worker may retry catalog metadata synchronization for already-published Kids queue rows. It revalidates the linked generation request and current human-approval fingerprint before writing; blocked rows are held for owner review. The flag does not itself enable external delivery or call providers. The current runner evaluates it only after the Admin auto-publish setting and `SOCIAL_PUBLISH_ENABLED=true` admit the social worker, so reconciliation pauses whenever either publishing gate is off.
+
 ## 4. Video worker contract
 
 Production video generation is owned by GitHub Actions `generate-ai-video.yml`. Social publishing is owned by GitHub Actions `publish-social.yml`. CircleCI does not execute either production worker. The protected production social workflow sets `SOCIAL_PUBLISH_ENABLED=true` only for its job, then validates each provider independently against OAuth-managed Supabase credentials and required secrets. If neither provider is ready, it sets `SOCIAL_PUBLISH_ENABLED=false` in the job environment and claims no queue rows. Facebook requires an enabled, connected Page credential, a Page ID, a non-expired credential, and the required Pages publishing/insights scopes. YouTube requires the client ID/secret and a stored OAuth credential with `youtube.upload`, `youtube.readonly`, and `yt-analytics.readonly` scopes, plus a usable refresh token. The repository `.env.example` is deliberately safer for local development and keeps external publishing disabled by default; it is not the production workflow configuration.
@@ -105,6 +109,7 @@ Worker/runtime configuration includes:
 - `AUTO_VIDEO_PUBLISH_ENABLED`
 - `AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL`
 - `SOCIAL_PUBLISH_ENABLED`
+- `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED` — optional catalog-only reconciliation for already-published, currently human-approved Kids videos; default `false`. It updates internal catalog metadata only, never calls Facebook/YouTube, and scans at most 100 rows per run.
 - `COMFYUI_ENABLED`
 - `COMFYUI_BASE_URL`
 - `COMFYUI_TIMEOUT_MS`

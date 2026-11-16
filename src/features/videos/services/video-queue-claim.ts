@@ -95,6 +95,7 @@ export type VideoSocialQueueRecoveryCandidate = {
   id: string;
   status: string;
   video_url?: string | null;
+  created_at?: string | null;
   updated_at?: string | null;
   content?: Record<string, unknown> | null;
 };
@@ -107,14 +108,22 @@ export type VideoSocialQueueRecoveryCandidate = {
 export function buildVideoSocialQueueRecoveryClaimFilter(
   candidate: VideoSocialQueueRecoveryCandidate,
   staleBefore: string,
+  publishAfter: string,
 ): string | null {
   const id = candidate.id.trim();
+  const createdAt = candidate.created_at?.trim();
   const updatedAt = candidate.updated_at?.trim();
   const videoUrl = candidate.video_url?.trim();
+  const createdTimestamp = timestamp(createdAt);
+  const cutoffTimestamp = timestamp(publishAfter);
   const updatedTimestamp = timestamp(updatedAt);
   const enqueueStatus = candidate.content?.socialQueueEnqueueStatus;
   if (
     !id ||
+    !createdAt ||
+    createdTimestamp === null ||
+    cutoffTimestamp === null ||
+    createdTimestamp < cutoffTimestamp ||
     (candidate.status !== "processing" && candidate.status !== "retry_wait") ||
     !updatedAt ||
     updatedTimestamp === null ||
@@ -135,6 +144,7 @@ export function buildVideoSocialQueueRecoveryClaimFilter(
     `status=eq.${candidate.status}`,
     `video_url=eq.${encodeURIComponent(videoUrl)}`,
     `updated_at=eq.${encodeURIComponent(updatedAt)}`,
+    `created_at=eq.${encodeURIComponent(createdAt)}`,
     `content->>socialQueueEnqueueStatus=eq.${enqueueStatus}`,
   ].join("&");
 }

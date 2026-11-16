@@ -1,22 +1,20 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireAdminStepUp } from "@/features/admin/services/security";
-import { recordAdminAuditEvent } from "@/features/admin/services/audit";
-import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 
+/**
+ * Legacy bulk deletion is intentionally disabled. Failed generation requests
+ * may still own media, catalog, social-queue, or audit references. Keep the
+ * records until a complete reference inventory and transactional retention
+ * contract are implemented.
+ */
 export async function deleteFailedVideoGenerationAction() {
   await requireAdminStepUp("video.delete", "/admin/video/requests");
-  await supabaseServerAdminRequest("/rest/v1/video_generation_requests?status=eq.failed", {
-    method: "DELETE",
-    headers: { Prefer: "return=minimal" },
-  });
-  await recordAdminAuditEvent({
-    action: "video_generation.delete_failed",
-    permission: "video.delete",
-    resourceType: "video_generation_requests",
-    metadata: { filter: "status=failed" },
-  });
-  revalidatePath("/admin/video/requests");
-  revalidatePath("/admin");
+  return {
+    ok: false as const,
+    code: "VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT",
+    deletionStarted: false as const,
+    recordsDeleted: 0 as const,
+    message: "No rows were changed.",
+  };
 }

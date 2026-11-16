@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 
-const baseUrl = (process.env.SITE_URL ?? process.env.DEPLOYMENT_URL ?? "").replace(/\/+$/, "");
-assert.ok(baseUrl, "SITE_URL or DEPLOYMENT_URL is required");
+const deploymentUrl = process.env.DEPLOYMENT_URL?.trim();
+const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.SITE_URL?.trim();
+const baseUrl = (deploymentUrl || canonicalUrl || "").replace(/\/+$/, "");
+assert.ok(baseUrl, "DEPLOYMENT_URL, NEXT_PUBLIC_SITE_URL, or SITE_URL is required");
+const parsedBaseUrl = new URL(baseUrl);
+assert.equal(parsedBaseUrl.protocol, "https:", "Production smoke must use HTTPS");
+const allowedOrigins = new Set([parsedBaseUrl.origin]);
+if (canonicalUrl) {
+  const parsedCanonicalUrl = new URL(canonicalUrl);
+  assert.equal(parsedCanonicalUrl.protocol, "https:", "Canonical production URL must use HTTPS");
+  allowedOrigins.add(parsedCanonicalUrl.origin);
+}
 
 const PUBLIC_ROUTES = [
   "/about",
@@ -67,6 +77,7 @@ const CORE_CHECKS = [
   { path: "/prayer-times", label: "prayer times page", expectedMain: /مواقيت/i },
   { path: "/kids", label: "kids page", expectedMain: /نتعلم|الأطفال|الاطفال/i },
   { path: "/kids/games", label: "kids games catalogue", expectedMain: /الألعاب|ألعاب|All games|Choose your next adventure/i, expectedContent: /مختبر الحروف|Arabic Letter Lab|Letter Lab/i },
+  { path: "/kids/videos", label: "kids video library", expectedMain: /قصص فيديو مخصصة للأطفال|Stories made for young viewers/i },
   { path: "/data-deletion", label: "Facebook data deletion instructions", expectedMain: /حذف بيانات المستخدم.*إرسال طلب حذف البيانات/i },
   { path: "/dua/zikr-dua-expansion-14", label: "short published dua detail", minMainText: 35 },
   {
@@ -219,8 +230,11 @@ async function checkEndpoint(check) {
         signal: AbortSignal.timeout(20_000),
       });
       const body = await response.text();
+      const finalUrl = new URL(response.url || url);
       last = `HTTP ${response.status}`;
-      if (response.status === 200) {
+      if (finalUrl.protocol !== "https:" || !allowedOrigins.has(finalUrl.origin)) {
+        last = `HTTP ${response.status} but final response origin ${finalUrl.origin} is not a verified deployment/canonical origin`;
+      } else if (response.status === 200) {
         let jsonPayload;
         if (check.expectedJson) {
           try {

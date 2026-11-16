@@ -16,10 +16,41 @@ export type DuplicateVideoRenderCandidate = {
   templateVersion: string;
 };
 
-export type DuplicateVideoSiteRecord = {
+export type DuplicateVideoSiteRecordRow = {
   published: boolean | null;
   metadata: Record<string, unknown> | null;
-} | null;
+};
+
+export type DuplicateVideoSiteRecord = DuplicateVideoSiteRecordRow | null;
+
+/**
+ * Distinguish a verified empty catalog lookup from an empty/malformed response.
+ * Duplicate recovery may treat only an actual empty row array as absence.
+ */
+export function resolveUniqueDuplicateVideoSiteRecord(rows: unknown): DuplicateVideoSiteRecord {
+  if (!Array.isArray(rows) || rows.length > 1) {
+    throw new Error("Duplicate video recovery requires a unique catalog lookup response.");
+  }
+  if (rows.length === 0) return null;
+
+  const row = rows[0];
+  if (typeof row !== "object" || row === null || Array.isArray(row)) {
+    throw new Error("Duplicate video recovery received an invalid catalog row.");
+  }
+
+  const value = row as Record<string, unknown>;
+  const published = value.published;
+  const metadata = value.metadata;
+  if (
+    (published !== true && published !== false && published !== null) ||
+    (metadata !== null && (typeof metadata !== "object" || Array.isArray(metadata)))
+  ) {
+    throw new Error("Duplicate video recovery received an invalid catalog visibility contract.");
+  }
+
+  return { published, metadata: metadata as Record<string, unknown> | null };
+}
+
 
 function isGeneratedCloudinaryVideoUrl(value: string): boolean {
   try {

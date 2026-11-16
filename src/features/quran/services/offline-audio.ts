@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  isAllowedQuranAudioUrl,
+  isSafeQuranAudioDownloadPath,
+  isValidQuranAudioDownloadRequest,
+} from "./audio-download-policy";
+
 export type QuranAudioDownload = {
   key: string;
   surahId: number;
@@ -38,9 +44,10 @@ function writeIndex(index: Record<string, QuranAudioDownload>): void {
 
 type NativeBridge = {
   isNative?: boolean;
-  downloadFile?: (url: string, path: string) => Promise<{ path?: string; uri?: string }>;
+  downloadFile?: (url: string, path: string) => Promise<{ path?: string; uri?: string; sizeBytes?: number }>;
   deleteFile?: (path: string) => Promise<void>;
   getFileUrl?: (path: string) => Promise<string | null>;
+  getFileInfo?: (path: string) => Promise<{ size?: number } | null>;
 };
 
 function nativeBridge(): NativeBridge | null {
@@ -101,6 +108,13 @@ export async function downloadQuranAudio(
   reciterCode: string,
   onProgress?: (percent: number | null) => void,
 ): Promise<QuranAudioDownload> {
+  if (!isValidQuranAudioDownloadRequest(surahId, reciterCode)) {
+    throw new Error("بيانات تنزيل التلاوة غير صالحة.");
+  }
+  if (!isAllowedQuranAudioUrl(sourceUrl)) {
+    throw new Error("مصدر التلاوة غير موثوق؛ لم يبدأ التنزيل.");
+  }
+
   const key = recordKey(surahId, reciterCode);
   const existing = readIndex()[key];
 
@@ -115,8 +129,19 @@ export async function downloadQuranAudio(
   const bridge = nativeBridge();
   if (bridge?.isNative && bridge.downloadFile) {
     const path = `quran-audio/${encodeURIComponent(reciterCode)}/${surahId}.mp3`;
+    if (!isSafeQuranAudioDownloadPath(path)) {
+      throw new Error("مسار حفظ التلاوة غير صالح.");
+    }
     onProgress?.(null);
     const result = await bridge.downloadFile(sourceUrl, path);
+    let sizeBytes = result.sizeBytes;
+    if (typeof sizeBytes !== "number" && bridge.getFileInfo) {
+      try {
+        sizeBytes = (await bridge.getFileInfo(result.path || path))?.size;
+      } catch {
+        sizeBytes = undefined;
+      }
+    }
     const record: QuranAudioDownload = {
       key,
       surahId,
@@ -125,6 +150,7 @@ export async function downloadQuranAudio(
       storage: "native",
       path: result.path || path,
       uri: result.uri,
+      sizeBytes: typeof sizeBytes === "number" && Number.isFinite(sizeBytes) && sizeBytes >= 0 ? sizeBytes : undefined,
       downloadedAt: new Date().toISOString(),
     };
     const index = readIndex();
@@ -207,19 +233,28 @@ export async function removeQuranAudio(
   const record = index[key];
   if (!record) return;
 
-  try {
-    if (record.storage === "native") {
-      const bridge = nativeBridge();
-      const path = record.path || record.uri;
-      if (bridge?.deleteFile && path) await bridge.deleteFile(path);
-    } else if ("caches" in window) {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.delete(record.sourceUrl);
+  if (record.storage === "native") {
+    const bridge = nativeBridge();
+    const path = record.path || record.uri;
+    if (!bridge?.deleteFile || !path || !isSafeQuranAudioDownloadPath(path)) {
+      throw new Error("تعذر حذف ملف التلاوة المحلي بأمان؛ احتفظنا بسجل التنزيل للمحاولة مرة أخرى.");
     }
-  } finally {
-    delete index[key];
-    writeIndex(index);
+    await bridge.deleteFile(path);
+  } else if (record.storage === "cache") {
+    if (!("caches" in window)) {
+      throw new Error("التخزين المؤقت غير متاح؛ احتفظنا بسجل التنزيل للمحاولة مرة أخرى.");
+    }
+    const cache = await caches.open(CACHE_NAME);
+    await cache.delete(record.sourceUrl);
+  } else {
+    throw new Error("نوع التخزين المحلي غير معروف؛ احتفظنا بسجل التنزيل.");
   }
+
+  // Remove the index only after the backing file/cache operation succeeds.
+  // If deletion fails, retain the record so the user can retry rather than
+  // orphaning an undeleted native file or cached response.
+  delete index[key];
+  writeIndex(index);
 }
 
 export async function getQuranAudioDownloads(): Promise<QuranAudioDownload[]> {
@@ -229,7 +264,28 @@ export async function getQuranAudioDownloads(): Promise<QuranAudioDownload[]> {
 }
 
 export async function getQuranAudioUsage(): Promise<{ count: number; bytes: number }> {
-  const records = await getQuranAudioDownloads();
+  const index = readIndex();
+  const bridge = nativeBridge();
+  let indexChanged = false;
+
+  if (bridge?.getFileInfo) {
+    for (const [key, record] of Object.entries(index)) {
+      const path = record.path || record.uri;
+      if (record.storage !== "native" || typeof record.sizeBytes === "number" || !path || !isSafeQuranAudioDownloadPath(path)) continue;
+      try {
+        const info = await bridge.getFileInfo(path);
+        if (typeof info?.size === "number" && Number.isFinite(info.size) && info.size >= 0) {
+          index[key] = { ...record, sizeBytes: info.size };
+          indexChanged = true;
+        }
+      } catch {
+        // A removed or inaccessible local file must not break the settings page.
+      }
+    }
+  }
+
+  if (indexChanged) writeIndex(index);
+  const records = Object.values(index);
   return {
     count: records.length,
     bytes: records.reduce((sum, item) => sum + (item.sizeBytes ?? 0), 0),

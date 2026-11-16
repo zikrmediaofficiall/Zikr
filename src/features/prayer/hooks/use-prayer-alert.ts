@@ -10,6 +10,7 @@ import {
 } from "@/lib/audio/spiritual-tones";
 import {
   showPrayerNotification,
+  getNotificationPermission,
   requestNotificationPermission,
 } from "@/features/notifications/services/notifications";
 import type { NotificationPermission as PermResult } from "@/features/notifications/services/notifications";
@@ -19,7 +20,7 @@ import {
 } from "@/lib/push-subscription";
 import { getNativeAudio } from "@/lib/audio/config";
 import { getSavedPrayerLocation, loadLocalPrayerLocation } from "@/features/prayer/services/saved-prayer-location";
-import { getMinutesOfDayInTimeZone, getPrayerTimes } from "@/features/prayer/services/prayer-times";
+import { getMinutesOfDayInTimeZone, getPrayerTimes, parsePrayerTimeMinutes } from "@/features/prayer/services/prayer-times";
 import {
   addCalendarDays,
   getPrayerAlertDateKey,
@@ -76,17 +77,6 @@ function formatLocalDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function parsePrayerTime(
-  value: string
-): { hours: number; minutes: number } | null {
-  const match = /^(\d{1,2}):(\d{2})/.exec(value);
-  if (!match) return null;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (hours > 23 || minutes > 59) return null;
-  return { hours, minutes };
 }
 
 /** Dedup key: fires once per prayer per calendar day. */
@@ -166,7 +156,6 @@ async function scheduleNativePrayerNotificationsNow(
   const nativeAudio = getNativeAudio("prayer");
   const refreshedPrayerIds = new Set<number>();
   const scheduleEntries: Array<{ id: number; prayer: PrayerKey; scheduleAt: string }> = [];
-
   // Resolve the complete refresh plan before cancelling existing alarms. A
   // failed future-day lookup must not erase a valid alarm already on-device.
   for (let dayOffset = 0; dayOffset < PRAYER_SCHEDULE_DAYS; dayOffset += 1) {
@@ -205,6 +194,8 @@ async function scheduleNativePrayerNotificationsNow(
         PRAYER_NATIVE_ID_BASE +
         dayOffset * PRAYERS.length +
         PRAYERS.indexOf(prayer);
+      // Resolved times must cancel the old alarm, including past times. A
+      // past time is not re-scheduled, but its stale on-device alarm is removed.
       refreshedPrayerIds.add(id);
       if (scheduled <= now) continue;
       scheduleEntries.push({ id, prayer, scheduleAt: scheduled.toISOString() });
@@ -309,12 +300,26 @@ export function usePrayerAlert(
     void refreshSiteAudio();
   }, []);
 
-  // Load settings and check notification permission on mount
+  // Read the native-aware permission state on mount and again when the
+  // Capacitor bridge becomes ready or the user changes notification access.
   useEffect(() => {
     setSettings(loadSettings());
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotificationPermission(Notification.permission as PermResult);
-    }
+    if (typeof window === "undefined") return;
+
+    let disposed = false;
+    const refresh = () => {
+      void getNotificationPermission().then((permission) => {
+        if (!disposed) setNotificationPermission(permission);
+      });
+    };
+    refresh();
+    window.addEventListener("zikr:native-ready", refresh);
+    window.addEventListener("zikr:native-notification-permission", refresh);
+    return () => {
+      disposed = true;
+      window.removeEventListener("zikr:native-ready", refresh);
+      window.removeEventListener("zikr:native-notification-permission", refresh);
+    };
   }, []);
 
   // The durable location now lives under zikr_prayer_location_v2. Load the
@@ -414,11 +419,9 @@ export function usePrayerAlert(
 
       for (const prayer of PRAYERS) {
         if (!settings.enabledPrayers[prayer]) continue;
-        const parsed = parsePrayerTime(currentTimings[prayer] ?? "");
-        if (!parsed) continue;
-        const diff = Math.abs(
-          parsed.hours * 60 + parsed.minutes - currentMinutes,
-        );
+        const prayerMinutes = parsePrayerTimeMinutes(currentTimings[prayer] ?? "");
+        if (prayerMinutes === null) continue;
+        const diff = Math.abs(prayerMinutes - currentMinutes);
 
         if (diff <= 1 && !alreadyFired(prayer, timeZone)) {
           markFired(prayer, timeZone);

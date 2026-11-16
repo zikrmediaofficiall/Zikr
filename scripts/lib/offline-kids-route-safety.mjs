@@ -1,3 +1,27 @@
+const SAFE_KIDS_CONTENT_TYPES = new Set([
+  "story",
+  "prayer",
+  "wudu",
+  "quiz",
+  "game",
+  "puzzle",
+  "coloring",
+  "matching",
+  "video",
+  "memorize",
+]);
+
+function isPublicKidsRouteRow(row) {
+  if (!row || typeof row !== "object") return false;
+  const type = typeof row.type === "string"
+    ? row.type
+    : typeof row.content_type === "string" ? row.content_type : "";
+  if (!SAFE_KIDS_CONTENT_TYPES.has(type)) return false;
+  if (row.published !== true || row.is_active !== true) return false;
+  if (type === "story" && row.metadata?.age_appropriate !== true) return false;
+  return true;
+}
+
 function isSafeKidsSlug(value) {
   const slug = typeof value === "string" ? value.trim() : "";
   return /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug);
@@ -6,7 +30,7 @@ function isSafeKidsSlug(value) {
 export function getPublishedKidsRoutes(currentRows) {
   const routes = new Set();
   for (const row of Array.isArray(currentRows) ? currentRows : []) {
-    if (!row || (row.type === "story" && row.metadata?.age_appropriate !== true)) continue;
+    if (!isPublicKidsRouteRow(row)) continue;
     const slug = typeof row.slug === "string" ? row.slug.trim() : "";
     if (!isSafeKidsSlug(slug)) continue;
     routes.add(`/kids/${slug}`);
@@ -19,7 +43,7 @@ export function getBlockedKidsRoutes(previousRows, currentRows, previousRoutes =
   const previous = Array.isArray(previousRows) ? previousRows : [];
   const visibleSlugs = new Set(
     rows
-      .filter(row => row && (row.type !== "story" || row.metadata?.age_appropriate === true))
+      .filter(isPublicKidsRouteRow)
       .map(row => typeof row?.slug === "string" ? row.slug.trim() : "")
       .filter(isSafeKidsSlug),
   );
@@ -52,4 +76,22 @@ export function getBlockedKidsRoutes(previousRows, currentRows, previousRoutes =
   }
 
   return blocked;
+}
+
+
+export function resolveOfflineDatasetMinimum(dataset, configuredMinimum, hasServiceRoleKey) {
+  if (!Number.isInteger(configuredMinimum) || configuredMinimum < 0) {
+    throw new Error("Offline dataset minimum must be a non-negative integer.");
+  }
+  if (dataset !== "kids") return configuredMinimum;
+  if (!hasServiceRoleKey) {
+    throw new Error("Kids offline snapshots require a protected Supabase service-role key so route revocation uses a complete visibility read.");
+  }
+  // A legitimate empty or reduced Kids public set must still be exported so
+  // previously cached routes for unpublished or rejected content are revoked.
+  return 0;
+}
+
+export function isValidOfflineDatasetCount(dataset, count) {
+  return Number.isInteger(count) && (dataset === "kids" ? count >= 0 : count > 0);
 }

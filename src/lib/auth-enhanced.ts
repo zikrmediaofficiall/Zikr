@@ -6,6 +6,7 @@
  */
 
 import { getServerEnv } from "@/lib/env";
+import { isLocalDevelopmentOAuthHost } from "@/lib/auth/oauth-origin";
 import { PRODUCTION_URL, isV0PreviewHost } from "@/lib/site";
 import { getSafeInternalPath } from "@/lib/safe-relative-path";
 
@@ -56,7 +57,7 @@ export function getCanonicalAuthBaseUrl(baseUrl?: string | null): string {
     const url = new URL(baseUrl);
     const host = url.hostname.toLowerCase();
 
-    const isLocalHost = host === "localhost" || host === "127.0.0.1" || host === "::1";
+    const isLocalHost = isLocalDevelopmentOAuthHost(host);
     if (isLocalHost) {
       const isProductionRuntime =
         process.env.NODE_ENV === "production" ||

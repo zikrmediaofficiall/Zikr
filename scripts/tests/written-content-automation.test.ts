@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
+import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsAudience,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,isWrittenPostVisibleToSocialManager,isUnclassifiedKidsSocialQueueItem,isSafeWrittenBackfillSource,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
 assert.deepEqual(asWrittenRecord({ automationPublicationHold: true }), { automationPublicationHold: true }, "object metadata must be preserved for publication-hold checks");
 assert.deepEqual(asWrittenRecord(null), {}, "missing metadata must normalize to an empty record");
 assert.deepEqual(asWrittenRecord(["invalid"]), {}, "array metadata must not be treated as a metadata record");
@@ -19,6 +19,63 @@ assert.throws(
 const source:WrittenContentSource={kind:"quran",id:"ayah-1",title:"آية",sourceText:"إِنَّ مَعَ الْعُسْرِ يُسْرًا",reference:"سورة الشرح، الآية 6",publicPath:"/quran/ash-sharh",categoryLabel:"القرآن الكريم",sourceVerified:true,quoteRequired:true};
 const draft:WrittenPostDraft={eligible:true,title:"مع كل عسر يسر",hook:"قد تمر بلحظة تظن فيها أن الطريق انتهى، لكن الأمل يظل حاضرًا.",reflection:"تدعونا الآية إلى ألا نستسلم لليأس، وأن نتذكر أن الشدة لا تدوم وأن الأمل باب للعمل والصبر.",question:"ما المعنى الذي تستحضره عندما تمر بوقت صعب؟"};
 assert.equal(normalizeWrittenCategory("hadith"),"hadith");assert.equal(normalizeWrittenCategory("other"),"auto");assert.equal(normalizeWrittenCategory("companions"),"companions");assert.equal(normalizeWrittenCategory("kids"),"kids");
+assert.equal(isKidsAudience("kids"), true);
+assert.equal(isKidsAudience(" KIDS "), true);
+assert.equal(isKidsAudience("children"), true);
+assert.equal(isKidsAudience("general"), false);
+assert.equal(isKidsAudience(null), false);
+assert.equal(isKidsWrittenSourceReservation({ source: { type: " KIDS_STORY " } }), true,
+  "source-type markers must be normalized before reserving Kids content from general publishing");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: " /Kids/story " }), true,
+  "mixed-case and whitespace-padded Kids paths must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "https://zikrmediaofficial.vercel.app/Kids/story?from=admin" }), true,
+  "absolute Kids public URLs must be recognized as Kids content");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "/%6Bids/story" }), true,
+  "percent-encoded Kids path segments must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "/%256Bids/story" }), true,
+  "double-encoded Kids path segments must remain reserved before general-content backfill");
+assert.equal(isKidsWrittenSourceReservation({ public_path: "/%25256Bids/story" }), true,
+  "triple-encoded legacy Kids paths must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "/articles/%252e%252e/kids/story" }), true,
+  "decoded dot-segment traversal must not hide a Kids route from the reservation guard");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "/articles/%ZZ" }), true,
+  "malformed legacy paths must fail closed instead of entering general-content backfill");
+assert.equal(isSafeWrittenBackfillSource("quran", { publicPath: "/%256Bids/story" }), false,
+  "a double-encoded Kids path must never be relabeled as a general source");
+assert.equal(isKidsWrittenSourceReservation({ public_path: "/kids/story" }), true,
+  "legacy snake-case public paths must remain reserved");
+assert.equal(isKidsWrittenSourceReservation({ publicPath: "", public_path: "/kids/story" }), true,
+  "an empty camel-case path must not hide a Kids snake-case path");
+assert.equal(isKidsWrittenSourceReservation({ kids_content_id: "kids-row-1" }), true,
+  "legacy snake-case Kids content IDs must remain reserved");
+assert.equal(isSafeWrittenBackfillSource(" article ", { source: { type: " KIDS_STORY " } }), false,
+  "a non-Kids backfill source must not bypass a normalized Kids source marker");
+assert.equal(isSafeWrittenBackfillSource(" KIDS_STORY ", { audience: "general" }), true,
+  "normalized Kids source types must remain eligible for their separate Kids publishing path");
+assert.equal(isKidsWrittenPostCandidate({
+  content_type: "written_post",
+  metadata: { source: { type: " KIDS_STORY " } },
+}), true, "queue candidate classification must use the normalized Kids reservation policy");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", metadata: { audience: "kids" } }), true,
+ "Kids-marked non-video queue rows with unsupported types must be held");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", metadata: { source: { type: "kids_story" } } }), true,
+ "nested Kids source markers must hold unsupported non-video queue types");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", metadata: { publicPath: "/%256Bids/story" } }), true,
+ "encoded Kids paths must hold unsupported non-video queue types");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", automation_key: "written-social-v1:kids_story:kids-1" }), true,
+ "legacy Kids automation keys must hold unsupported non-video queue types");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: " ARTICLE ", automation_key: " WRITTEN-SOCIAL-V1:KIDS_STORY:kids-1 " }), true,
+ "legacy Kids automation keys must be normalized before unsupported queue classification");
+assert.equal(isKidsWrittenPostCandidate({ content_type: " WRITTEN_POST ", automation_key: " WRITTEN-SOCIAL-V1:KIDS_STORY:kids-1 " }), true,
+ "legacy Kids written-post candidates must be normalized before live source approval");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: " OTHER_VIDEO ", metadata: { audience: "kids" } }), false,
+ "case and whitespace variants of recognized video types must stay on the video approval path");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "other_video", metadata: { audience: "kids" } }), false,
+ "Kids videos must remain on the dedicated video approval path");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "written_post", metadata: { audience: "kids" } }), false,
+ "valid Kids written posts must use the live Kids source approval path");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", metadata: { audience: "general" } }), false,
+ "ordinary general articles must remain unaffected");
 assert.deepEqual(parseWrittenGenerationRequest({}), { ok: true, value: { category: "auto", batchSize: 1 } });
 assert.deepEqual(parseWrittenGenerationRequest({ category: "kids", batchSize: "2" }), { ok: true, value: { category: "kids", batchSize: 2 } });
 assert.deepEqual(parseWrittenGenerationRequest(null), { ok: false, reason: "invalid_body" });
@@ -34,10 +91,16 @@ assert.equal(chooseWrittenSourceKind(["quran","kids_story"],"auto",true,1),"qura
 assert.equal(chooseWrittenSourceKind(["kids_story"],"auto",true,0),null,"auto generation must stop rather than create a second Kids post when no general source remains");
 assert.equal(chooseWrittenSourceKind(["kids_story"],"kids",false,0),"kids_story","manual Kids category must keep selecting Kids sources");
 assert.equal(chooseWrittenSourceKind(["kids_story"],"kids",true,0),null,"manual Kids generation must stop when the UTC-day Kids slot is already reserved");
+assert.equal(chooseWrittenSourceKind(["quran","kids_story"],"auto",false,0,false),"quran","social-only automatic generation must exclude Kids sources even when no Kids post exists today");
+assert.equal(chooseWrittenSourceKind(["kids_story"],"auto",false,0,false),null,"a social-only automatic run must never select a Kids source");
 assert.equal(chooseWrittenSourceKind([],"auto",false,0),null,"empty source kinds must stop cleanly");
 assert.equal(shouldBackfillKidsWrittenPost("kids_story",false),true,"the first Kids backfill may reserve today's slot");
 assert.equal(shouldBackfillKidsWrittenPost("kids_story",true),false,"a second Kids backfill must wait until another UTC day");
 assert.equal(shouldBackfillKidsWrittenPost("quran",true),true,"general written-post backfill must remain unaffected by the Kids daily slot");
+assert.equal(shouldBackfillKidsWrittenPost("kids_story",false,false),false,"social-only runs must not backfill Kids stories");
+assert.equal(shouldBackfillKidsWrittenPost("quran",false,false),true,"social-only runs may still backfill general sources");
+assert.equal(shouldBackfillKidsWrittenPost(" KIDS_STORY ",true),false,"case- and whitespace-variant Kids source types must still respect the daily Kids reservation");
+assert.equal(shouldBackfillKidsWrittenPost(" KIDS_STORY ",false),true,"a normalized Kids source may reserve the first daily slot");
 assert.equal(countUniqueWrittenContentReservations(
  [
   { id: "article-general-1", metadata: { automationKey: "written-v1:quran:ayah-1", source: { type: "quran", id: "ayah-1" } } },
@@ -101,6 +164,36 @@ assert.equal(backfillKidsPayload.content_id, "123e4567-e89b-12d3-a456-4266141740
 assert.equal(backfillKidsPayload.metadata.audience, "kids", "Kids backfill must retain its audience marker");
 assert.equal(backfillKidsPayload.metadata.kidsContentId, "123e4567-e89b-12d3-a456-426614174000");
 assert.equal(backfillKidsPayload.metadata.ageGroup, "6-8");
+const normalizedKidsBackfillPayload = buildWrittenBackfillQueuePayload({
+ articleId: "article-kids-normalized",
+ title: "قصة للأطفال",
+ body: "نص مناسب للأطفال",
+ publicPath: "/kids/story-normalized",
+ sourceType: " KIDS_STORY ",
+ sourceId: "123e4567-e89b-12d3-a456-426614174000",
+ sourceTitle: "قصة للأطفال",
+ ageGroup: "6-8",
+ automationKey: "written-social-v1:kids_story:123e4567-e89b-12d3-a456-426614174000",
+ now: "2026-11-10T08:00:00.000Z",
+ scheduledAt: "2026-11-10T08:05:00.000Z",
+});
+assert.equal(normalizedKidsBackfillPayload.content_id, "123e4567-e89b-12d3-a456-426614174000",
+ "normalized Kids source types must retain the live Kids content ID");
+assert.equal(normalizedKidsBackfillPayload.metadata.audience, "kids",
+ "normalized Kids source types must never be emitted as general posts");
+assert.equal(((normalizedKidsBackfillPayload.metadata.source as Record<string, unknown>).type), "kids_story",
+ "the persisted source type must use the canonical Kids marker");
+assert.throws(() => buildWrittenBackfillQueuePayload({
+ articleId: "article-kids-normalized-invalid",
+ title: "قصة",
+ body: "نص",
+ publicPath: "/quran/ash-sharh",
+ sourceType: " KIDS_STORY ",
+ sourceId: "123e4567-e89b-12d3-a456-426614174000",
+ automationKey: "written-social-v1:kids_story:123e4567-e89b-12d3-a456-426614174000",
+ now: "2026-11-10T08:00:00.000Z",
+ scheduledAt: "2026-11-10T08:05:00.000Z",
+}), /Kids backfill must retain a valid Kids source ID and \/kids\/ public path/);
 const backfillGeneralPayload = buildWrittenBackfillQueuePayload({
  articleId: "article-general-1",
  title: "معلومة عامة",
@@ -196,6 +289,17 @@ assert.equal(isKidsWrittenSourceReservation({
  source: { type: "kids_story", id: "legacy-kids-source", verified: true },
  publicPath: "/kids/legacy-kids-story",
 }), true, "legacy Kids reservations must be recognized even when the newer audience and kidsContentId markers are absent");
+assert.equal(isKidsWrittenSourceReservation({ audience: " KIDS " }), true, "audience matching must be case- and whitespace-insensitive so malformed Kids labels cannot bypass the social safety gate");
+assert.equal(isSafeWrittenBackfillSource("quran", { audience: "kids" }), false, "a Kids audience marker must never be backfilled as a general source");
+assert.equal(isSafeWrittenBackfillSource("quran", { kidsContentId: "kids-1" }), false, "a Kids content identity must never be relabeled as a general source");
+assert.equal(isSafeWrittenBackfillSource("quran", { publicPath: "/kids/story-1" }), false, "a Kids public path must never be relabeled as a general source");
+assert.equal(isSafeWrittenBackfillSource("kids_story", { audience: "general" }), true, "a verified Kids source type must remain eligible for the Kids-specific backfill validation");
+assert.equal(isSafeWrittenBackfillSource("quran", { audience: "general", publicPath: "/quran/ash-sharh" }), true, "ordinary general content must remain eligible for the general backfill");
+
+assert.equal(isKidsWrittenPostCandidate({
+ ...kidsPublishCandidate,
+ metadata: { audience: " KIDS " },
+}), true, "normalized Kids audience markers must still trigger source approval");
 assert.equal(isKidsWrittenPostCandidate({
  content_type: "written_post",
  metadata: {},
@@ -436,9 +540,38 @@ assert.equal(containsKidsPersonalDataSolicitation("ابعتلي على الخا�
 assert.equal(containsKidsPersonalDataSolicitation("ابعتيلي رسالة خاصة"), true, "feminine Egyptian colloquial private-message requests must be rejected");
 assert.equal(containsKidsPersonalDataSolicitation("ابعثلي رسالة على واتساب"), true, "requests to move a child to WhatsApp must be rejected");
 assert.equal(containsKidsPersonalDataSolicitation("send me a DM"), true, "English requests to move a child into direct messages must be rejected");
+assert.equal(containsKidsPersonalDataSolicitation("What is your phone number?"), true, "direct English questions requesting a child's phone number must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("What's your full name?"), true, "direct English questions requesting a child's name must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Where is your school?"), true, "direct English questions requesting a child's school must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Where do you live?"), true, "direct English questions requesting a child's home location must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Where do you study?"), true, "direct English questions requesting a child's school must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Which school do you attend?"), true, "English school-attendance questions must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("What school do you go to?"), true, "English questions asking where a child studies must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Never ask where you study."), false, "negative safety instructions about school questions must remain allowed");
+assert.equal(containsKidsPersonalDataSolicitation("How old are you?"), true, "direct English questions requesting a child's age must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("Can I have your email address?"), true, "polite English requests for a child's email must be blocked");
 assert.equal(containsKidsPersonalDataSolicitation("ابعتلي إجابة السؤال"), false, "ordinary educational requests must not be mistaken for private contact");
 assert.equal(containsKidsPersonalDataSolicitation("DM me your location"), true, "English personal-location requests must be rejected");
 assert.equal(containsKidsPersonalDataSolicitation("لا تشارك رقم هاتفك مع أي شخص"), false, "safety warnings must not be mistaken for personal-data solicitation");
+assert.equal(containsKidsPersonalDataSolicitation("Do not share your phone number with anyone."), false, "English safety warnings must not be blocked as solicitations");
+assert.equal(containsKidsPersonalDataSolicitation("Never ask for your home address."), false, "English warnings against asking for personal data must remain publishable");
+assert.equal(containsKidsPersonalDataSolicitation("Don't ask what is your phone number."), false, "negative instructions must not be mistaken for direct questions");
+assert.equal(containsKidsPersonalDataSolicitation("Don't share your phone number, but tell me your school."), true, "a separate positive solicitation must still be blocked after a safety-warning clause");
+assert.equal(containsKidsPersonalDataSolicitation("Do not share your phone number and tell me your school."), true, "a positive solicitation must still be blocked when joined to a safety warning with and");
+assert.equal(containsKidsPersonalDataSolicitation("Do not share your phone number or home address with anyone."), false, "conjoined English safety warnings must remain allowed");
+assert.equal(containsKidsPersonalDataSolicitation("اسمك ايه؟"), true, "Egyptian direct questions asking a child for their name must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("رقمك كام؟"), true, "Egyptian direct questions asking for a child's phone number must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("مدرستك فين؟"), true, "Egyptian direct questions asking for a child's school must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("انت ساكن فين؟"), true, "Egyptian location questions must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("فين بتدرس؟"), true, "Egyptian questions about a child's school location must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("عندك كام سنة؟"), true, "Egyptian questions asking for a child's age must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("ما هو رقمك؟"), true, "standard Arabic direct questions must remain blocked");
+assert.equal(containsKidsPersonalDataSolicitation("رقمك كام؟"), true, "Egyptian direct phone questions with Arabic question punctuation must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("مدرستك فين؟"), true, "Egyptian direct school questions with Arabic question punctuation must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("انت ساكن فين؟"), true, "Egyptian location questions with Arabic question punctuation must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("عندك كام سنة؟"), true, "Egyptian age questions with Arabic question punctuation must be blocked");
+assert.equal(containsKidsPersonalDataSolicitation("ما تبعتش رقمك لأي حد"), false, "Egyptian safety warnings must not be mistaken for requests for personal data");
+assert.equal(containsKidsPersonalDataSolicitation("ما تشاركش عنوان بيتك مع أي شخص"), false, "Egyptian warnings against sharing personal data must remain publishable");
 assert.equal(containsKidsPersonalDataSolicitation("ما الدرس الذي تعلمته من القصة؟"), false, "ordinary educational questions must remain allowed");
 
 const worker = readFileSync("scripts/jobs/written-content-automation.ts", "utf8");
@@ -501,12 +634,12 @@ assert.match(worker, /select=id,content_type,automation_key,metadata&limit=1000/
 assert.match(worker, /todaysKidsPosts\.some\(isKidsWrittenPostCandidate\)/, "backfill must recognize both current and legacy Kids queue reservations");
 assert.match(worker, /todaysKidsArticles\.some\(\(row\) => isKidsWrittenSourceReservation\(row\.metadata\)\)/, "backfill must reserve a Kids source article even if its social queue insert has not completed");
 assert.match(worker, /articles\?metadata->>automation=eq\.written-content-v2&published=eq\.true&created_at=/, "unpublished generated articles must not reserve the daily approved Kids slot");
-assert.match(worker, /shouldBackfillKidsWrittenPost\(sourceType,hasKidsPostToday\)/, "Kids backfill must stop after one daily reservation");
+assert.match(worker, /shouldBackfillKidsWrittenPost\(sourceType,hasKidsPostToday,allowKids\)/, "Kids backfill must stop after one daily reservation and honor the Kids permission gate");
 assert.match(worker, /scheduleKidsBackfillWithinUtcDay\(now\)/, "Kids backfill must not schedule its reserved slot into a future UTC day");
 assert.match(worker, /if\(sourceType==="kids_story"\)hasKidsPostToday=true/, "a successful Kids backfill must reserve the current UTC day for later rows");
 assert.match(worker, /source\.kind==="kids_story"/);
 assert.match(worker, /chooseWrittenSourceKind\(/);
-assert.match(worker, /const todaysKidsPosts = category === "auto" \|\| category === "kids"/, "explicit Kids generation must inspect the same UTC-day reservation before selecting a source");
+assert.match(worker, /const todaysKidsPosts = allowKids && \(category === "auto" \|\| category === "kids"\)/, "only authorized Kids or auto runs may inspect and select Kids source reservations");
 assert.match(worker, /todays\.some\(\(row\) => isKidsWrittenSourceReservation\(row\.metadata\)\)/, "automatic and explicit Kids generation must honor a same-day source article reservation even without a queue row");
 const dailyKidsReservationScan = worker.match(/const todays=await readRequired<Row>\(([\s\S]*?)\);/)?.[1] ?? "";
 assert.match(dailyKidsReservationScan, /published=eq\.true/, "unpublished generated articles must not reserve the daily Kids slot during generation");
@@ -542,8 +675,16 @@ assert.match(writtenStudio, /value: "kids", label: "قصص الأطفال الم
 assert.match(writtenFactory, /content_type:\s*"written_post"/);
 assert.match(writtenFactory, /target_platforms:\s*\["facebook"\]/);
 assert.match(socialPublishing, /checkWrittenPostSourceApproval\(item\)/, "social publishing must revalidate both Kids sources and general written articles before provider delivery");
+const writtenApprovalGateStart = socialPublishing.indexOf("async function checkWrittenPostSourceApproval(");
+const writtenApprovalGate = socialPublishing.slice(writtenApprovalGateStart, socialPublishing.indexOf("\n}", writtenApprovalGateStart));
+assert.ok(
+ writtenApprovalGate.indexOf("isVideoContentType(contentType)") < writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") &&
+ writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") < writtenApprovalGate.indexOf('contentType !== "written_post"'),
+ "unsupported non-video Kids-marked queue rows must be blocked before the not-applicable fallback",
+);
 assert.match(socialPublishing, /\/rest\/v1\/articles\?id=eq\./, "general written-post delivery must verify that its source article still exists");
-assert.match(socialPublishing, /select=id,published&limit=2/, "general written-post delivery must require the live article publication flag");
+assert.match(socialPublishing, /select=id,published,metadata&limit=2/, "general written-post delivery must revalidate the live article audience as well as its publication flag");
+assert.ok(socialPublishing.includes("isKidsWrittenSourceReservation(articles[0].metadata)"), "a general queue row must be blocked when its source article carries any Kids marker");
 assert.match(socialPublishing, /content_publish_queue\?content_table=eq\.articles/, "unpublished generated articles may only wait when a site-publication job remains active");
 assert.match(socialPublishing, /writtenArticlePublicationBlocked/, "withdrawn general articles must be held from social publication");
 assert.match(socialPublishing, /writtenArticlePublicationPending/, "not-yet-published articles must be deferred instead of being sent early");
@@ -567,15 +708,96 @@ assert.match(worker, /published:\s*false/);
 assert.match(worker, /content_table:\s*"articles"/);
 const envExample = readFileSync(".env.example", "utf8");
 assert.match(envExample, /^WRITTEN_CONTENT_ENABLED=false$/m, "local .env.example must not enable Gemini content generation by default");
+assert.match(envExample, /^WRITTEN_CONTENT_ALLOW_KIDS=false$/m, "local runs must not select or backfill Kids sources without an explicit permission gate");
 assert.match(envExample, /^AUTO_VIDEO_ENABLED=false$/m, "local .env.example must not enable video generation by default");
 assert.match(envExample, /^AUTO_VIDEO_PUBLISH_ENABLED=false$/m, "local .env.example must not enable video publishing by default");
 assert.match(envExample, /^SOCIAL_PUBLISH_ENABLED=false$/m, "local .env.example must not enable social publishing by default");
 assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example must keep video automation in dry-run mode");
 
+assert.ok(worker.includes("isKidsWrittenSourceReservation(metadata)"), "articles with any Kids audience, source, identity or public-path marker must not enter the general knowledge generation pool");
+assert.ok(worker.includes("isSafeWrittenBackfillSource(sourceType,metadata)"), "historical social backfill must fail closed when Kids metadata conflicts with a general source type");
+assert.match(worker, /const sourceType=str\(source\.type\)\.toLowerCase\(\)/,
+ "the backfill caller must canonicalize legacy source types before quota and automation-key checks");
+assert.ok(worker.includes('WRITTEN_CONTENT_ENABLED?.trim().toLowerCase()!=="true"'), "Gemini generation must remain disabled unless explicitly enabled");
+assert.ok(writtenWorkflow.includes('WRITTEN_CONTENT_ENABLED: "true"'), "the scheduled workflow must explicitly opt in to content generation");
+assert.ok(worker.includes("enqueueExistingWrittenArticlesForFacebook(100,allowKids)"), "legacy backfill must receive the same Kids authorization decision as generation");
+assert.ok(worker.includes("loadSources(allowKids)"), "unauthorized runs must not load Kids source records into the generation pool");
+assert.ok(worker.includes("WRITTEN_CONTENT_ALLOW_KIDS"), "the worker must consume the explicit Kids source-selection gate");
+assert.ok(writtenWorkflow.includes("WRITTEN_CONTENT_ALLOW_KIDS:") && writtenWorkflow.includes("inputs.allow_kids"), "scheduled runs may opt in, while manual workflow dispatch defaults Kids selection off");
 assert.ok(worker.includes("WRITTEN_CONTENT_SYSTEM_INSTRUCTION"));
 assert.ok(worker.includes("systemInstruction:{parts:[{text:WRITTEN_CONTENT_SYSTEM_INSTRUCTION}]}"));
 assert.ok(worker.includes('contents:[{role:"user",parts:[{text:userPayload}]}]'));
 assert.ok(worker.includes("sourceText:source.sourceText"));
 assert.ok(!worker.includes("النص المعتمد:"), "source text must not be concatenated into the instruction prompt");
+
+
+const generalQueueRow = {
+ content_type: "written_post",
+ content_id: "article-general-1",
+ automation_key: "written-social-v1:quran:ayah-1",
+ metadata: {
+  source: { type: "quran", id: "ayah-1" },
+  publicPath: "/quran/ash-sharh",
+ },
+};
+assert.equal(isWrittenPostVisibleToSocialManager(generalQueueRow), true,
+ "social managers must retain access to explicitly classified general written posts");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { ...generalQueueRow.metadata, audience: " KIDS " },
+}), false, "Kids audience markers must hide written queue content from social-only managers");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { source: { type: " KIDS_STORY ", id: "kids-1" }, publicPath: "/kids/story" },
+}), false, "normalized Kids source markers must hide written queue content");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { source: { type: "story", id: "story-1" }, publicPath: "/kids/story" },
+}), false, "Kids public paths must hide written queue content even when the source type looks general");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ content_id: "123e4567-e89b-12d3-a456-426614174000",
+}, new Set(["123e4567-e89b-12d3-a456-426614174000"])), false,
+ "a content ID resolved from kids_content must never be returned to a social-only manager");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { source: { type: "story", id: "123e4567-e89b-12d3-a456-426614174000" }, publicPath: "/stories/story-1" },
+}, new Set(["123e4567-e89b-12d3-a456-426614174000"])), false,
+ "a source ID resolved from kids_content must not be exposed through legacy queue metadata");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ automation_key: "written-v1:kids_story:legacy-kids-1",
+ metadata: { source: { type: "story", id: "story-1" }, publicPath: "/stories/story-1" },
+}), false, "legacy Kids automation keys must remain reserved even when other metadata conflicts");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ content_type: "written_post",
+ content_id: "legacy-1",
+ metadata: {},
+}), false, "unknown legacy written rows must fail closed instead of being assumed general");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { ...generalQueueRow.metadata, audience: "unknown" },
+}), false, "unknown audience values must fail closed");
+assert.equal(isKidsWrittenPostCandidate({
+ content_type: "written_post",
+ metadata: { category: "kids", source: { type: "quran", id: "ayah-2" }, publicPath: "/quran/ash-sharh" },
+}), true, "legacy Kids category markers must reserve a row even when the source type looks general");
+assert.equal(isKidsWrittenPostCandidate({
+ content_type: "written_post",
+ metadata: { source: { content_type: "kids_story", id: "kids-2" }, publicPath: "/stories/legacy" },
+}), true, "legacy source content_type markers must reserve Kids rows");
+assert.equal(isKidsWrittenPostCandidate({
+ content_type: "written_post",
+ metadata: { source_type: "kids_story", is_kids: true, public_path: "/stories/legacy" },
+}), true, "legacy top-level source and boolean Kids markers must reserve Kids rows");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { ...generalQueueRow.metadata, category: "kids" },
+}), false, "Kids category metadata must never be exposed to a social-only manager");
+
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { source: { type: "quran", id: "ayah-1" }, publicPath: "/articles/%ZZ" },
+}), false, "malformed public paths must fail closed for social-only readers");
 
 console.log("Written-content source-lock, quality, idempotency, website scheduling, Facebook queue, and safe local automation defaults passed.");

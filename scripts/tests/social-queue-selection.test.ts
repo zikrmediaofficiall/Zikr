@@ -238,6 +238,25 @@ const missingMediaSelection = selectEligibleSocialPublishItems([missingSourceMed
 });
 assert.deepEqual(missingMediaSelection, [], "source-media-missing videos must stay out of the worker queue even when QA approval exists");
 
+const catalogBlockedVideo = {
+  id: "catalog-blocked-video",
+  content_type: "video",
+  target_platforms: ["youtube"] as const,
+  metadata: { videoCatalogApprovalBlocked: true },
+};
+const catalogBlockedSelection = selectEligibleSocialPublishItems([catalogBlockedVideo], {
+  enabledPlatforms,
+  approvedVideoQueueItemIds: new Set([catalogBlockedVideo.id]),
+  maxAttemptsFor: () => 5,
+  limit: 1,
+});
+assert.deepEqual(catalogBlockedSelection, [], "catalog-blocked videos must not be retried automatically");
+assert.deepEqual(
+  getRetryableSocialPlatforms(["youtube"], catalogBlockedVideo.metadata),
+  ["youtube"],
+  "an explicit administrator retry may release the hold, after which the worker rechecks catalog approval",
+);
+
 const boundedHeldVideos = Array.from({ length: 125 }, (_, index) => ({
   id: `held-video-${index}`,
   content_type: "video",
@@ -387,8 +406,8 @@ assert.match(socialPublisher, /mergeUniqueSocialPublishCandidates/, "general and
 assert.match(socialPublisher, /Failed to fetch social publish queue candidates; refusing to report an empty successful batch/, "queue read failures must fail the job instead of appearing as an empty successful run");
 assert.equal(
   (socialPublisher.match(/resolveSocialPublishCutoff\(process\.env\.SOCIAL_PUBLISH_AFTER\)/g) ?? []).length,
-  2,
-  "queue reads and stale recovery must both use the shared validated cutoff rather than silently returning an empty batch",
+  3,
+  "general queue reads, stale recovery, and opt-in Kids catalog reconciliation must all use the shared validated cutoff",
 );
 assert.match(socialPublisher, /buildDueSocialQueueClaimFilter\(item\.id, claimStatus, claimAt, item\.updated_at\)/, "the worker claim must compare the exact candidate row version and due time");
 assert.match(socialPublisher, /buildSocialPublishLeaseFilter\(item\.id, claimLease\.status, claimLease\.updatedAt\)/, "the provider in-flight marker must compare the exact initial worker lease");

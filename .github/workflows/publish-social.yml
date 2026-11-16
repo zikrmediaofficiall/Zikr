@@ -47,6 +47,7 @@ jobs:
       BACKGROUND_JOB_TARGET: "social"
       SOCIAL_PUBLISH_ENABLED: "true"
       SOCIAL_SYNC_INSIGHTS: "false"
+      SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED: ${{ vars.SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED || 'false' }}
       SOCIAL_PUBLISH_BATCH_SIZE: "5"
       # Only post-activation queue rows are eligible; historical rows remain excluded.
       SOCIAL_PUBLISH_AFTER: "2026-11-06T20:00:00Z"
@@ -224,4 +225,4 @@ jobs:
         shell: bash
         run: |
           echo "Social worker finished. Only rows created on/after ${SOCIAL_PUBLISH_AFTER} are eligible."
-          echo "Manual video approval is not required; each video is revalidated against its automated QA snapshot immediately before publishing."
+          echo "General videos require a current automated QA snapshot; Kids videos additionally require matching human approval before external publishing."

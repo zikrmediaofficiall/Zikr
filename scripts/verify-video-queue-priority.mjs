@@ -138,7 +138,9 @@ assert(
   queue.includes("recoverPendingVideoSocialQueueEnqueues(") &&
     queue.includes("content->>socialQueueEnqueueStatus=eq.pending") &&
     queue.includes("content->>socialQueueEnqueueStatus=eq.processing") &&
-    queue.includes("buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore)") &&
+    queue.includes("resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER)") &&
+    (queue.match(/created_at=gte\.\$\{encodeURIComponent\(publishAfter\)\}/g) ?? []).length === 3 &&
+    queue.includes("buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore, publishAfter)") &&
     queue.includes("buildVideoSocialQueueRecoveryLeaseFilter("),
   "failed or interrupted social enqueue handoffs are retried under an exact-row-version lease",
 );
@@ -151,7 +153,9 @@ assert(
   "video completion cannot hide a failed social queue handoff",
 );
 assert(
-  claim.includes("video_url=eq.") && claim.includes("content->>socialQueueEnqueueStatus=eq.processing"),
+  claim.includes("video_url=eq.") &&
+    claim.includes("created_at=eq.") &&
+    claim.includes("content->>socialQueueEnqueueStatus=eq.processing"),
   "social queue recovery leases are fenced by the exact generated media URL and processing marker",
 );
 

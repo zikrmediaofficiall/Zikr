@@ -9,15 +9,19 @@ import {
   supabaseServerAdminRequest,
 } from "../../src/lib/supabase/admin-rest";
 import { buildNextRowVersionUpdatedAt } from "../../src/lib/supabase/row-version";
+import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
+import { containsKidsPersonalDataSolicitation } from "../../src/features/social/services/written-content";
 import { getOptionalFacebookPageCredentials } from "../../src/features/social/services/facebook-credentials";
 import { getYouTubeUploadRefreshToken } from "../../src/features/social/services/youtube-oauth-credentials";
 import { listVideoSources, resolveVideoSource } from "../../src/features/videos/services/video-sources";
 import { listCuratedVideoSources, resolveCuratedVideoSource } from "../../src/features/videos/data/curated-content";
+import { filterGeneralStorySources, resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
 import { buildKidsSeriesEpisode, validateCanonicalKidsEpisodeSnapshot, validateGeneratedKidsEpisode } from "../../src/features/videos/data/kids-story-factory";
 import { videoContentHash, sourceHash } from "../../src/features/videos/providers/content-hash";
-import { buildDuplicateVideoOwnerRecoveryFilter, canRecoverDuplicateVideoRender } from "../../src/features/videos/services/duplicate-video-recovery";
+import { buildDuplicateVideoOwnerRecoveryFilter, canRecoverDuplicateVideoRender, resolveUniqueDuplicateVideoSiteRecord } from "../../src/features/videos/services/duplicate-video-recovery";
 import { buildMissingMediaQueueRecoveryPatch } from "../../src/features/social/services/platform-availability";
 import { buildVideoSocialQueueUpdateFilter } from "../../src/features/social/services/social-queue-selection";
+import { resolveSocialPublishCutoff } from "../../src/features/social/services/facebook-queue-recovery-policy";
 import { calculateDailyVideoQuotaState } from "../../src/features/videos/services/video-automation-quota";
 import {
   buildContentPublishQueueRecoveryFilter,
@@ -197,6 +201,7 @@ type GeneratedRequest = {
   category: string;
   content: Record<string, unknown>;
   status: string;
+  created_at?: string | null;
   automation_key: string | null;
   error_message?: string | null;
   error_details?: string | null;
@@ -743,7 +748,8 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       key = `story:${day}:${slot}`;
       if (await findByAutomationKey("video_generation_requests", key)) continue;
       const sources = await listVideoSources("story");
-      const pool = sources.length ? sources : listCuratedVideoSources("story");
+      const sourcePool = sources.length ? sources : listCuratedVideoSources("story");
+      const pool = filterGeneralStorySources([...sourcePool]);
       if (!pool.length) throw new Error("No verified story sources are available.");
       const row = pool[(day * 16 + slot) % pool.length];
       payload = {
@@ -929,10 +935,6 @@ function normalizeAiVideoPlan(value: unknown): AiVideoPlan {
   };
 }
 
-function hasSuspiciousReligiousAttribution(value: string) {
-  return /(قال الله|قال رسول الله|رسول الله|قال النبي|عن النبي|حديث قدسي|حديث نبوي|رضي الله عنه)\b/u.test(value);
-}
-
 function validateAiEditorialPlan(plan: AiVideoPlan, request: GeneratedRequest) {
   const source = comparableSourceText(contentText(request)).replace(/\s+/g, " ").trim();
   const reflection = comparableSourceText(plan.reflection).replace(/\s+/g, " ").trim();
@@ -940,6 +942,10 @@ function validateAiEditorialPlan(plan: AiVideoPlan, request: GeneratedRequest) {
   if (reflection.length > 110) throw new Error("AI reflection exceeds the Arabic editorial length limit.");
   if (caption.length > 220) throw new Error("AI social caption exceeds the Arabic editorial length limit.");
   if (/https?:\/\//i.test(reflection) || /https?:\/\//i.test(caption)) throw new Error("AI editorial text contains a URL.");
+  if (request.content?.audience === "kids" && (
+    containsKidsPersonalDataSolicitation(reflection) ||
+    containsKidsPersonalDataSolicitation(caption)
+  )) throw new Error("AI Kids editorial text contains a personal-data solicitation.");
   if (hasSuspiciousReligiousAttribution(reflection) || hasSuspiciousReligiousAttribution(caption)) throw new Error("AI editorial text contains an unapproved religious attribution.");
   if (["quran", "hadith", "adhkar", "dua", "story"].includes(request.category) && source.length >= 40) {
     for (const candidate of [reflection, caption]) {
@@ -1060,7 +1066,7 @@ export function assertKidsStoryContract(request: GeneratedRequest) {
   if (normalizedText.length < 180 || normalizedText.length > 1500 || !normalizedText.includes("؟")) {
     throw new Error("Child-directed narration must be a short complete story ending with a question.");
   }
-  if (normalizedText.includes("http://") || normalizedText.includes("https://") || /قال الله|قال رسول الله|حديث قدسي|حديث نبوي/u.test(normalizedText)) {
+  if (normalizedText.includes("http://") || normalizedText.includes("https://") || hasSuspiciousReligiousAttribution(normalizedText)) {
     throw new Error("Child-directed fiction must not contain raw URLs or unsupported religious attributions.");
   }
   if (String(content.sourceType ?? "") === "original_kids_fiction" && !String(content.sourceLabel ?? "").includes("آية أو حديث")) {
@@ -1662,7 +1668,7 @@ export function buildAutomatedVideoQaChecklist(
     content.aiMode === "general_reminder" &&
     content.sourceType === "editorial" &&
     sourceLabel === "محتوى تحريري أصلي من منصة ذِكر" &&
-    !/(قال الله|قال رسول الله|رسول الله|حديث قدسي|حديث نبوي)/u.test(contentText(request));
+    !hasSuspiciousReligiousAttribution(contentText(request));
   const sourceVerified = sourceCategories.has(category)
     ? Boolean(sourceId && /^https:\/\//i.test(sourceUrl) && sourceLabel.trim() && render.sourceLocked === true)
     : isKidsSeries || isOriginalEditorial;
@@ -1702,7 +1708,17 @@ export function buildAutomatedVideoQaChecklist(
 
   const narration = contentText(request);
   const narrationQuality = evaluateArabicNarrationText(narration, category);
-  const captionsReviewed = narrationQuality.ok &&
+  const ai = content.ai && typeof content.ai === "object" && !Array.isArray(content.ai)
+    ? content.ai as Record<string, unknown>
+    : {};
+  const kidsEditorialTextSafe = content.audience !== "kids" || [
+    request.title,
+    request.description ?? "",
+    narration,
+    typeof ai.reflection === "string" ? ai.reflection : "",
+    typeof ai.socialCaption === "string" ? ai.socialCaption : "",
+  ].every((value) => !containsKidsPersonalDataSolicitation(value));
+  const captionsReviewed = kidsEditorialTextSafe && narrationQuality.ok &&
     narration.length >= 8 &&
     render.captionTiming === "page-weighted-audio-duration" &&
     typeof render.composition === "string" && Boolean(render.composition.trim()) &&
@@ -1762,7 +1778,7 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
     callToAction[request.category] ?? callToAction.other,
     visualDisclosure,
     tags[request.category] ?? tags.other,
-    "المصدر: " + contentSourceUrl(request),
+    resolveVideoSourceDisclosureLine(content, contentSourceUrl(request)),
     publicUrl,
   ].filter((value, index, values): value is string =>
     typeof value === "string" && value.trim().length > 0 && values.indexOf(value) === index
@@ -1903,6 +1919,13 @@ async function registerGeneratedVideoOnSite(
     factorySequence: Number.isInteger(Number(request.content.factorySequence)) ? Number(request.content.factorySequence) : null,
     aiDisclosure: request.content.aiDisclosure ?? null,
     automatedVideoQa: request.content.automatedVideoQa ?? null,
+    approvalStatus: typeof request.content.approvalStatus === "string" ? request.content.approvalStatus : null,
+    approvalReviewerId: typeof request.content.approvalReviewerId === "string" ? request.content.approvalReviewerId : null,
+    approvalReviewedAt: typeof request.content.approvalReviewedAt === "string" ? request.content.approvalReviewedAt : null,
+    approvalSnapshotHash: typeof request.content.approvalSnapshotHash === "string" ? request.content.approvalSnapshotHash : null,
+    qualityReview: request.content.qualityReview ?? null,
+    contentFormat: typeof request.content.contentFormat === "string" ? request.content.contentFormat : null,
+    aiMode: typeof request.content.aiMode === "string" ? request.content.aiMode : null,
     quality: {
       passed: true,
       checks: [
@@ -2330,17 +2353,18 @@ export async function recoverPendingVideoSocialQueueEnqueues(
   // queueSocialItems classifies disabled or approval-held publishing as
   // not_required, allowing the processing row to close without creating a
   // social queue item or invoking an external provider.
+  const publishAfter = resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER);
   const candidateLimit = Math.max(1, Math.min(10, Math.floor(limit) || 1));
-  const selectFields = "id,title,description,category,content,status,automation_key,error_message,error_details,video_url,generation_attempts,next_retry_at,updated_at,duration,source_hash,content_hash,template_version,scene,render_duration_ms";
+  const selectFields = "id,title,description,category,content,status,created_at,automation_key,error_message,error_details,video_url,generation_attempts,next_retry_at,updated_at,duration,source_hash,content_hash,template_version,scene,render_duration_ms";
   const [pendingRows, staleRows, retryWaitRows] = await Promise.all([
     supabaseServerAdminRequest<GeneratedRequest[]>(
-      `/rest/v1/video_generation_requests?status=in.(processing,retry_wait)&video_url=not.is.null&content->>socialQueueEnqueueStatus=eq.pending&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
+      `/rest/v1/video_generation_requests?status=in.(processing,retry_wait)&video_url=not.is.null&created_at=gte.${encodeURIComponent(publishAfter)}&content->>socialQueueEnqueueStatus=eq.pending&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
     ),
     supabaseServerAdminRequest<GeneratedRequest[]>(
-      `/rest/v1/video_generation_requests?status=eq.processing&video_url=not.is.null&content->>socialQueueEnqueueStatus=eq.processing&updated_at=lt.${encodeURIComponent(staleBefore)}&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
+      `/rest/v1/video_generation_requests?status=eq.processing&video_url=not.is.null&created_at=gte.${encodeURIComponent(publishAfter)}&content->>socialQueueEnqueueStatus=eq.processing&updated_at=lt.${encodeURIComponent(staleBefore)}&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
     ),
     supabaseServerAdminRequest<GeneratedRequest[]>(
-      `/rest/v1/video_generation_requests?status=eq.retry_wait&video_url=not.is.null&content->>socialQueueEnqueueStatus=eq.processing&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
+      `/rest/v1/video_generation_requests?status=eq.retry_wait&video_url=not.is.null&created_at=gte.${encodeURIComponent(publishAfter)}&content->>socialQueueEnqueueStatus=eq.processing&select=${selectFields}&order=updated_at.asc&limit=${candidateLimit}`,
     ),
   ]);
   const candidates = [...new Map(
@@ -2353,7 +2377,7 @@ export async function recoverPendingVideoSocialQueueEnqueues(
   let deferred = 0;
   for (const request of candidates) {
     const videoUrl = request.video_url?.trim() ?? "";
-    const claimFilter = buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore);
+    const claimFilter = buildVideoSocialQueueRecoveryClaimFilter(request, staleBefore, publishAfter);
     if (!claimFilter || !videoUrl) continue;
     const claimNow = new Date().toISOString();
     const claimContent = {
@@ -2722,9 +2746,9 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
           published: boolean | null;
           metadata: Record<string, unknown> | null;
         }>>(
-          `/rest/v1/videos?slug=eq.${encodeURIComponent(duplicateSlug)}&select=published,metadata&limit=1`,
+          `/rest/v1/videos?slug=eq.${encodeURIComponent(duplicateSlug)}&select=published,metadata&limit=2`,
         );
-        const duplicateSiteRecord = duplicateSiteRows?.[0] ?? null;
+        const duplicateSiteRecord = resolveUniqueDuplicateVideoSiteRecord(duplicateSiteRows);
         const canRecover = canRecoverDuplicateVideoRender({
           owner: duplicate,
           candidate: {

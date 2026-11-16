@@ -15,6 +15,7 @@ import {
   extractCloudinaryVideoPublicId,
   hasConfirmedPlatformResults,
   collectPaginatedRows,
+  requireArrayResult,
   createStorageInventoryBudget,
   verifyStoragePathsAbsent,
   indexManagedBackupReferences,
@@ -55,9 +56,43 @@ assert.match(
   "only the service role may verify the retention contract guard",
 );
 assert.equal(assertExpectedSupabaseProject(supabaseUrl, "zqtssvlvmkzeeyqghqfk"), "zqtssvlvmkzeeyqghqfk");
+assert.deepEqual(requireArrayResult([], "fixture"), []);
+assert.throws(
+  () => requireArrayResult(null, "fixture"),
+  /incomplete inventory; refusing cleanup/,
+  "null Supabase reference and Android settings pages must fail closed",
+);
+assert.throws(
+  () => requireArrayResult(undefined, "fixture"),
+  /incomplete inventory; refusing cleanup/,
+  "missing Supabase response data must fail closed",
+);
+assert.throws(
+  () => requireArrayResult({}, "fixture"),
+  /incomplete inventory; refusing cleanup/,
+  "an object-shaped response must not be accepted as an empty reference inventory",
+);
+assert.throws(
+  () => requireArrayResult(new Set(), "fixture"),
+  /incomplete inventory; refusing cleanup/,
+  "a non-array iterable must not be accepted as a complete inventory",
+);
 assert.throws(() => assertExpectedSupabaseProject(supabaseUrl, "wrong-project"), /20-character Supabase project ref/);
 assert.throws(() => assertExpectedSupabaseProject("https://other-project.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
 assert.throws(() => assertExpectedSupabaseProject("http://zqtssvlvmkzeeyqghqfk.supabase.co", "zqtssvlvmkzeeyqghqfk"), /unexpected Supabase project/);
+for (const nonCanonicalUrl of [
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co:8443",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/rest/v1",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co?apikey=unexpected",
+  "https://zqtssvlvmkzeeyqghqfk.supabase.co/#fragment",
+  "https://operator:secret@zqtssvlvmkzeeyqghqfk.supabase.co",
+]) {
+  assert.throws(
+    () => assertExpectedSupabaseProject(nonCanonicalUrl, "zqtssvlvmkzeeyqghqfk"),
+    /unexpected Supabase project/,
+    "Storage retention must reject non-canonical ports, paths, query strings, fragments, and URL credentials",
+  );
+}
 assert.doesNotThrow(() => assertRetentionApplyConfirmation(false, "", false));
 assert.throws(
   () => assertRetentionApplyConfirmation(true, "DELETE_STAGING_COPIES_AFTER_REFERENCE_FREEZE", false),
@@ -437,6 +472,7 @@ assert.equal(
 );
 
 const storageRetentionSource = readFileSync(new URL("../cleanup-supabase-storage.mjs", import.meta.url), "utf8");
+assert.doesNotMatch(storageRetentionSource, /data\s*\?\?\s*\[\]/, "incomplete Supabase inventories must never be coerced into empty arrays");
 const capturePatternCalls = (descriptors) => {
   const calls = [];
   for (const descriptor of descriptors) {

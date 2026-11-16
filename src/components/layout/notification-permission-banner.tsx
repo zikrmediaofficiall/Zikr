@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Bell, X } from 'lucide-react';
-
-const DISMISSED_KEY = 'zikr_notif_banner_dismissed';
+import { getNotificationPermission, requestNotificationPermission } from '@/features/notifications/services/notifications';
+import { hasDismissedNotificationBanner, persistNotificationBannerDismissal } from '@/features/notifications/services/notification-banner-storage';
 
 /**
  * Shows a one-time banner asking the user to allow notifications.
@@ -18,28 +18,30 @@ export function NotificationPermissionBanner() {
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
-    // Only show on browsers that support notifications
     if (typeof window === 'undefined') return;
-    if (!('Notification' in window)) return;
+    const dismissed = hasDismissedNotificationBanner(() => window.sessionStorage);
 
-    const alreadyGranted = Notification.permission === 'granted';
-    const alreadyDenied = Notification.permission === 'denied';
-    const dismissed = sessionStorage.getItem(DISMISSED_KEY) === '1';
 
-    const showBanner = () => {
-      if (!alreadyGranted && !alreadyDenied && !dismissed) {
-        setShow(true);
-      }
+    let disposed = false;
+    const showBanner = (event: Event) => {
+      const force = (event as CustomEvent<{ force?: boolean }>).detail?.force === true;
+      if (dismissed && !force) return;
+      void getNotificationPermission().then((permission) => {
+        if (!disposed && permission === 'default') setShow(true);
+      });
     };
 
     window.addEventListener('zikr:show-notification-banner', showBanner);
-    return () => window.removeEventListener('zikr:show-notification-banner', showBanner);
+    return () => {
+      disposed = true;
+      window.removeEventListener('zikr:show-notification-banner', showBanner);
+    };
   }, []);
 
   const handleAllow = async () => {
     setRequesting(true);
     try {
-      const result = await Notification.requestPermission();
+      const result = await requestNotificationPermission();
       if (result === 'granted' || result === 'denied') {
         dismiss();
       }
@@ -49,7 +51,7 @@ export function NotificationPermissionBanner() {
   };
 
   const dismiss = () => {
-    sessionStorage.setItem(DISMISSED_KEY, '1');
+    persistNotificationBannerDismissal(() => window.sessionStorage);
     setShow(false);
   };
 

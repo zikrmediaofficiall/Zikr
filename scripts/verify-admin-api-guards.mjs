@@ -99,23 +99,27 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/social/youtube/connect/route.ts GET": ["social.manage", "social.publish"],
   "src/app/api/admin/social/route.ts GET": ["social.manage"],
   "src/app/api/admin/social/route.ts POST": ["social.manage", "social.publish"],
-  "src/app/api/admin/social/written/route.ts GET": ["social.manage"],
-  "src/app/api/admin/social/written/route.ts POST": ["social.manage", "social.publish"],
+  // Kids queue rows require the same administrator to also hold kids.manage; unknown legacy rows fail closed.
+  "src/app/api/admin/social/written/route.ts GET": ["social.manage", "kids.manage"],
+  // kids.manage is conditional: explicit Kids and auto source selection are checked before dispatch.
+  "src/app/api/admin/social/written/route.ts POST": ["social.manage", "social.publish", "kids.manage"],
   "src/app/api/admin/video-purge/route.ts GET": ["video.delete"],
   "src/app/api/admin/video-purge/route.ts POST": ["video.delete"],
   "src/app/api/admin/video-generation/narration-upload/route.ts POST": ["video.manage"],
-  "src/app/api/admin/video-generation/route.ts GET": ["video.manage"],
+  "src/app/api/admin/video-generation/route.ts GET": ["video.manage", "kids.manage"],
   "src/app/api/admin/video-generation/route.ts DELETE": ["video.delete"],
-  "src/app/api/admin/video-generation/route.ts PATCH": ["video.manage"],
-  "src/app/api/admin/video-generation/sources/route.ts GET": ["video.manage"],
-  "src/app/api/admin/video/templates/route.ts GET": ["video.manage"],
-  "src/app/api/admin/video/templates/route.ts POST": ["video.manage"],
-  "src/app/api/admin/videos/[id]/retry/route.ts POST": ["video.manage"],
-  "src/app/api/admin/videos/[id]/route.ts GET": ["video.manage"],
-  "src/app/api/admin/videos/[id]/route.ts PATCH": ["video.manage"],
+  "src/app/api/admin/video-generation/route.ts PATCH": ["video.manage", "kids.manage"],
+  "src/app/api/admin/video-generation/sources/route.ts GET": ["video.manage", "kids.manage"],
+  "src/app/api/admin/video/templates/route.ts GET": ["video.manage", "kids.manage"],
+  "src/app/api/admin/video/templates/route.ts POST": ["video.manage", "kids.manage"],
+  // Both guards must be present: video.manage is the unconditional step-up
+  // permission; kids.manage is enforced only when the stored request is Kids.
+  "src/app/api/admin/videos/[id]/retry/route.ts POST": ["video.manage", "kids.manage"],
+  "src/app/api/admin/videos/[id]/route.ts GET": ["video.manage", "kids.manage"],
+  "src/app/api/admin/videos/[id]/route.ts PATCH": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/[id]/route.ts DELETE": ["video.delete"],
-  "src/app/api/admin/videos/create/route.ts POST": ["video.manage"],
-  "src/app/api/admin/videos/route.ts GET": ["video.manage"],
+  "src/app/api/admin/videos/create/route.ts POST": ["video.manage", "kids.manage"],
+  "src/app/api/admin/videos/route.ts GET": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/upload/route.ts POST": ["video.manage"],
   "src/app/api/admin/videos/upload/route.ts GET": [],
   "src/app/api/admin/youtube-facebook/register-media/route.ts POST": ["media.manage"],
@@ -195,6 +199,37 @@ const videoRetrySource = readFileSync(join(apiRoot, "videos/[id]/retry/route.ts"
 if (!/requireAdminStepUpApi\s*\(\s*['"]video\.manage['"]\s*,\s*['"]\/admin\/video\/requests['"]\s*\)/.test(videoRetrySource)) {
   failures.push("video retry POST must enforce the configured step-up policy before re-queuing external video generation");
 }
+if (
+  !videoRetrySource.includes("resolveVideoRequestAudience(current.content)") ||
+  !/requireAdminApi\s*\(\s*['"]kids\.manage['"]\s*\)/.test(videoRetrySource) ||
+  !videoRetrySource.includes("kidsAuth.profile.id !== auth.profile.id")
+) {
+  failures.push("video retry POST must conditionally require kids.manage for Kids requests and bind both guards to the same administrator");
+}
+const legacyVideoRetrySource = readFileSync(join(apiRoot, "videos/[id]/route.ts"), "utf8");
+const videoReadRoutes = [
+  ["video-generation/route.ts", "canViewVideoRequestRow(row, canManageKids)"],
+  ["videos/route.ts", "canViewVideoRequestRow(request, canManageKids)"],
+  ["videos/[id]/route.ts", "canViewVideoRequestRow(item, canManageKids)"],
+  ["video/templates/route.ts", "canViewVideoTemplateAudience(template.audience, canManageKids)"],
+  ["video-generation/sources/route.ts", "!isKidsVideoSource(source)"],
+];
+for (const [relativePath, requiredFilter] of videoReadRoutes) {
+  const source = readFileSync(join(apiRoot, relativePath), "utf8");
+  if (!/requireAdminApi\s*\(\s*['"]kids\.manage['"]\s*\)/.test(source)) {
+    failures.push(relativePath + ": Kids-sensitive read endpoint must resolve kids.manage for the same admin session.");
+  }
+  if (!source.includes(requiredFilter)) {
+    failures.push(relativePath + ": Kids-sensitive read endpoint must filter child-directed records before returning data.");
+  }
+}
+if (
+  !legacyVideoRetrySource.includes("resolveVideoRequestAudience(current.content)") ||
+  !/requireAdminApi\s*\(\s*['"]kids\.manage['"]\s*\)/.test(legacyVideoRetrySource) ||
+  !legacyVideoRetrySource.includes("kidsAuth.profile.id !== auth.profile.id")
+) {
+  failures.push("legacy video retry PATCH must conditionally require kids.manage for Kids requests and bind both guards to the same administrator");
+}
 
 const socialRouteSource = readFileSync(join(apiRoot, "social/route.ts"), "utf8");
 const adoptionActionStart = socialRouteSource.indexOf('if (action === "adopt_server_facebook_token")');
@@ -271,12 +306,32 @@ for (const file of routeFiles) {
     const match = handlers[i];
     const end = handlers[i + 1]?.index ?? source.length;
     const block = source.slice(match.index, end);
-    if (
-      route === "src/app/api/admin/social/written/route.ts" &&
-      match[1] === "POST" &&
-      !/requireAdmin(?:StepUp)?Api\s*\(\s*(["'])social\.publish\1\s*(?:,|\))/.test(block)
-    ) {
-      failures.push(route + " POST: auto-published written-content generation requires social.publish.");
+    if (route === "src/app/api/admin/social/written/route.ts" && match[1] === "GET") {
+      if (
+        !block.includes('requireAdminApi("kids.manage")') ||
+        !block.includes("kidsAuth.profile.id !== auth.profile.id") ||
+        !block.includes("isWrittenPostVisibleToSocialManager") ||
+        !block.includes("kids_content?id=in.") ||
+        !block.includes("select=id,content_id,content_type,automation_key") ||
+        !block.includes("const items = visibleRows.slice(0, 100).map")
+      ) {
+        failures.push(route + " GET: Kids/unknown written posts must be hidden unless the same administrator has kids.manage and source IDs are checked against kids_content.");
+      }
+    }
+    if (route === "src/app/api/admin/social/written/route.ts" && match[1] === "POST") {
+      if (!/requireAdmin(?:StepUp)?Api\s*\(\s*(["'])social\.publish\1\s*(?:,|\))/.test(block)) {
+        failures.push(route + " POST: auto-published written-content generation requires social.publish.");
+      }
+      if (
+        !block.includes('category === "auto" || category === "kids"') ||
+        !block.includes('requireAdminApi("kids.manage")') ||
+        !block.includes('category === "kids" && !kidsAuth.ok') ||
+        !block.includes("kidsAuth.profile.id !== manageAuth.profile.id") ||
+        !block.includes("kidsAuth.profile.id !== publishAuth.profile.id") ||
+        !block.includes("allowKids = kidsAuth.ok")
+      ) {
+        failures.push(route + " POST: Kids source generation must be conditionally gated by kids.manage, with auto restricted to general sources for social-only managers.");
+      }
     }
     const handlerKey = route + " " + match[1];
     const expectedPermissions = CANONICAL_API_GUARDS[handlerKey];

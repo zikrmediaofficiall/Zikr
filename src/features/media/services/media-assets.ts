@@ -58,6 +58,87 @@ export async function getAdminMediaAssets(): Promise<AdminMediaAsset[]> {
   );
 }
 
+export async function registerAdminNarrationAsset(input: {
+  publicId: string;
+  secureUrl: string;
+  contentType: string;
+  sizeBytes: number;
+  createdBy: string;
+}): Promise<string> {
+  const rows = await supabaseServerAdminRequest<Array<{ id: string }>>(
+    "/rest/v1/media_assets",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        name: input.publicId,
+        title: "تسجيل صوتي داخلي",
+        media_type: "audio",
+        asset_type: "audio",
+        url: input.secureUrl,
+        storage_path: input.publicId,
+        mime_type: input.contentType,
+        size_bytes: input.sizeBytes,
+        rights_verified: false,
+        verified_rights: false,
+        published: false,
+        metadata: {
+          provider: "cloudinary",
+          cloudinary_public_id: input.publicId,
+          purpose: "video_generation_narration",
+          upload_state: "audit_pending",
+          content_type: input.contentType,
+          uploaded_by: input.createdBy,
+        },
+        created_by: input.createdBy,
+      }),
+    },
+  );
+
+  if (!Array.isArray(rows) || typeof rows[0]?.id !== "string") {
+    throw new Error("Cloudinary narration was uploaded but its media_assets tracking row was not confirmed.");
+  }
+  return rows[0].id;
+}
+
+export async function markAdminNarrationAssetAuditRecorded(
+  id: string,
+  publicId: string,
+  contentType: string,
+  uploadedBy: string,
+): Promise<void> {
+  if (!id.trim() || !publicId.trim()) throw new Error("Narration asset tracking identifiers are invalid.");
+
+  const rows = await supabaseServerAdminRequest<Array<{ id: string }>>(
+    `/rest/v1/media_assets?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        metadata: {
+          provider: "cloudinary",
+          cloudinary_public_id: publicId,
+          purpose: "video_generation_narration",
+          upload_state: "ready",
+          audit_recorded: true,
+          content_type: contentType,
+          uploaded_by: uploadedBy,
+        },
+      }),
+    },
+  );
+
+  if (!Array.isArray(rows) || !rows[0]?.id) {
+    throw new Error("Narration asset audit state could not be reconciled.");
+  }
+}
+
 async function compensateOrphanedMediaAsset(
   upload: CloudinaryImageUpload,
   requestedPublicId: string,

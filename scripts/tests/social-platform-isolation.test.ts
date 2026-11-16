@@ -571,7 +571,7 @@ assert.doesNotMatch(runActionBlock, /release_auth_blocked_queue|payload\.release
 assert.match(runActionBlock, /async \(action: "retry" \| "retry_all_failed" \| "delete" \| "delete_failed" \| "publish_now"\)/, "the generic handler's action union must match the actions it actually dispatches");
 assert.match(adminSocialClient, /const releaseAuthBlockedQueue = useCallback[\s\S]*?action: "release_auth_blocked_queue"[\s\S]*?payload\.released/, "auth-block release must stay in its dedicated handler");
 
-console.log("Social platform isolation and independent readiness tests passed.");
+
 
 const legacyFacebookAuthBlock = { authBlocked: true, attempts: 5 };
 assert.equal(canAttemptSocialPlatform({ platform: "facebook", enabledPlatforms: both, metadata: legacyFacebookAuthBlock, maxAttempts: 5 }), false, "legacy Facebook auth block must continue holding Facebook");
@@ -1205,3 +1205,93 @@ assert.match(socialClientAuditSource, /youtubeAuthBlocked/, "the admin UI must s
 assert.match(socialClientAuditSource, /releaseAuthBlockedQueue\("youtube"\)/, "the admin UI must expose an explicit YouTube recovery action");
 
 assert.match(revalidatedPublisherSource, /isAuthBlocked\(failure\.platform, failure\.error\)/, "the worker must classify YouTube OAuth failures as per-platform auth blocks");
+
+
+const overlappingAuthAndPermanentFacebookRecovery = buildFacebookQueueRecoveryPatch(
+  {
+    authBlocked: true,
+    authBlockedPlatforms: ["facebook", "facebook_reels"],
+    permanentFailure: true,
+    permanentFailurePlatforms: ["facebook_reels"],
+    platformResults: {
+      facebook: { ok: false, error: "Facebook OAuthException: access token expired" },
+      facebook_reels: { ok: false, error: "HTTP 422 media source unavailable" },
+      youtube: { ok: true, remoteId: "youtube-remote-3" },
+    },
+    platformAttempts: { facebook: 4, facebook_reels: 4, youtube: 1 },
+  },
+  ["facebook", "facebook_reels", "youtube"],
+  "2026-11-15T00:30:00.000Z",
+);
+assert.ok(
+  overlappingAuthAndPermanentFacebookRecovery,
+  "reauthorization should still release a recoverable Facebook Page target",
+);
+assert.deepEqual(
+  overlappingAuthAndPermanentFacebookRecovery.metadata.authBlockedPlatforms,
+  ["facebook_reels"],
+  "a platform marked both auth-blocked and permanent must remain blocked after the Page reconnect",
+);
+assert.equal(overlappingAuthAndPermanentFacebookRecovery.metadata.authBlocked, true);
+assert.deepEqual(
+  overlappingAuthAndPermanentFacebookRecovery.metadata.permanentFailurePlatforms,
+  ["facebook_reels"],
+  "the explicit permanent marker must survive an overlapping stale auth-block marker",
+);
+assert.equal(overlappingAuthAndPermanentFacebookRecovery.metadata.permanentFailure, true);
+const overlappingResults = overlappingAuthAndPermanentFacebookRecovery.metadata.platformResults as Record<string, unknown>;
+assert.equal(overlappingResults.facebook, undefined, "only the recoverable Facebook Page error should be cleared");
+assert.deepEqual(
+  overlappingResults.facebook_reels,
+  { ok: false, error: "HTTP 422 media source unavailable" },
+  "the permanent Reels result must remain intact",
+);
+assert.deepEqual(
+  overlappingResults.youtube,
+  { ok: true, remoteId: "youtube-remote-3" },
+  "the successful YouTube result must remain intact",
+);
+assert.deepEqual(
+  overlappingAuthAndPermanentFacebookRecovery.metadata.platformAttempts,
+  { facebook: 0, facebook_reels: 4, youtube: 1 },
+  "only the recoverable Facebook Page retry counter may reset",
+);
+
+const inferredPermanentFacebookRecovery = buildFacebookQueueRecoveryPatch(
+  {
+    authBlocked: true,
+    permanentFailure: true,
+    permanentFailurePlatforms: ["facebook"],
+    platformResults: {
+      facebook: { ok: false, error: "Facebook OAuthException: access token expired" },
+    },
+    platformAttempts: { facebook: 3 },
+  },
+  ["facebook"],
+  "2026-11-15T00:30:00.000Z",
+);
+assert.equal(
+  inferredPermanentFacebookRecovery,
+  null,
+  "an inferred auth-shaped error must not override an explicit permanent failure for the same target",
+);
+
+const legacyGlobalPermanentFacebookRecovery = buildFacebookQueueRecoveryPatch(
+  {
+    authBlocked: true,
+    permanentFailure: true,
+    platformResults: {
+      facebook: { ok: false, error: "Facebook OAuthException: access token expired" },
+    },
+    platformAttempts: { facebook: 5 },
+  },
+  ["facebook"],
+  "2026-11-15T00:30:00.000Z",
+);
+assert.equal(
+  legacyGlobalPermanentFacebookRecovery,
+  null,
+  "a legacy global permanent-failure flag without a per-platform ledger must not be cleared by Facebook reauthorization",
+);
+
+console.log("Social platform isolation and independent readiness tests passed.");

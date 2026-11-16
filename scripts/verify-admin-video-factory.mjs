@@ -21,6 +21,17 @@ if (!createRoute.includes("SOURCE_LOCKED_CATEGORIES")) failures.push("video crea
 if (!createRoute.includes("resolveVideoSource")) failures.push("video create API must resolve the canonical source");
 if (!createRoute.includes("sourceVerifiedAtRequest: true")) failures.push("video create API must stamp source verification");
 if (!createRoute.includes("ownCloudinaryAudioUrl")) failures.push("human narration must be restricted to ZIKR-owned Cloudinary uploads");
+const createAudienceGuardIndex = createRoute.indexOf("const requestedAudience = normalizeVideoAudience(content.audience);");
+const createTemplateBranchIndex = createRoute.indexOf('if (typeof content.templateVersionId === "string"');
+const createRequestIndex = createRoute.indexOf("const result = await createVideoGenerationRequest({");
+const createAudienceGuard = createAudienceGuardIndex >= 0 && createTemplateBranchIndex > createAudienceGuardIndex
+  ? createRoute.slice(createAudienceGuardIndex, createTemplateBranchIndex)
+  : "";
+if (!createAudienceGuard.includes("if (!requestedAudience)") ||
+    !createAudienceGuard.includes("audience: requestedAudience") ||
+    createRequestIndex <= createTemplateBranchIndex) {
+  failures.push("video create API must reject unknown audience markers and persist a canonical audience before optional template handling");
+}
 if (!createRoute.includes("category === \"quran\"")) failures.push("Quran audio substitution must remain blocked");
 
 const approvalHelper = read("src/features/videos/services/video-publish-approval.ts");
@@ -34,8 +45,9 @@ if (!approvalHelper.includes("sourceHash") || !approvalHelper.includes("contentH
 if (!approvalHelper.includes("buildVideoApprovalSnapshotHash")) {
   failures.push("video approval snapshot hashing helper is missing");
 }
-if (!approvalHelper.includes('snapshot.audience === "kids" && snapshot.kidsVideoQaStatus !== "passed"') ||
-    !approvalHelper.includes('content.kidsVideoQaStatus !== "passed"')) {
+if (!approvalHelper.includes("normalizeVideoAudience(snapshot.audience)") ||
+    !approvalHelper.includes('normalizeVideoMarker(snapshot.kidsVideoQaStatus) !== "passed"') ||
+    !approvalHelper.includes('normalizeVideoMarker(content.kidsVideoQaStatus) !== "passed"')) {
   failures.push("Kids audience and safety QA status must be bound to the video approval snapshot");
 }
 if (!socialPublishing.includes("source_hash,content_hash,template_version")) {
@@ -46,9 +58,14 @@ if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)")) {
 }
 
 const generation = read("src/app/api/admin/video-generation/route.ts");
-if (!generation.includes("currentContent.kidsVideoQaStatus !== 'passed'") ||
-    !generation.includes("hasCompleteKidsVideoSeriesMetadata(currentContent)")) {
-  failures.push("manual video approval must not bypass the Kids safety QA gate");
+if (
+  !generation.includes("resolveKidsVideoQaStatusForApproval") ||
+  !generation.includes("verifiedKidsVideoQaStatus !== 'passed'") ||
+  !generation.includes("catalogMetadata: catalog.metadata") ||
+  !generation.includes("requestContent: currentContent") ||
+  !generation.includes("hasCompleteKidsVideoSeriesMetadata(currentContent)")
+) {
+  failures.push("manual video approval must bind Kids QA to the matching catalog fingerprint and complete series metadata");
 }
 const generationGet = generation.match(/export async function GET\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
 const generationDelete = generation.match(/export async function DELETE\([\s\S]*?(?=export async function PATCH|$)/)?.[0] ?? "";
@@ -56,7 +73,24 @@ const generationPatch = generation.match(/export async function PATCH\([\s\S]*$/
 if (!generationGet.includes("requireAdminApi('video.manage')")) failures.push("video generation GET must require video.manage");
 if (!generationPatch.includes("requireAdminStepUpApi('video.manage'")) failures.push("video generation PATCH must require video.manage step-up");
 if (!generationDelete.includes("requireAdminStepUpApi('video.delete'")) failures.push("video generation DELETE must require video.delete step-up");
-if (!generation.includes("updated_at=eq.") || !generation.includes("current.updated_at")) failures.push("admin publish retry must use optimistic concurrency");
+if (
+  !generationDelete.includes("VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT") ||
+  !generationDelete.includes("status: 410") ||
+  generationDelete.includes("supabaseServerAdminRequest")
+) failures.push("legacy video-generation DELETE must remain disabled until media, catalog, and social-queue references are safely inventoried");
+const approvalConcurrencyStart = generation.indexOf("if (action === 'approve_publish')");
+const approvalConcurrencyEnd = generation.indexOf('if (action === "retry_publish")', approvalConcurrencyStart);
+const approvalConcurrencyBlock = approvalConcurrencyStart >= 0 && approvalConcurrencyEnd > approvalConcurrencyStart
+  ? generation.slice(approvalConcurrencyStart, approvalConcurrencyEnd)
+  : "";
+if (
+  !approvalConcurrencyBlock.includes("p_expected_request_updated_at") ||
+  !approvalConcurrencyBlock.includes("p_expected_catalog_updated_at") ||
+  !approvalConcurrencyBlock.includes("current.updated_at") ||
+  !approvalConcurrencyBlock.includes("catalog.updated_at")
+) {
+  failures.push("admin video approval must use optimistic concurrency for both the request and catalog");
+}
 
 const retryPublishStart = generation.search(/if\s*\(\s*action\s*===\s*["']retry_publish["']\s*\)/);
 const retryPublishEnd = generation.indexOf("DIRECT_VIDEO_STATUS_MUTATION_RETIRED", retryPublishStart);
@@ -87,6 +121,71 @@ if (!upload.includes("hasValidAudioSignature")) failures.push("narration upload 
 for (const token of ["ID3", "ftyp", "RIFF", "WAVE", "OggS", "0x1a", "0x45", "0xdf", "0xa3"]) if (!upload.includes(token)) failures.push(`audio signature contract missing: ${token}`);
 if (!upload.includes("audio-human-") || !upload.includes("/video/upload")) failures.push("narration upload must use the dedicated Cloudinary audio prefix");
 if (upload.includes("/storage/v1/object/videos/")) failures.push("narration upload must not stage audio in Supabase Storage");
+const mediaAssetsService = read("src/features/media/services/media-assets.ts");
+const narrationRecovery = read("src/features/media/services/narration-upload-recovery.ts");
+const studioClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
+if (!upload.includes("registerAdminNarrationAsset") || !upload.includes("markAdminNarrationAssetAuditRecorded")) {
+  failures.push("Cloudinary narration uploads must be durably registered in media_assets before audit success is reported");
+}
+if (!upload.includes("uploadReference") || !studioClient.includes("مرجع الاسترداد")) {
+  failures.push("failed narration upload responses must expose a recovery reference instead of leaving an untraceable Cloudinary object");
+}
+const cloudinaryResponseFailureStart = upload.indexOf(
+  "if (!upload.ok || !result.secure_url || result.public_id !== publicId)",
+);
+const audioUrlParseStart = upload.indexOf("let audioUrl: URL", cloudinaryResponseFailureStart);
+const invalidCloudinaryUrlStart = upload.indexOf("if (audioUrl.protocol", audioUrlParseStart);
+const assetTrackingStart = upload.indexOf("let mediaAssetId", invalidCloudinaryUrlStart);
+const cloudinaryResponseFailureBlock = upload.slice(cloudinaryResponseFailureStart, audioUrlParseStart);
+const invalidCloudinaryUrlBlock = upload.slice(audioUrlParseStart, assetTrackingStart);
+if (
+  cloudinaryResponseFailureStart < 0 ||
+  audioUrlParseStart <= cloudinaryResponseFailureStart ||
+  !cloudinaryResponseFailureBlock.includes("recoveryReference") ||
+  !cloudinaryResponseFailureBlock.includes("...recoveryReference") ||
+  !cloudinaryResponseFailureBlock.includes("recoveryRequired: true")
+) {
+  failures.push("ambiguous Cloudinary response failures must retain the safe returned recovery reference for possible uploaded assets");
+}
+if (
+  audioUrlParseStart < 0 ||
+  invalidCloudinaryUrlStart <= audioUrlParseStart ||
+  assetTrackingStart <= invalidCloudinaryUrlStart ||
+  !invalidCloudinaryUrlBlock.includes("uploadReference: publicId") ||
+  !invalidCloudinaryUrlBlock.includes("recoveryRequired: true")
+) {
+  failures.push("invalid or non-canonical Cloudinary URLs must retain a recovery reference for the uploaded asset");
+}
+
+const uploadCatchStart = upload.lastIndexOf("} catch (error) {");
+const uploadCatchBlock = upload.slice(uploadCatchStart);
+if (
+  !upload.includes("let recoveryPublicId: string | null = null;") ||
+  !upload.includes("let uploadAttempted = false;") ||
+  !upload.includes("uploadAttempted = true;") ||
+  !uploadCatchBlock.includes("uploadAttempted && recoveryPublicId") ||
+  !uploadCatchBlock.includes("uploadReference: recoveryPublicId") ||
+  !uploadCatchBlock.includes("recoveryRequired: true")
+) {
+  failures.push("ambiguous Cloudinary network failures must return the preallocated recovery reference");
+}
+if (
+  !upload.includes("resolveNarrationUploadRecoveryReference(publicId, result.public_id)") ||
+  !narrationRecovery.includes("requestedUploadReference") ||
+  !studioClient.includes("requestedUploadReference") ||
+  !upload.includes('assetTrackingStatus === "reconciliation_pending"')
+) {
+  failures.push("Cloudinary recovery responses must expose a safe returned ID, the requested ID, and reconciliation-pending reference");
+}
+
+if (!mediaAssetsService.includes('purpose: "video_generation_narration"') ||
+    !mediaAssetsService.includes('upload_state: "audit_pending"') ||
+    !mediaAssetsService.includes("rights_verified: false") ||
+    !mediaAssetsService.includes("published: false") ||
+    !mediaAssetsService.includes('upload_state: "ready"')) {
+  failures.push("narration media assets must remain private, rights-unverified and tracked through audit reconciliation");
+}
+
 
 const service = read("src/features/videos/services/video-automation.ts");
 if (!service.includes("updated_at=eq.") || !service.includes("request.updated_at")) failures.push("video queue claims must include optimistic updated_at");
@@ -210,6 +309,10 @@ if (!templateApi.includes("/rest/v1/rpc/admin_create_video_template_version") ||
 if (!templateApi.includes("recordAdminAuditEvent")) failures.push("template actions must be included in the admin audit stream");
 
 const worker = read("scripts/jobs/template-video-automation.ts");
+const approvalRoute = read("src/app/api/admin/video-generation/route.ts");
+const approvalService = read("src/features/videos/services/video-publish-approval.ts");
+const contentPublisher = read("scripts/jobs/content-publishing.ts");
+const backgroundRunner = read("scripts/run-background-jobs.ts");
 if (!worker.includes("async function bindTemplateVersion")) failures.push("video worker must bind requests to an immutable template version");
 if (!worker.includes("request.content.templatePreview === true")) failures.push("template preview mode must be recognized by the renderer");
 if (!worker.includes("if (!isTemplatePreview) aiPlan = await generateAiVideoPlan(request, signal)")) failures.push("internal template previews must avoid external generative planning");
@@ -225,6 +328,17 @@ if (!worker.includes("source_hash: rendered.sourceHash") || !worker.includes("co
   failures.push("completed manual renders must persist source, content and template integrity fingerprints");
 }
 const generationWorkflow = read(".github/workflows/generate-ai-video.yml");
+const providerTypes = read("src/features/videos/providers/types.ts");
+if (
+  !generationWorkflow.includes('VIDEO_FREE_ONLY: "true"') ||
+  !generationWorkflow.includes('HF_WAN_VIDEO_ENABLED: "true"') ||
+  !generationWorkflow.includes('HF_LTX_FAST_VIDEO_ENABLED: "true"') ||
+  !generationWorkflow.includes('VIDEO_PROVIDER_ORDER: "hf_ltx_fast,hf_wan,template"') ||
+  !generationWorkflow.includes('GEMINI_AUDIO_SMOKE_TEST: "false"') ||
+  !providerTypes.includes("return !config.freeOnly && config.aiEnabled && Boolean(env.GEMINI_API_KEY?.trim())")
+) {
+  failures.push("scheduled video generation must explicitly enable free Hugging Face providers while keeping paid Gemini planning disabled in free-only mode");
+}
 const leaseWrappedSocialEnqueue = /await\s+withLeaseHeartbeat\s*\(\s*\(signal\)\s*=>\s*queueSocialItems\s*\(\s*request\s*,\s*rendered\.videoUrl\s*,\s*signal\s*\)\s*,?\s*\)/.test(worker);
 if (!/async\s+function\s+queueSocialItems\s*\(/.test(worker) ||
     !leaseWrappedSocialEnqueue ||
@@ -257,9 +371,11 @@ if (!generationWorkflow.includes('AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"'
   failures.push("new video candidates must use a complete automated QA snapshot instead of a manual approval gate");
 }
 if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)") ||
-    !socialPublishing.includes("Video held because automated QA is missing, incomplete or stale.") ||
-    !socialPublishing.includes("Automated QA lookup failed; holding video item")) {
-  failures.push("the separate social worker must fail closed and revalidate automated QA immediately before provider calls");
+    !socialPublishing.includes("Video held because automated QA or Kids human review is missing, incomplete or stale.") ||
+    !socialPublishing.includes("Video approval lookup failed; holding video item") ||
+    !approvalHelper.includes("inspectVideoQueueItemExternalApproval") ||
+    !approvalHelper.includes("isHumanVideoApprovalRecorded")) {
+  failures.push("the separate social worker must fail closed, revalidate current automated QA, and require human review for Kids videos before provider calls");
 }
 if (!worker.includes("!isTemplatePreview &&") || !worker.includes("!boundTemplate &&")) failures.push("pinned template renders must not be handed to external video providers");
 for (const [path, destinations] of [
@@ -302,6 +418,51 @@ if (!pkg.scripts["verify"]?.includes("pnpm admin:video:check")) failures.push("v
 if (!read("src/features/videos/services/voice-profiles.ts").includes("hadith_male_msa")) failures.push("canonical hadith male voice profile missing");
 if (!read("src/features/videos/services/narration-quality.ts").includes("evaluateArabicNarrationText")) failures.push("Arabic narration quality validator missing");
 if (!worker.includes("wordsPerSecond")) failures.push("Video worker missing speaking-rate checks");
+for (const token of [
+  "approvalStatus: typeof request.content.approvalStatus === \"string\"",
+  "approvalReviewerId: typeof request.content.approvalReviewerId === \"string\"",
+  "approvalSnapshotHash: typeof request.content.approvalSnapshotHash === \"string\"",
+  "contentFormat: typeof request.content.contentFormat === \"string\"",
+  "aiMode: typeof request.content.aiMode === \"string\"",
+]) {
+  if (!worker.includes(token)) failures.push("Video catalog row must retain the exact generation approval contract: " + token);
+}
+const catalogApprovalHelper = approvalService.slice(
+  approvalService.indexOf("export function buildVideoCatalogApprovalPatch"),
+  approvalService.indexOf("export function isVideoApprovalRecorded"),
+);
+if (!catalogApprovalHelper.includes("metadata.videoGenerationRequestId !== requestId") ||
+    !catalogApprovalHelper.includes('metadata.mediaState === "purged"') ||
+    !catalogApprovalHelper.includes("requestContent.approvalStatus !== \"approved\"") ||
+    catalogApprovalHelper.includes("published: true")) {
+  failures.push("Manual video approval must be source-locked, reject purged media, and leave publication to the scheduled content queue");
+}
+for (const token of [
+  "buildVideoCatalogApprovalPatch",
+  "/rest/v1/videos?slug=eq.",
+  "catalogApprovalRecorded: true",
+]) {
+  if (!approvalRoute.includes(token)) failures.push("Admin approval must record approval only on the matching internal video catalog row: " + token);
+}
+if (approvalRoute.includes("publishedInternally: true") || approvalRoute.includes("catalogPublished: true")) {
+  failures.push("Admin approval must not claim that the internal content-publishing queue has already published the video");
+}
+const internalVideoMediaValidation = contentPublisher.match(
+  /const parsed = new URL\(mediaUrl\);([\s\S]*?)\n\s*\} catch \{/,
+)?.[1] ?? "";
+if (!contentPublisher.includes("content_publish_queue") ||
+    !contentPublisher.includes("inspectVideoQueueItemApproval") ||
+    !contentPublisher.includes("!approval.approved") ||
+    !internalVideoMediaValidation.includes('metadata.mediaState !== "purged"') ||
+    !internalVideoMediaValidation.includes('metadata.mediaState !== "unlinked"') ||
+    !contentPublisher.includes("row.published !== false")) {
+  failures.push("Internal video publication must remain behind the scheduled content queue's QA and media-state checks");
+}
+if (!backgroundRunner.includes("processScheduledContent(20)") ||
+    !backgroundRunner.includes('const social = target === "all" || target === "social"') ||
+    backgroundRunner.indexOf("processScheduledContent(20)") > backgroundRunner.indexOf('const social = target === "all" || target === "social"')) {
+  failures.push("Scheduled internal content publication must run before external social publishing");
+}
 
 if (!worker.includes("VIDEO_PLAN_SYSTEM_INSTRUCTION") ||
     !worker.includes("systemInstruction: { parts: [{ text: systemInstruction }] }") ||
@@ -309,6 +470,45 @@ if (!worker.includes("VIDEO_PLAN_SYSTEM_INSTRUCTION") ||
     !worker.includes("sourceText,")) {
   failures.push("video planning must isolate fixed editorial policy from untrusted source data in the Gemini system-instruction channel");
 }
+
+const atomicVideoApprovalStart = approvalRoute.indexOf("if (action === 'approve_publish')");
+const atomicVideoApprovalEnd = approvalRoute.indexOf('if (action === "retry_publish")', atomicVideoApprovalStart);
+const atomicVideoApprovalBlock = atomicVideoApprovalStart >= 0 && atomicVideoApprovalEnd > atomicVideoApprovalStart
+  ? approvalRoute.slice(atomicVideoApprovalStart, atomicVideoApprovalEnd)
+  : "";
+if (
+  !atomicVideoApprovalBlock.includes("/rest/v1/rpc/admin_approve_video_generation_request") ||
+  !atomicVideoApprovalBlock.includes("p_expected_request_updated_at") ||
+  !atomicVideoApprovalBlock.includes("p_expected_catalog_updated_at") ||
+  !atomicVideoApprovalBlock.includes("p_approved_content") ||
+  !atomicVideoApprovalBlock.includes("p_catalog_metadata") ||
+  atomicVideoApprovalBlock.includes("method: 'PATCH'") ||
+  atomicVideoApprovalBlock.includes('method: "PATCH"')
+) {
+  failures.push("Human video approval must atomically compare-and-set the request and catalog through the service-only approval RPC");
+}
+const atomicVideoApprovalMigration = read("supabase/migrations/20261115153600_admin_video_approval_atomic.sql");
+for (const token of [
+  "CREATE OR REPLACE FUNCTION public.admin_approve_video_generation_request",
+  "FOR UPDATE",
+  "VIDEO_APPROVAL_CONFLICT",
+  "p_approved_content - v_request_approval_fields",
+  "p_catalog_metadata - v_catalog_approval_fields",
+  "kidsVideoQaStatus",
+  "seriesId",
+  "automatedVideoQa",
+  "REVOKE ALL ON FUNCTION public.admin_approve_video_generation_request",
+  "GRANT EXECUTE ON FUNCTION public.admin_approve_video_generation_request",
+]) {
+  if (!atomicVideoApprovalMigration.includes(token)) {
+    failures.push("Atomic human video approval migration is missing its concurrency, immutability, or service-role-only guard: " + token);
+  }
+}
+const atomicApprovalWorkflow = read(".github/workflows/quality-gate.yml");
+if (!atomicApprovalWorkflow.includes("scripts/tests/video-approval-atomic.integration.sh")) {
+  failures.push("Atomic video approval rollback regression must run in the canonical Quality Gate");
+}
+
 
 if (failures.length) {
   console.error("ADMIN_VIDEO_FACTORY_CHECK_FAILED");

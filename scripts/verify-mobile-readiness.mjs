@@ -15,6 +15,9 @@ const requiredFiles = [
   "ios/App/App.xcodeproj/project.pbxproj",
   "ios/App/Podfile",
   "android/variables.gradle",
+  "android/capacitor.settings.gradle",
+  "android/app/capacitor.build.gradle",
+  "pnpm-lock.yaml",
   "mobile/capacitor-dependencies.json",
   "src/app/.well-known/assetlinks.json/route.ts",
   "src/app/.well-known/apple-app-site-association/route.ts",
@@ -54,6 +57,35 @@ try {
 }
 const packageDependencies = { ...(packageJson.dependencies || {}), ...(packageJson.devDependencies || {}) };
 if (!packageDependencies["@capgo/capacitor-social-login"]) failures.push("package.json is missing @capgo/capacitor-social-login required for Android native Google login");
+
+const pnpmLock = read("pnpm-lock.yaml");
+const androidCapacitorSettings = read("android/capacitor.settings.gradle");
+const androidCapacitorBuild = read("android/app/capacitor.build.gradle");
+const capacitorCoreVersion = packageDependencies["@capacitor/core"];
+const capacitorAndroidVersion = packageDependencies["@capacitor/android"];
+const socialLoginLock = pnpmLock.match(/^      '@capgo\/capacitor-social-login':\n        specifier: [^\n]+\n        version: ([^(]+)\(@capacitor\/core@([^)]+)\)/m);
+if (!socialLoginLock) {
+  failures.push("pnpm-lock.yaml must resolve @capgo/capacitor-social-login against the installed @capacitor/core version");
+} else {
+  const expectedSocialLoginPath = `../node_modules/.pnpm/@capgo+capacitor-social-login@${socialLoginLock[1]}_@capacitor+core@${socialLoginLock[2]}/node_modules/@capgo/capacitor-social-login/android`;
+  if (!androidCapacitorSettings.includes("include ':capgo-capacitor-social-login'") ||
+      !androidCapacitorSettings.includes(`new File('${expectedSocialLoginPath}')`)) {
+    failures.push("Android Capacitor settings must link the locked Capgo Social Login plugin");
+  }
+}
+if (!capacitorCoreVersion || !capacitorAndroidVersion ||
+    !androidCapacitorSettings.includes(`@capacitor+android@${capacitorAndroidVersion}_@capacitor+core@${capacitorCoreVersion}`)) {
+  failures.push("Android Capacitor settings must use the exact @capacitor/android and @capacitor/core versions from package.json");
+}
+const linkedCoreVersions = [...androidCapacitorSettings.matchAll(/@capacitor\+core@([0-9]+\.[0-9]+\.[0-9]+)/g)].map(match => match[1]);
+if (!capacitorCoreVersion || linkedCoreVersions.length === 0 || linkedCoreVersions.some(version => version !== capacitorCoreVersion)) {
+  failures.push("Android Capacitor plugin paths must all use the locked @capacitor/core version");
+}
+if (androidCapacitorSettings.includes("include ':capacitor-cli'")) failures.push("Capacitor CLI must not be registered as an Android native plugin project");
+if (androidCapacitorSettings.endsWith("\n\n")) failures.push("Android Capacitor settings must not retain the extra trailing blank line removed by cap sync");
+if (!androidCapacitorBuild.includes("implementation project(':capgo-capacitor-social-login')")) {
+  failures.push("Android Capacitor build must depend on capgo-capacitor-social-login for native Google login");
+}
 
 const mobileWebDir = typeof capacitor.webDir === "string" ? capacitor.webDir.trim() : "";
 if (!mobileWebDir || !existsSync(`${mobileWebDir}/index.html`)) {

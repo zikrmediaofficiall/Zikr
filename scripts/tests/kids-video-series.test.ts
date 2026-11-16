@@ -8,9 +8,84 @@ import {
   validateCanonicalKidsEpisodeSnapshot,
   validateGeneratedKidsEpisode,
 } from "../../src/features/videos/data/kids-story-factory";
+import {
+  filterGeneralStorySources,
+  resolveKidsVideoPublicDisclosure,
+  resolveVideoSourceDisclosureLine,
+} from "../../src/features/videos/services/video-source-contract";
 
 assert.equal(KIDS_VIDEO_SERIES.length, 4, "the catalog must expose four distinct child-friendly series");
 assert.equal(KIDS_SERIES_EPISODES_PER_SEASON, 24, "the first catalog season must contain six episodes per series");
+
+const generalStorySources = filterGeneralStorySources([
+  { id: "verified-story", audience: "general" },
+  { id: "legacy-general-story" },
+  { id: "kids-series:little-good-steps:s1:e2", audience: "kids" },
+  { id: "future-kids-story", generationMode: "free_deterministic_story_factory" },
+  { id: "mislabelled-kids-story", sourceType: "original_kids_fiction" },
+]);
+assert.deepEqual(
+  generalStorySources.map((source) => source.id),
+  ["verified-story", "legacy-general-story"],
+  "generic story automation must exclude every child-directed source even when its category is story",
+);
+
+const fictionLabel = "قصة تربوية خيالية أصلية من ذِكر — ليست آية أو حديثًا أو واقعة تاريخية.";
+assert.equal(
+  resolveVideoSourceDisclosureLine({
+    audience: "kids",
+    aiMode: "original_kids_story",
+    sourceType: "original_kids_fiction",
+    sourceLabel: fictionLabel,
+    sourceUrl: "https://zikrmediaofficial.vercel.app/kids",
+  }, "https://zikrmediaofficial.vercel.app/kids"),
+  fictionLabel,
+  "original Kids fiction must disclose its fictional nature instead of labelling the Kids landing page as a source",
+);
+assert.equal(
+  resolveVideoSourceDisclosureLine({
+    sourceType: "editorial",
+    sourceLabel: "محتوى تحريري أصلي من منصة ذِكر",
+  }, "https://zikrmediaofficial.vercel.app/about"),
+  "محتوى تحريري أصلي من منصة ذِكر",
+  "original editorial copy must not be presented as externally sourced",
+);
+assert.equal(
+  resolveVideoSourceDisclosureLine({ sourceType: "story" }, "https://quran.com/12"),
+  "المصدر: https://quran.com/12",
+  "source-backed stories must retain their external source URL",
+);
+const legacyFictionDisclosure = resolveKidsVideoPublicDisclosure(
+  { audience: "kids", sourceType: "original_kids_fiction", sourceLabel: fictionLabel },
+  "قصة موثقة في مكتبة ذِكر مع إحالة إلى مصدرها الأساسي.",
+  "تابع القصة.\n\nالمصدر: https://zikrmediaofficial.vercel.app/kids",
+);
+assert.equal(legacyFictionDisclosure.sourceLabel, fictionLabel);
+assert.equal(legacyFictionDisclosure.description, null, "legacy fiction must not retain a false verified-source description");
+assert.equal(legacyFictionDisclosure.socialCaption, null, "legacy fiction must not surface a caption that claims an external source");
+const safeFictionDisclosure = resolveKidsVideoPublicDisclosure(
+  { audience: "kids", sourceType: "original_kids_fiction", sourceLabel: fictionLabel },
+  "قصة تربوية خيالية أصلية للأطفال عن العدل وانتظار الدور.",
+  "حكاية أصلية من ذِكر عن العدل وانتظار الدور.",
+);
+assert.equal(safeFictionDisclosure.description, "قصة تربوية خيالية أصلية للأطفال عن العدل وانتظار الدور.");
+assert.equal(safeFictionDisclosure.socialCaption, "حكاية أصلية من ذِكر عن العدل وانتظار الدور.");
+
+const unsafeFictionSourceLabel = resolveKidsVideoPublicDisclosure(
+  { audience: "kids", aiMode: "original_kids_story", sourceLabel: "المصدر: https://quran.com/12" },
+  "قصة تربوية خيالية أصلية للأطفال عن الصدق.",
+  null,
+);
+assert.equal(unsafeFictionSourceLabel.sourceType, "original_kids_fiction", "the inferred Kids-fiction mode must expose its canonical source type");
+assert.equal(unsafeFictionSourceLabel.sourceLabel, fictionLabel, "an external URL must not be trusted as the source label for original Kids fiction");
+assert.equal(
+  resolveVideoSourceDisclosureLine(
+    { sourceType: "original_kids_fiction", sourceLabel: "قصة موثقة في مكتبة خارجية" },
+    "https://quran.com/12",
+  ),
+  fictionLabel,
+  "worker-generated social disclosures must replace legacy external-source claims for original Kids fiction",
+);
 
 const firstSeason = Array.from({ length: 24 }, (_, index) => buildKidsSeriesEpisode(index + 1));
 assert.equal(new Set(firstSeason.map((episode) => episode.sourceId)).size, 24, "source IDs must be unique");
@@ -65,6 +140,12 @@ const kidsSeriesStart = automationSource.indexOf('key = `kids-series:${day}:${sl
 assert.ok(genericStoryStart >= 0 && kidsSeriesStart > genericStoryStart, "generic story and Kids series automation branches must remain distinct");
 const genericStoryBranch = automationSource.slice(genericStoryStart, kidsSeriesStart);
 assert.match(genericStoryBranch, /audience:\s*"general"/, "verified public story sources must not be misclassified as Kids series episodes");
+assert.match(genericStoryBranch, /filterGeneralStorySources/, "generic story automation must filter Kids sources from its curated fallback pool");
+assert.match(automationSource, /resolveVideoSourceDisclosureLine\(content,\s*contentSourceUrl\(request\)\)/, "social captions must use audience-aware source disclosure");
+assert.match(automationSource, /containsKidsPersonalDataSolicitation\(reflection\)/, "AI Kids reflections must reject personal-data solicitation");
+assert.match(automationSource, /containsKidsPersonalDataSolicitation\(caption\)/, "AI Kids social captions must reject personal-data solicitation");
+assert.match(automationSource, /const kidsEditorialTextSafe = content\.audience !== "kids"/, "automated video QA must fail closed on unsafe Kids editorial text");
+assert.match(automationSource, /const captionsReviewed = kidsEditorialTextSafe && narrationQuality\.ok/, "unsafe Kids editorial text must prevent a passed video QA snapshot");
 const kidsSeriesEnd = automationSource.indexOf("const reminders =", kidsSeriesStart);
 assert.ok(kidsSeriesEnd > kidsSeriesStart, "Kids series branch must end before general reminder seeding");
 const kidsSeriesBranch = automationSource.slice(kidsSeriesStart, kidsSeriesEnd);
@@ -228,17 +309,51 @@ assert.equal(
   "stored publication metadata must not be used when a required queue read failed",
 );
 const kidsVideosRouteSource = readFileSync("src/app/api/kids/videos/route.ts", "utf8");
+assert.ok(kidsVideosRouteSource.includes("resolveKidsVideoPublicDisclosure") && kidsVideosRouteSource.includes("sourceLabel: disclosure.sourceLabel"), "the public Kids API must expose the authoritative source disclosure");
+const kidsHomeSource = readFileSync("src/app/kids/page.tsx", "utf8");
+const kidsVideoListSource = readFileSync("src/app/kids/videos/page.tsx", "utf8");
+const kidsVideoDetailSource = readFileSync("src/app/kids/videos/[slug]/page.tsx", "utf8");
+assert.ok(kidsHomeSource.includes("item.sourceLabel"), "the Kids home feed must display the source disclosure");
+assert.ok(kidsVideoListSource.includes("resolveKidsVideoPublicDisclosure"), "the Kids video list must suppress misleading legacy source descriptions");
+assert.ok(kidsVideoDetailSource.includes("resolveKidsVideoPublicDisclosure") && kidsVideoDetailSource.includes("disclosure.sourceLabel"), "the Kids video detail must show the source disclosure and suppress false attribution");
 assert.ok(
   kidsVideosRouteSource.includes("let socialQueueReadSucceeded = requestIds.length === 0;"),
   "the list feed must treat an empty request-ID set as a successful no-op queue read",
 );
 const kidsVideoServiceSource = readFileSync("src/features/videos/services/videos.ts", "utf8");
-const detailResolverStart = kidsVideoServiceSource.indexOf("async function resolveKidsVideoSocialPublicationForDetail");
-const detailResolverEnd = kidsVideoServiceSource.indexOf("export async function getKidsGeneratedVideoBySlug", detailResolverStart);
-const detailResolverSource = detailResolverStart >= 0 && detailResolverEnd > detailResolverStart
-  ? kidsVideoServiceSource.slice(detailResolverStart, detailResolverEnd)
-  : "";
-assert.ok(detailResolverSource.includes("return resolveKidsVideoSocialPublication([], stored, true);"),
-  "the detail feed must use stored legacy publication metadata when there is no valid request ID to query");
+const detailResolverSource = readFileSync("src/features/social/services/kids-video-social-detail.ts", "utf8");
+assert.ok(kidsVideoServiceSource.includes("resolveKidsVideoSocialPublicationForDetail"));
+const publicKidsListStart = kidsVideoServiceSource.indexOf("export async function getKidsGeneratedVideos");
+const publicKidsDetailStart = kidsVideoServiceSource.indexOf("export async function getKidsGeneratedVideoBySlug");
+const publicKidsListSource = kidsVideoServiceSource.slice(publicKidsListStart, publicKidsDetailStart);
+const publicKidsDetailServiceSource = kidsVideoServiceSource.slice(publicKidsDetailStart);
+assert.ok(kidsVideoServiceSource.includes("loadApprovedKidsVideoRequests"), "public Kids video reads must verify the linked completed generation request");
+assert.ok(kidsVideoServiceSource.includes("hasCurrentHumanKidsVideoApproval"), "public Kids video reads must verify a current human approval snapshot");
+assert.ok(kidsVideoServiceSource.includes("isHumanVideoApprovalRecorded(requestContent, snapshotHash)"), "the linked request must contain a matching human approval");
+assert.ok(kidsVideoServiceSource.includes("isHumanVideoApprovalRecorded(metadata, snapshotHash)"), "the public catalog row must contain the same human approval snapshot");
+assert.ok(kidsVideoServiceSource.includes("resolveKidsVideoQaStatusForApproval"), "public Kids reads must revalidate QA against the current request and media fingerprints");
+assert.ok(kidsVideoServiceSource.includes("status=eq.completed"), "only completed generation requests may authorize public Kids videos");
+assert.ok(publicKidsListSource.includes("hasCurrentHumanKidsVideoApproval(metadata, request)"), "the Kids list must fail closed when a matching human approval request is absent");
+assert.ok(publicKidsDetailServiceSource.includes("hasCurrentHumanKidsVideoApproval(metadata, approvalRequest)"), "the Kids detail must fail closed when a matching human approval request is absent");
+
+assert.ok(
+  detailResolverSource.includes('requestIdState.kind === "missing"'),
+  "the detail feed must fail closed when a generation request ID is missing or invalid",
+);
+assert.ok(
+  !detailResolverSource.includes("storedSocialPublication") &&
+    !detailResolverSource.includes("resolveKidsVideoSocialPublication([], stored, true, true)"),
+  "the detail feed must never fall back to stale catalog publication metadata",
+);
+assert.ok(
+  detailResolverSource.includes('requestIdState.kind === "invalid"') &&
+    detailResolverSource.includes('reason: "invalid_request_id"'),
+  "malformed request IDs must not be treated as legacy rows",
+);
+assert.ok(
+  detailResolverSource.includes("loadKidsSocialQueueRows([requestIdState.id], request)") &&
+    detailResolverSource.includes('reason: "queue_read_failed"'),
+  "a failed detail queue read must be distinguishable from a verified empty queue history",
+);
 
 console.log("✅ Kids video series: four series, 24 first-season episodes, 1,000 validated episode variants, and scheduled quota and social publication checks passed.");

@@ -77,6 +77,14 @@ assert.equal(
   "a stale wall clock must still produce a strictly newer row version",
 );
 const socialPublishingSource = readFileSync("src/features/social/services/social-publishing.ts", "utf8");
+const socialWorkerSource = readFileSync("scripts/jobs/social-publishing.ts", "utf8");
+const retentionSummaryStart = socialPublishingSource.indexOf("export async function retryPendingPublishedVideoCleanup(");
+const retentionSummaryEnd = socialPublishingSource.indexOf("export async function processSocialPublishItem(", retentionSummaryStart);
+const retentionSummary = socialPublishingSource.slice(retentionSummaryStart, retentionSummaryEnd);
+assert.match(retentionSummary, /markedForRetention/, "the worker result must report retention markers rather than completed media deletion");
+assert.ok(!retentionSummary.includes("cleaned"), "metadata-only retention must not be reported as media cleaned");
+assert.match(socialWorkerSource, /Published video staging-retention markers refreshed/, "worker logs must state that only retention markers were refreshed");
+
 assert.equal(
   (socialPublishingSource.match(/buildNextRowVersionUpdatedAt\(row\.updated_at\)/g) ?? []).length,
   2,

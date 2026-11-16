@@ -27,6 +27,8 @@ assert.match(adminUploadRoute, /MAX_IMAGE_REQUEST_BYTES\s*=\s*MAX_IMAGE_BYTES\s*
 assert.match(adminUploadRoute, /readBoundedRequestBytes\(request, MAX_IMAGE_REQUEST_BYTES\)/);
 assert.doesNotMatch(adminUploadRoute, /request\.formData\(\)/);
 assert.match(adminUploadRoute, /new Response\([\s\S]*?\.formData\(\)/);
+assert.equal(adminUploadRoute.split("runPostCommitAudit(").length - 1, 1, "Cloudinary uploads must report post-commit audit outcomes");
+assert.ok(adminUploadRoute.includes("{ ...upload, auditRecorded }"), "Cloudinary upload responses must expose audit recording status");
 
 assert.match(kidsAdminActions, /async function compensateOrphanedKidsImage/);
 assert.match(kidsAdminActions, /featured_image_url=eq\./,

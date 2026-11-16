@@ -2,6 +2,26 @@ import { getManualReconciliationPlatforms, hasMalformedSocialPlatformResults, no
 import { isSocialPlatformDeletionCurrent } from "./social-deletion-visibility";
 
 const SOCIAL_PLATFORMS = new Set(["youtube", "facebook", "facebook_reels"]);
+const VIDEO_GENERATION_REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export type KidsVideoGenerationRequestIdState =
+  | { kind: "missing" }
+  | { kind: "invalid" }
+  | { kind: "valid"; id: string };
+
+export function classifyKidsVideoGenerationRequestId(value: unknown): KidsVideoGenerationRequestIdState {
+  if (value === null || value === undefined || value === "") {
+    return { kind: "missing" };
+  }
+  if (typeof value !== "string") {
+    return { kind: "invalid" };
+  }
+  const id = value.trim();
+  if (!VIDEO_GENERATION_REQUEST_ID_PATTERN.test(id)) {
+    return { kind: "invalid" };
+  }
+  return { kind: "valid", id };
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -99,6 +119,7 @@ export function resolveKidsVideoSocialPublication(
   rowsInput: readonly unknown[],
   stored: unknown,
   queueReadSucceeded: boolean,
+  allowStoredFallback = true,
 ): KidsVideoSocialPublication | null {
   if (!queueReadSucceeded) return null;
 
@@ -112,7 +133,7 @@ export function resolveKidsVideoSocialPublication(
   });
 
   if (rows.length === 0) {
-    if (rowsInput.length > 0) return null;
+    if (rowsInput.length > 0 || !allowStoredFallback) return null;
     const storedRecord = asRecord(stored);
     const storedPlatforms = Array.isArray(storedRecord.platforms)
       ? [...new Set(storedRecord.platforms.filter(
@@ -120,9 +141,15 @@ export function resolveKidsVideoSocialPublication(
             typeof platform === "string" && SOCIAL_PLATFORMS.has(platform),
         ))]
       : [];
-    if (storedPlatforms.length === 0) return null;
+    const storedStatus = storedRecord.status;
+    if (
+      storedPlatforms.length === 0 ||
+      (storedStatus !== "published" && storedStatus !== "partial")
+    ) {
+      return null;
+    }
     return {
-      status: storedRecord.status === "published" ? "published" : "partial",
+      status: storedStatus,
       platforms: storedPlatforms,
       publishedAt: typeof storedRecord.publishedAt === "string" &&
         Number.isFinite(Date.parse(storedRecord.publishedAt))

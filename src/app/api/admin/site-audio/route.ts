@@ -47,8 +47,13 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const guard = await requireAdminApi("audio.manage");
-  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
+  const guard = await requireAdminStepUpApi("audio.manage", "/admin/site-audio");
+  if (!guard.ok) {
+    return NextResponse.json(
+      { error: guard.error, nextPath: "nextPath" in guard ? guard.nextPath : undefined },
+      { status: guard.status, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   const parsedBody = await readBoundedJsonBody(request);
   if (!parsedBody.ok) {
     return NextResponse.json({ error: parsedBody.error }, { status: parsedBody.status });
@@ -205,8 +210,13 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const guard = await requireAdminApi("audio.manage");
-  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
+  const guard = await requireAdminStepUpApi("audio.manage", "/admin/site-audio");
+  if (!guard.ok) {
+    return NextResponse.json(
+      { error: guard.error, nextPath: "nextPath" in guard ? guard.nextPath : undefined },
+      { status: guard.status, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   const parsedBody = await readBoundedJsonBody(request);
   if (!parsedBody.ok) {
     return NextResponse.json({ error: parsedBody.error }, { status: parsedBody.status });
@@ -333,10 +343,13 @@ export async function DELETE(request: NextRequest) {
       .eq("storage_path", asset.storage_path)
       .limit(2);
 
-    if (referenceCheckError) {
+    if (referenceCheckError || !Array.isArray(remainingAssetReferences)) {
       storageCleanupPending = true;
-      console.error("[api/admin/site-audio] reference recheck failed; Storage removal skipped:", referenceCheckError.message);
-    } else if ((remainingAssetReferences ?? []).length > 0) {
+      console.error(
+        "[api/admin/site-audio] reference recheck failed; Storage removal skipped:",
+        referenceCheckError?.message ?? "reference inventory returned an incomplete result",
+      );
+    } else if (remainingAssetReferences.length > 0) {
       storageCleanupSkipped = true;
       const survivingAsset = remainingAssetReferences[0];
       const { data: restoredIntent, error: restoreIntentError } = await db

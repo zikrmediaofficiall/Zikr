@@ -10,14 +10,15 @@ export async function waitForVercelDeploymentReady({
   teamId,
   expectedSha,
   expectedProjectId,
+  expectedAliasUrl,
   fetchImpl = fetch,
   sleep = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds)),
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
   intervalMs = DEFAULT_INTERVAL_MS,
   logger = console,
 }) {
-  if (!deploymentUrl || !token || !teamId || !expectedSha || !expectedProjectId) {
-    throw new Error("DEPLOYMENT_URL, VERCEL_TOKEN, VERCEL_ORG_ID, EXPECTED_COMMIT_SHA, and EXPECTED_VERCEL_PROJECT_ID are required.");
+  if (!deploymentUrl || !token || !teamId || !expectedSha || !expectedProjectId || !expectedAliasUrl) {
+    throw new Error("DEPLOYMENT_URL, VERCEL_TOKEN, VERCEL_ORG_ID, EXPECTED_COMMIT_SHA, EXPECTED_VERCEL_PROJECT_ID, and EXPECTED_VERCEL_ALIAS_URL are required.");
   }
   if (!/^[a-f0-9]{40}$/i.test(expectedSha)) {
     throw new Error("EXPECTED_COMMIT_SHA must be a full 40-character Git SHA.");
@@ -32,6 +33,22 @@ export async function waitForVercelDeploymentReady({
   if (parsedDeploymentUrl.protocol !== "https:" || !parsedDeploymentUrl.hostname.endsWith(".vercel.app")) {
     throw new Error("DEPLOYMENT_URL must point to a Vercel-hosted deployment URL.");
   }
+
+  let parsedExpectedAliasUrl;
+  try {
+    parsedExpectedAliasUrl = new URL(expectedAliasUrl);
+  } catch {
+    throw new Error("EXPECTED_VERCEL_ALIAS_URL must be an absolute HTTPS origin.");
+  }
+  if (
+    parsedExpectedAliasUrl.protocol !== "https:" ||
+    parsedExpectedAliasUrl.pathname !== "/" ||
+    parsedExpectedAliasUrl.search ||
+    parsedExpectedAliasUrl.hash
+  ) {
+    throw new Error("EXPECTED_VERCEL_ALIAS_URL must be an HTTPS origin without a path, query, or fragment.");
+  }
+  const expectedAliasHost = parsedExpectedAliasUrl.hostname.toLowerCase();
 
   const apiUrl = new URL(
     `https://api.vercel.com/v13/deployments/${encodeURIComponent(deploymentUrl)}`,
@@ -77,6 +94,9 @@ export async function waitForVercelDeploymentReady({
     ).toUpperCase();
     lastState = state || "UNKNOWN";
     if (state === "READY") {
+      if (String(payload.target ?? "").toLowerCase() !== "production") {
+        throw new Error("Vercel deployment reached READY but its target is not production.");
+      }
       const actualProjectId = payload.projectId ?? payload.project?.id ?? "";
       if (actualProjectId !== expectedProjectId) {
         throw new Error("Vercel deployment project ID does not match the approved project.");
@@ -98,7 +118,26 @@ export async function waitForVercelDeploymentReady({
       if (!shaMatches) {
         throw new Error("Vercel deployment commit SHA does not match the approved Git SHA.");
       }
-      logger.log?.("PASS: Vercel deployment reached READY for the approved project and commit.");
+      const aliases = Array.isArray(payload.alias) ? payload.alias : [];
+      const hasExpectedAlias = aliases.some((alias) => {
+        const value = String(alias ?? "").trim();
+        if (!value) return false;
+        try {
+          const parsed = new URL(value.includes("://") ? value : `https://${value}`);
+          return parsed.protocol === "https:" && parsed.hostname.toLowerCase() === expectedAliasHost;
+        } catch {
+          return false;
+        }
+      });
+      if (!hasExpectedAlias) {
+        lastState = "READY_WAITING_FOR_PRODUCTION_ALIAS";
+        if (attempt < maxAttempts) {
+          await sleep(intervalMs);
+          continue;
+        }
+        throw new Error(`Vercel deployment reached READY but did not receive the expected production alias ${expectedAliasHost}.`);
+      }
+      logger.log?.("PASS: Vercel deployment reached READY for the approved project, commit, and production alias.");
       return payload;
     }
     if (state === "ERROR" || state === "CANCELED") {
@@ -119,6 +158,7 @@ async function main() {
     teamId: process.env.VERCEL_ORG_ID,
     expectedSha: process.env.EXPECTED_COMMIT_SHA,
     expectedProjectId: process.env.EXPECTED_VERCEL_PROJECT_ID,
+    expectedAliasUrl: process.env.EXPECTED_VERCEL_ALIAS_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL,
   });
 }
 

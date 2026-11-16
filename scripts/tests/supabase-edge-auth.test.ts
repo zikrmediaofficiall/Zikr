@@ -4,6 +4,8 @@ import {
   AuthVerificationError,
   requireAuthenticatedUser,
 } from "../../supabase/functions/_shared/auth";
+import { NextResponse } from "next/server";
+import { copyResponseCookies } from "../../src/lib/supabase/copy-response-cookies";
 
 const makeRequest = (authorization?: string) =>
   new Request("https://edge.example.test/spiritual-ai", {
@@ -104,4 +106,42 @@ assert.match(spiritualAiSource, /requireAuthenticatedUser\(/, "spiritual-ai must
 assert.doesNotMatch(spiritualAiSource, /requireBearerToken\(/, "a non-empty bearer header is not sufficient authentication");
 assert.match(spiritualAiConfig, /^\s*verify_jwt\s*=\s*true\s*$/m, "the Supabase gateway must continue validating JWT signatures");
 
-console.log("Supabase Edge authenticated-user contract passed: 9 assertions.");
+
+const refreshedResponse = NextResponse.next();
+refreshedResponse.cookies.set("sb-project-auth-token", "refreshed-token", {
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax",
+  path: "/",
+});
+refreshedResponse.cookies.set("sb-project-auth-token.0", "chunked-token", {
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax",
+  path: "/",
+});
+const loginRedirect = NextResponse.redirect("https://zikrmediaofficial.vercel.app/auth/login");
+copyResponseCookies(refreshedResponse, loginRedirect);
+const cookieShape = (response: NextResponse) =>
+  response.cookies.getAll().map(cookie => ({
+    name: cookie.name,
+    value: cookie.value,
+    httpOnly: cookie.httpOnly,
+    secure: cookie.secure,
+    sameSite: cookie.sameSite,
+    path: cookie.path,
+  }));
+assert.deepEqual(
+  cookieShape(loginRedirect),
+  cookieShape(refreshedResponse),
+  "middleware redirects must preserve every refreshed/chunked Supabase cookie and its security attributes",
+);
+const proxySource = readFileSync("src/proxy.ts", "utf8");
+assert.match(proxySource, /redirectToLogin\(request,\s*response\)/, "protected-route redirects must carry the mutable Supabase response");
+assert.equal(
+  (proxySource.match(/copyResponseCookies\(\s*response,\s*NextResponse\.redirect/g) ?? []).length,
+  2,
+  "both login and auth-only redirects must preserve refreshed Supabase cookies",
+);
+
+console.log("Supabase Edge authenticated-user and middleware cookie contracts passed.");

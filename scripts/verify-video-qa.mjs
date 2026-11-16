@@ -23,12 +23,24 @@ for (const token of [
 }
 for (const token of [
   'from "./video-media-contract"',
+  'from "./video-audience-visibility"',
   "function isPubliclyRenderableVideo",
   "resolveVideoMediaUrl(row)",
   "defaultOgImage",
-  "rows.filter(isPubliclyRenderableVideo)",
+  "metadata->>audience.eq.general",
+  "isGeneralAudienceVideoMetadata(row.metadata)",
+  "renderableRows.slice(0, safeLimit)",
 ]) {
   if (!service.includes(token)) failures.push(`video service missing QA contract: ${token}`);
+}
+for (const token of [
+  "metadata->>audience=eq.kids",
+  "metadata->>generator=eq.zikr_internal_video_factory",
+  "metadata->>kidsVideoQaStatus=eq.passed",
+  "metadata->automatedVideoQa->>status=eq.passed",
+  "hasPassedKidsVideoQa(metadata)",
+]) {
+  if (!service.includes(token)) failures.push(`Kids video service missing QA visibility contract: ${token}`);
 }
 if (service.includes("metadata.content_ref")) failures.push("generic content_ref must not be treated as a playable video URL");
 if (!service.includes("Math.min(100, safeLimit * 2)")) failures.push("video query must over-fetch enough rows to fill the public renderable limit");
@@ -41,6 +53,24 @@ if (!detail.includes("video.youtubeId")) failures.push("video detail must retain
 
 const site = read("src/lib/site.ts");
 if (!site.includes('defaultOgImage = "/branding/og-image.jpg"')) failures.push("QA placeholder must use the canonical optimized local OG image");
+
+const backfill = read("scripts/jobs/backfill-legacy-video-qa.ts");
+for (const token of [
+  "updated_at=eq.",
+  'Prefer: "return=representation"',
+  "classifyBackfillPatchResult",
+  'status: "stale"',
+]) {
+  if (!backfill.includes(token)) failures.push(`legacy Video QA backfill missing concurrency guard: ${token}`);
+}
+const backfillPolicy = read("src/features/videos/services/video-qa-backfill-policy.ts");
+if (!backfillPolicy.includes("rows.length === 1") || !backfillPolicy.includes('return "stale"')) {
+  failures.push("legacy Video QA backfill must distinguish one-row success from a stale compare-and-set");
+}
+const backfillTest = read("scripts/tests/video-qa-backfill-policy.test.ts");
+if (!backfillTest.includes("zero returned rows is a stale compare-and-set")) {
+  failures.push("legacy Video QA backfill stale-write regression test is missing");
+}
 
 const worker = read("scripts/jobs/template-video-automation.ts");
 for (const token of [
@@ -98,23 +128,70 @@ for (const token of [
   "recoverStaleSocialPublishItems",
   "hasTransientFailure",
   "updated_at=lt.",
-  "Video held because automated QA is missing, incomplete or stale.",
+  "Video held because automated QA or Kids human review is missing, incomplete or stale.",
   "getYouTubeVideoDisclosure",
+  "Video approval lookup failed; holding video item",
 ]) {
   if (!socialPublisher.includes(token)) failures.push(`social publisher missing automated delivery contract: ${token}`);
 }
 const approvalService = read("src/features/videos/services/video-publish-approval.ts");
+const kidsVideoPublication = read("src/features/videos/services/kids-video-publication.ts");
+const adminVideoRequestsClient = read("src/features/admin/video-requests/components/admin-video-requests-client.tsx");
 for (const token of [
   "AUTOMATED_VIDEO_QA_ENGINE",
   "AUTOMATED_VIDEO_QA_VERSION",
   "AUTOMATED_VIDEO_QA_REVIEWER_ID",
   "createAutomatedVideoQaApproval",
+  "isHumanVideoApprovalRecorded",
+  "inspectVideoQueueItemExternalApproval",
   "buildVideoApprovalSnapshotHash",
-  'snapshot.audience === "kids" && snapshot.kidsVideoQaStatus !== "passed"',
-  'content.kidsVideoQaStatus !== "passed"',
+  "normalizeVideoAudience(snapshot.audience)",
+  'normalizeVideoMarker(snapshot.kidsVideoQaStatus) !== "passed"',
+  'normalizeVideoMarker(content.kidsVideoQaStatus) !== "passed"',
 ]) {
   if (!approvalService.includes(token)) failures.push(`automated QA approval service missing integrity contract: ${token}`);
 }
+const kidsVideoPublicReadMigration = read(
+  "supabase/migrations/20261114210000_restrict_public_kids_video_read_to_qa_passed.sql",
+);
+for (const token of [
+  "DROP POLICY IF EXISTS videos_public_read ON public.videos;",
+  "CREATE POLICY videos_public_read",
+  "ON public.videos",
+  "FOR SELECT",
+  "TO anon, authenticated",
+  "published IS TRUE",
+  "metadata IS NULL",
+  "jsonb_typeof(metadata) = 'object'",
+  "metadata->>'audience' IS NULL",
+  "metadata->>'audience' = 'general'",
+  "metadata->>'audience' = 'kids'",
+  "metadata->>'generator' = 'zikr_internal_video_factory'",
+  "metadata->>'kidsVideoQaStatus' = 'passed'",
+  "metadata->'automatedVideoQa'->>'status' = 'passed'",
+  "BEGIN;",
+  "COMMIT;",
+]) {
+  if (!kidsVideoPublicReadMigration.includes(token)) {
+    failures.push("Kids video public-read migration missing fail-closed QA-gated RLS contract: " + token);
+  }
+}
+if (/metadata->>'audience'\s*(?:<>|!=)\s*'kids'/i.test(kidsVideoPublicReadMigration)) {
+  failures.push("Kids video public-read migration must not treat every non-Kids audience value as general");
+}
+if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
+    !kidsVideoPublication.includes('normalizeVideoMarker(qualityReview.mode) === "human"') ||
+    !kidsVideoPublication.includes("REQUIRED_KIDS_VIDEO_HUMAN_REVIEW_CHECKS.every")) {
+  failures.push("Kids external publishing must use a separate complete human review record after automated QA");
+}
+if (!adminVideoRequestsClient.includes("hasHumanKidsVideoApproval") ||
+    !adminVideoRequestsClient.includes("مراجعة بشرية إلزامية لفيديو الأطفال")) {
+  failures.push("the admin video review screen must keep automated-only Kids videos available for human review");
+}
+if (/DELETE FROM|TRUNCATE TABLE|DROP TABLE|DISABLE ROW LEVEL SECURITY/i.test(kidsVideoPublicReadMigration)) {
+  failures.push("Kids video public-read migration must not mutate video data or disable RLS");
+}
+
 const youtubePublisher = read("src/features/videos/services/video-automation.ts");
 if (!youtubePublisher.includes("containsSyntheticMedia: options.containsSyntheticMedia === true")) {
   failures.push("YouTube upload must carry the synthetic-media disclosure flag when realistic AI video is used");

@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-import { getSourceParserSkipReason, parseSourceItems } from "./parse-items.ts";
+import { getSourceAgentRunStatus, getSourceParserSkipReason, parseSourceItems } from "./parse-items.ts";
 
 const PROJECT_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -221,12 +221,7 @@ Deno.serve(async request => {
     }
   }
 
-  const finalStatus =
-    summary.failed > 0
-      ? summary.queued > 0
-        ? "partial"
-        : "failed"
-      : "succeeded";
+  const finalStatus = getSourceAgentRunStatus(summary);
   await supabase
     .from("content_agent_runs")
     .update({
@@ -239,5 +234,5 @@ Deno.serve(async request => {
       details: summary,
     })
     .eq("id", run.id);
-  return json({ ok: summary.failed === 0, runId: run.id, ...summary });
+  return json({ ok: summary.failed === 0 && summary.skipped === 0, runId: run.id, ...summary });
 });

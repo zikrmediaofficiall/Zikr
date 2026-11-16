@@ -127,6 +127,7 @@ export default async function SurahPage({
                 <div className="flex items-center gap-4 pt-4 border-t border-muted flex-wrap">
                   <BookmarkButton
                     keyRef={`quran:${result.surah.number}:${ayah.numberInSurah}`}
+                    itemType="quran"
                     initialSaved={favoritedRefs.has(
                       `quran:${result.surah.number}:${ayah.numberInSurah}`
                     )}

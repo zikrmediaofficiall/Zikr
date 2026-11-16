@@ -1,15 +1,21 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { getBlockedKidsRoutes, getPublishedKidsRoutes } from './lib/offline-kids-route-safety.mjs';
+import { assertCanonicalSupabaseProjectUrl } from './lib/canonical-supabase-project.mjs';
+import { getBlockedKidsRoutes, getPublishedKidsRoutes, resolveOfflineDatasetMinimum } from './lib/offline-kids-route-safety.mjs';
 import { getPublishedParentScope, isParentScopedOfflineDataset } from './lib/offline-export-parent-scope.mjs';
 import { getBlockedPublishedContentRoutes } from './lib/offline-export-route-pruning.mjs';
+import { loadPreviousOfflineSnapshot } from './lib/offline-previous-snapshot.mjs';
 
 const root = process.cwd();
 const outputDir = path.join(root, 'public/offline-content/v1');
-const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-const apiKey = (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLIC_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const rawSupabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const apiKey = (serviceRoleKey || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLIC_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '').trim();
 
-if (!supabaseUrl || !apiKey) {
+// Check raw credentials before constructing the canonical URL. Referencing the
+// later supabaseUrl binding here would hit its temporal dead zone and crash every
+// ordinary build and scheduled snapshot refresh before the intended guard runs.
+if (!rawSupabaseUrl || !apiKey) {
   if (process.argv.includes('--required')) {
     throw new Error('Offline snapshot refresh requires SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and a protected Supabase key.');
   }
@@ -19,6 +25,12 @@ if (!supabaseUrl || !apiKey) {
   console.warn('[offline-export] No Supabase credentials; keeping the committed public snapshot unchanged.');
   process.exit(0);
 }
+
+if (process.argv.includes('--required') && !serviceRoleKey) {
+  throw new Error('Offline snapshot refresh requires a protected SUPABASE_SERVICE_ROLE_KEY so Kids visibility and route revocation are complete.');
+}
+
+const supabaseUrl = assertCanonicalSupabaseProjectUrl(rawSupabaseUrl);
 
 const datasets = [
   ['surahs', 'quran_surahs', 'select=*', 'order=order.asc,id.asc'],
@@ -108,13 +120,10 @@ async function fetchAll(table, filters) {
 }
 
 const manifestPath = path.join(outputDir, 'manifest.json');
-let previous = { routes: [], datasets: {} };
-try { previous = JSON.parse(await readFile(manifestPath, 'utf8')); } catch { /* first export */ }
-let previousKidsRows = [];
-try {
-  const previousKids = JSON.parse(await readFile(path.join(outputDir, 'kids.json'), 'utf8'));
-  if (Array.isArray(previousKids)) previousKidsRows = previousKids;
-} catch { /* first export */ }
+const { previous, previousKidsRows } = await loadPreviousOfflineSnapshot(
+  manifestPath,
+  path.join(outputDir, 'kids.json'),
+);
 
 let blockedKidsRoutes = new Set();
 const exported = [];
@@ -128,7 +137,12 @@ for (const [dataset, table, ...filters] of datasets) {
     rows = rows.filter((row) => row && (row.type !== 'story' || row.metadata?.age_appropriate === true));
   }
   const configuredMinimum = minimumRecords[dataset] ?? 0;
-  const minimum = isParentScopedOfflineDataset(dataset) ? 0 : configuredMinimum;
+  const minimum = isParentScopedOfflineDataset(dataset)
+    ? 0
+    : resolveOfflineDatasetMinimum(dataset, configuredMinimum, Boolean(serviceRoleKey));
+  if (dataset === 'kids' && rows.length < configuredMinimum) {
+    console.warn(`[offline-export] Kids has ${rows.length} currently public rows; exporting the verified subset so removed or age-rejected routes are revoked instead of retaining stale offline content.`);
+  }
   if (isParentScopedOfflineDataset(dataset) && rows.length < configuredMinimum) {
     console.warn(
       `[offline-export] ${dataset} has ${rows.length} rows after filtering to published parents; exporting the complete public subset instead of retaining hidden child records.`,

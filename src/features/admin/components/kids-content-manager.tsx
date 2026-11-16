@@ -203,6 +203,7 @@ export async function AdminKidsContentManager({ canPublish, canManageMedia }: Pr
           <Field name="memorization_target" label="هدف الحفظ" placeholder="الفاتحة / الإخلاص / آية الكرسي" />
           <Field name="reward" label="رسالة تشجيع الطفل" placeholder="أحسنت! اقتربت من الوسام الذهبي" />
           <div className="md:col-span-2"><Field name="content_ar" label="المحتوى بالعربية" textarea required placeholder="اكتب محتوى القصة أو الدعاء هنا..." /></div>
+          <div className="md:col-span-2"><Field name="content_en" label="المحتوى بالإنجليزية (اختياري)" textarea placeholder="اكتب الترجمة الإنجليزية للقصة أو الدعاء هنا..." /></div>
           <div className="md:col-span-2"><Field name="quiz_data" label="بيانات الاختبار (مطلوبة عند اختيار نوع اختبار)" textarea placeholder='{"questions":[{"text":"من ربك؟","options":["الله","غير ذلك"],"correctAnswer":0}]}' /></div>
           {canPublish ? <label className="flex items-center gap-2 text-sm text-brand-cream/70 md:col-span-2">
             <input name="age_appropriate" type="checkbox" defaultChecked={false} className="accent-brand-gold" />

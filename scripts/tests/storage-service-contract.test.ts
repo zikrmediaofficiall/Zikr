@@ -44,7 +44,7 @@ const expectedConfig: Record<StorageObjectPurpose, {
   },
   video: {
     bucket: "videos",
-    maxBytes: 512 * 1024 * 1024,
+    maxBytes: 50 * 1024 * 1024,
     isPublic: true,
     allowedContentTypes: ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"],
   },
@@ -78,6 +78,22 @@ assert.deepEqual(parseStorageKey("avatars/user-123/avatar.png"), {
 });
 assert.equal(parseStorageKey("avatars"), null);
 assert.equal(parseStorageKey("avatars/"), null);
+assert.equal(parseStorageKey("avatars/user-123/../victim.png"), null,
+  "storage keys must reject parent-directory segments before owner-prefix checks");
+assert.equal(parseStorageKey("avatars/user-123/./avatar.png"), null,
+  "storage keys must reject dot segments");
+assert.equal(parseStorageKey("avatars/user-123/%2e%2e/victim.png"), null,
+  "storage keys must reject encoded path segments");
+assert.equal(parseStorageKey("avatars/user-123/%252e%252e/victim.png"), null,
+  "storage keys must reject double-encoded path segments");
+assert.equal(parseStorageKey("avatars/user-123\\\\victim.png"), null,
+  "storage keys must reject backslash path separators");
+assert.equal(parseStorageKey("avatars/user-123\\victim.png"), null,
+  "storage keys must reject a single backslash path separator");
+assert.equal(sanitizeStorageSegment(".."), "",
+  "sanitized owner segments must never remain a dot path segment");
+assert.equal(buildStoragePath("..", "avatar.png").startsWith("anonymous/"), true,
+  "invalid owner segments must fall back to the anonymous storage namespace");
 
 const migrationPath = resolve(
   "supabase/migrations/20261110115000_restore_owner_scoped_user_storage_policies.sql",
@@ -109,5 +125,31 @@ assert.equal(
   3,
   "upload, download, and error responses must never cache signed storage capabilities",
 );
+
+
+const storageServiceSource = readFileSync("src/lib/services/storage.ts", "utf8");
+const videoUploadRouteSource = readFileSync("src/app/api/admin/videos/upload/route.ts", "utf8");
+const videoUploadFieldSource = readFileSync("src/features/admin/components/video-upload-field.tsx", "utf8");
+const videoStorageMigration = readFileSync("supabase/migrations/20261114030000_scope_video_storage_writes.sql", "utf8");
+const videoBucketLimitMigration = readFileSync("supabase/migrations/20261114100000_videos_bucket_free_tier_limit.sql", "utf8");
+const supabaseConfig = readFileSync("supabase/config.toml", "utf8");
+
+assert.match(
+  storageServiceSource,
+  /params\.purpose === "video"[\s\S]*?createAdminClient\(\)[\s\S]*?:[\s\S]*?await createClient\(\)/,
+  "video signed-upload capabilities must be minted with the service role after the admin route guard; user-managed buckets must retain their session client",
+);
+assert.match(videoUploadRouteSource, /requireAdminStepUpApi\(['"]video\.manage['"]/);
+assert.match(videoUploadRouteSource, /purpose: ['"]video['"]/);
+assert.match(videoUploadFieldSource, /uploadToSignedUrl\(/);
+assert.doesNotMatch(videoUploadFieldSource, /\.upload\(/, "browser video uploads must use the short-lived signed capability");
+assert.match(videoUploadFieldSource, /MAX_VIDEO_BYTES = 50 \* 1024 \* 1024/);
+assert.match(videoUploadFieldSource, /50 ميجابايت/);
+assert.match(videoUploadRouteSource, /MAX_VIDEO_BYTES = 50 \* 1024 \* 1024/);
+assert.match(videoUploadRouteSource, /contentLength > MAX_VIDEO_BYTES[\s\S]*?jsonError\([\s\S]*?413/);
+assert.match(supabaseConfig, /\[storage\.buckets\.videos\][\s\S]*?file_size_limit = "50MiB"/);
+assert.match(videoBucketLimitMigration, /UPDATE storage\.buckets[\s\S]*?SET file_size_limit = 52428800[\s\S]*?WHERE id = 'videos'/i);
+assert.match(videoStorageMigration, /DROP POLICY IF EXISTS video_assets_admin_insert/i);
+assert.doesNotMatch(videoStorageMigration, /CREATE POLICY ["']?video_assets_admin_insert/i, "authenticated users must not mint video upload capabilities directly through Storage RLS");
 
 console.log("Storage owner-policy, MIME, path, upload-expiry, and bounded no-store presign contracts passed.");

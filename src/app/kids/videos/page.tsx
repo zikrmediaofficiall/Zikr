@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { getKidsGeneratedVideos } from "@/features/videos/services/videos";
+import { resolveKidsVideoPublicDisclosure } from "@/features/videos/services/video-source-contract";
 import { pageMetadata } from "@/lib/site";
 import { getRequestLocale } from "@/lib/i18n/server";
 
@@ -51,32 +52,36 @@ export default async function KidsVideosPage() {
 
         {videos.length ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {videos.map((video) => (
-              <Link key={video.id} href={"/kids/videos/" + encodeURIComponent(video.slug)} className="block h-full">
-                <Card className="h-full overflow-hidden transition hover:border-brand-gold/50">
-                  <div className="relative aspect-video bg-black/40">
-                    <Image
-                      src={video.thumbnailUrl || "/branding/og-image.jpg"}
-                      alt={video.title}
-                      fill
-                      unoptimized
-                      sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
-                      className="object-cover"
-                    />
-                    <span className="absolute bottom-3 start-3 rounded-full bg-black/75 px-3 py-1 text-xs font-bold text-brand-gold">
-                      {isEnglish ? "Kids" : "للأطفال"}
-                    </span>
-                  </div>
-                  <div className="space-y-2 p-4">
-                    <h2 className="line-clamp-2 font-bold text-brand-cream">{video.title}</h2>
-                    {video.description ? <p className="line-clamp-2 text-sm leading-6 text-brand-cream/60">{video.description}</p> : null}
-                    <span className="inline-block pt-2 text-sm font-bold text-brand-gold">
-                      {isEnglish ? "Watch story" : "شاهد القصة"}
-                    </span>
-                  </div>
-                </Card>
-              </Link>
-            ))}
+            {videos.map((video) => {
+              const disclosure = resolveKidsVideoPublicDisclosure(video.metadata, video.description, null);
+              return (
+                <Link key={video.id} href={"/kids/videos/" + encodeURIComponent(video.slug)} className="block h-full">
+                  <Card className="h-full overflow-hidden transition hover:border-brand-gold/50">
+                    <div className="relative aspect-video bg-black/40">
+                      <Image
+                        src={video.thumbnailUrl || "/branding/og-image.jpg"}
+                        alt={video.title}
+                        fill
+                        unoptimized
+                        sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
+                        className="object-cover"
+                      />
+                      <span className="absolute bottom-3 start-3 rounded-full bg-black/75 px-3 py-1 text-xs font-bold text-brand-gold">
+                        {isEnglish ? "Kids" : "للأطفال"}
+                      </span>
+                    </div>
+                    <div className="space-y-2 p-4">
+                      <h2 className="line-clamp-2 font-bold text-brand-cream">{video.title}</h2>
+                      {disclosure.sourceLabel ? <p className="text-xs leading-5 text-brand-gold/80">{isEnglish && disclosure.sourceType === "original_kids_fiction" ? "Original educational fiction by ZIKR — not a verse, hadith, or historical event." : disclosure.sourceLabel}</p> : null}
+                      {disclosure.description ? <p className="line-clamp-2 text-sm leading-6 text-brand-cream/60">{disclosure.description}</p> : null}
+                      <span className="inline-block pt-2 text-sm font-bold text-brand-gold">
+                        {isEnglish ? "Watch story" : "شاهد القصة"}
+                      </span>
+                    </div>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         ) : videosUnavailable ? (
           <Card className="p-8 text-center" role="status">

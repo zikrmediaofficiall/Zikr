@@ -12,17 +12,7 @@ DROP POLICY IF EXISTS video_assets_admin_insert ON storage.objects;
 DROP POLICY IF EXISTS video_assets_admin_update ON storage.objects;
 DROP POLICY IF EXISTS video_assets_admin_delete ON storage.objects;
 
-CREATE POLICY video_assets_admin_insert
-ON storage.objects
-FOR INSERT
-TO authenticated
-WITH CHECK (
-  bucket_id = 'videos'
-  AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
-  AND (SELECT private.has_admin_role(ARRAY['admin', 'super_admin', 'video_manager']::text[]))
-);
-
-COMMENT ON POLICY video_assets_admin_insert ON storage.objects IS
-  'Only full admins and video managers may upload into their own video prefix; update and delete remain server-only.';
+-- No authenticated INSERT policy is recreated. The step-up-protected admin
+-- route mints service-role signed upload URLs after recording the audit event.
 
 COMMIT;

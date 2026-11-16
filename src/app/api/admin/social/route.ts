@@ -18,7 +18,7 @@ import { getYouTubeUploadRefreshToken } from "@/features/social/services/youtube
 import { unblockYouTubeAuthBlockedQueue } from "@/features/social/services/youtube-queue-recovery";
 import { getFacebookPageAudienceSnapshot } from "@/features/social/services/facebook-reels-insights";
 import { getTrafficRevenueSnapshot } from "@/features/admin/services/traffic-revenue";
-import { inspectVideoQueueItemApproval, isVideoContentType, type VideoPublishRequestSnapshot } from "@/features/videos/services/video-publish-approval";
+import { inspectVideoQueueItemExternalApproval, isVideoContentType, type VideoPublishRequestSnapshot } from "@/features/videos/services/video-publish-approval";
 import { deleteSocialPlatformPost, type SocialDeletionPlatform } from "@/features/social/services/social-deletion";
 import { claimSocialQueuePlatformDeletion, patchSocialQueueMetadataWithCas } from "@/features/social/services/social-queue-metadata";
 import { isSocialPlatformDeletionCurrent } from "@/features/social/services/social-deletion-visibility";
@@ -180,7 +180,7 @@ async function attachVideoApprovalDiagnostics(items: QueueItem[]): Promise<Queue
   const byId = new Map((requests ?? []).map(request => [request.id, request]));
   return items.map(item => {
     if (!isVideoContentType(item.content_type)) return item;
-    const diagnostics = inspectVideoQueueItemApproval({
+    const diagnostics = inspectVideoQueueItemExternalApproval({
       contentType: item.content_type,
       contentId: item.content_id,
       queuedVideoUrl: item.video_url,
@@ -458,7 +458,7 @@ export async function GET() {
           trigger: "after_video_or_written_content_or_15m_schedule_or_manual",
           approvalRequired: true,
           note: socialPublishingEnabled
-            ? "يعمل العامل بعد نجاح توليد الفيديو أو المحتوى المكتوب، وكذلك كل 15 دقيقة أو عند التشغيل اليدوي من الفرع الرئيسي. لا يُنشر أي فيديو قبل اجتياز موافقة الجودة."
+            ? "يعمل العامل بعد نجاح التوليد أو المحتوى المكتوب، وكل 15 دقيقة أو عند التشغيل اليدوي. الفيديوهات العامة تعتمد على الفحص الآلي؛ فيديوهات الأطفال تتطلب اعتمادًا بشريًا موثقًا قبل النشر الخارجي."
             : "النشر متوقف؛ لا يتم تشغيل العامل ما لم تُفعّل صلاحيات القنوات وإعداد النشر.",
         },
       },
@@ -757,6 +757,10 @@ export async function POST(request: NextRequest) {
           writtenArticlePublicationPending: false,
           kidsSourceApprovalBlocked: false,
           kidsSourceApprovalPending: false,
+          videoCatalogApprovalBlocked: false,
+          videoCatalogPublicationPending: false,
+          videoCatalogApprovalReason: null,
+          videoCatalogPublicationRetryAt: null,
         };
         const eligiblePlatforms = retryPlatforms(
           { ...item, metadata: retryMetadata },
@@ -872,6 +876,10 @@ export async function POST(request: NextRequest) {
                 writtenArticlePublicationPending: false,
                 kidsSourceApprovalBlocked: false,
                 kidsSourceApprovalPending: false,
+                videoCatalogApprovalBlocked: false,
+                videoCatalogPublicationPending: false,
+                videoCatalogApprovalReason: null,
+                videoCatalogPublicationRetryAt: null,
                 // A retry must never clear a scholarly/editorial approval gate.
                 approvalDeferredPlatforms: preservedApprovalDeferredPlatforms,
                 nextRetryAt: null,

@@ -1,5 +1,81 @@
 # ZIKR Continuous Closeout Ledger
 
+## 2026-11-15T21:53Z — exact-head verification, inventory reconciliation and production safety recheck
+
+- **Last fully verified source/test head:** `082a600e4cbc67506e7a73c2e0f1fc03aabefc11`. Quality Gate run **43765228388** passed with `QUALITY_GATE=PASSED_FULL`; CircleCI `config-guard`, `source-verify`, and `application-build-docs` passed; Android Native Login Debug APK run **43765228368** passed. Supabase Preview check **132938540531** is skipped, not passed.
+- **Current documentation work:** overlay refresh commit `3a028a334bbbdb67fff09e89c7a0a8c55636bed0` updates the status matrix against the verified tree. Project status, this ledger, and the paired manifest are being reconciled in subsequent documentation-only commits. The resulting final documentation head must still receive exact-head CI verification.
+- **PR/inventory:** PR #320 remains open against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; at the verified tree it contains 625 changed paths (96,424 additions, 6,588 deletions, zero deleted paths). The overlay has 623 rows (manifest and overlay excluded). Repository inventory is 2,442 entries (1,943 blobs, 499 directories); the manifest has 2,439 entries (1,942 blobs, 497 trees, excluding its own blob and the two ancestor tree entries).
+- **File-status matrix:** 405 content-read/tested pass, 36 fixed/tested pending live apply, 176 review required, 6 superseded. Nine paths were promoted after exact current-content review; five paths were returned to review-required because their blobs changed after the prior read. Fifty overlay SHA discrepancies were detected against the manifest; the overlay is being reconciled to current blob SHAs, and the manifest is being refreshed for the 11 source/test blobs plus the permission-matrix change made after its previous snapshot.
+- **Production migration state:** 445 local SQL migration files versus 418 remote applied versions; 27 pending. Latest local `20261115153600_admin_video_approval_atomic`; latest remote `20261110170000_restore_purge_audit_proven_video_catalog`. No migration was pushed.
+- **Kids social publishing — critical owner gate:** read-only production snapshot at 21:53 UTC shows 15 Kids video queue rows: 12 published, 1 partial, 2 queued. All 15 requests have `audience=kids`, `kidsVideoQaStatus=NULL`, and system-only reviewer `system:zikr-video-factory`; no human approval exists. Catalog rows show Kids QA passed but no approval snapshot hash. The 3 nonterminal queue IDs are `3bfc972e-c7b9-489d-8216-b87b37123e6b`, `1df1848b-5b29-4d3f-8f0a-07e7a84c6c89`, and `31ceb256-5798-4759-84a9-df3778e8f889`. Main's social publisher is scheduled at minutes 07, 22, 37 and 52; null/past schedule rows are eligible, and main's approval helper lacks Kids-specific QA and human review. PR #320 adds the fail-closed gate but is not live. Owner action is recorded in PR comment **6901968212**. No queue rows, workflows or providers were changed.
+- **Main-vs-branch safety:** production main remains vulnerable until the reviewed branch is merged and deployed. Do not infer production protection from passing PR tests. Already-published external posts were not deleted or modified.
+- **Offline Kids:** last verified main public `kids.json` exposed 20 stories without explicit age approval; the branch snapshot contains zero unapproved stories. The main refresh workflow's PR-creation failure remains an owner Actions-permission/token configuration gate.
+- **Catalog synchronization:** Kids social-publication catalog metadata remains a best-effort mirror; queue history is authoritative for valid request IDs and the public detail resolver uses queue-derived state. No retry/reconciliation path was established for legacy records without valid request IDs; retain as operational follow-up, not a proven public-status defect.
+- **Owner/release gates:** CODEOWNERS `@Zikrmediaofficial` review is outstanding; no review is recorded and the reviewer request did not register. No merge, production migration, Edge Function deploy, Vercel deploy, production smoke, Android release, iOS build, or device acceptance occurred. iOS associated-domain/Apple ID, Android Play App Signing fingerprint, GA4 property/refresh token, and real-device OAuth/push acceptance remain owner/device-only.
+- **Safety:** no content generation, Gemini request, social publishing, production database mutation, storage/media deletion, index/secret change, release or deployment was triggered. Production inspection used SELECT-only queries.
+
+
+## 2026-11-15 — documentation checkpoint `59f69b7ee41a1dd6241b27a3290f2d383732eee1` passed; native/admin safety review
+
+The documentation reconciliation head `59f69b7ee41a1dd6241b27a3290f2d383732eee1` passed the full canonical Quality Gate run `43730026736` (`QUALITY_GATE=PASSED_FULL`). CircleCI `config-guard`, `source-verify`, and `application-build-docs` passed, and Android Native Login Debug APK run `43730026755` passed on that exact head. The current follow-up is documentation-only inventory/status reconciliation and must receive its own final exact-head verification.
+
+### Additional code-path review
+
+- **Native OAuth:** read `capacitor.config.json`, Android manifest/Gradle wiring, iOS `Info.plist`, entitlements, Podfile, AppDelegate, callback route, native bridge, Google OAuth integration, canonical-origin/state helpers, and native OAuth contract tests. Android uses the native social-login plugin; iOS follows the browser/custom-scheme callback path. The AASA route validates the configured app identifier and intentionally returns 503 when missing. The code contract is sound, but production `IOS_ASSOCIATED_DOMAIN_APP_ID`/Apple Team ID is not confirmed. The Android assetlinks route exposes a hard-coded release signing fingerprint with optional environment override; owner must compare it with the Play App Signing certificate. Android debug build is not device acceptance; no iOS/Xcode build or device test was run.
+- **Admin role updates:** read the server action, role-update SQL function, self-role migration, service-role-only migration, and integration test. The server action blocks self-role changes and the live RPC is service-role-only, but the production function still lacks the database self-role-change/row-lock guard in pending `20261111020000_admin_role_update_blocks_self_demotion.sql`. Authenticated `super_admin` direct writes to `admin_role_assignments` remain possible until pending `20261111050000_admin_role_assignments_service_role_only.sql` is applied.
+- **Video-generation DELETE safety:** read the full admin GET/PATCH/DELETE route and checked production counts. There are currently zero failed requests, but the bulk failed-request deletion path does not preflight `video_url`, `content.mediaStorage.publicId`, `supabaseOriginalVideoUrl`, or `social_publish_queue.content_id`. The table currently contains 138 requests with `video_url` and 182 with Cloudinary `mediaStorage.publicId`; no failed request exists now. The endpoint was not invoked. Keep it review-required until a safe reference guard/transaction is designed; do not delete request rows as an audit test.
+- **Kids social catalog sync:** the catalog metadata copy is best-effort, not the delivery source of truth. The public Kids detail resolver reads the queue; existing queue pagination tests cover successful, empty, malformed, and failed reads. The verifier and regression suite passed; no publisher was invoked.
+
+### Updated owner gates
+
+The live Kids social queue still has 14 `other_video` rows (11 published, 1 partial, 2 queued), all system-only with no human review and no Kids-specific QA status. Main's 15-minute publisher schedule is active. Owner must hold the three nonterminal rows before another scheduled attempt and decide separately about the 11 already-published posts. No queue/workflow change was made.
+
+The production RLS, grants, migration count (418 remote / 444 local; 26 pending), prayer cron, and Vercel READY findings remain as in the previous ledger entry. No production migration, function deploy, cron invocation, social publish, video generation, Gemini request, storage cleanup, media deletion, release, merge, Vercel deployment, or production smoke was performed.
+
+### Review state
+
+The overlay target is now 334 content-read/tested-pass, 209 review-required, 18 pending trace, 28 fixed/tested/pending-live-apply, and 6 superseded across 595 overlay rows. The repository manifest target remains 2,426 entries (1,929 blobs, 497 directories), representing 2,429 recursive repository entries after adding the manifest itself and its two excluded directory entries. PR #320 has 597 changed paths (269 added, 328 modified, 0 deleted).
+## 2026-11-14T20:59:55Z — PR #320 checkpoint, production contract audit and backfill CAS repair
+
+### Exact Git state
+
+- Repository: `zikrofficial-X/Zikr`
+- PR: [#320](https://github.com/zikrofficial-X/Zikr/pull/320)
+- Branch: `audit/zikr-kids-daily-priority-20261110`
+- Base main SHA: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`
+- Verified code/test head: `96c36d5e5bff32d8f8283643f09606fbea5dc005`
+- PR changed files: 557; current overlay covers 555 paths and the paired manifest is self-excluding.
+- Overlay statuses: REVIEW_REQUIRED=190, CONTENT_READ_TESTED_PASS=282, CONTENT_READ_PENDING_TRACE=53, SUPERSEDED_SNAPSHOT=4, FIXED_TESTED_PENDING_LIVE_APPLY=26.
+- Repository tree at code/test head: 2399 entries (1900 blobs, 499 directories).
+
+### Repair and regression evidence
+
+- Legacy video QA backfill now uses an `updated_at` compare-and-set and `Prefer: return=representation`; it confirms exactly one row was changed. A concurrent edit returns a stale result rather than being overwritten or reported as success.
+- Added the pure backfill response classifier and tests for one-row success, zero-row stale, and malformed/multiple-row failure. The verifier now checks the CAS contract.
+- Quality Gate run `43640413903`: success, including Deno type checks, 13 PostgreSQL 17 integration checks and the canonical source/architecture gate.
+- Android Native Login Debug APK run `43640413950`: success (debug only).
+- CircleCI Config Validation run `43640413897`: success; CircleCI `source-verify`, `application-build-docs`, and `config-guard`: success.
+- The backfill itself was not run.
+
+### Production preflight — read-only only
+
+- Supabase project `zqtssvlvmkzeeyqghqfk`: 418 remote migrations vs 441 local; 23 pending; latest remote `20261110170000`. The full list and migration-by-migration review are in `supabase/REMOTE_MIGRATION_LEDGER.md`.
+- Missing deployed contracts: `background_reminder_preferences.timezone`, `youtube_sync_state.playlists`, `site_audio_upload_intents`, `save_default_prayer_location`, `admin_update_user_role`, `video_storage_retention_contract_ready`, `update_video_storage_retention`. Existing `plan_background_reminder_deliveries` is older than the local timezone-aware migration.
+- Current Kids public RLS allows direct anonymous reads of 20 active/published stories without age approval. Published game questions currently count 0, but the anonymous policy would expose `correct_index` when questions are published. Published levels under unpublished games currently count 0; the policy still lacks the parent-published condition.
+- Video and site-audio Storage policies still permit direct browser writes; the new migrations that remove those policies are pending. The videos bucket is currently 512 MiB while the local migration/application cap is 50 MiB.
+- Active cron jobs include prayer push and source-verified content agent; YouTube/Facebook sync is inactive; no media-cleanup cron or cleanup Edge Function is deployed. Deployed prayer worker v77 and source agent v14 are older than repository sources. No functions were deployed.
+- Security advisor: leaked-password protection disabled. Performance advisor: 78 unused-index notices; no index deletion. Health advisor: no lints.
+
+### Vercel and owner gates
+
+- Production Vercel deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu` remains READY on main `c4560d9`; the audit branch is not deployed. Homepage HTML was reachable; other smoke endpoints were not confirmed by the web crawler.
+- Git deployments are disabled in `vercel.json`; manual owner-approved deploy required.
+- CODEOWNERS requires `@Zikrmediaofficial`; PR has no review and no requested reviewer. Branch-protection API access returned 403; no merge was attempted.
+- Main `english-content-sync` remains failed from the prior verified checkpoint and was not rerun due Gemini/production-write side effects.
+- No production mutation, content generation, Gemini request, social publish, storage/media/index/secret deletion, Android release, merge or deploy occurred.
+
+---
+
 ## 2026-11-14T18:38:18Z — PR #320 full-scope verification and production contract preflight
 
 ### Exact Git state
@@ -566,10 +642,10 @@ The audit remains open. No error-free or project-closed certification is made.
 - **Open gates:** current-head CI; full review of the 1,657-file PR tree and 1,639-file main baseline; safe authenticated Preview/browser/mobile acceptance; reconcile the 9 held social rows and 64 completed requests without media; keep the 6 Kids items with revalidation_required excluded; owner-level leaked-password protection decision; investigate Supabase transport errors; controlled release of the two pending PR migrations only after all gates pass.
 
 
-**Last reconciled:** 2026-11-10 17:18 Africa/Cairo  
-**Repository:** `zikrofficial-X/Zikr`  
-**Base snapshot:** `main@c91f64ccd6162e5107b3edb8be3c7aa521865c2f`  
-**Working PR:** [#275](https://github.com/zikrofficial-X/Zikr/pull/275)  
+**Last reconciled:** 2026-11-10 17:18 Africa/Cairo
+**Repository:** `zikrofficial-X/Zikr`
+**Base snapshot:** `main@c91f64ccd6162e5107b3edb8be3c7aa521865c2f`
+**Working PR:** [#275](https://github.com/zikrofficial-X/Zikr/pull/275)
 **State:** IN PROGRESS — not a final certification.
 
 
@@ -637,8 +713,8 @@ The audit remains open. No error-free or project-closed certification is made.
 | Product modules closed | 0 | Runtime/browser/device acceptance is not complete |
 | Safe deletions | 0 | No candidate met the dependency and recovery proof threshold |
 
-Manifest: `docs/audits/REPO_MANIFEST_2026-11-10.jsonl`  
-File matrix: `docs/audits/FILE_STATUS_MATRIX_2026-11-01.md`  
+Manifest: `docs/audits/REPO_MANIFEST_2026-11-10.jsonl`
+File matrix: `docs/audits/FILE_STATUS_MATRIX_2026-11-01.md`
 Both are snapshots of the exact parent baseline `c91f64ccd6162e5107b3edb8be3c7aa521865c2f`; the manifest intentionally excludes its own self-referential blob.
 
 ### Inventory delta
@@ -819,7 +895,7 @@ Read-only SQL against the active project returned:
 
 **No modules closed. No `FINAL BASELINE READY` claim.**
 
-  
+
 ## Continuous closeout checkpoint — 2026-11-10 13:25 Africa/Cairo
 
 - **Source of truth revalidated:** Vercel team `zikr3` / project `zikr` is linked to `zikrofficial-X/Zikr`; production deployment `dpl_7Czpzb6ckFDezvMbAFaih8WYuk9E` is READY on `main@c91f64ccd6162e5107b3edb8be3c7aa521865c2f`. Main SHA has not moved. No production deploy was initiated.
@@ -840,7 +916,7 @@ Read-only SQL against the active project returned:
 
 **State: IN PROGRESS. No modules closed.**
 
-  
+
 ## Additional checkpoint — 2026-11-10 13:35 Africa/Cairo
 
 - **Admin health defect fixed in PR #275:** `src/lib/services/api-health.ts` awaited `assertSupabaseConnection()` but discarded its boolean return, so a false data-plane probe was incorrectly reported as `ok`. Commit `32606b903c4628226a8ef4cbf60a940d055dc61a` adds a pure status mapper and unit test; `fe5112dae122b038c5e90dc0cd8a4c4da33bb665` removes an unused type import. The test is added to `pnpm test`, and `scripts/verify-admin-health.mjs` enforces propagation. No live health probe was triggered by this edit.
@@ -1580,7 +1656,7 @@ No content generation, Gemini request, social publication, production database m
 
 Audit status remains OPEN; no project-wide error-free or closed certification is made.
 
- 
+
 ## Audit run — 2026-11-13 — source head 58ba74a709b96ff6017a0a0f3598c773c4ea3de5
 
 **State: OPEN.** PR #320 remains unmerged; no deployment from the audit branch.
@@ -1823,3 +1899,412 @@ Request current CODEOWNERS review, finish the 45 pending-trace and 205 review-re
 - No storage object, media, index, secret, release, or production resource was deleted or changed. No content generation, Gemini request, social publishing, push delivery, Android/iOS release, merge, or deployment was triggered.
 - Remaining owner/device work: CODEOWNERS review; approval and controlled application of the 22 pending migrations; iOS App ID/AASA configuration; physical Android/iOS deep-link, OAuth, notification, and signing acceptance; Kids editorial decisions; diagnosis of the main-only English-content-sync failure without invoking Gemini; and post-merge Vercel READY plus production smoke verification.
 - **Audit status: OPEN / IN PROGRESS.** Do not certify the repository as error-free or closed.
+
+## 2026-11-14 — audit repair and evidence checkpoint
+
+### Exact repository state
+
+- Base `main`: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- Code/test head: `bc1f0dd9fc9a0d324221633569ea45ae034757e8` on `audit/zikr-kids-daily-priority-20261110` / PR #320.
+- Inventory: 2,395 entries (1,896 blobs, 499 trees); PR delta 553 paths before the reconciled overlay and manifest, no deletions. The new overlay has 553 rows; the paired manifest records the pre-manifest tree and excludes itself.
+- Overlay totals: 278 content-read/tested pass; 190 review required; 55 content-read/pending trace; 26 fixed/tested/pending live apply; 4 superseded snapshots.
+
+### Repairs made
+
+1. **Video Storage limit mismatch.** Live organization plan is Free; live bucket metadata was `videos=536870912` (512 MiB), while `android-releases=52428800` (50 MiB), and the project config defaults to 50 MiB. Updated `src/lib/services/storage-contract.ts`, `src/app/api/admin/videos/upload/route.ts`, `src/features/admin/components/video-upload-field.tsx`, `supabase/config.toml`, and `scripts/tests/storage-service-contract.test.ts` to enforce 50 MiB. Added forward migration `supabase/migrations/20261114100000_videos_bucket_free_tier_limit.sql`. The route returns 413 before issuing a signed capability. The migration remains pending owner approval; production bucket settings were not changed.
+2. **Gemini transient retry backoff.** `callDirectSdk` and `generateGeminiFromAudio` previously handled transient errors inside the per-model catch and skipped the existing backoff. Added a transient-failure flag and backoff between key-rotation attempts, plus static regression assertions in `scripts/tests/public-ai-cost-guard.test.ts`. Tests read source only; no Gemini request was issued.
+
+### Verification evidence
+
+- GitHub Quality Gate run `43639327334`: `success`; audit branch enabled `QUALITY_GATE_FULL_SCOPE=true`, so `pnpm verify` ran, including local migration replay/build and all 13 PostgreSQL 17 integration checks.
+- CircleCI `source-verify`: `success`; `application-build-docs`: `success`; `config-guard`: `success`.
+- Android Debug APK run `43639327306`: `success`; debug-only, no signed release or store upload.
+- Live Supabase reads: organization `Zikrofficial` plan `free`; project `ACTIVE_HEALTHY`, PostgreSQL 17.11; remote migration table 418 versions, latest `20261110170000`; local 441 unique migrations, 23 local-only, no remote-only or duplicate versions.
+- Live Storage reads: `videos=536870912`, `android-releases=52428800`. No storage object or media was modified/deleted.
+- Vercel production deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu`: `READY`, commit `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; preceding 50-minute runtime query had no error/fatal/warning entries.
+
+### Safety and open gates
+
+- No content generation, Gemini calls, social publishing, production database mutation, storage upload/deletion, release creation, or Android release was triggered.
+- PR #320 has no owner review; CODEOWNERS principal permission is unavailable. Merge and production deploy remain blocked by owner/protected-branch gates.
+- The audit is not closed: 190 paths remain `REVIEW_REQUIRED`, 55 remain `CONTENT_READ_PENDING_TRACE`, and 26 fixes still await owner-approved live migration application. Device/iOS/OAuth/editorial/social end-to-end acceptance remains manual.
+
+
+## 2026-11-15 — PR #320 audit repair batch and verification
+
+**Verified code/test SHA:** `a6e19b66e7b6fb84f4da640922ec96c9a1bb8c12`
+**Base SHA:** `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`
+**PR:** #320 — `audit/zikr-kids-daily-priority-20261110`
+
+### Repairs and regression coverage
+- `666dc080a18f7f880abf9d7d6d10c08aef4ee9a0`: corrected `unblockFacebookAuthBlockedQueue` so a malformed/non-array PostgREST inventory throws and fails closed instead of being interpreted as an empty queue. Added dependency-injected regression cases for malformed and valid-empty responses.
+- `a6e19b66e7b6fb84f4da640922ec96c9a1bb8c12`: added an explicit verifier contract for the Kids-video public-read RLS migration; the existing Kids visibility test also covers that policy.
+
+### Exact verification evidence
+- GitHub Quality Gate run `43650394810`: **success** on `a6e19b66e7b6fb84f4da640922ec96c9a1bb8c12`; Supabase Edge Function type-check, PostgreSQL 17 integration checks, and canonical source/architecture verification all passed.
+- CircleCI `config-guard`, `application-build-docs`, and `source-verify`: **success**.
+- Android Native Login Debug APK workflow `43650394764`: **success**. No release was created.
+- Prior baseline run `43649657763` on `a1655defd6891124a6240323f7ec5d3b908ca153` also passed; the newer run above includes the Facebook recovery regression and video RLS verifier change.
+
+### Inventory and status matrix
+- Recursive tree at the verified code/test head: 2,401 entries, 1,902 blobs, 499 directories.
+- PR diff at that head: 561 paths — 240 added, 321 modified, zero deleted.
+- Current overlay: `docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-15.md` — 561 rows; 303 pass, 181 review required, 43 pending trace, 28 tested/pending live apply, 6 superseded snapshots.
+- Recursive manifest: `docs/audits/PR320_REPO_MANIFEST_2026-11-15.jsonl`; self-excludes its own blob and records the tree after the overlay/status/ledger snapshot.
+
+### Production and approval gates
+- Supabase remote migration history remains at `20261110170000` (418 versions). The push-subscription privilege hardening and Kids-video public-read RLS migrations are repository-tested but not applied. Live grants and RLS remain unchanged.
+- Vercel production remains **READY** on `main` commit `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; no production deployment was initiated from the audit branch.
+- PR #320 remains open; no owner review or review thread is present. CODEOWNERS/owner approval is still required.
+- No Gemini/content generation, social publishing, production DB writes, storage deletion, release, merge, or production deploy was triggered.
+
+**Status: OPEN.** Remaining work includes the review-required and pending-trace paths in the overlay, owner review, approved live migrations with rollback evidence, device/provider acceptance, and post-merge Vercel smoke checks. The automated Kids-video QA policy still has no human QA gate and requires owner acceptance.
+
+## 2026-11-15 — Kids external social publishing safety repair
+
+- Code candidate SHA: `a46f420459b44fc08af59cba250a8077f45f3522`; base SHA: `c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; PR #320 / branch `audit/zikr-kids-daily-priority-20261110`.
+- Repair commits: `ee5f96141c00b0d486bd3e4947a7a4efd304e0bf`, `e24651e57c83b4c13659674d66bc1e42ab425cb5`, `abbd04848931622b237f0ea96b4c4c51b0d4a530`, `67f4301b285f4ef17c82219cdfe663939ad8a048`, `a46f420459b44fc08af59cba250a8077f45f3522`.
+- Root cause: the automated Kids QA identity could satisfy the generic approval predicate, and the external social queue reused that approval as if it were a human editorial review. The admin social diagnostics also used the internal inspector, so the UI could display a Kids item as eligible even when external publishing should be held.
+- Repair: added pure helper `hasHumanKidsVideoApproval`; added `inspectVideoQueueItemExternalApproval`; external social queue selection and admin diagnostics now require a complete human review record matching the request snapshot and catalog row. The existing internal website publication policy was deliberately left unchanged and is an explicit owner-acceptance question.
+- Regression tests cover automated-only Kids approval (internal screening remains unchanged, external publishing is blocked), matching human approval (external publishing becomes eligible), reviewer mismatch, system reviewer identity, and catalog-level approval metadata. The admin review UI now presents a human-review requirement for Kids items.
+- Verification: full-scope Quality Gate run `43675987988` on `67f4301b285f4ef17c82219cdfe663939ad8a048` failed at `admin-video-retry-step-up.test.mjs` because `scripts/verify-admin-video-factory.mjs` still expected the old social worker error/log strings. This was corrected in `a46f420459b44fc08af59cba250a8077f45f3522`. At snapshot time, Quality Gate run `43676136489` and Android debug run `43676136437` are in progress; CircleCI config validation `43676136472` is success, while source-verify and application-build-docs are pending. Do not mark this batch tested until all exact-head checks pass.
+- Inventory: 2407 recursive tree entries (1908 blobs, 499 directories); PR delta 569 paths (246 added, 323 modified, 0 deleted). Matrix counts: REVIEW_REQUIRED=214, CONTENT_READ_TESTED_PASS=282, CONTENT_READ_PENDING_TRACE=37, SUPERSEDED_SNAPSHOT=8, FIXED_TESTED_PENDING_LIVE_APPLY=28.
+- Production safety: no production writes, migration application, generation, Gemini calls, social publishing, storage deletion, release, merge or deployment were executed.
+- Remaining owner/device gates: decide whether public Kids website publication also requires human review; approve CODEOWNERS review and merge; authorize any production migration with rollback evidence; perform device/OAuth/provider/Kids editorial acceptance and production smoke checks.
+
+## 2026-11-15 — storage-retention fail-closed repair and exact-head checkpoint
+
+**Repository:** `zikrofficial-X/Zikr`
+**PR:** #320 — `audit/zikr-kids-daily-priority-20261110`
+**Base:** `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`
+**Current source/test head:** `bef48c909e5709504937e6bcee8cc84e950c4612`
+
+### Verified prior batch
+- Exact code/test SHA `829c80be969bfc482c154e9d7d127abb81def792`: full-scope Quality Gate run `43677234069` completed **success**. Deno Edge Function type-check, PostgreSQL 17 integration contracts, canonical source/architecture gate, lint, type-check, SEO/security/mobile checks, and production build passed.
+- CircleCI `config-guard`, `source-verify`, and `application-build-docs`: **success** on that prior head.
+- Android Native Login Debug APK run `43677234067`: **success**; debug validation only, no release.
+- The Kids approval fingerprint test was corrected to compare a persisted Kids request against the Kids snapshot and to reject a general-audience request fingerprint. The production helper was not changed by that test-fixture correction.
+
+### New safety defect and repair
+- **Finding:** the site-audio cleanup script and general Supabase Storage retention script used null-coalescing to convert a missing/null PostgREST response payload into an empty array. The site-audio DELETE route also treated a null reference-query result as no surviving reference. An incomplete inventory could therefore be mistaken for proof that no reference/object existed and allow a destructive path to continue.
+- **Repair commit:** `d6a49087bc0befecf971541aceae5b488a2799be`. Added explicit array-result guards for site-audio asset references, Storage listings, video-reference scans, content-library media, Android release settings, and paginated queue/request scans. The immediate site-audio DELETE path now defers Storage removal on an error or non-array reference result.
+- **Regression test commit:** `bef48c909e5709504937e6bcee8cc84e950c4612`. Added tests for null, undefined, and object-shaped inventory payloads, plus route/script contract assertions. Documentation now states that only an explicit empty array proves absence.
+- Read and traced the complete site-audio upload/registration/delete handlers, the `site_audio_upload_intents` migration, both cleanup scripts, `site-audio-orphan-retention.yml`, `storage-retention.yml`, the relevant test scripts, `package.json` commands, the retention RPC migration, and lifecycle documentation. Scheduled video/Android retention remains dry-run by default; site-audio cleanup remains manual-only.
+- The pause controls are operator attestations, not runtime locks. No destructive apply was executed. No storage object, media, bucket, database row, index, secret, release, or production resource was modified.
+
+### Exact-head verification status
+- Current head `bef48c9` has only the skipped Supabase Preview check; no Quality Gate, CircleCI, or Android debug workflow run was emitted for this exact SHA. **The storage hardening batch is not marked tested.** The successful 829c run is prior-head evidence only and must not be used to certify d6a490/bef48.
+- The GitHub integration did not provide a workflow-dispatch action for starting the canonical gate on this exact head. The current code/test changes must receive a full-scope Quality Gate and all required CircleCI contexts before merge; no check was bypassed or fabricated.
+
+### Inventory and remaining status
+- Branch tree at `bef48c9`: 2,407 entries (1,908 blobs, 499 directories); PR delta: 569 paths (246 added, 323 modified, zero deleted).
+- Reconciled overlay: 569 rows — 218 `REVIEW_REQUIRED`, 281 `CONTENT_READ_TESTED_PASS`, 34 `CONTENT_READ_PENDING_TRACE`, 28 `FIXED_TESTED_PENDING_LIVE_APPLY`, 8 `SUPERSEDED_SNAPSHOT`.
+- The paired manifest is regenerated from the reconciled tree, self-excludes its own blob, and sets `docs` / `docs/audits` directory hashes to null to avoid self-reference.
+- The 2026-11-01 main-baseline matrix remains historical at 1,525 review-required rows; no module is declared closed.
+
+### Production and approval gates
+- Latest Vercel production deployment remains `READY` on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; no audit deployment or production smoke run occurred.
+- Two handled `TypeError: fetch failed` runtime events were present in the last 24-hour aggregation (last observed 2026-11-14 22:01Z); the latest 50-minute runtime-log query had no error/fatal/warning entries. No source change was made without a reproducible failure.
+- `.github/CODEOWNERS` assigns all files to `@Zikrmediaofficial`. An earlier PR comment requested owner review, but formal collaborator permission is unavailable to the connected account and no approval is recorded.
+- PRs #321–#325 remain open and overlap the audit branch. No branch was merged, rebased destructively, or overwritten. Branch protection could not be read (403); no rule was bypassed.
+- Remaining: run the exact-head full verification, continue the 218 review-required / 34 pending-trace paths, obtain owner approval, resolve the 28 pending live-apply items through owner-approved procedures, complete physical Android/iOS/OAuth/push/provider/Kids editorial acceptance, then merge/deploy and verify production smoke checks.
+
+**Status: OPEN / IN PROGRESS. Never certify the repository as error-free or closed on this evidence.**
+
+## 2026-11-15 — Kids social-publication state can become stale after catalog-sync failure
+
+**Source/test head reviewed:** `bef48c909e5709504937e6bcee8cc84e950c4612`
+**Related files:** `src/features/social/services/social-publishing.ts`, `scripts/jobs/social-publishing.ts`, `scripts/verify-social-publishing.mjs`, `scripts/verify-kids-video-factory.mjs`, `src/app/kids/videos/[slug]/page.tsx`, `src/app/api/kids/videos/route.ts`, `src/features/social/services/kids-video-social-query.ts`, `src/features/social/services/kids-video-social-visibility.ts`, `scripts/tests/kids-social-queue-pagination.test.ts`, `scripts/tests/video-catalog-publication-policy.test.ts`.
+
+### Reproduced by code-path analysis (no live publishing)
+- `syncKidsSocialPublicationToCatalog` returns `void`; its catch and conditional-update failure paths only log a warning. Both the normal publishing path and the already-published recovery path ignore the sync outcome.
+- `scripts/jobs/social-publishing.ts` processes pending queue work and published-video cleanup; no retry/reconciliation scan for a failed Kids catalog sync was found.
+- `src/app/api/kids/videos/route.ts` correctly derives `socialPublication` from `social_publish_queue` using the keyset-paginated queue loader and visibility resolver.
+- `src/app/kids/videos/[slug]/page.tsx` does not use that queue-derived resolver; it reads `metadata.socialPublication` from the `videos` catalog only. If the best-effort sync fails after provider publication, the queue/API can show confirmed publication while the detail page displays stale “not published yet” state.
+- This is a user-visible consistency defect, not a failed provider publish. The audit did not call Facebook/YouTube, create content, or mutate production state.
+
+### Required repair
+- Make the Kids detail page derive publication status from the same authoritative queue resolver used by `/api/kids/videos`, with an explicit unavailable state if the queue read fails; alternatively, make catalog sync durable with a retry marker and a reconciliation job.
+- Add regression coverage for a published queue row with a stale/empty catalog `socialPublication`, and for queue-read failure (must not claim “not published yet”).
+- Extend the social verifier to assert the selected consistency contract. Do not trigger live social publishing as a test.
+
+### Verification and status
+- The Kids human approval helper, video catalog publication policy, and their focused test passed the prior full-scope Quality Gate at `829c80be969bfc482c154e9d7d127abb81def792`.
+- The social-sync failure path itself has no regression test and remains `REVIEW_REQUIRED`.
+- The current source/test head `bef48c9` has no Quality Gate, CircleCI, or Android debug result. No exact-head verification is claimed.
+- The branch overlay remains 569 rows with 218 `REVIEW_REQUIRED`, 281 `CONTENT_READ_TESTED_PASS`, 34 `CONTENT_READ_PENDING_TRACE`, 28 `FIXED_TESTED_PENDING_LIVE_APPLY`, and 8 `SUPERSEDED_SNAPSHOT`.
+
+**Status: OPEN.**
+
+
+## 2026-11-15 — exact code/test closeout checkpoint 748ba0b563a7b5885af7f6ffde406770065675e7
+
+- **Branch / PR:** `audit/zikr-kids-daily-priority-20261110`, PR #320 against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- **Inventory:** 585 changed paths (258 added, 327 modified, 0 deleted); repository tree 2,419 entries (1,920 blobs, 499 directories); refreshed file-status overlay 585 rows; refreshed self-excluding repository manifest 2,418 entries.
+- **Verification:** full-scope [Quality Gate 43690964376](https://github.com/zikrofficial-X/Zikr/actions/runs/43690964376) passed on exact head `748ba0b563a7b5885af7f6ffde406770065675e7`; CircleCI `config-guard`, `source-verify`, `application-build-docs` passed; [CircleCI Config Validation 43690964373](https://github.com/zikrofficial-X/Zikr/actions/runs/43690964373) passed; [Android Debug APK 43690964379](https://github.com/zikrofficial-X/Zikr/actions/runs/43690964379) passed. No signed Android release was produced.
+- **Fixes in this checkpoint:** preserved Supabase auth-refresh cookies on proxy redirects; aligned social publish cutoff; hardened push-subscription endpoint and ownership race; made Kids detail social state queue-derived and fail-closed; added safe prayer cron reconciliation with local PostgreSQL integration coverage; aligned Favorites runtime validation and labels with the production enum.
+- **Migration state:** 418 remote / 444 local / 26 pending; no production migration or function deployment performed. The current prayer/source-agent cron rows already target the canonical project and the new migration is a no-op for those inspected rows.
+- **Open production/security decisions:** enable leaked-password protection; decide whether destructive admin actions must require MFA (`require_mfa_for_destructive=false` currently); review public/unbounded `public-assets` bucket and obtain a conclusive object inventory before any policy/bucket action; reconcile the 78 unused-index notices without deleting indexes absent evidence.
+- **Open code/runtime items:** deployed prayer worker and spiritual-AI function still lag local hardened code; source-agent has no usable parser and can report zero-item success; pending RLS migrations are not applied; the scheduled video-media audit performs production metadata writes and should be treated as a writer, not a read-only audit.
+- **Mobile/hosting:** production Vercel remains READY on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; audit branch not deployed. `IOS_ASSOCIATED_DOMAIN_APP_ID` is missing, so Apple app association is not complete. Device acceptance, iOS signing, and owner configuration remain manual.
+- **Governance:** PR #320 is open/mergeable but has no recorded CODEOWNERS approval. `@Zikrmediaofficial` review and overlap reconciliation for PRs #321–#325 are still required. No merge/deploy gate was bypassed.
+- **Safety:** no content generation, Gemini request, social publishing, production DDL/DML, Storage/media deletion, index/secret change, Android/iOS release, merge, or deployment was triggered.
+- **Next checkpoint:** the documentation/manifest reconciliation is being committed as a child of this verified code/test head. The new documentation commit must receive a fresh exact-head Quality Gate and required checks before any merge decision.
+
+
+## 2026-11-15T08:24Z — source-agent status repair and production drift refresh
+
+- PR #320 branch `audit/zikr-kids-daily-priority-20261110`; base `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; exact verified code/test head `cfaf0f6bc2d3cde9d4c8f16beebb7c4bd0898896`.
+- Repair commits: `7e329235454942e2e78b41cde2a5a2b2a0c44a3c` adds `getSourceAgentRunStatus`; `cfaf0f6bc2d3cde9d4c8f16beebb7c4bd0898896` corrects the regression assertions. Skipped-only source-agent runs now persist as `partial` and return `ok=false`; unsupported provider parsers remain explicitly skipped. No source-agent job was invoked.
+- Exact-head CI: Quality Gate run `43693587553` **success / PASSED_FULL**; job `132749198019`; Deno Edge type-check; 15 PostgreSQL 17 integration checks; canonical source/architecture gate; lint/types/security/mobile/SEO/production build. CircleCI `source-verify`, `application-build-docs`, `config-guard` all **success**; Config Validation `43693587665` **success**; Android Debug APK `43693587618` **success** (debug only).
+- Inventory: 2,419 tree entries (1,920 blobs, 499 directories); 585 PR paths (258 added, 327 modified, zero deleted). The current overlay/manifest refresh records 315 tested-pass, 211 review-required, 25 pending-trace, 28 tested/pending-live-apply, and 6 historical snapshots; self-excluding manifest contains 2,418 entries.
+- Kids/Spiritual AI trace batch completed for the detail route/offline visibility, admin Kids action, Spiritual AI server action and input/rate-limit chain, Edge auth/CORS and spiritual-ai entrypoint. Related contracts passed in the full gate. The prayer notification worker and remaining Kids/admin/public routes stay pending.
+- Production Supabase read-only comparison: 418 remote versions through `20261110170000`, 444 local migrations, 26 local-only pending, zero remote-only; no production migration applied. Live cron rows are exact and singular for source-agent and prayer-push jobs. The live Kids public policy exposes 20 published stories without age approval through direct anonymous REST; other pending RLS issues include published-only video reads, public question-table reads, direct push-subscription/admin-managed writes, and storage writes. Current counts: 0 inactive published Kids rows, 0 unreviewed published Kids videos, 0 published game questions, 0 orphaned published levels, 0 active push subscriptions, 0 invalid target arrays, 0 duplicate active content-queue groups.
+- Live video bucket remains 512 MiB vs 50 MiB app cap; destructive admin MFA setting is false; leaked-password protection is disabled; 78 unused-index notices were not acted on. No storage object, index, secret or data row was deleted or changed.
+- Deployed Edge Function versions: spiritual-ai v2, prayer worker v77, source agent v14; all are behind the reviewed repository sources. No function deployment occurred. Vercel production remains READY on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3` with no error/fatal/warning logs in the last 50 minutes; audit branch is not deployed and automatic Git deployment is disabled. `IOS_ASSOCIATED_DOMAIN_APP_ID` is absent.
+- CODEOWNERS requires `@Zikrmediaofficial`; collaborator permission is null; PR #320 has no review or review thread. No merge/deploy gate was bypassed. PRs #321–#325 were compared on their high-risk overlap paths; audit branch contains equal or stricter behavior on the inspected paths, but full owner-level reconciliation remains outstanding.
+- No production DB mutation, content generation, Gemini request, social publishing, media/storage/index/secret deletion, Android/iOS release, merge, or deployment occurred. Audit remains open.
+
+
+## 2026-11-15T16:32Z — atomic video approval and live Kids/social recheck
+
+- **Exact code/test head:** `37b1d8b8861ae39ea673c4386eaf2ec76fc7571a` on `audit/zikr-kids-daily-priority-20261110`, PR #320 against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- **Full verification:** [Quality Gate 43735522332](https://github.com/zikrofficial-X/Zikr/actions/runs/43735522332) completed successfully with `QUALITY_GATE=PASSED_FULL`; CircleCI `config-guard`, `source-verify`, and `application-build-docs` all passed; [CircleCI Config Validation 43735522294](https://github.com/zikrofficial-X/Zikr/actions/runs/43735522294) passed; [Android Debug APK 43735522249](https://github.com/zikrofficial-X/Zikr/actions/runs/43735522249) passed (debug only).
+- **Repair:** admin video approval now uses a single service-role-only SQL RPC that locks the generation request and matching catalog row, validates matching media/content/template fingerprints and human-review metadata, then performs both compare-and-set updates in one transaction. A previous PostgreSQL 17 run caught ambiguous `updated_at` resolution caused by a `RETURNS TABLE` output variable; the two UPDATE predicates now qualify their table aliases. The isolated PostgreSQL 17 integration passed in Quality Gate step 11 on the exact code/test head.
+- **Verifier regression:** the prior static verifier required the retired independent PATCH filter `metadata->>videoGenerationRequestId=eq.` and `updated_at=eq.`, so it rejected the new atomic RPC even though the transaction test passed. The verifier now checks both expected-version arguments and the atomic RPC/migration contract; the admin-video retry test asserts that the legacy filter is not required. Full Quality Gate passed after this correction.
+- **Inventory:** 601 changed paths (273 added, 328 modified, 0 deleted); repository tree 2,433 entries (1,934 blobs, 499 directories); refreshed self-excluding manifest 2,430 entries; file-status overlay 599 rows. Status: 340 tested-pass, 206 review-required, 18 pending-trace, 29 fixed/tested/pending-live-apply, 6 superseded snapshots.
+- **Supabase:** remote 418 through `20261110170000`; local 445, 27 pending, zero remote-only. The new migration `supabase/migrations/20261115153600_admin_video_approval_atomic.sql` is local-only and the atomic RPC is absent in production. No migration or function deployment occurred.
+- **Live RLS:** the production `kids_content_public_read` policy remains published-only. Read-only counts show 26 published stories, 20 without `age_appropriate=true`; all remain reachable through the current anon policy until owner-approved migration application. Current published Kids video catalog contains 31 QA-passed rows without human approval; external social approval is handled by the new code gate, while the internal site remains on automated QA.
+- **Live social queue:** 24 Kids-linked rows: 21 published, 1 partial, 2 queued. All have system-only approval and automated review mode; Kids-specific QA status is absent. The partial row is due; both queued rows have NULL schedule and are newer than the configured publish cutoff. Main's 15-minute publisher remains enabled and the main worker treats NULL schedule as due. The current main branch therefore remains capable of external publishing without human review until the PR is merged. Owner must hold the nonterminal rows and decide separately about already-published posts; no queue mutation or publish action was performed.
+- **Auth/OAuth audit batch:** read the callback route, canonical auth-origin and safe-next helpers, Google OAuth start route, Supabase SSR middleware, cookie-copy helper, server client, and proxy. Callback redirects use a canonical origin and no-store headers; native OAuth returns the authorization code to the native scheme without exchanging it server-side; proxy preserves refreshed Supabase cookies across redirects. No reproducible defect was found in this batch; provider-console values and physical-device callback acceptance remain owner/device-only.
+- **Hosting:** Vercel production is READY on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; audit branch remains undeployed. HTML smoke checks loaded `/`, `/kids`, `/videos`, and `/kids/videos`. API and static text/association endpoints were not accessible through the web crawler and remain unverified.
+- **Governance:** PR #320 is open/mergeable with no CODEOWNERS review. `.github/CODEOWNERS` requires `@Zikrmediaofficial`; collaborator permission is null, so owner review cannot be requested by this integration. No branch-protection, review, or approval gate was bypassed.
+- **Next:** reconcile manifest, file-status overlay, project status, and this ledger on a documentation-only child commit; verify that exact child SHA separately. Then continue the remaining 206 review-required and 18 pending-trace paths. Owner review, production migration/function deployment, Vercel deployment/smoke on merged code, social-provider acceptance, iOS signing/App ID, and physical-device checks remain open.
+- **Safety:** no content generation, Gemini request, social publish, production database mutation, storage/media/index/secret deletion, release, merge, or production deploy was triggered.
+
+
+## 2026-11-15 continuation — repository audit checkpoint
+
+- PR #320 is open against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`, code/test checkpoint `0b5b6a3a7ed47e3a1b8d7fcc9719015747ba6a5b`; 616 changed paths (96,040 additions, 6,562 deletions, zero deleted paths).
+- Canonical Quality Gate run `43753246088` passed with `QUALITY_GATE=PASSED_FULL`; CircleCI Config Validation `43753246084` passed; Android Native Login Debug APK `43753246093` passed.
+- File-status overlay: 614 rows; CONTENT_READ_TESTED_PASS=390, FIXED_TESTED_PENDING_LIVE_APPLY=36, REVIEW_REQUIRED=182, SUPERSEDED_SNAPSHOT=6. The 182 review-required rows remain open.
+- Repository tree: 2,442 entries (1,943 blobs, 499 directories); manifest target 2,439 entries, excluding the `docs/` and `docs/audits/` ancestor tree hashes and its own blob.
+- Supabase: 445 local SQL migrations, 418 applied, 27 unapplied; no production migration was applied.
+- Vercel latest production deployment `dpl_4d8m4a1W4iL7fZrVvP5zq6s2cN9h` is READY at `main@c4560d9`; this audit branch has not been deployed.
+- CODEOWNERS is `@Zikrmediaofficial`; no owner review is recorded and the attempted reviewer request did not register. Merge/deploy remain blocked.
+- No audit-dispatched content generation, Gemini calls, social publishing, production DB mutation, storage/media deletion, release or deployment occurred. Existing scheduled workflows were inspected only.
+
+### New verified findings
+- **Offline Kids snapshot exposure:** main's public `public/offline-content/v1/kids.json` contains 65 rows, including 26 stories of which 20 lack `metadata.age_appropriate=true`. The audit branch snapshot contains 45 rows (35 games, 3 quizzes, 1 wudu activity, 6 approved stories; zero unapproved stories). The ordinary Kids offline resolver filters these stories, but the public static JSON remains directly accessible.
+- Main's scheduled offline refresh run `43701197507` pushed `automation/offline-content-snapshot@cad62b7735111c3b1a49b03ed6074ae4679e7af5` but could not create a review PR because the repository Actions token is not permitted to create PRs. Its old verifier did not detect unapproved Kids rows. The audit branch adds export/verifier/regression coverage and makes PR-creation failure exit nonzero; owner must enable approved PR creation or provide a write-scoped `GH_TOKEN`.
+- **Social publishing:** main scheduled publisher run `43735977185` processed five queue rows (one succeeded, four deferred, zero approval-blocked). Main still lacks the Kids human-review gate; the audit branch adds a fail-closed gate. The scheduled AI-video workflow is configured for non-dry-run auto-publish without an approval requirement; no generation/publishing was triggered by this audit.
+- **Kids social catalog sync (reassessed):** the publisher still attempts a best-effort catalog metadata write without retry. The public Kids videos API and detail resolver now fail closed when a generation request ID is missing/invalid; valid IDs derive publication state from queue history. A failed catalog metadata write therefore no longer creates a stale public badge. Treat retry/reconciliation as operational follow-up only if another consumer is introduced; this is not a current user-facing defect.
+- Storage-retention scripts were read, not executed. Their apply path requires exact project identity, paused reference writes, explicit typed confirmation, a retention RPC contract and compare-and-set checks. The daily video-media audit workflow is a metadata writer; it was not dispatched.
+- Vercel read-only inventory confirms missing `IOS_ASSOCIATED_DOMAIN_APP_ID`, `GA4_PROPERTY_ID` and `GA4_REFRESH_TOKEN`; `SOCIAL_SYNC_SECRET` exists but its value was not inspected or compared.
+
+### Superseding evidence — Kids social detail fail-closed
+
+The earlier 04:48 review described a detail page reading stored `metadata.socialPublication` directly. That observation is superseded by the later `kids-video-social-detail.ts` and `/api/kids/videos` changes: valid request IDs use queue history; missing/invalid IDs return unavailable/null and never fall back to stored catalog publication metadata. `kids-video-series.test.ts` now asserts this fail-closed contract, and `verify-kids-video-factory.mjs` checks it. The best-effort catalog write still has no retry, but no current public stale badge is exposed.
+
+
+## 2026-11-16 — exact code/test checkpoint and production recheck
+
+- **PR/branch/base:** PR #320, `audit/zikr-kids-daily-priority-20261110`, base `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`.
+- **Exact verified code/test SHA:** `fa045577ecc02b1b515bf62ccd949e2d34552d76`.
+- **Exact-head evidence:** [ZIKR Quality Gate 43769096644](https://github.com/zikrofficial-X/Zikr/actions/runs/43769096644) passed with `QUALITY_GATE=PASSED_FULL`; CircleCI `source-verify`, `application-build-docs`, and `config-guard` passed; [Android Native Login Debug APK 43769096626](https://github.com/zikrofficial-X/Zikr/actions/runs/43769096626) passed (debug only). The RLS integration applies both Kids human-approval migrations and passes on this exact head.
+- **Repair history:** `fb7f7cf9543a91f242ab4d40b6b17bdb2ac8e174` corrected the stale `approvalRequest` source assertion. `819479b7aecdbbd25f52b5905ee81f7d685041fc` failed the RLS integration because the final migration was malformed; `3ba92e6dbd1ba5f0af89aa0f73913ceabfc4729a` corrected it, and `fa045577ecc02b1b515bf62ccd949e2d34552d76` added Cloudinary/source-metadata regression fixtures. The final Quality Gate passed; no failed check was bypassed.
+- **Inventory:** 627 existing PR paths (283 added, 344 modified, zero deleted) before the 2026-11-16 overlay/manifest pair; 629 after adding the pair. Current repository tree before the pair: 2,444 entries (1,945 blobs, 499 directories). New manifest: 2,443 rows, self-excluding and excluding the `docs/` and `docs/audits/` ancestor trees. New overlay: 627 rows. Statuses: 407 tested-pass, 38 fixed/tested/pending-live-apply, 174 review-required, 8 superseded historical snapshots.
+- **Migration inventory:** 447 local / 418 remote / 29 pending / zero remote-only. Latest local `20261115215300`; latest remote `20261110170000`. No migration or Edge Function was applied/deployed.
+- **Production Kids RLS:** read-only `pg_policies` confirms the live `videos_public_read` policy remains `TO public USING (published = true)`. Read-only catalog/request join: 32 published internal Kids rows, zero human reviewers, 32 linked requests without `kidsVideoQaStatus='passed'`. Production is not protected by the branch migration until owner-approved merge/release.
+- **Production social queue:** 15 post-cutoff Kids video rows (12 published, 1 partial, 2 queued), all without human approval or request-side Kids QA. Latest observed main publisher run `43762287864` processed 5, succeeded 1, deferred 4, approvalBlocked 0. Owner action recorded in PR comment `6902392670`; no queue or provider mutation.
+- **Mobile/OAuth:** native Android PKCE/custom scheme and Android App Links were traced. iOS entitlements include associated domains, but no Xcode `DEVELOPMENT_TEAM` is set and Vercel lacks `IOS_ASSOCIATED_DOMAIN_APP_ID`; AASA remains unavailable (503) until owner config and redeploy. GA4 property/refresh variables are absent. Android keystore base64 is encrypted but visibility is `config`, not `sensitive`; value was not decrypted or changed.
+- **Vercel/CircleCI:** production deployment `dpl_8LVdTi35Uc9PT5TwrcgHR1Wq1RHu` is READY on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; automatic Git deployment is disabled in `vercel.json`, so a manual owner-approved deployment is required after merge. Main `english-content-sync` failed; CircleCI logs are inaccessible and the workflow was not rerun because it can invoke Gemini and write production.
+- **Governance/manual acceptance:** CODEOWNERS requires `@Zikrmediaofficial`; no owner review is recorded and collaborator permission is null. Branch-protection API returned 403. PR is GitHub-mergeable but not approved. Owner must pause/hold production social publishing, review existing Kids posts/catalog, approve the PR, authorize the 29 pending migrations and required Edge Function release, configure Apple/GA4/keystore settings, and perform signed Android/iOS device acceptance.
+- **Safety:** no content generation, Gemini request, social publish, production DB mutation, Storage/media/index/secret deletion, Android/iOS release, merge or deployment was triggered.
+
+**Status: OPEN — 174 paths remain review-required; 38 items remain pending live apply/release; owner review and manual acceptance are outstanding.**
+
+## 2026-11-16 exact-head continuation — Kids public human-approval gate
+
+**State: OPEN / NOT MERGE-READY.** PR #320 remains on `audit/zikr-kids-daily-priority-20261110` against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. Exact code/test head: `fa045577ecc02b1b515bf62ccd949e2d34552d76`.
+
+- PR inventory: 629 changed paths (283 added, 346 modified, 0 deleted); 99,921 additions and 6,607 deletions.
+- Recursive tree: 2,446 entries (1,947 blobs, 499 directories). Self-excluding manifest: 2,443 entries. File-status overlay: 627 rows — CONTENT_READ_TESTED_PASS=412, FIXED_TESTED_PENDING_LIVE_APPLY=38, REVIEW_REQUIRED=169, SUPERSEDED_SNAPSHOT=8. The 169 review-required paths remain open.
+- Exact-head verification: Quality Gate 43770291645 passed; CircleCI 43770291695 passed; Android Native Login Debug APK 43770291676 passed (debug only). Supabase Preview 132938540531 was skipped, not passed.
+- Supabase migrations: 447 local, 418 applied remotely (latest remote `20261110170000`), 29 local-only pending, zero remote-only. No production migration was applied.
+- Policy-only migrations `20261115170000_restrict_public_kids_video_read_to_human_approval.sql` and `20261115215300_require_human_approval_for_public_kids_videos.sql` require internal Kids rows to have a completed generation-request UUID, Cloudinary master media, source/content/template fingerprints, passed automated QA, matching snapshot hashes, a non-system UUID reviewer, timestamped human review, all five review flags and complete original-series metadata. PostgreSQL 17 integration exposes legacy/general plus one complete human-approved Kids fixture to anon/authenticated and hides automated-only, system-reviewed and incomplete-review fixtures; service_role retains full access. Production apply remains pending.
+- Public Kids list/detail services now resolve the linked completed generation request and fail closed unless the catalog row and request share a current human-approval snapshot and QA/media fingerprints. The Kids social publisher also requires human approval; main still contains the older automated/system approval path until owner-approved merge and release.
+- Read-only production evidence: live `videos_public_read` remains `TO public USING (published = true)`; 32 published internal Kids rows were observed with zero human reviewers and 32 linked requests without `kidsVideoQaStatus='passed'`. The branch policy is not live.
+- Read-only production social queue: 15 post-cutoff Kids rows (12 published, 1 partial, 2 queued), none with human approval. Main's 15-minute publisher remains enabled; observed run reported zero approval-blocked rows. Main's `generate-ai-video.yml` is non-dry-run/auto-publish without human approval. Owner must pause the publisher or hold/reconcile nonterminal rows before merge/deploy; no publish or queue mutation was triggered.
+- Main's public offline Kids JSON has 65 rows, including 26 stories with 20 lacking explicit age approval. The branch snapshot has 45 rows and six approved stories, zero unapproved. GitHub Actions PR-creation permission remains owner-only.
+- Vercel production remains READY on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; audit branch not deployed. Vercel project-settings access returned 403, so Git auto-deploy/project metadata is unverified. iOS App ID/GA4 values, signing and physical-device acceptance remain owner/manual inputs.
+- CODEOWNERS requires `@Zikrmediaofficial`; no owner approval is recorded and reviewer request did not register. Branch-protection details remain unreadable through available API permission. PRs #321–#325 still overlap.
+- No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, index/secret change, Android/iOS release, merge or deployment occurred. Manual owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
+
+## 2026-11-16 exact-head continuation — prayer-time parser and Kids approval
+
+**State: OPEN / NOT MERGE-READY.** PR #320 remains on `audit/zikr-kids-daily-priority-20261110` against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. Exact code/test head: `8019d226dc5a79b982805a428cc9a2cc6c3b8d46`.
+
+- PR inventory: 629 changed paths (283 added, 346 modified, 0 deleted); 100,103 additions and 6,607 deletions.
+- Recursive tree: 2,446 entries (1,947 blobs, 499 directories). Self-excluding manifest: 2,443 entries. File-status overlay: 627 unique rows — CONTENT_READ_TESTED_PASS=414, FIXED_TESTED_PENDING_LIVE_APPLY=38, REVIEW_REQUIRED=167, SUPERSEDED_SNAPSHOT=8. The 167 review-required paths remain open.
+- Exact-head verification: Quality Gate 43772582149 passed; CircleCI 43772582124 passed; Android Native Login Debug APK 43772582089 passed (debug only). Supabase Preview 132938540531 was skipped, not passed.
+- Prayer-notification defect fixed: cached/provider prayer strings now require a valid minute field and either end-of-string or whitespace after the time. Malformed values such as `05:07malformed` fail closed; valid provider annotations such as `05:07 (EET)` remain accepted. The same parser is used when scheduling cached prayers and when revalidating queued deliveries against current cache rows, so malformed cached times cannot create or validate a reminder. Regression tests cover both cases; no notification was dispatched.
+- Kids public RLS validates RFC-compatible UUID version/variant for both linked generation requests and human reviewers. PostgreSQL 17 integration covers invalid UUID versions/variants, automated-only, system-reviewed and incomplete-review fixtures. Public Kids list/detail services require a linked completed request, matching current human approval snapshot, QA and source/media fingerprints. The social publisher branch also requires human approval; production migrations and merge remain pending.
+- Cleanup endpoint hardening remains: both site-audio and general Storage cleanup scripts require the exact HTTPS Supabase project host and reject ports, credentials, paths, queries and fragments. Destructive apply requires writer freeze, typed owner confirmation, live retention-RPC preflight, complete reference inventory, exact-path verification and manual dispatch. No cleanup was dispatched and no Storage object was deleted.
+- Supabase migrations: 447 local, 418 applied remotely (latest remote `20261110170000`), 29 local-only pending, zero remote-only. No production migration was applied.
+- Read-only production evidence: live `videos_public_read` remains `TO public USING (published = true)`; 32 published internal Kids rows were observed with zero human reviewers and 32 linked requests without `kidsVideoQaStatus='passed'`. Read-only social queue: 15 post-cutoff Kids rows (12 published, 1 partial, 2 queued), none with human approval. Main's 15-minute publisher and non-dry-run auto-publish workflow remain owner-controlled blockers.
+- Main offline Kids JSON has 65 rows, including 26 stories with 20 lacking explicit age approval. The branch snapshot has 45 rows and six approved stories, zero unapproved.
+- Vercel production remains READY on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; audit branch not deployed. Vercel project-settings access returned 403. iOS App ID/GA4 values, signing and physical-device acceptance remain owner/manual inputs.
+- CODEOWNERS requires `@Zikrmediaofficial`; no owner approval is recorded and reviewer request did not register. Branch-protection details remain unreadable through available API permission. PRs #321–#325 still overlap.
+- No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
+
+## 2026-11-16 exact-head continuation — written-content Kids source reservation
+
+**State: OPEN / NOT MERGE-READY.** PR #320 remains on `audit/zikr-kids-daily-priority-20261110` against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. Exact code/test head: `0db217863b9465615942c9ac8fc8a2180124d4f4`.
+
+- PR inventory: 629 changed paths (283 added, 346 modified, 0 deleted); 100,242 additions and 6,607 deletions.
+- Recursive tree: 2,446 entries (1,947 blobs, 499 directories). Self-excluding manifest: 2,443 entries. File-status overlay: 627 unique rows — CONTENT_READ_TESTED_PASS=415, FIXED_TESTED_PENDING_LIVE_APPLY=38, REVIEW_REQUIRED=166, SUPERSEDED_SNAPSHOT=8. The 166 review-required paths remain open.
+- Exact-head verification: Quality Gate 43773747800 passed; CircleCI 43773747833 passed; Android Native Login Debug APK 43773747753 passed (debug only). Supabase Preview 132938540531 was skipped, not passed.
+- Written-content Kids reservation regression: source metadata now treats percent-encoded, double/triple-encoded, dot-segment and malformed Kids paths as reserved; a general backfill cannot relabel those rows. Backfill source types are trimmed/case-normalized before quota and automation-key checks, and Kids payloads retain the canonical Kids source ID, audience and `/kids/` path. The test also asserts the worker uses the guard before queue insertion. No written-content generation or Gemini request was run.
+- The `generate-written-content.yml` workflow is scheduled on main three times daily and explicitly enables Gemini; it remains a production side-effecting workflow. The audit branch was not dispatched. Main's 15-minute social publisher and non-dry-run video auto-publish workflow also remain owner-controlled blockers until human approval is merged/deployed and production queues are reconciled.
+- Prayer-notification parser rejects malformed cached/provider times and is reused for schedule creation and delivery revalidation. Storage cleanup scripts remain exact-project-bound and manual/typed-confirmation gated; no cleanup or deletion ran.
+- Kids public RLS/list/detail/social gates require a completed linked request, current human approval snapshot, QA and source/media fingerprints. PostgreSQL 17 integration passed; the policy migrations remain pending production.
+- Supabase migrations: 447 local, 418 applied remotely (latest remote `20261110170000`), 29 local-only pending, zero remote-only. No production migration was applied.
+- Read-only production evidence: live public Kids RLS remains `TO public USING (published = true)`; 32 published internal Kids rows had zero human reviewers and 32 linked requests without `kidsVideoQaStatus='passed'`. Social queue: 15 post-cutoff Kids rows (12 published, 1 partial, 2 queued), none with human approval.
+- Main offline Kids JSON has 65 rows, including 26 stories with 20 lacking explicit age approval. Branch snapshot has 45 rows and six approved stories, zero unapproved.
+- Vercel production remains READY on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; audit branch not deployed. Vercel project-settings access returned 403. iOS App ID/GA4 values, signing and physical-device acceptance remain owner/manual inputs.
+- CODEOWNERS requires `@Zikrmediaofficial`; no owner approval is recorded and reviewer request did not register. Branch-protection details remain unreadable through available API permission. PRs #321–#325 still overlap.
+- No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
+
+## 2026-11-16 exact-head continuation — prayer data, native permissions and Kids approval
+
+**State: OPEN / NOT MERGE-READY.** PR #320 remains on `audit/zikr-kids-daily-priority-20261110` against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. Exact code/test head: `15bf6125447967fcde1f36ca92e983db36cbd407`.
+
+- PR inventory: 635 changed paths (289 added, 346 modified, 0 deleted); 100,905 additions and 6,688 deletions.
+- Recursive tree: 2,447 entries (1,948 blobs, 499 directories). Self-excluding manifest: 2,444 entries. File-status overlay: 633 unique rows — CONTENT_READ_TESTED_PASS=421, FIXED_TESTED_PENDING_LIVE_APPLY=38, REVIEW_REQUIRED=166, SUPERSEDED_SNAPSHOT=8. The 166 review-required paths remain open.
+- Exact-head verification: Quality Gate 43777925750 passed; CircleCI 43777925783 passed; Android Native Login Debug APK 43777925734 passed (debug only). Supabase Preview 132938540531 was skipped, not passed.
+- Prayer-time service validates coordinate ranges, ISO calendar dates and calculation method before network access; its 60-second cache is capped at 100 entries with expired-entry pruning and LRU eviction. The prayer-location hook uses the shared service instead of bypassing its cache. Saved local/server locations reject blank/out-of-range coordinates and invalid IANA timezones before persistence. Regression tests cover invalid values, TTL reuse and bounded eviction.
+- Prayer notifications use one strict time parser for cached schedule creation and delivery revalidation. The Capacitor-aware permission state is refreshed on mount and when the native bridge becomes ready or permission changes. Profile settings now provide an explicit user-triggered event for the permission banner; session-storage failure cannot prevent rendering or dismissal.
+- Kids video approval requires `video.manage` and `kids.manage` where applicable; general-audience approvals reject Kids markers from encoded public paths and curated source IDs. Kids public RLS/list/detail/social gates require a completed linked request, current human approval snapshot, QA and source/media fingerprints. PostgreSQL 17 integration passed; policy migrations remain pending production.
+- Written-content backfill rejects encoded/nested/traversal Kids paths and normalized Kids source types. The scheduled main workflow still enables Gemini; it was not dispatched.
+- Storage cleanup scripts are bound to the exact HTTPS Supabase project host. Destructive apply remains manual and requires paused writers, typed owner confirmation, live retention-RPC preflight, complete reference inventory and exact-path verification. No cleanup or deletion ran.
+- Supabase migrations: 447 local, 418 applied remotely (latest remote `20261110170000`), 29 local-only pending, zero remote-only. No production migration was applied.
+- Read-only production evidence: live Kids RLS remains `TO public USING (published = true)`; 32 published internal Kids rows had zero human reviewers and 32 linked requests without `kidsVideoQaStatus='passed'`. Social queue: 15 post-cutoff Kids rows (12 published, 1 partial, 2 queued), none with human approval. Main's 15-minute publisher and non-dry-run video auto-publish remain enabled.
+- Main offline Kids JSON has 65 rows, including 26 stories with 20 lacking explicit age approval. The branch snapshot has 45 rows and six approved stories, zero unapproved.
+- Vercel production remains READY on `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`; audit branch not deployed. Vercel project-settings access returned 403. iOS App ID/GA4 values, signing and physical-device acceptance remain owner/manual inputs.
+- CODEOWNERS requires `@Zikrmediaofficial`; no owner approval is recorded and reviewer request did not register. Branch-protection details remain unreadable through available API permission. PRs #321–#325 still overlap.
+- No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
+
+## 2026-11-16 exact-head continuation — provider validation and notification failure semantics
+
+**State: OPEN / NOT MERGE-READY.** PR #320 remains on `audit/zikr-kids-daily-priority-20261110` against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. Exact code/test head: `b59e79611c587588586b2e4c69761c79e6cb231c`.
+
+- PR inventory: 636 changed paths (290 added, 346 modified, 0 deleted); 101,222 additions and 6,694 deletions.
+- Recursive tree: 2,448 entries (1,949 blobs, 499 directories). Self-excluding manifest: 2,445 entries. File-status overlay: 634 unique rows — CONTENT_READ_TESTED_PASS=422, FIXED_TESTED_PENDING_LIVE_APPLY=38, REVIEW_REQUIRED=166, SUPERSEDED_SNAPSHOT=8. The 166 review-required paths remain open.
+- Exact-head verification: Quality Gate 43779807638 passed; CircleCI 43779807704 passed; Android Native Login Debug APK 43779807678 passed (debug only). Supabase Preview 132938540531 was skipped, not passed.
+- Prayer-time service validates coordinates, dates and calculation methods before network access; the 60-second TTL/LRU cache is capped at 100 entries. Provider responses are schema-checked before UI/scheduling use, including all required prayer times, timezone, coordinates, method and Hijri date. Malformed/partial 200 responses fail closed. The shared service is used by the location hook; saved local/server locations validate coordinate ranges and IANA timezone before persistence. Tests cover cache reuse/eviction, invalid values and malformed provider payloads.
+- Prayer notifications use one strict time parser for cached schedule creation and delivery revalidation. Capacitor permission state refreshes after native bridge readiness and permission changes; profile settings provide an explicit opt-in event for the permission banner. Native/browser permission API failures are reported as unsupported rather than a user denial, preserving retryability.
+- Kids video approval requires `video.manage` and `kids.manage` where applicable; general-audience approvals reject Kids markers from encoded public paths and curated source IDs. Kids public RLS/list/detail/social gates require a completed linked request, current human approval snapshot, QA and source/media fingerprints. PostgreSQL 17 integration passed; policy migrations remain pending production.
+- Written-content backfill rejects encoded/nested/traversal Kids paths and normalized Kids source types. The scheduled main workflow still enables Gemini; it was not dispatched.
+- Storage cleanup scripts are bound to the exact HTTPS Supabase project host. Destructive apply remains manual and requires paused writers, typed owner confirmation, live retention-RPC preflight, complete reference inventory and exact-path verification. No cleanup or deletion ran.
+- Supabase migrations: 447 local, 418 applied remotely (latest remote `20261110170000`), 29 local-only pending, zero remote-only. No production migration was applied.
+- Read-only production evidence: live Kids RLS remains `TO public USING (published = true)`; 32 published internal Kids rows had zero human reviewers and 32 linked requests without `kidsVideoQaStatus='passed'`. Social queue: 15 post-cutoff Kids rows (12 published, 1 partial, 2 queued), none with human approval. Main's 15-minute publisher and non-dry-run video auto-publish remain enabled.
+- Main offline Kids JSON has 65 rows, including 26 stories with 20 lacking explicit age approval. The branch snapshot has 45 rows and six approved stories, zero unapproved.
+- Read-only Vercel environment inventory found `IOS_ASSOCIATED_DOMAIN_APP_ID` absent from Development/Preview/Production; the AASA route returns 503 without it. `GA4_PROPERTY_ID` and `GA4_REFRESH_TOKEN` are also absent. `ANDROID_KEYSTORE_BASE64` is present with Vercel visibility `config`, not `secret`; treat it as signing material. No secret was read, rotated, deleted or changed. Owner must confirm its use and handle any controlled visibility/rotation procedure.
+- Production Vercel remains READY on main; audit branch not deployed. Project-settings access returned 403. iOS App ID/GA4 values, signing and physical-device acceptance remain owner/manual inputs.
+- CODEOWNERS requires `@Zikrmediaofficial`; no owner approval is recorded and reviewer request did not register. An owner-review request was posted in the PR conversation. Branch-protection details remain unreadable through available API permission. PRs #321–#325 still overlap.
+- No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
+
+## 2026-11-16 exact-head continuation — Kids fallback approval gate
+
+**State: OPEN / NOT MERGE-READY.** PR #320 remains on `audit/zikr-kids-daily-priority-20261110` against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. Exact code/test head: `c6a82b457e5ee03fbcb292850eb6ddf6581a4d52`.
+
+- PR inventory: 636 changed paths (290 added, 346 modified, 0 deleted); 101,357 additions and 6,694 deletions.
+- Recursive tree: 2,448 entries (1,949 blobs, 499 directories). Self-excluding manifest: 2,445 entries. File-status overlay: 634 unique rows — CONTENT_READ_TESTED_PASS=424, FIXED_TESTED_PENDING_LIVE_APPLY=38, REVIEW_REQUIRED=164, SUPERSEDED_SNAPSHOT=8. The 164 review-required paths remain open.
+- Exact-head verification: Quality Gate 43781785998 passed; CircleCI 43781785921 passed; Android Native Login Debug APK 43781785920 passed (debug only). Supabase Preview 132938540531 was skipped, not passed. Earlier Quality Gate 43781392966 exposed a stale static-fallback assertion; the assertion was corrected and the exact-head full suite passed.
+- **Kids static fallback bypass fixed:** the prior fallback builder unconditionally overwrote every static story's `metadata.age_appropriate` to `true`, so legacy/unreviewed stories could pass the public visibility helper and appear in fallback detail/list/sitemap paths. The override is removed. `prepareKidsFallbackContent` now deduplicates and retains only content already passing the same explicit age-approval visibility predicate; the regression test compares fallback stories to the source rows already carrying `age_appropriate === true` and asserts no approval is manufactured. The first full run correctly failed on the now-obsolete source assertion; that assertion was updated to enforce the new fail-closed behavior, and the current full suite passes.
+- Prayer-time service validates coordinates, dates and calculation methods before network access; the 60-second TTL/LRU cache is capped at 100 entries. Provider responses are schema-checked before UI/scheduling use, including required prayer times, timezone, coordinates, method and Hijri date. Malformed/partial 200 responses fail closed. The shared service is used by the location hook; saved local/server locations validate coordinate ranges and IANA timezone before persistence.
+- Prayer notifications use one strict time parser for cached schedule creation and delivery revalidation. Capacitor permission state refreshes after native bridge readiness and permission changes; profile settings provide an explicit opt-in event for the permission banner. Native/browser permission API failures return unsupported rather than a false user denial.
+- Kids video approval requires `video.manage` and `kids.manage` where applicable; general-audience approvals reject Kids markers from encoded public paths and curated source IDs. Kids public RLS/list/detail/social gates require a completed linked request, current human approval snapshot, QA and source/media fingerprints. PostgreSQL 17 integration passed; policy migrations remain pending production.
+- Written-content backfill rejects encoded/nested/traversal Kids paths and normalized Kids source types. The scheduled main workflow still enables Gemini; it was not dispatched.
+- Storage cleanup scripts are bound to the exact HTTPS Supabase project host. Destructive apply remains manual and requires paused writers, typed owner confirmation, live retention-RPC preflight, complete reference inventory and exact-path verification. No cleanup or deletion ran.
+- Supabase migrations: 447 local, 418 applied remotely (latest remote `20261110170000`), 29 local-only pending, zero remote-only. No production migration was applied.
+- Read-only production evidence: live Kids RLS remains `TO public USING (published = true)`; 32 published internal Kids rows had zero human reviewers and 32 linked requests without `kidsVideoQaStatus='passed'`. Social queue: 15 post-cutoff Kids rows (12 published, 1 partial, 2 queued), none with human approval. Main's 15-minute publisher and non-dry-run video auto-publish remain enabled.
+- Main offline Kids JSON has 65 rows, including 26 stories with 20 lacking explicit age approval. The branch snapshot has 45 rows and six approved stories, zero unapproved.
+- Read-only Vercel environment inventory found `IOS_ASSOCIATED_DOMAIN_APP_ID` absent from Development/Preview/Production; the AASA route returns 503 without it. `GA4_PROPERTY_ID` and `GA4_REFRESH_TOKEN` are also absent. `ANDROID_KEYSTORE_BASE64` is present with Vercel visibility `config`, not `secret`; treat it as signing material. No secret was read, rotated, deleted or changed. Owner must confirm its use and handle any controlled visibility/rotation procedure.
+- Production Vercel remains READY on main; audit branch not deployed. Project-settings access returned 403. iOS App ID/GA4 values, signing and physical-device acceptance remain owner/manual inputs.
+- CODEOWNERS requires `@Zikrmediaofficial`; no owner approval is recorded and reviewer request did not register. An owner-review request was posted in the PR conversation. Branch-protection details remain unreadable through available API permission. PRs #321–#325 still overlap.
+- No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
+
+## 2026-11-16 exact-head continuation — Kids game source approval
+
+**State: OPEN / NOT MERGE-READY.** PR #320 remains on `audit/zikr-kids-daily-priority-20261110` against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. Exact code/test head: `dd3a9761a3eb134fb7c3f1ac6a06d1c592e74322`.
+
+- PR inventory: 638 changed paths (292 added, 346 modified, 0 deleted); 101,509 additions and 6,701 deletions.
+- Recursive tree: 2,448 entries (1,949 blobs, 499 directories). Self-excluding manifest: 2,445 entries. File-status overlay: 636 unique rows — CONTENT_READ_TESTED_PASS=426, FIXED_TESTED_PENDING_LIVE_APPLY=38, REVIEW_REQUIRED=164, SUPERSEDED_SNAPSHOT=8. The 164 review-required paths remain open.
+- Exact-head verification: Quality Gate 43783279791 passed; CircleCI 43783279944 passed; Android Native Login Debug APK 43783279795 passed (debug only). Supabase Preview 132938540531 was skipped, not passed. Earlier Quality Gate 43781392966 exposed a stale static-fallback assertion; it was corrected and later exact-head suites passed.
+- **Kids static fallback bypass fixed:** the old fallback builder forced every static story's `metadata.age_appropriate` to `true`, letting legacy/unreviewed stories pass public list/detail/sitemap fallback. The override is removed; `prepareKidsFallbackContent` deduplicates and filters through the explicit age-approval predicate. Regression coverage proves no approval is manufactured.
+- **Kids game source bypass fixed:** public game adapters previously read quiz questions directly from all `kidsContent` rows, so unapproved/legacy story quiz questions could enter the public quiz pool even though the story itself was filtered from public lists. The verified quiz adapter now filters every source through `isKidsContentPubliclyVisible`; scenario, Wudu and memory-card adapters also enforce the same source visibility predicate. Regression tests cover unapproved stories, legacy stories without metadata, approved stories, non-story quiz content, and every scenario source. Game consumers in the Kids learning games use these verified adapters.
+- Prayer-time service validates coordinates, dates and calculation methods before network access; the 60-second TTL/LRU cache is capped at 100 entries. Provider responses are schema-checked before UI/scheduling use, including required prayer times, timezone, coordinates, method and Hijri date. Malformed/partial 200 responses fail closed. The shared service is used by the location hook; saved local/server locations validate coordinate ranges and IANA timezone before persistence.
+- Prayer notifications use one strict time parser for cached schedule creation and delivery revalidation. Capacitor permission state refreshes after native bridge readiness and permission changes; profile settings provide an explicit opt-in event for the permission banner. Native/browser permission API failures return unsupported rather than a false user denial.
+- Kids video approval requires `video.manage` and `kids.manage` where applicable; general-audience approvals reject Kids markers from encoded public paths and curated source IDs. Kids public RLS/list/detail/social gates require a completed linked request, current human approval snapshot, QA and source/media fingerprints. PostgreSQL 17 integration passed; policy migrations remain pending production.
+- Written-content backfill rejects encoded/nested/traversal Kids paths and normalized Kids source types. The scheduled main workflow still enables Gemini; it was not dispatched.
+- Storage cleanup scripts are bound to the exact HTTPS Supabase project host. Destructive apply remains manual and requires paused writers, typed owner confirmation, live retention-RPC preflight, complete reference inventory and exact-path verification. No cleanup or deletion ran.
+- Supabase migrations: 447 local, 418 applied remotely (latest remote `20261110170000`), 29 local-only pending, zero remote-only. No production migration was applied.
+- Read-only production evidence: live Kids RLS remains `TO public USING (published = true)`; 32 published internal Kids rows had zero human reviewers and 32 linked requests without `kidsVideoQaStatus='passed'`. Social queue: 15 post-cutoff Kids rows (12 published, 1 partial, 2 queued), none with human approval. Main's 15-minute publisher and non-dry-run video auto-publish remain enabled.
+- Main offline Kids JSON has 65 rows, including 26 stories with 20 lacking explicit age approval. The branch snapshot has 45 rows and six approved stories, zero unapproved.
+- Read-only Vercel environment inventory found `IOS_ASSOCIATED_DOMAIN_APP_ID` absent from Development/Preview/Production; the AASA route returns 503 without it. `GA4_PROPERTY_ID` and `GA4_REFRESH_TOKEN` are also absent. `ANDROID_KEYSTORE_BASE64` is present with Vercel visibility `config`, not `secret`; treat it as signing material. No secret was read, rotated, deleted or changed. Owner must confirm its use and handle any controlled visibility/rotation procedure.
+- Production Vercel remains READY on main; audit branch not deployed. Project-settings access returned 403. iOS App ID/GA4 values, signing and physical-device acceptance remain owner/manual inputs.
+- CODEOWNERS requires `@Zikrmediaofficial`; no owner approval is recorded and reviewer request did not register. An owner-review request was posted in the PR conversation. Branch-protection details remain unreadable through available API permission. PRs #321–#325 still overlap.
+- No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
+
+## 2026-11-16 exact-head continuation — admin video read isolation and owner gate
+
+**State: OPEN / NOT MERGE-READY.** PR #320 remains on `audit/zikr-kids-daily-priority-20261110` against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. Exact code/test head: `9fcf2d1f7c7b95f6d331ce94ea5b750defd1bfba`.
+
+- PR inventory: 639 changed paths (293 added, 346 modified, 0 deleted); 101,874 additions and 6,718 deletions.
+- Recursive tree: 2,448 entries (1,949 blobs, 499 directories). Self-excluding manifest: 2,445 entries. File-status overlay: 637 unique rows — CONTENT_READ_TESTED_PASS=430, FIXED_TESTED_PENDING_LIVE_APPLY=38, REVIEW_REQUIRED=161, SUPERSEDED_SNAPSHOT=8. The 161 review-required paths remain open.
+- Exact-head verification: Quality Gate 43786909181 passed; CircleCI 43786909195 passed; Android Native Login Debug APK 43786909196 passed (debug only). Supabase Preview 132938540531 was skipped, not passed. Quality Gate 43786544554 initially failed on a stale template permission-count assertion after adding the Kids-sensitive GET gate; the test was split into GET and POST assertions and the current exact-head suite passed.
+- **Admin video read-permission leak fixed:** `video.manage` list/detail, generation-queue, template, and source GET routes previously returned Kids request content/metadata, Kids templates/previews/versions, and curated Kids episodes without `kids.manage`. Each read now resolves `kids.manage` for the same authenticated profile and filters Kids/unknown request content, Kids templates/previews/versions and Kids sources for general-only video managers. Unauthorized detail rows return 404. Permission matrix, canonical API guard, RBAC tests and pure visibility tests were updated. The `video-purge` POST remains hard-disabled (409); no purge was invoked.
+- **Kids static fallback bypass fixed:** the old fallback builder forced every static story's `metadata.age_appropriate` to `true`, allowing legacy/unreviewed stories to pass public list/detail/sitemap fallback. The override is removed; `prepareKidsFallbackContent` deduplicates and filters through the explicit age-approval predicate. Regression coverage proves no approval is manufactured.
+- **Kids game source bypass fixed:** public game adapters previously read quiz questions directly from all `kidsContent` rows, so unapproved/legacy story quiz questions could enter the public quiz pool even when the story was filtered from public lists. The verified quiz adapter now filters every source through `isKidsContentPubliclyVisible`; scenario, Wudu and memory-card adapters also enforce the same source visibility predicate. Tests cover unapproved/legacy story inputs, approved stories, non-story quiz content and scenario source visibility.
+- **Kids public RLS and approval:** branch policies require a completed linked generation request, valid RFC UUID request/reviewer IDs, human approval tied to current QA/source/media fingerprints, and complete series metadata. PostgreSQL 17 integration covers automated-only, system-reviewed, incomplete and malformed-ID cases. Production policy remains unchanged pending owner approval and migration release.
+- **Video approval/provenance:** admin approval/retry requires both `video.manage` and `kids.manage` for Kids content; general-audience approvals reject Kids markers from encoded public paths and curated source IDs.
+- **Written-content backfill:** nested/encoded/traversal Kids paths and normalized Kids source types remain reserved; they cannot be relabelled as general content.
+- **Prayer notifications:** malformed cached/provider times fail closed; the same parser is used for schedule creation and delivery revalidation. Capacitor permission state refreshes after native bridge readiness and permission changes; profile settings provide an explicit opt-in event for the permission banner. Native/browser permission API failures return unsupported rather than a false user denial.
+- **Prayer data:** provider responses are schema-checked before UI/scheduling use, including required prayer times, timezone, coordinates, method and Hijri date. Malformed/partial 200 responses fail closed. The shared service validates coordinates/date/method, caps its TTL/LRU cache at 100 entries, and is used by the location hook. Saved locations validate coordinate ranges and IANA timezone before persistence.
+- **Storage cleanup:** scripts are bound to the exact HTTPS Supabase project host. Destructive apply remains manual and requires paused writers, typed owner confirmation, live retention-RPC preflight, full reference inventory and exact-path verification. No cleanup or deletion ran.
+- Supabase migrations: 447 local, 418 applied remotely (latest remote `20261110170000`), 29 local-only pending, zero remote-only. No production migration was applied.
+- Read-only production evidence: live Kids RLS remains `TO public USING (published = true)`; 32 published internal Kids rows had zero human reviewers and 32 linked requests without `kidsVideoQaStatus='passed'`. Social queue: 15 post-cutoff Kids rows (12 published, 1 partial, 2 queued), none with human approval. Main's 15-minute publisher and non-dry-run video auto-publish remain enabled.
+- Main offline Kids JSON has 65 rows, including 26 stories with 20 lacking explicit age approval. The branch snapshot has 45 rows and six approved stories, zero unapproved.
+- Read-only Vercel environment inventory found `IOS_ASSOCIATED_DOMAIN_APP_ID` absent from Development/Preview/Production; the AASA route returns 503 without it. `GA4_PROPERTY_ID` and `GA4_REFRESH_TOKEN` are also absent. `ANDROID_KEYSTORE_BASE64` is present with Vercel visibility `config`, not `secret`; treat it as signing material. No secret was read, rotated, deleted or changed.
+- Production Vercel remains READY on main; audit branch has not been deployed. Project-settings access returned 403. Production smoke checks against this branch have not run.
+- CODEOWNERS requires `@Zikrmediaofficial`, but collaborator-permission lookup returned `permission: null`; review requests cannot register. Owner was asked in the PR conversation to add the account or update CODEOWNERS to an accessible team/account. Repository rulesets returned empty; reading `branches/main/protection` remains 403. PR mergeability is `clean`, but this is not proof of CODEOWNERS approval or protected-branch satisfaction. PRs #321–#325 still overlap.
+- No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
+
+## 2026-11-16 exact-head continuation — public video RLS, Kids queue, storage and admin isolation
+
+**State: OPEN / NOT MERGE-READY.** PR #320 remains on `audit/zikr-kids-daily-priority-20261110` against `main@c4560d9ccb222bea5814cc4db32d4c3f1a2101b3`. Exact code/test head: `fdbcc1ac9ddbcaed03c5f553106938be67c14829`.
+
+- PR inventory: 640 changed paths (294 added, 346 modified, 0 deleted); 102,230 additions and 6,723 deletions.
+- Recursive tree: 2,449 entries (1,950 blobs, 499 directories). Self-excluding manifest: 2,446 entries. File-status overlay: 638 unique paths — CONTENT_READ_TESTED_PASS=429, FIXED_TESTED_PENDING_LIVE_APPLY=39, REVIEW_REQUIRED=162, SUPERSEDED_SNAPSHOT=8. The 162 review-required paths remain open.
+- Exact-head verification: Quality Gate 43792531954 passed with PASSED_FULL (tests, integrity, mobile, SEO, security, lint, types and production build); CircleCI 43792531969 passed; Android Native Login Debug APK 43792532053 passed (debug only). Supabase Preview 132938540531 was skipped, not passed.
+- **Public video RLS migration added, tested but not applied to production:** `20261116043000_restrict_public_video_reads_from_kids_markers.sql` allows Kids public reads only with a linked request UUID, Cloudinary master media, source/content/template fingerprints, series metadata, bounded season/episode values, automated QA pass, and matching human reviewer/snapshot evidence. General-audience reads reject conflicting Kids markers in audience/category/source type/AI mode/type/content type/content format/generation mode/source IDs/public paths and any non-empty ageGroup. PostgreSQL 17 integration has 38 fixtures; anon sees only the four intended legacy/general/human-approved rows, while service_role sees all fixtures. Numeric season/episode casts use bounded CASE expressions so malformed or oversized values cannot throw.
+- **Admin video read-permission leak fixed:** `video.manage` list/detail, generation-queue, template and source GET routes previously returned Kids request content/metadata, Kids templates/previews/versions and curated Kids episodes without `kids.manage`. Reads now resolve `kids.manage` for the same authenticated profile and filter Kids/unknown request content, including top-level request category and nested content markers. Request rows require a valid JSONB object; malformed rows fail closed. Unauthorized detail rows return 404. Template versions/previews and curated Kids sources are also filtered.
+- **Legacy Kids social queue classification normalized and fail-closed:** unsupported Kids-marked non-video queue rows are held before provider publication. Content types and automation keys are trimmed/lowercased before written-post/unclassified classification, preventing whitespace/case variants of legacy Kids markers from bypassing the approval gate. Recognized video rows remain on the dedicated video approval/fingerprint path; `written_post` rows remain on source approval.
+- **Storage path traversal hardened:** `parseStorageKey` rejects empty, dot, parent, percent-encoded and backslash path segments before owner-prefix checks. Invalid owner segments cannot become `.` or `..` and fall back to the anonymous namespace. Tests cover dot traversal, encoded/double-encoded traversal, single/double backslash separators and invalid owner fallback. Storage service/presign consumers were traced; no upload, download, deletion or cleanup was executed.
+- **Kids static fallback bypass fixed:** the old fallback builder forced every static story's `metadata.age_appropriate` to `true`, allowing legacy/unreviewed stories to pass public list/detail/sitemap fallback. The override is removed; `prepareKidsFallbackContent` deduplicates and filters through the explicit age-approval predicate.
+- **Kids game source bypass fixed:** public game adapters previously read quiz questions directly from all `kidsContent` rows, so unapproved/legacy story quiz questions could enter the public quiz pool even when the story was filtered from public lists. The verified quiz adapter now filters every source through `isKidsContentPubliclyVisible`; scenario, Wudu and memory-card adapters also enforce the same source visibility predicate.
+- **Video approval/provenance:** admin approval/retry requires both `video.manage` and `kids.manage` for Kids content; general-audience approvals reject Kids markers from encoded public paths, curated source IDs, series-episode content format and age-group metadata.
+- **Written-content backfill:** nested/encoded/traversal Kids paths and normalized Kids source types remain reserved; they cannot be relabelled as general content.
+- **Open social catalog reconciliation defect:** provider publication can succeed while `syncKidsSocialPublicationToCatalog` or `syncYouTubeVideoReferenceToCatalog` fails; the failure is logged but the queue item is finalized, and the scheduled worker has no independent retry for catalog metadata. Public feed/detail currently derive publication state from the queue, so this does not itself retract a published post, but the admin video catalog can remain stale. Both service and worker remain REVIEW_REQUIRED; no live social action was used to test this.
+- **Prayer notifications:** malformed cached/provider times fail closed; the same parser is used for schedule creation and delivery revalidation. Capacitor permission state refreshes after native bridge readiness and permission changes; profile settings provide an explicit opt-in event for the permission banner. Native/browser permission API failures return unsupported rather than a false user denial.
+- **Prayer data:** provider responses are schema-checked before UI/scheduling use, including required prayer times, timezone, coordinates, method and Hijri date. Malformed/partial 200 responses fail closed. The shared service validates coordinates/date/method, caps its TTL/LRU cache at 100 entries, and is used by the location hook. Saved locations validate coordinate ranges and IANA timezone before persistence.
+- **Storage cleanup:** destructive apply remains manual and requires paused writers, typed owner confirmation, live retention-RPC preflight, full reference inventory and exact-path verification. No cleanup or deletion ran.
+- Supabase migrations: 448 local, 418 applied remotely (latest remote `20261110170000`), 30 local-only pending including the new public-video RLS migration, zero remote-only. No production migration was applied.
+- Read-only production evidence: live Kids RLS remains `TO public USING (published = true)`; 32 published internal Kids rows had zero human reviewers and 32 linked requests without `kidsVideoQaStatus='passed'`. Social queue: 15 post-cutoff Kids rows (12 published, 1 partial, 2 queued), none with human approval. Main's 15-minute publisher, non-dry-run video auto-publish and three-times-daily Gemini written-content workflow remain enabled.
+- Main offline Kids JSON has 65 rows, including 26 stories with 20 lacking explicit age approval. The branch snapshot has 45 rows and six approved stories, zero unapproved.
+- Read-only Vercel environment inventory found `IOS_ASSOCIATED_DOMAIN_APP_ID` absent from Development/Preview/Production; the AASA route returns 503 without it. `GA4_PROPERTY_ID` and `GA4_REFRESH_TOKEN` are also absent. `ANDROID_KEYSTORE_BASE64` is present with Vercel visibility `config`, not `secret`; treat it as signing material. No secret was read, rotated, deleted or changed.
+- Production Vercel remains READY on main; audit branch has not been deployed. Project-settings access returned 403. Production smoke checks against this branch have not run.
+- CODEOWNERS requires `@Zikrmediaofficial`, but collaborator-permission lookup returned `permission: null`; review requests cannot register. Owner was asked in the PR conversation to add the account or update CODEOWNERS to an accessible team/account. Repository rulesets returned empty; reading `branches/main/protection` remains 403. PR mergeability is `clean`, but this is not proof of CODEOWNERS approval or protected-branch satisfaction. PRs #321–#325 still overlap.
+- No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.

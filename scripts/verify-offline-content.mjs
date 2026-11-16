@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { getPublishedKidsRoutes, isValidOfflineDatasetCount } from './lib/offline-kids-route-safety.mjs';
 
 const manifestPath = 'public/offline-content/v1/manifest.json';
 const routeSnapshotPath = 'public/offline-content/v2/routes.json';
@@ -9,6 +10,7 @@ const offlineLibraryPath = 'src/app/offline-library/page.tsx';
 const offlineLibraryClientPath = 'src/app/offline-library/offline-library-client.tsx';
 const guardPath = 'src/components/layout/offline-navigation-guard.tsx';
 const exporterPath = 'scripts/export-offline-content.mjs';
+const previousSnapshotPath = 'scripts/lib/offline-previous-snapshot.mjs';
 const offlineWorkflowPath = '.github/workflows/refresh-offline-content.yml';
 const offlineDbPath = 'src/lib/offline-db.ts';
 const offlineAudioPath = 'src/features/quran/services/offline-audio.ts';
@@ -46,7 +48,7 @@ try {
   if (!Array.isArray(manifest.routes) || manifest.routes.length < 20) failures.push('Offline manifest route inventory is unexpectedly small');
 
   for (const [name, definition] of Object.entries(manifest.datasets ?? {})) {
-    if (!definition?.path || !Number.isInteger(definition.count) || definition.count <= 0) {
+    if (!definition?.path || !isValidOfflineDatasetCount(name, definition.count)) {
       failures.push(`Invalid dataset metadata: ${name}`);
       continue;
     }
@@ -62,6 +64,42 @@ try {
         const rows = JSON.parse(read(file));
         if (!Array.isArray(rows)) failures.push(`Dataset must be a JSON array: ${file}`);
         else if (rows.length !== definition.count) failures.push(`Dataset count mismatch: ${name} manifest=${definition.count} file=${rows.length}`);
+        else if (name === 'kids') {
+          if (rows.some(row => row?.published !== true || row?.is_active !== true)) {
+            failures.push('Offline Kids dataset must contain only published and active rows');
+          }
+          const supportedKidsTypes = new Set([
+            'story',
+            'prayer',
+            'wudu',
+            'quiz',
+            'game',
+            'puzzle',
+            'coloring',
+            'matching',
+            'video',
+            'memorize',
+          ]);
+          if (rows.some(row => {
+            const type = typeof row?.type === 'string' ? row.type : row?.content_type;
+            return typeof type !== 'string' || !supportedKidsTypes.has(type);
+          })) {
+            failures.push('Offline Kids dataset contains an unsupported content type');
+          }
+          if (rows.some(row => {
+            const type = typeof row?.type === 'string' ? row.type : row?.content_type;
+            return type === 'story' && row?.metadata?.age_appropriate !== true;
+          })) {
+            failures.push('Offline Kids dataset must not contain stories without explicit age-appropriate approval');
+          }
+          const expectedKidsRoutes = getPublishedKidsRoutes(rows);
+          const actualKidsRoutes = (manifest.routes ?? [])
+            .filter(route => typeof route === 'string' && route.startsWith('/kids/'))
+            .sort();
+          if (JSON.stringify(actualKidsRoutes) !== JSON.stringify(expectedKidsRoutes)) {
+            failures.push('Offline Kids detail routes must exactly match the currently exported, age-approved Kids dataset');
+          }
+        }
       } catch (error) {
         failures.push(`Dataset JSON is invalid: ${file}: ${error instanceof Error ? error.message : 'unknown error'}`);
       }
@@ -112,17 +150,20 @@ const offlinePack = read(offlinePackPath);
 const offlineDb = read(offlineDbPath);
 const offlineAudio = read(offlineAudioPath);
 const exporter = read(exporterPath);
+const previousSnapshot = read(previousSnapshotPath);
 const offlineWorkflow = read(offlineWorkflowPath);
 // Vercel intentionally excludes .github from deployment uploads; validate this workflow in repository CI when present.
 if (existsSync(offlineWorkflowPath) &&
     (!offlineWorkflow.includes('push:') || !offlineWorkflow.includes('branches: [main]') ||
       !offlineWorkflow.includes('"scripts/export-offline-content.mjs"') ||
+      !offlineWorkflow.includes('"scripts/lib/offline-previous-snapshot.mjs"') ||
       !offlineWorkflow.includes('pull-requests: write') ||
       !offlineWorkflow.includes('automation/offline-content-snapshot') ||
       !offlineWorkflow.includes('gh pr create') ||
       !offlineWorkflow.includes('secrets.GH_TOKEN || github.token') ||
       !offlineWorkflow.includes('if gh pr create') ||
-      !offlineWorkflow.includes('::warning::GitHub Actions token cannot create pull requests') ||
+      !offlineWorkflow.includes('::error::GitHub Actions token cannot create pull requests') ||
+       !offlineWorkflow.includes('exit 1') ||
       !offlineWorkflow.includes('gh workflow run quality-gate.yml') ||
       !offlineWorkflow.includes("if: github.ref == 'refs/heads/main'") ||
       offlineWorkflow.includes('git push origin HEAD:main'))) {
@@ -133,8 +174,9 @@ catch (error) { failures.push(`Offline exporter syntax check failed: ${error ins
 for (const dataset of ['surahs','ayahs','tafsir','hadith_books','hadith','prophets','prophet_sections','battles','battle_events','conquests','conquest_events','articles','duas','kids','companions','stories','article_categories','companion_stories','scholars','tawasheeh','quran_reciters','quran_audio','kids_games','kids_game_levels','dua_categories']) {
   if (!exporter.includes(`['${dataset}',`)) failures.push(`Offline exporter missing dataset: ${dataset}`);
 }
-if (!exporter.includes('SUPABASE_SERVICE_ROLE_KEY') || !exporter.includes('NEXT_PUBLIC_SUPABASE_ANON_KEY') || !exporter.includes("params.set('limit'") || !exporter.includes('const minimumRecords = {') || !exporter.includes('select=id,slug,title,content,mood,category,created_at,updated_at,published,metadata,summary,is_approved')) failures.push('Offline exporter must use paginated public reads, minimum safety floors, and explicit public story fields');
+if (!exporter.includes('SUPABASE_SERVICE_ROLE_KEY') || !exporter.includes('assertCanonicalSupabaseProjectUrl(rawSupabaseUrl)') || !exporter.includes('NEXT_PUBLIC_SUPABASE_ANON_KEY') || !exporter.includes("params.set('limit'") || !exporter.includes('const minimumRecords = {') || !exporter.includes('select=id,slug,title,content,mood,category,created_at,updated_at,published,metadata,summary,is_approved')) failures.push('Offline exporter must use the canonical Supabase project, paginated reads, minimum safety floors, and explicit public story fields');
 if (!exporter.includes('previous-validated-snapshot') || !exporter.includes('staleDatasets') || !exporter.includes('previousRows.length !== previousDefinition.count')) failures.push('Offline exporter must preserve only an integrity-checked prior tafsir corpus when the live curated table is empty, and label it stale');
+if (!exporter.includes('loadPreviousOfflineSnapshot') || !previousSnapshot.includes('export async function loadPreviousOfflineSnapshot') || !previousSnapshot.includes('error.code === "ENOENT"')) failures.push('Offline exporter must distinguish a missing first-export snapshot from corrupt or unreadable prior state and fail closed');
 if (!exporter.includes("if (previousPath !== '/offline-content/v1/tafsir.json' ||")) failures.push('Offline Tafsir fallback must reject non-canonical snapshot paths before reading the previous file');
 if (!offlineDb.includes('DB_VERSION = 6')) failures.push('IndexedDB schema must be version 6');
 if (!offlineDb.includes('replaceAllMany(datasets: Record<string, unknown[]>')) failures.push('IndexedDB atomic full-pack replacement method is missing');

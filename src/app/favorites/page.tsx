@@ -2,7 +2,8 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getCurrentUserFavorites } from '@/features/favorites/services/favorites';
+import { getCurrentUserFavorites, type FavoriteItemType } from '@/features/favorites/services/favorites';
+import { getFavoriteHref } from '@/features/favorites/services/favorite-links';
 import { Container } from '@/components/ui/container';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,27 +30,15 @@ export default async function FavoritesPage() {
     (f) => !['quran', 'hadith', 'story'].includes(f.item_type),
   );
 
-  const typeLabels: Record<string, string> = {
+  const typeLabels: Record<FavoriteItemType, string> = {
     quran: 'القرآن الكريم',
     hadith: 'الحديث الشريف',
     story: 'القصص',
     scholar: 'العلماء',
     dua: 'الأدعية',
-    article: 'المقالات',
-    video: 'الفيديوهات',
   };
 
-  const getLink = (type: string, ref: string) => {
-    if (type === 'quran') {
-      const clean = ref.replace('quran:', '');
-      const [surah, ayah] = clean.split(':');
-      return ayah ? `/quran/${surah}/${ayah}` : `/quran/${surah}`;
-    }
-    if (type === 'story') return `/stories/${ref.replace('story:', '')}`;
-    if (type === 'hadith') return `/hadith`;
-    if (type === 'article') return `/articles/${ref.replace('article:', '')}`;
-    return '#';
-  };
+  const getLink = getFavoriteHref;
 
   const formatRef = (type: string, ref: string) => {
     if (type === 'quran') {

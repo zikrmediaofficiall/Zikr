@@ -74,7 +74,13 @@ assert.match(poetryService, /POETRY_SYSTEM_INSTRUCTION/);
 assert.match(poetryService, /generateGeminiText\(prompt, 1500, POETRY_SYSTEM_INSTRUCTION\)/);
 
 assert.match(memorizationAction, /MEMORIZATION_SYSTEM_INSTRUCTION/);
-assert.match(memorizationAction, /generateGeminiFromAudio\(audioPrompt, \{ data: bytes, mimeType: audio\.type \|\| 'audio\/webm' \}, MEMORIZATION_SYSTEM_INSTRUCTION\)/);
+assert.ok(memorizationAction.includes("normalizeMemorizationAudioMimeType(audioFile.type)"),
+  "audio uploads must use an explicit supported MIME allowlist");
+assert.ok(memorizationAction.includes("hasMemorizationAudioSignature(audioMimeType, audioBytes)"),
+  "audio uploads must match the declared MIME type to the actual container signature");
+assert.ok(memorizationAction.includes("mimeType: audioMimeType"));
+assert.ok(!memorizationAction.includes("audio.type || 'audio/webm'"),
+  "unknown upload types must not be silently relabeled as WebM");
 assert.match(memorizationAction, /generateGeminiText\(textFallbackPrompt, 1600, MEMORIZATION_SYSTEM_INSTRUCTION\)/);
 
 const apiHealthSource = readFileSync('src/lib/services/api-health.ts', 'utf8');
@@ -85,6 +91,19 @@ assert.match(apiHealthSource, /Live generation is intentionally not invoked by h
 const geminiClientSource = readFileSync('src/features/spiritual-ai/services/gemini-client.ts', 'utf8');
 assert.match(geminiClientSource, /systemInstruction: systemInstruction\.trim\(\)/);
 assert.match(geminiClientSource, /streamGeminiText\([\s\S]*systemInstruction\?: string/);
+const directGeminiRetryStart = geminiClientSource.indexOf('async function callDirectSdk');
+const directGeminiRetryEnd = geminiClientSource.indexOf('export async function generateGeminiText', directGeminiRetryStart);
+const directGeminiRetrySource = geminiClientSource.slice(directGeminiRetryStart, directGeminiRetryEnd);
+assert.match(directGeminiRetrySource, /let sawTransientFailure = false/);
+assert.match(directGeminiRetrySource, /if \(isTransientGeminiError\(err\)\) \{\s*sawTransientFailure = true/);
+assert.match(directGeminiRetrySource, /if \(sawTransientFailure\) await backoff\(attempt \+ 1\)/,
+  'transient text-generation failures must back off before rotating to the next API key');
+const audioGeminiRetryStart = geminiClientSource.indexOf('export async function generateGeminiFromAudio');
+const audioGeminiRetrySource = geminiClientSource.slice(audioGeminiRetryStart);
+assert.match(audioGeminiRetrySource, /let sawTransientFailure = false/);
+assert.match(audioGeminiRetrySource, /if \(isTransientGeminiError\(err\)\) \{\s*sawTransientFailure = true/);
+assert.match(audioGeminiRetrySource, /if \(sawTransientFailure\) await backoff\(attempt \+ 1\)/,
+  'transient audio-generation failures must back off before rotating to the next API key');
 const aiHelpersSource = readFileSync('src/features/spiritual-ai/services/ai.ts', 'utf8');
 assert.match(aiHelpersSource, /ISLAMIC_AI_HELPER_SYSTEM_INSTRUCTION/);
 assert.match(aiHelpersSource, /generateGeminiText\(prompt, 1500, ISLAMIC_AI_HELPER_SYSTEM_INSTRUCTION\)/,

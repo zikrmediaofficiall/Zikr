@@ -12,6 +12,7 @@ import {
 } from "@/features/videos/services/template-config";
 import { versionedTemplateLabel } from "@/features/videos/services/video-template-version";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
+import { canViewVideoRequestContent, canViewVideoTemplateAudience } from "@/features/videos/services/video-audience-visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,10 @@ async function getVersion(versionId: string) {
 
 export async function GET() {
   const auth = await requireAdminApi("video.manage");
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status, headers: { "Cache-Control": "no-store" } });
+
+  const kidsAuth = await requireAdminApi("kids.manage");
+  const canManageKids = kidsAuth.ok && kidsAuth.profile.id === auth.profile.id;
 
   try {
     const [templates, versions] = await Promise.all([
@@ -93,13 +97,23 @@ export async function GET() {
     } catch (error) {
       console.warn("[admin/video/templates] preview history unavailable", error instanceof Error ? error.message : String(error));
     }
+    const visibleTemplates = (templates ?? []).filter((template) =>
+      canViewVideoTemplateAudience(template.audience, canManageKids),
+    );
+    const visibleTemplateIds = new Set(visibleTemplates.map((template) => template.id));
+    const visibleVersions = (versions ?? []).filter((version) => visibleTemplateIds.has(version.template_id));
+    const visiblePreviews = previews.filter((preview) => {
+      const content = object(preview.content);
+      const templateId = typeof content?.templateId === "string" ? content.templateId : "";
+      return visibleTemplateIds.has(templateId) && canViewVideoRequestContent(content, canManageKids);
+    });
     return NextResponse.json(
-      { templates: templates ?? [], versions: versions ?? [], previews },
+      { templates: visibleTemplates, versions: visibleVersions, previews: visiblePreviews },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     console.error("[admin/video/templates] GET failed", error);
-    return NextResponse.json({ error: "تعذر تحميل مكتبة القوالب وإصداراتها." }, { status: 500 });
+    return NextResponse.json({ error: "تعذر تحميل مكتبة القوالب وإصداراتها." }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 }
 
@@ -129,6 +143,21 @@ export async function POST(request: NextRequest) {
       if (!uuid(body.templateId)) return NextResponse.json({ error: "معرّف القالب غير صالح." }, { status: 400 });
       const template = await getTemplate(body.templateId);
       if (!template) return NextResponse.json({ error: "القالب غير موجود." }, { status: 404 });
+      if (template.audience === "kids") {
+        const kidsAuth = await requireAdminApi("kids.manage");
+        if (!kidsAuth.ok) {
+          return NextResponse.json(
+            { error: kidsAuth.error },
+            { status: kidsAuth.status, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+        if (kidsAuth.profile.id !== auth.profile.id) {
+          return NextResponse.json(
+            { error: "Unauthorized" },
+            { status: 401, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+      }
       const config = parseVideoTemplateConfig(body.config);
       if (!config || !isVideoTemplateAssetAllowedForAudience(config.assetKey, template.audience)) {
         return NextResponse.json({ error: "إعدادات القالب أو الأصل المرئي لا تتوافق مع نوع الجمهور." }, { status: 400 });
@@ -164,6 +193,23 @@ export async function POST(request: NextRequest) {
       if (!uuid(body.versionId)) return NextResponse.json({ error: "معرّف الإصدار غير صالح." }, { status: 400 });
       const version = await getVersion(body.versionId);
       if (!version) return NextResponse.json({ error: "الإصدار غير موجود." }, { status: 404 });
+      const template = await getTemplate(version.template_id);
+      if (!template) return NextResponse.json({ error: "القالب المرتبط بالإصدار غير موجود." }, { status: 404 });
+      if (template.audience === "kids") {
+        const kidsAuth = await requireAdminApi("kids.manage");
+        if (!kidsAuth.ok) {
+          return NextResponse.json(
+            { error: kidsAuth.error },
+            { status: kidsAuth.status, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+        if (kidsAuth.profile.id !== auth.profile.id) {
+          return NextResponse.json(
+            { error: "Unauthorized" },
+            { status: 401, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+      }
       if (version.status !== "draft") return NextResponse.json({ error: "يمكن اعتماد المسودات فقط." }, { status: 409 });
       if (version.created_by === auth.profile.id) {
         return NextResponse.json({ error: "يجب أن يراجع الإصدار مسؤول مختلف عن منشئه." }, { status: 409 });
@@ -195,6 +241,23 @@ export async function POST(request: NextRequest) {
       if (!uuid(body.versionId)) return NextResponse.json({ error: "معرّف الإصدار غير صالح." }, { status: 400 });
       const version = await getVersion(body.versionId);
       if (!version) return NextResponse.json({ error: "الإصدار غير موجود." }, { status: 404 });
+      const template = await getTemplate(version.template_id);
+      if (!template) return NextResponse.json({ error: "القالب المرتبط بالإصدار غير موجود." }, { status: 404 });
+      if (template.audience === "kids") {
+        const kidsAuth = await requireAdminApi("kids.manage");
+        if (!kidsAuth.ok) {
+          return NextResponse.json(
+            { error: kidsAuth.error },
+            { status: kidsAuth.status, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+        if (kidsAuth.profile.id !== auth.profile.id) {
+          return NextResponse.json(
+            { error: "Unauthorized" },
+            { status: 401, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+      }
       if (!version.is_system_seed && version.status !== "approved" && version.status !== "retired" && version.status !== "active") {
         return NextResponse.json({ error: "لا يمكن تفعيل إصدار قبل مراجعته واعتماده." }, { status: 409 });
       }
@@ -225,6 +288,21 @@ export async function POST(request: NextRequest) {
       if (!version) return NextResponse.json({ error: "الإصدار غير موجود." }, { status: 404 });
       const template = await getTemplate(version.template_id);
       if (!template) return NextResponse.json({ error: "القالب المرتبط بالإصدار غير موجود." }, { status: 404 });
+      if (template.audience === "kids") {
+        const kidsAuth = await requireAdminApi("kids.manage");
+        if (!kidsAuth.ok) {
+          return NextResponse.json(
+            { error: kidsAuth.error },
+            { status: kidsAuth.status, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+        if (kidsAuth.profile.id !== auth.profile.id) {
+          return NextResponse.json(
+            { error: "Unauthorized" },
+            { status: 401, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+      }
       const config = parseVideoTemplateConfig(version.config);
       if (!config || !isVideoTemplateAssetAllowedForAudience(config.assetKey, template.audience)) {
         return NextResponse.json({ error: "إعدادات الإصدار لا تجتاز عقد الرندر." }, { status: 422 });

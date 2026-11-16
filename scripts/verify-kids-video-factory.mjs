@@ -99,8 +99,27 @@ for (const token of [
   if (!kidsHome.includes(token)) failures.push("Kids home must display approved generated stories, videos, and social posts: " + token);
 }
 
+const kidsVideoService = read("src/features/videos/services/videos.ts");
+const kidsVideoSocialDetailService = read("src/features/social/services/kids-video-social-detail.ts");
+for (const token of [
+  "resolveKidsVideoSocialPublicationForDetail",
+  "export async function getKidsGeneratedVideoBySlug",
+]) {
+  if (!kidsVideoService.includes(token)) failures.push("Kids detail service must use the queue-backed publication resolver: " + token);
+}
+for (const token of [
+  "loadKidsSocialQueueRows([requestIdState.id], request)",
+  'reason: "invalid_request_id"',
+  'reason: "queue_read_failed"',
+  'status: "verified"',
+]) {
+  if (!kidsVideoSocialDetailService.includes(token)) failures.push("Kids detail publication resolver must distinguish verified and unavailable queue states: " + token);
+}
+
 const kidsFeedRoute = read("src/app/api/kids/videos/route.ts");
 for (const token of [
+  "classifyKidsVideoGenerationRequestId",
+  'requestIdState.kind !== "valid"',
   "getKidsGeneratedVideos(60)",
   "storyText:",
   "socialCaption:",
@@ -111,6 +130,12 @@ for (const token of [
 ]) {
   if (!kidsFeedRoute.includes(token)) failures.push("Kids feed API must expose safe QA-approved video/story/social metadata: " + token);
 }
+if (
+  kidsVideoSocialDetailService.includes("storedSocialPublication") ||
+  kidsVideoSocialDetailService.includes("resolveKidsVideoSocialPublication([], stored, true, true)")
+) {
+  failures.push("Kids detail publication must fail closed rather than fall back to stale catalog metadata without a valid request ID");
+}
 if (kidsFeedRoute.includes("status=in.(published,partial)")) {
   failures.push("Kids feed must inspect every queue state so pending/failed supplemental rows cannot hide or resurrect stale social publication metadata");
 }
@@ -119,6 +144,8 @@ for (const token of [
   'const SOCIAL_PLATFORMS = new Set(["youtube", "facebook", "facebook_reels"])',
   "getConfirmedPublicKidsVideoSocialPlatforms",
   "isPublicKidsVideoSocialQueueRow",
+  "classifyKidsVideoGenerationRequestId",
+  "allowStoredFallback = true",
 ]) {
   if (!kidsSocialVisibility.includes(token)) failures.push("Kids feed social visibility must enforce the confirmed platform allowlist: " + token);
 }
@@ -137,9 +164,12 @@ for (const token of [
 }
 if (
   !kidsWorker.includes("const kidsVideoQaStatus = isKidsVideo") ||
+  !kidsWorker.includes("hasCompleteKidsVideoSeriesMetadata(request.content)") ||
   !kidsWorker.includes("REQUIRED_VIDEO_APPROVAL_CHECKS.every((key) => qaChecks[key] === true)") ||
   !kidsWorker.includes("createAutomatedVideoQaApproval") ||
-  !videoApproval.includes('...(input.snapshot.audience === "kids" ? { kidsVideoQaStatus: "passed" } : {})')
+  !videoApproval.includes("!hasCompleteVideoApprovalChecklist(input.checks)") ||
+  !videoApproval.includes('...(normalizeVideoAudience(input.snapshot.audience) === "kids" ? { kidsVideoQaStatus: "passed" } : {})') ||
+  !videoApproval.includes('normalizeVideoMarker(snapshot.kidsVideoQaStatus) !== "passed"')
 ) {
   failures.push("Kids videos must persist the reviewed kidsVideoQaStatus only after the complete automated QA checklist passes");
 }
@@ -150,7 +180,7 @@ if (!socialWorker.includes("syncKidsSocialPublicationToCatalog") ||
   failures.push("confirmed social-platform deliveries must sync back to the Kids catalog");
 }
 const kidsVideoDetail = read("src/app/kids/videos/[slug]/page.tsx");
-if (!kidsVideoDetail.includes("الحكاية كاملة") || !kidsVideoDetail.includes("منشور السوشيال ميديا") || !kidsVideoDetail.includes("socialPublication")) {
+if (!kidsVideoDetail.includes("الحكاية كاملة") || !kidsVideoDetail.includes("منشور السوشيال ميديا") || !kidsVideoDetail.includes("socialPublication") || !kidsVideoDetail.includes("تعذر التحقق من حالة النشر")) {
   failures.push("Kids video detail must display the full story and its generated social post");
 }
 

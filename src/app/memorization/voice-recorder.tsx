@@ -37,16 +37,26 @@ export function VoiceRecorder() {
   const [isPending, startTransition] = useTransition();
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const mountedRef = useRef(true);
+  const startInProgressRef = useRef(false);
   const chunksRef = useRef<Blob[]>([]);
   const recordingBytesRef = useRef(0);
   const recordingTooLargeRef = useRef(false);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       const recorder = recorderRef.current;
-      if (recorder && recorder.state !== 'inactive') recorder.stop();
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+      try {
+        if (recorder && recorder.state !== 'inactive') recorder.stop();
+      } catch {
+        // Always stop microphone tracks even if a WebView recorder fails to stop.
+      } finally {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        chunksRef.current = [];
+      }
     };
   }, []);
 
@@ -56,106 +66,133 @@ export function VoiceRecorder() {
   }
 
   async function startRecording() {
-    setMicError('');
-    setAudioBlob(null);
+    if (startInProgressRef.current || recorderRef.current || streamRef.current) return;
+    startInProgressRef.current = true;
 
-    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      setMicError('تسجيل الصوت غير متاح في هذه البيئة. افتح ZIKR من اتصال آمن أو استخدم أحدث نسخة من التطبيق.');
-      return;
-    }
-
-    if (typeof MediaRecorder === 'undefined') {
-      setMicError('جهازك أو بيئة التطبيق لا تدعم تسجيل الصوت. حدّث التطبيق إلى أحدث إصدار.');
-      return;
-    }
-
-    const mimeType = getSupportedAudioMimeType();
-    if (!mimeType) {
-      setMicError('لم يتم العثور على صيغة تسجيل صوتي مدعومة على جهازك. حدّث التطبيق أو جرّب متصفح Chrome حديث.');
-      return;
-    }
-
-    let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      streamRef.current = stream;
-    } catch (err) {
-      const name = err instanceof DOMException ? err.name : '';
-      if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError') {
-        setMicError('تم رفض إذن الميكروفون. اسمح لـ ZIKR باستخدام الميكروفون من إعدادات التطبيق ثم حاول مرة أخرى.');
-      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        setMicError('لم يتم العثور على ميكروفون في جهازك.');
-      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-        setMicError('الميكروفون مستخدم حاليًا بواسطة تطبيق آخر. أغلق أي تطبيق يستخدم الميكروفون ثم حاول مرة أخرى.');
-      } else {
-        setMicError('تعذر الوصول إلى الميكروفون. تأكد من صلاحيات التطبيق وحاول مرة أخرى.');
+      if (!mountedRef.current) return;
+      setMicError('');
+      setAudioBlob(null);
+
+      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        setMicError('تسجيل الصوت غير متاح في هذه البيئة. افتح ZIKR من اتصال آمن أو استخدم أحدث نسخة من التطبيق.');
+        return;
       }
-      stopStream();
-      return;
-    }
 
-    try {
-      const recorder = new MediaRecorder(stream, { mimeType });
-      chunksRef.current = [];
-      recordingBytesRef.current = 0;
-      recordingTooLargeRef.current = false;
+      if (typeof MediaRecorder === 'undefined') {
+        setMicError('جهازك أو بيئة التطبيق لا تدعم تسجيل الصوت. حدّث التطبيق إلى أحدث إصدار.');
+        return;
+      }
 
-      recorder.ondataavailable = (event) => {
-        if (recordingTooLargeRef.current || event.data.size <= 0) return;
-        const nextSize = recordingBytesRef.current + event.data.size;
-        if (nextSize > MAX_MEMORIZATION_AUDIO_BYTES) {
-          recordingTooLargeRef.current = true;
-          setIsRecording(false);
-          setMicError(MEMORIZATION_AUDIO_LIMIT_MESSAGE);
-          if (recorder.state !== 'inactive') recorder.stop();
-          return;
-        }
-        recordingBytesRef.current = nextSize;
-        chunksRef.current.push(event.data);
-      };
+      const mimeType = getSupportedAudioMimeType();
+      if (!mimeType) {
+        setMicError('لم يتم العثور على صيغة تسجيل صوتي مدعومة على جهازك. حدّث التطبيق أو جرّب متصفح Chrome حديث.');
+        return;
+      }
 
-      recorder.onerror = () => {
-        setMicError('حدث خطأ أثناء تسجيل الصوت. حاول مرة أخرى.');
-        setIsRecording(false);
-        recorderRef.current = null;
-        stopStream();
-      };
-
-      recorder.onstop = () => {
-        if (recordingTooLargeRef.current) {
-          chunksRef.current = [];
-          setAudioBlob(null);
-          setMicError(MEMORIZATION_AUDIO_LIMIT_MESSAGE);
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (err) {
+        if (!mountedRef.current) return;
+        const name = err instanceof DOMException ? err.name : '';
+        if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError') {
+          setMicError('تم رفض إذن الميكروفون. اسمح لـ ZIKR باستخدام الميكروفون من إعدادات التطبيق ثم حاول مرة أخرى.');
+        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+          setMicError('لم يتم العثور على ميكروفون في جهازك.');
+        } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+          setMicError('الميكروفون مستخدم حاليًا بواسطة تطبيق آخر. أغلق أي تطبيق يستخدم الميكروفون ثم حاول مرة أخرى.');
         } else {
-          const finalType = recorder.mimeType || mimeType;
-          const blob = new Blob(chunksRef.current, { type: finalType });
-          if (blob.size > 0) {
-            setAudioBlob(blob);
-          } else {
-            setMicError('لم يتم التقاط صوت. تأكد من السماح بالميكروفون وحاول مرة أخرى.');
-          }
+          setMicError('تعذر الوصول إلى الميكروفون. تأكد من صلاحيات التطبيق وحاول مرة أخرى.');
         }
+        stopStream();
+        return;
+      }
+
+      // A permission prompt can resolve after navigation/unmount. Never start a
+      // recorder or leave a newly granted microphone stream running in that case.
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      streamRef.current = stream;
+
+      try {
+        const recorder = new MediaRecorder(stream, { mimeType });
+        chunksRef.current = [];
+        recordingBytesRef.current = 0;
+        recordingTooLargeRef.current = false;
+
+        recorder.ondataavailable = (event) => {
+          if (!mountedRef.current || recordingTooLargeRef.current || event.data.size <= 0) return;
+          const nextSize = recordingBytesRef.current + event.data.size;
+          if (nextSize > MAX_MEMORIZATION_AUDIO_BYTES) {
+            recordingTooLargeRef.current = true;
+            setIsRecording(false);
+            setMicError(MEMORIZATION_AUDIO_LIMIT_MESSAGE);
+            if (recorder.state !== 'inactive') recorder.stop();
+            return;
+          }
+          recordingBytesRef.current = nextSize;
+          chunksRef.current.push(event.data);
+        };
+
+        recorder.onerror = () => {
+          chunksRef.current = [];
+          recorderRef.current = null;
+          stopStream();
+          if (mountedRef.current) {
+            setMicError('حدث خطأ أثناء تسجيل الصوت. حاول مرة أخرى.');
+            setIsRecording(false);
+          }
+        };
+
+        recorder.onstop = () => {
+          if (!mountedRef.current) {
+            chunksRef.current = [];
+            recorderRef.current = null;
+            stopStream();
+            return;
+          }
+          setIsRecording(false);
+          if (recordingTooLargeRef.current) {
+            chunksRef.current = [];
+            setAudioBlob(null);
+            setMicError(MEMORIZATION_AUDIO_LIMIT_MESSAGE);
+          } else {
+            const finalType = recorder.mimeType || mimeType;
+            const blob = new Blob(chunksRef.current, { type: finalType });
+            if (blob.size > 0) {
+              setAudioBlob(blob);
+            } else {
+              setMicError('لم يتم التقاط صوت. تأكد من السماح بالميكروفون وحاول مرة أخرى.');
+            }
+          }
+          recorderRef.current = null;
+          stopStream();
+        };
+
+        recorderRef.current = recorder;
+        recorder.start(250);
+        setIsRecording(true);
+      } catch (err) {
+        console.error('[memorization] Failed to start MediaRecorder:', err);
         recorderRef.current = null;
         stopStream();
-      };
-
-      recorderRef.current = recorder;
-      recorder.start(250);
-      setIsRecording(true);
-    } catch (err) {
-      console.error('[memorization] Failed to start MediaRecorder:', err);
-      recorderRef.current = null;
-      stopStream();
-      setMicError('تعذر بدء التسجيل على هذا الجهاز. تم إيقاف التسجيل بأمان.');
+        if (mountedRef.current) {
+          setMicError('تعذر بدء التسجيل على هذا الجهاز. تم إيقاف التسجيل بأمان.');
+        }
+      }
+    } finally {
+      startInProgressRef.current = false;
     }
   }
-
   function stopRecording() {
     const recorder = recorderRef.current;
     if (!recorder) return;
@@ -207,8 +244,8 @@ export function VoiceRecorder() {
       <Button type='button' onClick={isRecording ? stopRecording : startRecording} variant={isRecording ? 'secondary' : 'primary'}>
         {isRecording ? 'إيقاف التسجيل' : 'ابدأ تسجيل التسميع'}
       </Button>
-      <Button type='submit' disabled={!audioBlob || isPending}>تقييم الحفظ والتجويد</Button>
-      {audioBlob ? <span className='text-sm text-emerald-300'>تم تسجيل الصوت وجاهز للتقييم.</span> : <span className='text-sm arabic-muted'>لن يُطلب إذن الميكروفون إلا عند الضغط على بدء التسجيل. الحد الأقصى للتسجيل 3 ميجابايت.</span>}
+      <Button type='submit' disabled={isPending}>{audioBlob ? 'تقييم الحفظ والتجويد' : 'إنشاء خطة مراجعة'}</Button>
+      {audioBlob ? <span className='text-sm text-emerald-300'>تم تسجيل الصوت وجاهز للتقييم.</span> : <span className='text-sm arabic-muted'>يمكنك إدخال المقرر أو النص المتوقع لإنشاء خطة مراجعة دون تسجيل. لن يُطلب إذن الميكروفون إلا عند بدء التسجيل، والحد الأقصى للصوت 3 ميجابايت. عند إرسال التقييم يُرسل التسجيل إلى خدمة Gemini لتحليل التلاوة، ولا يُحفظ كملف في مساحة تخزين الموقع.</span>}
     </div>
 
     {micError ? (

@@ -3,6 +3,53 @@ import { readFileSync, readdirSync } from "node:fs";
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { isVideoAiPlanningEnabled } from "../../src/features/videos/providers/types";
 import { CURRENT_VIDEO_RENDERER_VERSION } from "../../src/features/videos/services/video-template-version";
+import { filterGeneralStorySources, resolveKidsVideoPublicDisclosure, resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
+import {
+  canViewVideoRequestContent,
+  canViewVideoRequestRow,
+  canViewVideoTemplateAudience,
+  isKidsVideoSource,
+  resolveVideoRequestAudience,
+} from "../../src/features/videos/services/video-audience-visibility";
+
+assert.deepEqual(resolveVideoRequestAudience({ audience: "general", type: "quran" }), { ok: true, audience: "general" });
+assert.deepEqual(resolveVideoRequestAudience({ audience: "kids", type: "kids_story" }), { ok: true, audience: "kids" });
+assert.deepEqual(resolveVideoRequestAudience({ audience: "children", type: "kids_story" }), { ok: true, audience: "kids" });
+assert.deepEqual(resolveVideoRequestAudience({ sourceType: "story", type: "story" }), { ok: true, audience: "kids" },
+  "legacy story-shaped requests without an audience must remain Kids-restricted");
+assert.deepEqual(resolveVideoRequestAudience({ audience: null, sourceType: "story", type: "story" }), { ok: true, audience: "kids" },
+  "legacy story-shaped requests with a null audience must remain Kids-restricted");
+assert.deepEqual(resolveVideoRequestAudience({ audience: "general", sourceType: "original_kids_fiction" }), { ok: false, reason: "audience_marker_conflict" });
+assert.deepEqual(resolveVideoRequestAudience({ audience: "general", contentFormat: "series_episode" }), { ok: false, reason: "audience_marker_conflict" });
+assert.deepEqual(resolveVideoRequestAudience({ audience: "general", ageGroup: "children" }), { ok: false, reason: "audience_marker_conflict" });
+assert.deepEqual(resolveVideoRequestAudience({ audience: "general", ageGroup: "6-8" }), { ok: false, reason: "audience_marker_conflict" });
+assert.equal(canViewVideoRequestRow({ category: "story", content: { audience: "general", ageGroup: "6-8" } }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "story", content: { audience: "general", contentFormat: "series_episode" } }, false), false);
+assert.deepEqual(resolveVideoRequestAudience({ audience: "unknown" }), { ok: false, reason: "unknown_audience" });
+assert.deepEqual(resolveVideoRequestAudience(null), { ok: false, reason: "invalid_content" });
+
+assert.equal(canViewVideoRequestContent({ audience: "general" }, false), true);
+assert.equal(canViewVideoRequestContent({ audience: "kids" }, false), false);
+assert.equal(canViewVideoRequestContent({ sourceType: "story", type: "story" }, false), false);
+assert.equal(canViewVideoRequestContent({ audience: "unknown" }, false), false);
+assert.equal(canViewVideoRequestContent({ audience: "kids" }, true), true);
+assert.equal(canViewVideoRequestRow({ category: "kids", content: { type: "story" } }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "story", content: { audience: "kids" } }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "story", content: { audience: "general" } }, false), true);
+assert.equal(canViewVideoRequestRow({ category: "kids", content: { audience: "general" } }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "story", content: null }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "story", content: "invalid" }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "kids", content: { audience: "kids" } }, true), true);
+assert.equal(canViewVideoRequestRow({ category: "general", content: { category: "kids", type: "story" } }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "general", audience: "kids", content: { audience: "general" } }, false), false);
+assert.equal(canViewVideoTemplateAudience("general", false), true);
+assert.equal(canViewVideoTemplateAudience("kids", false), false);
+assert.equal(canViewVideoTemplateAudience("unknown", false), false);
+assert.equal(canViewVideoTemplateAudience("kids", true), true);
+assert.equal(isKidsVideoSource({ audience: "kids" }), true);
+assert.equal(isKidsVideoSource({ seriesId: "kids-prophets" }), true);
+assert.equal(isKidsVideoSource({ id: "kids-series:prophets" }), true);
+assert.equal(isKidsVideoSource({ id: "general-story", category: "story" }), false);
 
 // Contract: TypeScript video status/category unions must match the latest DB check constraints.
 const migrations = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
@@ -119,6 +166,106 @@ assert.throws(
   () => resolveRenderDuration(59.3, 20),
   /59.3s > 60.0s max/,
   "content that cannot fit within the supported 60-second format must fail explicitly rather than be truncated",
+);
+
+
+const originalKidsDisclosure = resolveKidsVideoPublicDisclosure(
+  {
+    audience: "kids",
+    aiMode: "original_kids_story",
+    sourceLabel: "Source: Quran.com",
+  },
+  "Source: Quran.com",
+  "Based on a hadith from Sahih al-Bukhari",
+);
+assert.equal(
+  originalKidsDisclosure.sourceType,
+  "original_kids_fiction",
+  "original Kids fiction must retain its explicit fiction classification",
+);
+assert.equal(
+  originalKidsDisclosure.sourceLabel,
+  "قصة تربوية خيالية أصلية من ذِكر — ليست آية أو حديثًا أو واقعة تاريخية.",
+  "English source labels must not override the original-fiction disclosure",
+);
+assert.equal(originalKidsDisclosure.description, null, "English source labels must be removed from original Kids descriptions");
+assert.equal(originalKidsDisclosure.socialCaption, null, "English religious-source claims must be removed from original Kids social copy");
+
+const originalKidsCleanCopy = resolveKidsVideoPublicDisclosure(
+  { audience: "kids", sourceType: "original_kids_fiction" },
+  "A fictional story about kindness and patience.",
+  "A gentle lesson for today.",
+);
+assert.equal(originalKidsCleanCopy.description, "A fictional story about kindness and patience.");
+assert.equal(originalKidsCleanCopy.socialCaption, "A gentle lesson for today.");
+
+const editorialDisclosure = resolveKidsVideoPublicDisclosure(
+  { audience: "kids", sourceType: "editorial", sourceLabel: "Reference: Sahih al-Bukhari" },
+  "According to the Qur'an, this story is documented.",
+  "See https://quran.com for the source.",
+);
+assert.equal(
+  editorialDisclosure.sourceLabel,
+  "محتوى تحريري أصلي من منصة ذِكر — غير منسوب إلى آية أو حديث.",
+  "editorial copy must not present an external religious citation as its own source label",
+);
+assert.equal(editorialDisclosure.description, null, "editorial descriptions must reject religious-source attribution");
+assert.equal(editorialDisclosure.socialCaption, null, "editorial social copy must reject external source URLs");
+
+assert.equal(
+  resolveVideoSourceDisclosureLine({ sourceType: "editorial", sourceLabel: "Source: Quran.com" }, "https://quran.com"),
+  "محتوى تحريري أصلي من منصة ذِكر — غير منسوب إلى آية أو حديث.",
+  "the video worker must replace misleading editorial source labels with the canonical disclosure",
+);
+assert.equal(
+  resolveVideoSourceDisclosureLine({ sourceType: "editorial", sourceLabel: "محتوى أصلي من فريق ذِكر" }, ""),
+  "محتوى أصلي من فريق ذِكر",
+  "a safe editorial source label must remain visible",
+);
+
+const generalStorySources = filterGeneralStorySources([
+  { id: "kids-series:prophets", audience: "kids", generationMode: "manual", sourceType: "story" },
+  { id: "kids-series:fiction", audience: "general", generationMode: "manual", sourceType: "story" },
+  { id: "adult-original-fiction", audience: "general", generationMode: "manual", sourceType: "original_kids_fiction" },
+  { id: "general-story", audience: "general", generationMode: "manual", sourceType: "story" },
+]);
+assert.deepEqual(
+  generalStorySources.map((source) => source.id),
+  ["general-story"],
+  "the unattended general-story worker must exclude every Kids-only source marker",
+);
+
+const normalizedKidsSources = filterGeneralStorySources([
+  { id: "general-story", audience: "general", generationMode: "manual", sourceType: "story" },
+  { id: "legacy-general-story", generationMode: "manual", sourceType: "story" },
+  { id: "kids-uppercase", audience: " KIDS ", generationMode: "manual", sourceType: "story" },
+  { id: "kids-children", audience: "Children", generationMode: "manual", sourceType: "story" },
+  { id: "kids-child", audience: "child", generationMode: "manual", sourceType: "story" },
+  { id: "kids-generation-mode", audience: "general", generationMode: " FREE_DETERMINISTIC_STORY_FACTORY ", sourceType: "story" },
+  { id: "kids-source-type", audience: "general", generationMode: "manual", sourceType: " ORIGINAL_KIDS_FICTION " },
+  { id: " KIDS-SERIES:fiction", audience: "general", generationMode: "manual", sourceType: "story" },
+]);
+assert.deepEqual(
+  normalizedKidsSources.map((source) => source.id),
+  ["general-story", "legacy-general-story"],
+  "general story automation must exclude normalized Kids markers and preserve legacy rows without an audience marker",
+);
+
+const normalizedKidsDisclosure = resolveKidsVideoPublicDisclosure(
+  { audience: " KIDS ", aiMode: " ORIGINAL_KIDS_STORY ", sourceLabel: "Source: Quran.com" },
+  "Source: Quran.com",
+  "Based on a hadith from Sahih al-Bukhari",
+);
+assert.equal(normalizedKidsDisclosure.sourceType, "original_kids_fiction");
+assert.equal(normalizedKidsDisclosure.sourceLabel, "قصة تربوية خيالية أصلية من ذِكر — ليست آية أو حديثًا أو واقعة تاريخية.");
+assert.equal(normalizedKidsDisclosure.description, null);
+assert.equal(normalizedKidsDisclosure.socialCaption, null,
+  "case and whitespace variants of Kids markers must retain the original-fiction disclosure");
+
+assert.equal(
+  resolveVideoSourceDisclosureLine({ sourceType: " EDITORIAL ", sourceLabel: "Source: Quran.com" }, "https://quran.com"),
+  "محتوى تحريري أصلي من منصة ذِكر — غير منسوب إلى آية أو حديث.",
+  "case and whitespace variants of editorial source types must not bypass the source disclosure",
 );
 
 console.log("video contract tests passed");

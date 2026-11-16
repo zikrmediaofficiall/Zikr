@@ -19,7 +19,7 @@ ZIKR is an Arabic-first Islamic content and spiritual platform covering Quran, H
 
 ## Video and social automation
 
-Production video generation uses the verified AI/FFmpeg pipeline in GitHub Actions. Social publishing is a separate event-driven worker consuming only post-activation `social_publish_queue` rows; each new video is eligible for external delivery only after the source-locked five-part automated QA result passes. No manual video review is required. GitHub Actions triggers the publisher after successful generation, with a bounded 15-minute retry drain for provider cooldowns and failed targets. A separate daily workflow refreshes social insights without claiming publishing jobs. CircleCI does not execute either production worker.
+Production video generation uses the verified AI/FFmpeg pipeline in GitHub Actions. Social publishing is a separate event-driven worker consuming only post-activation `social_publish_queue` rows. General-audience videos may proceed after the source-locked five-part automated QA result passes; child-directed Kids videos additionally require a matching human approval record for the exact content and media snapshot. Unknown or mismatched audiences fail closed. GitHub Actions triggers the publisher after successful generation, with a bounded 15-minute retry drain for provider cooldowns and failed targets. A separate daily workflow refreshes social insights without claiming publishing jobs. CircleCI does not execute either production worker.
 
 ## Required runtime configuration
 
@@ -46,7 +46,7 @@ pnpm supabase:migrations:check
 pnpm verify
 ```
 
-`pnpm verify` is the full repository release gate, including mobile, SEO, content, security, lint, types, and the production build. GitHub Actions runs `pnpm verify:pr` for pull requests and the full `pnpm verify` on `main`. Vercel automatic Git deployment remains disabled; production releases are manual and separately verified.
+`pnpm verify` is the full repository release gate, including mobile, SEO, content, security, lint, types, and the production build. GitHub Actions runs `pnpm verify:pr` for pull requests and the full `pnpm verify` on `main`. Production releases must follow the protected release-finalization workflow and be verified. The Vercel Git auto-deploy setting was not independently verified during this audit and must be confirmed in project settings.
 
 ## Database migrations
 

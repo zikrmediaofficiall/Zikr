@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { getCurrentPrayer, getNextPrayer, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
+import { getCurrentPrayer, getNextPrayer, getPrayerTimes, getPrayerTimesByCity, parsePrayerTimeMinutes, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
+import { normalizeSavedPrayerLocation } from "../../src/features/prayer/services/saved-prayer-location";
 import { readFileSync } from "node:fs";
 import { parsePrayerCoordinate } from "../../src/features/prayer/services/prayer-location-validation";
 import {
@@ -20,6 +21,13 @@ assert.equal(parsePrayerCoordinate("0x10", -90, 90), null, "non-decimal coordina
 assert.equal(parsePrayerCoordinate("1e2", -90, 90), null, "exponential coordinate strings must be rejected");
 assert.equal(parsePrayerCoordinate(91, -90, 90), null);
 assert.equal(parsePrayerCoordinate(-181, -180, 180), null);
+
+assert.equal(parsePrayerTimeMinutes("05:07"), 307);
+assert.equal(parsePrayerTimeMinutes("05:07 (EET)"), 307, "provider timezone suffixes remain supported");
+assert.equal(parsePrayerTimeMinutes(" 5:07 "), 307, "single-digit hours and surrounding whitespace remain supported");
+for (const malformedTime of ["05:07malformed", "05:07(EET)", "24:00", "05:60", "not-a-time"]) {
+  assert.equal(parsePrayerTimeMinutes(malformedTime), null, "malformed prayer times must fail closed: " + malformedTime);
+}
 
 const timings: PrayerTime = {
   Fajr: "05:00",
@@ -114,6 +122,19 @@ assert.equal(
 );
 assert.equal(getZonedDateTime("invalid", "UTC", "12:00"), null);
 assert.equal(getZonedDateTime("2026-02-31", "UTC", "12:00"), null);
+assert.equal(getZonedDateTime("2026-06-15", "UTC", "05:07malformed"), null,
+  "native alarms must reject a valid-looking time followed by an unseparated suffix");
+assert.equal(
+  getZonedDateTime("2026-06-15", "UTC", "05:07 (EET)")?.toISOString(),
+  "2026-06-15T05:07:00.000Z",
+  "native alarms must retain valid provider timezone annotations",
+);
+const malformedFajrTimings = { ...timings, Fajr: "05:07malformed" };
+assert.deepEqual(
+  getNextPrayer(malformedFajrTimings, new Date(2026, 9, 28, 4, 0)),
+  { name: "Dhuhr", time: "12:00", minutesUntil: 480 },
+  "a malformed Fajr value must not be used in the next-prayer countdown",
+);
 assert.equal(addCalendarDays("2026-02-31", 1), null);
 
 assert.deepEqual(
@@ -163,6 +184,9 @@ assert.deepEqual(
 );
 
 const prayerAlertHook = readFileSync("src/features/prayer/hooks/use-prayer-alert.ts", "utf8");
+assert.match(prayerAlertHook, /parsePrayerTimeMinutes/);
+assert.doesNotMatch(prayerAlertHook, /function parsePrayerTime\(/,
+  "the live alert loop must use the same strict parser as the countdown and native schedule");
 const pushSubscription = readFileSync("src/lib/push-subscription.ts", "utf8");
 assert.match(prayerAlertHook, /loadLocalPrayerLocation/);
 assert.match(prayerAlertHook, /getSavedPrayerLocation/);
@@ -197,4 +221,121 @@ assert.match(prayerLocationMigration, /SET search_path = ''/);
 assert.match(prayerLocationMigration, /pg_advisory_xact_lock/);
 assert.match(prayerLocationMigration, /GRANT EXECUTE ON FUNCTION public\.save_default_prayer_location/);
 
-console.log("Prayer-time next-prayer, selected-location scheduling, and push-location contracts passed.");
+
+assert.deepEqual(
+  normalizeSavedPrayerLocation({
+    city: " Alexandria ",
+    country: " Egypt ",
+    latitude: "31.2000",
+    longitude: "29.9000",
+    timezone: "Africa/Cairo",
+  }),
+  {
+    id: undefined,
+    city: "Alexandria",
+    country: "Egypt",
+    latitude: 31.2,
+    longitude: 29.9,
+    timezone: "Africa/Cairo",
+    isDefault: true,
+    updatedAt: null,
+  },
+);
+for (const invalidLocation of [
+  { city: "Alexandria", latitude: "", longitude: 29.9, timezone: "Africa/Cairo" },
+  { city: "Alexandria", latitude: 91, longitude: 29.9, timezone: "Africa/Cairo" },
+  { city: "Alexandria", latitude: 31.2, longitude: 181, timezone: "Africa/Cairo" },
+  { city: "Alexandria", latitude: 31.2, longitude: 29.9, timezone: "Invalid/Timezone" },
+]) {
+  assert.equal(normalizeSavedPrayerLocation(invalidLocation), null,
+    "saved prayer locations must reject blank/out-of-range coordinates and invalid timezones");
+}
+
+const originalFetch = globalThis.fetch;
+let prayerFetchCalls = 0;
+const validPrayerResponse = {
+  code: 200,
+  status: "OK",
+  data: {
+    timings,
+    date: {
+      hijri: {
+        day: "15",
+        year: "1448",
+        month: { ar: "جمادى الآخرة" },
+      },
+    },
+    meta: {
+      latitude: 1,
+      longitude: 1,
+      timezone: "UTC",
+      method: { id: 4, name: "Umm Al-Qura", params: {} },
+      school: "Shafi",
+    },
+  },
+};
+let mockPrayerResponse: unknown = validPrayerResponse;
+globalThis.fetch = async () => {
+  prayerFetchCalls += 1;
+  return new Response(JSON.stringify(mockPrayerResponse), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+};
+try {
+  assert.notEqual(await getPrayerTimes(1, 1, "2026-06-15", 4), null);
+  const firstCallCount = prayerFetchCalls;
+  await getPrayerTimes(1, 1, "2026-06-15", 4);
+  assert.equal(prayerFetchCalls, firstCallCount, "identical prayer-time requests must use the TTL cache");
+
+  for (let index = 0; index < 110; index += 1) {
+    await getPrayerTimes(10 + index / 1000, 20 + index / 1000, "2026-06-15", 4);
+  }
+  const beforeOldestLookup = prayerFetchCalls;
+  await getPrayerTimes(1, 1, "2026-06-15", 4);
+  assert.equal(prayerFetchCalls, beforeOldestLookup + 1,
+    "the bounded cache must evict the least-recently-used location instead of growing without limit");
+  assert.equal(await getPrayerTimes(91, 1, "2026-06-15", 4), null,
+    "invalid coordinates must not be sent to the prayer-times API");
+  assert.equal(await getPrayerTimes(1, 1, "not-a-date", 4), null,
+    "invalid date strings must be rejected before network access");
+  assert.equal(await getPrayerTimes(1, 1, "2026-02-30", 4), null,
+    "impossible calendar dates must be rejected before network access");
+  assert.equal(await getPrayerTimes(1, 1, "2026-06-15", 100), null,
+    "unsupported calculation method identifiers must be rejected before network access");
+
+  mockPrayerResponse = { code: 200, status: "OK", data: {} };
+  assert.equal(await getPrayerTimes(2, 2, "2026-06-15", 4), null,
+    "a successful HTTP response with a missing prayer-time contract must fail closed");
+  mockPrayerResponse = {
+    ...validPrayerResponse,
+    data: {
+      ...validPrayerResponse.data,
+      timings: { ...validPrayerResponse.data.timings, Fajr: "05:07malformed" },
+    },
+  };
+  assert.equal(await getPrayerTimes(3, 3, "2026-06-15", 4), null,
+    "all required prayer times must parse before the response is cached or returned");
+  mockPrayerResponse = {
+    ...validPrayerResponse,
+    data: {
+      ...validPrayerResponse.data,
+      meta: { ...validPrayerResponse.data.meta, timezone: "Invalid/Timezone" },
+    },
+  };
+  assert.equal(await getPrayerTimesByCity("Malformed City"), null,
+    "city lookups must reject provider responses with an invalid IANA timezone");
+  mockPrayerResponse = {
+    ...validPrayerResponse,
+    data: {
+      ...validPrayerResponse.data,
+      date: { hijri: { ...validPrayerResponse.data.date.hijri, day: "invalid" } },
+    },
+  };
+  assert.equal(await getPrayerTimes(4, 4, "2026-06-15", 4), null,
+    "provider Hijri date fields must be validated before the response is cached");
+} finally {
+  globalThis.fetch = originalFetch;
+}
+
+console.log("Prayer-time next-prayer, bounded cache, saved-location validation, and push-location contracts passed.");

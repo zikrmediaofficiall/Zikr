@@ -23,6 +23,7 @@ import {
   normalizePushSubscriptionRequestBody,
   parsePushCoordinate,
 } from "../../src/features/notifications/services/push-subscription-request";
+import { getPrayerNotificationIdsToCancel } from "../../src/features/prayer/services/prayer-notification-schedule";
 
 const requiredPrayerNames = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
 const validProviderTimings = {
@@ -178,14 +179,19 @@ assert.match(worker, /normalizePrayerTimings\(cache\.timings, PRAYERS\)/,
 assert.match(worker, /normalizePrayerTimings\(payload\.data\?\.timings, PRAYERS\)/,
   "provider responses must be complete and validated before they enter the schedule cache");
 const subscriptionRoute = readFileSync("src/app/api/push/subscription/route.ts", "utf8");
+const subscriptionRequest = readFileSync("src/features/notifications/services/push-subscription-request.ts", "utf8");
 const serviceWorker = readFileSync("public/sw.js", "utf8");
 const normalizedRequestBodyCalls = subscriptionRoute.match(/normalizePushSubscriptionRequestBody\(parsedBody\.value\)/g) ?? [];
 assert.equal(normalizedRequestBodyCalls.length, 2, "POST and DELETE must normalize bounded JSON values before reading fields");
 const boundedSubscriptionBodyReads = subscriptionRoute.match(/readBoundedJsonBody\(request, 16 \* 1024\)/g) ?? [];
 assert.equal(boundedSubscriptionBodyReads.length, 2, "POST and DELETE must reject malformed or oversized request bodies before reading subscription fields");
-assert.match(subscriptionRoute, /parsePushCoordinate\(location\?\.latitude, -90, 90\)/);
-assert.match(subscriptionRoute, /parsePushCoordinate\(location\?\.longitude, -180, 180\)/);
-assert.match(subscriptionRoute, /isAllowedPushEndpoint\(endpoint\)/, "subscription intake must reject arbitrary HTTPS endpoints");
+assert.match(subscriptionRoute, /parsePushPrayerContext\(body\)/, "the route must validate the normalized prayer context before saving it");
+assert.match(subscriptionRequest, /parsePushCoordinate\(location\.latitude, -90, 90\)/);
+assert.match(subscriptionRequest, /parsePushCoordinate\(location\.longitude, -180, 180\)/);
+assert.match(subscriptionRequest, /boundedSubscriptionString\(location\.city, 160\)/);
+assert.match(subscriptionRequest, /boundedSubscriptionString\(location\.timezone, 120\)/);
+assert.match(subscriptionRoute, /parsePushSubscriptionRequestBody\(body\)/, "subscription intake must use the shared request validator");
+assert.match(subscriptionRequest, /isAllowedPushEndpoint\(endpoint\)/, "the shared request validator must reject arbitrary HTTPS endpoints");
 assert.match(worker, /isAllowedPushEndpoint\(subscription\.endpoint\)/, "the delivery worker must revalidate legacy endpoints before outbound requests");
 const staleRecoveryStart = worker.indexOf("async function recoverStaleClaims");
 const staleRecoveryEnd = worker.indexOf("async function getDueDeliveryCandidates", staleRecoveryStart);
@@ -305,6 +311,17 @@ assert.equal(
   "valid local times after a daylight-saving transition must resolve to the matching instant",
 );
 
+
+assert.equal(
+  zonedDateTime("2026-11-14", "UTC", "05:07malformed"),
+  null,
+  "cached prayer times with trailing non-whitespace text must fail closed",
+);
+assert.equal(
+  zonedDateTime("2026-11-14", "UTC", "05:07 (EET)")?.toISOString(),
+  "2026-11-14T05:07:00.000Z",
+  "provider timezone annotations after whitespace remain valid",
+);
 
 assert.equal(
   previousLocalDate(new Date("2026-11-12T12:00:00.000Z"), "Pacific/Kiritimati"),
@@ -876,6 +893,39 @@ assert.equal(simulatedServerTimeZone, "Africa/Cairo");
 
 const salawatHookSource = readFileSync("src/features/reminders/hooks/use-salawat-reminder.ts", "utf8");
 const prayerAlertProviderSource = readFileSync("src/components/layout/prayer-alert-provider.tsx", "utf8");
+const prayerAlertHookSource = readFileSync("src/features/prayer/hooks/use-prayer-alert.ts", "utf8");
+const enabledPrayerNames = ["Fajr", "Dhuhr"] as const;
+const enabledPrayerFlags = { Fajr: true, Dhuhr: false };
+assert.deepEqual(
+  getPrayerNotificationIdsToCancel({
+    scheduleDays: 1,
+    prayers: enabledPrayerNames,
+    enabledPrayers: enabledPrayerFlags,
+    refreshedPrayerIds: [7000],
+    idBase: 7000,
+  }),
+  [7000, 7001],
+  "resolved past alarms and disabled alarms must be cancelled",
+);
+assert.deepEqual(
+  getPrayerNotificationIdsToCancel({
+    scheduleDays: 1,
+    prayers: enabledPrayerNames,
+    enabledPrayers: enabledPrayerFlags,
+    refreshedPrayerIds: [],
+    idBase: 7000,
+  }),
+  [7001],
+  "an unresolved enabled alarm must be preserved while disabled alarms remain cancellable",
+);
+const refreshedPrayerAlarmMarker = prayerAlertHookSource.indexOf("refreshedPrayerIds.add(id)");
+const pastPrayerScheduleGuard = prayerAlertHookSource.indexOf("if (scheduled <= now) continue;");
+assert.ok(
+  refreshedPrayerAlarmMarker >= 0 && pastPrayerScheduleGuard > refreshedPrayerAlarmMarker,
+  "successfully resolved past prayer times must be marked for cancellation before the past-time guard",
+);
+assert.match(prayerAlertHookSource, /if \(!dayTimings\) continue;/);
+assert.match(prayerAlertHookSource, /if \(!scheduled\) continue;/);
 assert.match(salawatHookSource, /serverTimeZone: data\.timezone/);
 assert.match(salawatHookSource, /event === "SIGNED_IN"[\s\S]*?syncBackgroundReminderTimeZone/);
 assert.match(salawatHookSource, /window\.addEventListener\("zikr:native-app-state", syncTimeZone\)/);
@@ -905,5 +955,42 @@ assert.match(
 assert.match(sourceAgentCronMigration, /cron\.alter_job/);
 assert.match(sourceAgentCronMigration, /cron\.schedule\(/);
 assert.match(sourceAgentCronMigration, /zikr-source-verified-content-agent/);
+
+const pushSubscriptionAccessMigration = readFileSync(
+  "supabase/migrations/20261114200000_restrict_push_subscriptions_to_service_role.sql",
+  "utf8",
+);
+for (const policy of [
+  "push_subscriptions_select_own",
+  "push_subscriptions_insert_own",
+  "push_subscriptions_update_own",
+  "push_subscriptions_delete_own",
+]) {
+  assert.match(
+    pushSubscriptionAccessMigration,
+    new RegExp(`DROP POLICY IF EXISTS ${policy} ON public\\.push_subscriptions`, "i"),
+    `browser policy ${policy} must be removed from the server-managed push table`,
+  );
+}
+assert.match(
+  pushSubscriptionAccessMigration,
+  /REVOKE ALL PRIVILEGES ON TABLE public\.push_subscriptions\s+FROM PUBLIC, anon, authenticated/i,
+  "authenticated users must not be able to bypass the push endpoint validator through PostgREST",
+);
+assert.match(
+  pushSubscriptionAccessMigration,
+  /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\.push_subscriptions\s+TO service_role/i,
+  "only the server-side API and Edge worker may manage push subscriptions",
+);
+assert.doesNotMatch(
+  pushSubscriptionAccessMigration,
+  /DELETE FROM|TRUNCATE TABLE|DROP TABLE/i,
+  "push subscription hardening must preserve existing rows",
+);
+const pushSubscriptionRoute = readFileSync("src/app/api/push/subscription/route.ts", "utf8");
+const pushWorkerSource = readFileSync("supabase/functions/prayer-notification-worker/index.ts", "utf8");
+assert.match(pushSubscriptionRoute, /createAdminClient\(\)/, "the subscription API must use the service-role client");
+assert.match(pushSubscriptionRoute, /parsePushSubscriptionRequestBody\(body\)/, "the API must validate endpoints through the shared request parser");
+assert.match(pushWorkerSource, /isAllowedPushEndpoint/, "the worker must validate legacy endpoints before outbound push requests");
 
 console.log("Prayer notification subscription pagination and delivery lease contracts passed.");

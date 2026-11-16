@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient } from "@/lib/supabase/middleware";
+import { copyResponseCookies } from "@/lib/supabase/copy-response-cookies";
 import { getCanonicalAuthBaseUrl } from "@/lib/auth-enhanced";
 import { PRODUCTION_URL } from "@/lib/site";
 
@@ -14,7 +15,7 @@ function matchesPrefix(pathname: string, prefixes: readonly string[]) {
   );
 }
 
-function redirectToLogin(request: NextRequest) {
+function redirectToLogin(request: NextRequest, response: NextResponse) {
   const loginUrl = new URL(
     "/auth/login",
     getCanonicalAuthBaseUrl(request.nextUrl.origin),
@@ -23,7 +24,7 @@ function redirectToLogin(request: NextRequest) {
     "next",
     `${request.nextUrl.pathname}${request.nextUrl.search}`
   );
-  return NextResponse.redirect(loginUrl);
+  return copyResponseCookies(response, NextResponse.redirect(loginUrl));
 }
 
 function nextWithPathHeader(request: NextRequest) {
@@ -73,7 +74,7 @@ export async function proxy(request: NextRequest) {
   const { supabase, configured } = createMiddlewareClient(request, response);
 
   if (!configured || !supabase) {
-    return isProtected ? redirectToLogin(request) : response;
+    return isProtected ? redirectToLogin(request, response) : response;
   }
 
   // getUser() validates the JWT and refreshes tokens when needed.
@@ -89,12 +90,15 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!user && isProtected) {
-    return redirectToLogin(request);
+    return redirectToLogin(request, response);
   }
 
   if (user && isAuthOnlyPage) {
-    return NextResponse.redirect(
-      new URL("/profile", getCanonicalAuthBaseUrl(request.nextUrl.origin)),
+    return copyResponseCookies(
+      response,
+      NextResponse.redirect(
+        new URL("/profile", getCanonicalAuthBaseUrl(request.nextUrl.origin)),
+      ),
     );
   }
 
@@ -104,6 +108,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|manifest\\.(?:json|webmanifest)|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|xml|txt|css|js|map|woff2?)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|\\.well-known/|sitemap\\.xml|robots\\.txt|manifest\\.(?:json|webmanifest)|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|xml|txt|css|js|map|woff2?)$).*)",
   ],
 };

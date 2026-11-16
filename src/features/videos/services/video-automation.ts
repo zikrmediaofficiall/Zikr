@@ -16,6 +16,7 @@ import {
 import type { VideoGenerationRequest } from '@/lib/types/video';
 import { sourceHash, videoContentHash } from '../providers/content-hash';
 import { CURRENT_VIDEO_RENDERER_VERSION } from './video-template-version';
+import { resolveYouTubeUploadPrivacy } from './youtube-upload-privacy';
 
 export type { VideoGenerationRequest };
 
@@ -67,11 +68,6 @@ async function getYoutubeAccessToken(): Promise<string> {
     console.error('[video-automation] YouTube token refresh failed:', error);
     throw error instanceof Error ? error : new Error(String(error));
   }
-}
-
-function resolveYoutubePrivacy(): 'public' | 'unlisted' | 'private' {
-  const value = process.env.YOUTUBE_UPLOAD_PRIVACY?.trim().toLowerCase();
-  return value === 'unlisted' || value === 'private' ? value : 'public';
 }
 
 
@@ -209,12 +205,16 @@ export async function createVideoGenerationRequest(data: {
 
 export async function getPendingVideoRequests(limit = 100): Promise<VideoGenerationRequest[]> {
   try {
-    return (await supabaseServerAdminRequest<VideoGenerationRequest[]>(
+    const rows = await supabaseServerAdminRequest<unknown>(
       `/rest/v1/video_generation_requests?status=eq.pending&order=created_at.asc&limit=${Math.max(1, Math.min(500, limit))}`,
-    )) ?? [];
+    );
+    if (!Array.isArray(rows)) {
+      throw new Error("Pending video request query returned an invalid row set.");
+    }
+    return rows as VideoGenerationRequest[];
   } catch (error) {
     console.error('[video-automation] Failed to fetch pending requests:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -248,12 +248,16 @@ export async function claimPendingVideoRequests(limit = 100): Promise<VideoGener
 
 export async function getAllVideoRequests(): Promise<VideoGenerationRequest[]> {
   try {
-    return (await supabaseServerAdminRequest<VideoGenerationRequest[]>(
+    const rows = await supabaseServerAdminRequest<unknown>(
       '/rest/v1/video_generation_requests?order=created_at.desc&limit=200',
-    )) ?? [];
+    );
+    if (!Array.isArray(rows)) {
+      throw new Error("Video request inventory query returned an invalid row set.");
+    }
+    return rows as VideoGenerationRequest[];
   } catch (error) {
     console.error('[video-automation] Failed to fetch video requests:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -262,6 +266,7 @@ export async function updateVideoRequestStatus(
   status: 'pending' | 'processing' | 'completed' | 'failed',
   metadata?: { youtubeId?: string; facebookId?: string; videoUrl?: string },
   expectedStatus?: "failed",
+  expectedUpdatedAt?: string,
 ): Promise<boolean> {
   try {
     const body: Record<string, unknown> = {
@@ -271,14 +276,22 @@ export async function updateVideoRequestStatus(
     if (metadata?.youtubeId) body.youtube_id = metadata.youtubeId;
     if (metadata?.facebookId) body.facebook_id = metadata.facebookId;
     if (metadata?.videoUrl) body.video_url = metadata.videoUrl;
-    let expectedUpdatedAt: string | null = null;
+    let expectedRowUpdatedAt: string | null = null;
     if (status === 'pending') {
-      const existingContentRows = await supabaseServerAdminRequest<Array<{ content: unknown; status: string; updated_at: string }>>(
+      const existingContentRows = await supabaseServerAdminRequest<unknown>(
         '/rest/v1/video_generation_requests?id=eq.' + encodeURIComponent(videoId) + '&select=content,status,updated_at&limit=1',
       );
-      const existingRow = existingContentRows?.[0];
+      if (!Array.isArray(existingContentRows)) {
+        throw new Error("Video retry preflight query returned an invalid row set.");
+      }
+      const existingRow = existingContentRows[0] as { content: unknown; status: string; updated_at: string } | undefined;
       if (!existingRow || (expectedStatus && existingRow.status !== expectedStatus)) return false;
-      expectedUpdatedAt = existingRow.updated_at;
+      if (
+        typeof existingRow.updated_at !== "string" ||
+        !Number.isFinite(Date.parse(existingRow.updated_at)) ||
+        (expectedUpdatedAt && existingRow.updated_at !== expectedUpdatedAt)
+      ) return false;
+      expectedRowUpdatedAt = existingRow.updated_at;
       const existing = existingRow.content;
       const content = existing && typeof existing === 'object' && !Array.isArray(existing)
         ? existing as Record<string, unknown> : {};
@@ -293,18 +306,21 @@ export async function updateVideoRequestStatus(
       body.heygen_submitted_at = null;
       body.heygen_last_polled_at = null;
     }
-    if (expectedStatus && !expectedUpdatedAt) return false;
-    const filter = expectedStatus && expectedUpdatedAt
-      ? `id=eq.${encodeURIComponent(videoId)}&status=eq.${encodeURIComponent(expectedStatus)}&updated_at=eq.${encodeURIComponent(expectedUpdatedAt)}`
+    if (expectedStatus && !expectedRowUpdatedAt) return false;
+    const filter = expectedStatus && expectedRowUpdatedAt
+      ? `id=eq.${encodeURIComponent(videoId)}&status=eq.${encodeURIComponent(expectedStatus)}&updated_at=eq.${encodeURIComponent(expectedRowUpdatedAt)}`
       : `id=eq.${encodeURIComponent(videoId)}`;
-    const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(
+    const updated = await supabaseServerAdminRequest<unknown>(
       `/rest/v1/video_generation_requests?${filter}`,
       { method: 'PATCH', headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify(body) },
     );
-    return Array.isArray(updated) && updated.length > 0;
+    if (!Array.isArray(updated)) {
+      throw new Error("Video request update returned an invalid row set.");
+    }
+    return updated.length > 0;
   } catch (error) {
     console.error('[video-automation] Failed to update video request:', error);
-    return false;
+    throw error;
   }
 }
 
@@ -423,7 +439,7 @@ export async function publishToYoutube(
           categoryId: metadata.categoryId,
         },
         status: {
-          privacyStatus: resolveYoutubePrivacy(),
+          privacyStatus: resolveYouTubeUploadPrivacy(process.env.YOUTUBE_UPLOAD_PRIVACY),
           selfDeclaredMadeForKids: options.selfDeclaredMadeForKids === true,
           containsSyntheticMedia: options.containsSyntheticMedia === true,
         },

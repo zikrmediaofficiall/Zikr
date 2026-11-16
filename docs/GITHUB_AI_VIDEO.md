@@ -50,7 +50,7 @@ Secrets are server-side only. Provider tokens are never returned in errors or lo
 5. Upload only validated MP4 output directly to Cloudinary. The worker requires the Cloudinary cloud name, API key, and API secret; it fails closed rather than falling back to Supabase Storage.
 6. Store the Cloudinary playback URL and queue/catalog metadata in Supabase. Supabase remains the database/queue layer; generated public MP4 files are not staged in a Supabase bucket.
 7. Mark completed; only then can an automated-QA-approved social candidate be queued.
-8. External publishing remains separately gated by the Admin auto-publish setting, workflow/provider readiness, and the persisted QA snapshot.
+8. External publishing remains separately gated by the Admin auto-publish setting, workflow/provider readiness, and the persisted QA snapshot. Kids videos additionally require a matching human review record before any external social delivery.
 
 The database migration `20261002100000_multi_provider_free_video_engine.sql` is additive and creates `video_automation_runs` for audit metrics. It does not delete videos or data.
 

@@ -79,6 +79,22 @@ assert.ok(appBoundDomains.size <= 10, "WKAppBoundDomains must not exceed Apple�
 
 assert.ok(pkg.dependencies?.["@capgo/capacitor-social-login"], "Capgo Social Login dependency is required");
 assert.ok(lock.includes("@capgo/capacitor-social-login@7.20.0"), "pnpm lockfile must include the resolved native plugin");
+const androidCapacitorSettings = read("android/capacitor.settings.gradle");
+const androidCapacitorBuild = read("android/app/capacitor.build.gradle");
+const socialLoginLock = lock.match(/^      '@capgo\/capacitor-social-login':\n        specifier: [^\n]+\n        version: ([^(]+)\(@capacitor\/core@([^)]+)\)/m);
+assert.ok(socialLoginLock, "pnpm lockfile must resolve Capgo Social Login with the installed Capacitor core");
+const expectedSocialLoginPath = `../node_modules/.pnpm/@capgo+capacitor-social-login@${socialLoginLock[1]}_@capacitor+core@${socialLoginLock[2]}/node_modules/@capgo/capacitor-social-login/android`;
+assert.ok(androidCapacitorSettings.includes("include ':capgo-capacitor-social-login'"), "Android settings must include the Capgo Social Login project");
+assert.ok(androidCapacitorSettings.includes(`new File('${expectedSocialLoginPath}')`), "Android settings must point to the exact locked Capgo plugin package");
+assert.ok(!androidCapacitorSettings.endsWith("\n\n"), "Committed Android settings must match cap sync output without an extra trailing blank line");
+assert.ok(!androidCapacitorSettings.includes("include ':capacitor-cli'"), "Capacitor CLI is a build tool, not an Android plugin project");
+assert.ok(androidCapacitorBuild.includes("implementation project(':capgo-capacitor-social-login')"), "Android app must link the native Google login plugin");
+const coreVersion = pkg.dependencies?.["@capacitor/core"];
+const androidVersion = pkg.dependencies?.["@capacitor/android"];
+assert.ok(androidCapacitorSettings.includes(`@capacitor+android@${androidVersion}_@capacitor+core@${coreVersion}`), "Android platform project must match the installed Capacitor versions");
+assert.doesNotMatch(androidCapacitorSettings, /@capacitor\+core@7\.4\.3/, "Generated Android plugin paths must not retain the stale Capacitor 7.4.3 peer paths");
+
+
 assert.ok(button.includes('Capacitor.getPlatform() === "android"'), "Android must have a dedicated native login branch");
 assert.ok(button.includes("SocialLogin.initialize("), "Native Google plugin must be initialized");
 assert.ok(button.includes("SocialLogin.login("), "Native Google Credential Manager must be invoked");
@@ -90,6 +106,14 @@ assert.doesNotMatch(
   "untrusted Vercel preview aliases must not bypass the exact Supabase redirect allowlist",
 );
 assert.ok(button.includes("return PRODUCTION_URL;"), "non-v0 browser OAuth must use the canonical production origin");
+assert.ok(
+  button.includes("isLocalDevelopmentOAuthHost(window.location.hostname)"),
+  "localhost OAuth must stay on its configured local redirect origin instead of being forced to production",
+);
+assert.ok(
+  button.includes('import { isLocalDevelopmentOAuthHost } from "@/lib/auth/oauth-origin";'),
+  "browser OAuth must share the tested local-host allowlist helper",
+);
 assert.match(read(".env.example"), /^NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID=/m, "the public native OAuth client ID must be documented in the environment template");
 assert.match(read("scripts/verify-mobile-readiness.mjs"), /NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID is required for Android native Google sign-in/, "store-readiness must fail when the native Google client ID is absent");
 assert.ok(button.includes("window.location.replace(safeNext)"), "Native success must return to the in-app route");
@@ -98,8 +122,8 @@ assert.ok(button.includes("startBrowserGoogleOAuth("), "Native-compatible browse
 assert.ok(button.includes("browserFallbackAvailable"), "Native Google failure must expose a browser fallback");
 assert.ok(button.includes("المتابعة عبر المتصفح الآمن"), "Browser fallback must be visible to users");
 assert.ok(button.includes("buildNativeOAuthRedirect(safeNext)"), "Native browser fallback must return through the app HTTPS/deep-link bridge");
-assert.ok(button.includes('import { getSafeInternalPath } from "@/lib/safe-relative-path";'), "Google button must import the same-origin relative-path guard");
-assert.ok(button.includes("getSafeInternalPath(next, window.location.origin)"), "Google button must constrain the OAuth return path to the current origin");
+assert.ok(button.includes('import { sanitizeInternalPath } from "@/lib/safe-redirect";'), "Google button must import the canonical internal-path sanitizer");
+assert.ok(button.includes("return sanitizeInternalPath(next)"), "Google button must constrain OAuth return destinations to safe internal paths");
 assert.equal((authActions.match(/import\s*\{\s*sanitizeInternalPath\s*\}\s*from\s*["\']@\/lib\/safe-redirect["\'];/g) ?? []).length, 1, "Auth actions must import the redirect sanitizer exactly once");
 assert.ok(button.includes('new URL("/auth/callback", PRODUCTION_URL)'), "Native browser fallback must use the canonical HTTPS callback origin");
 assert.ok(button.includes('url.searchParams.set("native", "1")'), "Native callback must opt into the deep-link handoff");

@@ -443,6 +443,7 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
           EXPECTED_COMMIT_SHA: ${{ github.sha }}
           EXPECTED_VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
+          EXPECTED_VERCEL_ALIAS_URL: ${{ env.NEXT_PUBLIC_SITE_URL }}
         run: node scripts/verify-vercel-deployment-ready.mjs
 
       - name: Verify deployed Supabase health Edge Function

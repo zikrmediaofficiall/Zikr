@@ -12,6 +12,11 @@ import {
   SPIRITUAL_AI_RATE_LIMIT_WINDOW_SECONDS,
 } from '../../src/features/spiritual-ai/services/rate-limit-identity';
 import { classifyQuestion, isCrisisMessage } from '../../src/features/spiritual-ai/services/policy';
+import { formatMemorizationEvaluation, formatMemorizationEvaluationResponse } from '../../src/features/memorization/evaluation';
+import {
+  normalizeMemorizationAudioMimeType,
+  hasMemorizationAudioSignature,
+} from '../../src/features/memorization/constants';
 
 assert.deepEqual(sanitizeChatHistory(null), []);
 assert.deepEqual(sanitizeChatHistory('not an array'), []);
@@ -132,5 +137,109 @@ assert.equal(
   1,
   "only the no-store helper may construct a raw Response.json response",
 );
+
+
+const memorizationActionSource = readFileSync("src/app/memorization/actions.ts", "utf8");
+const memorizationRecorderSource = readFileSync("src/app/memorization/voice-recorder.tsx", "utf8");
+const memorizationConstantsSource = readFileSync("src/features/memorization/constants.ts", "utf8");
+const nextConfigSource = readFileSync("next.config.ts", "utf8");
+assert.match(memorizationActionSource, /if \(!hasAudio && !hasTarget && !hasExpected\)/,
+  "memorization evaluation must reject only an empty request, not require audio unconditionally");
+assert.match(memorizationActionSource, /audioProvided: false/,
+  "text-only memorization requests must explicitly disable audio-evaluation claims");
+assert.match(memorizationActionSource, /generateGeminiText\(textFallbackPrompt/,
+  "text-only memorization requests must use the study-plan prompt");
+const memorizationSubmitButton = memorizationRecorderSource.match(/<Button type='submit'[\s\S]*?<\/Button>/)?.[0] ?? "";
+assert.match(memorizationSubmitButton, /disabled=\{isPending\}/,
+  "the evaluation form must allow the text-only study-plan path when no audio blob exists");
+assert.doesNotMatch(memorizationSubmitButton, /!audioBlob/,
+  "absence of a recording must not disable the supported text-only study-plan path");
+assert.match(memorizationSubmitButton, /إنشاء خطة مراجعة/,
+  "the no-audio submit label must describe the study-plan action accurately");
+assert.match(memorizationConstantsSource, /MAX_MEMORIZATION_AUDIO_BYTES = 3 \* 1024 \* 1024/);
+
+assert.equal(normalizeMemorizationAudioMimeType("audio/webm;codecs=opus"), "audio/webm");
+assert.equal(normalizeMemorizationAudioMimeType("audio/mp4"), "audio/mp4");
+assert.equal(normalizeMemorizationAudioMimeType("audio/ogg;codecs=opus"), "audio/ogg");
+assert.equal(normalizeMemorizationAudioMimeType("audio/x-wav"), "audio/wav");
+assert.equal(normalizeMemorizationAudioMimeType(""), null, "empty MIME metadata must not be guessed as WebM");
+assert.equal(normalizeMemorizationAudioMimeType("application/zip"), null, "non-audio MIME types must be rejected");
+
+const webmSignature = Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3, 0x00]);
+const oggSignature = Uint8Array.from([0x4f, 0x67, 0x67, 0x53]);
+const mp4Signature = Uint8Array.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]);
+const wavSignature = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 0x10, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45]);
+assert.equal(hasMemorizationAudioSignature("audio/webm", webmSignature), true);
+assert.equal(hasMemorizationAudioSignature("audio/ogg", oggSignature), true);
+assert.equal(hasMemorizationAudioSignature("audio/mp4", mp4Signature), true);
+assert.equal(hasMemorizationAudioSignature("audio/wav", wavSignature), true);
+assert.equal(hasMemorizationAudioSignature("audio/webm", wavSignature), false,
+  "a mismatched container must be rejected even when the client claims an audio MIME type");
+assert.equal(hasMemorizationAudioSignature("audio/wav", new Uint8Array([1, 2, 3])), false);
+
+assert.ok(memorizationActionSource.includes("normalizeMemorizationAudioMimeType(audioFile.type)"));
+assert.ok(memorizationActionSource.includes("hasMemorizationAudioSignature(audioMimeType, audioBytes)"));
+assert.ok(memorizationActionSource.includes("mimeType: audioMimeType"));
+assert.ok(!memorizationActionSource.includes("audio.type || 'audio/webm'"),
+  "an unknown upload type must never be silently relabeled as WebM");
+assert.match(nextConfigSource, /serverActions:\s*\{\s*bodySizeLimit:\s*'4mb'\s*\}/,
+  "the server-action body limit must remain above the 3 MiB recording limit");
+
+
+const sampleMemorizationEvaluation = {
+  score: 0,
+  summary: "A plan was prepared.",
+  memorization: "The recitation was strong.",
+  errors: [],
+  tajweed: ["Practice the articulation points slowly."],
+  audioQuality: "Clear recording.",
+  revisionPlan: ["Review five verses daily."],
+};
+const textOnlyMemorizationOutput = formatMemorizationEvaluation(sampleMemorizationEvaluation, false);
+assert.match(textOnlyMemorizationOutput, /لم يتم تقييم تسجيل صوتي/);
+assert.doesNotMatch(textOnlyMemorizationOutput, /الدرجة:|أخطاء التسميع|جودة التسجيل|جودة الحفظ|The recitation was strong/);
+assert.match(textOnlyMemorizationOutput, /ملاحظات تعليمية في التجويد/);
+assert.match(textOnlyMemorizationOutput, /خطة المراجعة/);
+const malformedTextOnlyOutput = formatMemorizationEvaluationResponse(
+  "The recitation scored 99/100 and no errors were heard.",
+  false,
+);
+assert.match(malformedTextOnlyOutput, /لم يتم تقييم تسجيل صوتي/);
+const unavailableTextOnlyOutput = formatMemorizationEvaluationResponse("", false);
+assert.match(unavailableTextOnlyOutput, /خطة مراجعة تعليمية/);
+assert.match(unavailableTextOnlyOutput, /لم يتم تقييم تسجيل صوتي/);
+assert.match(unavailableTextOnlyOutput, /قسّم المقرر/);
+assert.match(memorizationActionSource, /if \(result\)[\s\S]*?return formatMemorizationEvaluationResponse\("", false\);/,
+  "provider unavailability must retain the supported local text-only study plan");
+assert.doesNotMatch(malformedTextOnlyOutput, /99|100|الدرجة:|أخطاء التسميع|no errors were heard/i,
+  "malformed text-only model prose must never be presented as an audio score or recitation finding");
+const malformedAudioOutput = formatMemorizationEvaluationResponse(
+  "Score: 99/100. No mistakes detected.",
+  true,
+);
+assert.match(malformedAudioOutput, /لم تُصدر درجة/);
+const nullScoreAudioOutput = formatMemorizationEvaluationResponse(
+  JSON.stringify({ score: null, summary: "No valid score was produced." }),
+  true,
+);
+assert.match(nullScoreAudioOutput, /لم تُصدر درجة/);
+assert.doesNotMatch(nullScoreAudioOutput, /الدرجة:|0\/100|No valid score was produced/,
+  "null is not a valid zero score and must fail closed");
+assert.doesNotMatch(malformedAudioOutput, /99|100|الدرجة:|أخطاء التسميع|No mistakes detected/i,
+  "unstructured audio output must not be presented as a validated score or finding");
+
+assert.match(memorizationActionSource, /formatMemorizationEvaluationResponse\(response, true\)/);
+assert.match(memorizationActionSource, /formatMemorizationEvaluationResponse\(result, false\)/);
+assert.match(memorizationActionSource, /if \(!response\)[\s\S]*?لم تُصدر درجة/);
+assert.doesNotMatch(memorizationActionSource, /return structured \? formatMemorizationEvaluation/);
+
+const audioMemorizationOutput = formatMemorizationEvaluation({
+  ...sampleMemorizationEvaluation,
+  score: 85,
+  errors: ["A missed word was heard."],
+}, true);
+assert.match(audioMemorizationOutput, /الدرجة: 85\/100/);
+assert.match(audioMemorizationOutput, /أخطاء التسميع/);
+assert.match(audioMemorizationOutput, /جودة التسجيل/);
 
 console.log('Spiritual AI request guard passed: bounded input, rate limiting, source-safe prompts, and question classification.');

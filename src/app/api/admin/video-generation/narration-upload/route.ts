@@ -4,6 +4,11 @@ import { requireAdminStepUpApi } from "@/features/admin/services/security";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
 import { runPostCommitAudit } from "@/features/admin/services/post-commit-audit";
 import { readBoundedRequestBytes } from "@/lib/request/bounded-json-body";
+import {
+  markAdminNarrationAssetAuditRecorded,
+  registerAdminNarrationAsset,
+} from "@/features/media/services/media-assets";
+import { resolveNarrationUploadRecoveryReference } from "@/features/media/services/narration-upload-recovery";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -73,6 +78,8 @@ export async function POST(request: NextRequest) {
   if (!extension)
     return jsonError("الصيغ المدعومة: MP3 أو M4A أو WAV أو OGG أو WebM.", 415);
 
+  let recoveryPublicId: string | null = null;
+  let uploadAttempted = false;
   try {
     const body = await readBoundedRequestBytes(request, MAX_AUDIO_BYTES);
     if (!body.ok) return jsonError(body.error, body.status);
@@ -93,12 +100,16 @@ export async function POST(request: NextRequest) {
     // Audio is uploaded directly to Cloudinary; it must not use the Supabase
     // videos bucket, which is reserved for no persistent generated-media files.
     const publicId = `audio-human-${randomUUID()}`;
+    recoveryPublicId = publicId;
     const form = new FormData();
     form.append("file", new Blob([bytes], { type: contentType }), `${publicId}.${extension}`);
     form.append("public_id", publicId);
     form.append("overwrite", "false");
     form.append("invalidate", "true");
+    form.append("tags", "zikr,narration,video_generation");
+    form.append("context", `purpose=video_generation_narration|uploaded_by=${auth.profile.id}`);
     const authorization = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}`;
+    uploadAttempted = true;
     const upload = await fetch(
       `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/video/upload`,
       {
@@ -113,14 +124,57 @@ export async function POST(request: NextRequest) {
       public_id?: string;
       error?: { message?: string };
     };
+    const recoveryReference = resolveNarrationUploadRecoveryReference(publicId, result.public_id);
     if (!upload.ok || !result.secure_url || result.public_id !== publicId) {
-      console.error("[api/admin/video-generation/narration-upload] Cloudinary HTTP", upload.status, result.error?.message ?? "invalid upload response");
-      return jsonError("تعذر حفظ التسجيل في التخزين الخارجي.", 502);
+      const recoveryRequired = uploadAttempted && Boolean(recoveryReference);
+      console.error("[api/admin/video-generation/narration-upload] Cloudinary response validation failed.", {
+        requestedPublicId: publicId,
+        returnedPublicId: result.public_id,
+        status: upload.status,
+        recoveryRequired,
+      });
+      return NextResponse.json(
+        {
+          error: "فشل التحقق من استجابة Cloudinary؛ احتفظنا بمرجع الرفع للمراجعة اليدوية.",
+          ...(recoveryRequired && recoveryReference ? { ...recoveryReference, recoveryRequired: true } : {}),
+        },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
     }
-    const audioUrl = new URL(result.secure_url);
+    let audioUrl: URL;
+    try {
+      audioUrl = new URL(result.secure_url);
+    } catch (urlError) {
+      console.error("[api/admin/video-generation/narration-upload] Invalid Cloudinary secure URL; asset retained for reconciliation.", { publicId, urlError });
+      return NextResponse.json(
+        { error: "رابط التخزين الناتج غير صالح؛ احتفظنا بمرجع الرفع للمراجعة اليدوية.", ...(recoveryReference ?? { uploadReference: publicId }), recoveryRequired: true },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (audioUrl.protocol !== "https:" || audioUrl.hostname !== "res.cloudinary.com" ||
         !audioUrl.pathname.includes(`/${cloudName}/video/upload/`)) {
-      return jsonError("رابط التخزين الناتج غير صالح.", 502);
+      console.error("[api/admin/video-generation/narration-upload] Non-canonical Cloudinary URL; asset retained for reconciliation.", { publicId, secureUrl: result.secure_url });
+      return NextResponse.json(
+        { error: "رابط التخزين الناتج غير صالح؛ احتفظنا بمرجع الرفع للمراجعة اليدوية.", ...(recoveryReference ?? { uploadReference: publicId }), recoveryRequired: true },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    let mediaAssetId: string;
+    try {
+      mediaAssetId = await registerAdminNarrationAsset({
+        publicId,
+        secureUrl: result.secure_url,
+        contentType,
+        sizeBytes: bytes.byteLength,
+        createdBy: auth.profile.id,
+      });
+    } catch (trackingError) {
+      console.error("[api/admin/video-generation/narration-upload] Cloudinary asset retained without a confirmed media_assets row:", { publicId, trackingError });
+      return NextResponse.json(
+        { error: "تم رفع التسجيل لكن تعذر تسجيل الأصل في مكتبة الوسائط. احتفظ بمرجع الاسترداد.", ...(recoveryReference ?? { uploadReference: publicId }), recoveryRequired: true },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     const auditRecorded = await runPostCommitAudit(
@@ -131,19 +185,54 @@ export async function POST(request: NextRequest) {
         resourceId: publicId,
         metadata: { contentType, byteLength: bytes.byteLength, extension },
       }),
-      (auditError) => console.error("[api/admin/video-generation/narration-upload] audit event failed after Cloudinary upload:", auditError),
+      (auditError) => console.error("[api/admin/video-generation/narration-upload] audit event failed after Cloudinary upload:", { publicId, mediaAssetId, auditError }),
     );
 
     if (!auditRecorded) {
-      return jsonError("تم رفع التسجيل لكن تعذر تسجيل العملية في سجل التدقيق؛ لم يتم إصدار رابط الاستخدام.", 503);
+      return NextResponse.json(
+        { error: "تم رفع التسجيل وتسجيله كأصل داخلي، لكن تعذر تأكيد سجل التدقيق. احتفظ بمرجع الاسترداد.", ...(recoveryReference ?? { uploadReference: publicId }), mediaAssetId, recoveryRequired: true },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    let assetTrackingStatus: "ready" | "reconciliation_pending" = "ready";
+    try {
+      await markAdminNarrationAssetAuditRecorded(mediaAssetId, publicId, contentType, auth.profile.id);
+    } catch (trackingError) {
+      assetTrackingStatus = "reconciliation_pending";
+      console.warn("[api/admin/video-generation/narration-upload] audit succeeded but media asset state needs reconciliation:", { publicId, mediaAssetId, trackingError });
     }
 
     return NextResponse.json(
-      { audioUrl: result.secure_url, audioSource: "human_recording", auditRecorded: true },
+      {
+        audioUrl: result.secure_url,
+        audioSource: "human_recording",
+        auditRecorded: true,
+        mediaAssetId,
+        assetTrackingStatus,
+        ...(assetTrackingStatus === "reconciliation_pending" && recoveryReference
+          ? { ...recoveryReference, recoveryRequired: true }
+          : {}),
+      },
       { status: 201, headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
-    console.error("[api/admin/video-generation/narration-upload] POST:", error);
+    console.error("[api/admin/video-generation/narration-upload] POST:", {
+      error,
+      uploadAttempted,
+      recoveryPublicId,
+    });
+    if (uploadAttempted && recoveryPublicId) {
+      const recoveryReference = resolveNarrationUploadRecoveryReference(recoveryPublicId, null);
+      return NextResponse.json(
+        {
+          error: "تعذر تأكيد نتيجة رفع التسجيل؛ احتفظ بمرجع الاسترداد للمراجعة اليدوية.",
+          ...(recoveryReference ?? { uploadReference: recoveryPublicId }),
+          recoveryRequired: true,
+        },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     return jsonError("تعذر رفع التسجيل الصوتي.", 500);
   }
 }

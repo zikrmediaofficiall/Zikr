@@ -57,20 +57,22 @@ export function addCalendarDays(
   return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
 }
 
+import { parsePrayerTimeMinutes } from "./prayer-times";
+
 export function getZonedDateTime(
   date: string,
   timeZone: string,
   time: string,
 ): Date | null {
   const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  const timeMatch = /^(\d{1,2}):(\d{2})/.exec(time.trim());
-  if (!dateMatch || !timeMatch) return null;
+  const timeMinutes = parsePrayerTimeMinutes(time);
+  if (!dateMatch || timeMinutes === null) return null;
 
   const year = Number(dateMatch[1]);
   const month = Number(dateMatch[2]);
   const day = Number(dateMatch[3]);
-  const hour = Number(timeMatch[1]);
-  const minute = Number(timeMatch[2]);
+  const hour = Math.floor(timeMinutes / 60);
+  const minute = timeMinutes % 60;
   if (
     !Number.isInteger(year) ||
     month < 1 ||

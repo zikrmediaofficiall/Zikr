@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import {
   buildStoragePath,
   encodeStorageKey,
@@ -47,7 +47,12 @@ export async function createPresignedUploadUrl(params: {
     throw new Error(`Unsupported content type for ${params.purpose} uploads.`);
   }
 
-  const supabase = await createClient();
+  // Video upload URLs are issued only by the step-up-protected admin route.
+  // Use service role here so browser sessions cannot mint upload capabilities
+  // directly through Storage and bypass that route's step-up/audit boundary.
+  const supabase = params.purpose === "video"
+    ? createAdminClient()
+    : await createClient();
   const path = buildStoragePath(params.ownerId, params.filename);
   const { data, error } = await supabase.storage
     .from(config.bucket)

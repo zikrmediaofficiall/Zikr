@@ -1,3 +1,5 @@
+import { normalizeVideoAudience, normalizeVideoMarker } from "../../videos/services/video-audience-visibility";
+
 type YouTubeVideoDisclosureInput = {
   content: unknown;
   provider?: unknown;
@@ -30,11 +32,19 @@ export function resolveYouTubeVideoDisclosure(input: YouTubeVideoDisclosureInput
   const isKidsPublicPath = [content.publicPath, queueMetadata.publicPath].some((value) =>
     typeof value === "string" && (value === "/kids" || value.startsWith("/kids/")),
   );
-  const audience = content.audience === "kids" || queueMetadata.audience === "kids" || isKidsContentType || isKidsPublicPath
-    ? "kids"
-    : content.audience === "general" || queueMetadata.audience === "general"
-      ? "general"
-      : null;
+  const sourceType = normalizeVideoMarker(content.sourceType);
+  const aiMode = normalizeVideoMarker(content.aiMode);
+  const audience =
+    normalizeVideoAudience(content.audience, false) === "kids" ||
+    normalizeVideoAudience(queueMetadata.audience, false) === "kids" ||
+    isKidsContentType ||
+    isKidsPublicPath ||
+    sourceType === "original_kids_fiction" ||
+    aiMode === "original_kids_story"
+      ? "kids"
+      : normalizeVideoAudience(content.audience, false) === "general" || normalizeVideoAudience(queueMetadata.audience, false) === "general"
+        ? "general"
+        : null;
   const contentProvider = typeof content.aiProvider === "string"
     ? content.aiProvider.trim()
     : "";

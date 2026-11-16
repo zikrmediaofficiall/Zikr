@@ -5,12 +5,20 @@ import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
 import { dispatchGitHubWorkflow } from "@/lib/github/dispatch-workflow";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
-import { parseWrittenGenerationRequest } from "@/features/social/services/written-content";
+import { requireSupabaseRows } from "@/lib/supabase/array-response";
+import {
+  asWrittenRecord,
+  isWrittenPostVisibleToSocialManager,
+  parseWrittenGenerationRequest,
+} from "@/features/social/services/written-content";
 
 export const dynamic = "force-dynamic";
 
 type WrittenQueueItem = {
   id: string;
+  content_id: string | null;
+  content_type: string;
+  automation_key: string | null;
   title: string;
   body: string | null;
   status: string;
@@ -27,19 +35,70 @@ function queueCutoff() {
   return encodeURIComponent(cutoff.toISOString());
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+
 export async function GET() {
   const auth = await requireAdminApi("social.manage");
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const kidsAuth = await requireAdminApi("kids.manage");
+  if (!kidsAuth.ok && kidsAuth.status !== 403) {
+    return NextResponse.json({ error: kidsAuth.error }, { status: kidsAuth.status });
+  }
+  if (kidsAuth.ok && kidsAuth.profile.id !== auth.profile.id) {
+    return NextResponse.json(
+      { error: "Administrator identity changed during Kids authorization." },
+      { status: 403, headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+  const canManageKids = kidsAuth.ok;
 
   try {
-    const rows = await supabaseServerAdminRequest<WrittenQueueItem[]>(
-      "/rest/v1/social_publish_queue?content_type=eq.written_post&created_at=gte." +
-        queueCutoff() +
-        "&select=id,title,body,status,created_at,scheduled_at,published_at,error_message,metadata" +
-        "&order=created_at.desc&limit=100",
+    const rows = requireSupabaseRows<WrittenQueueItem>(
+      await supabaseServerAdminRequest<unknown>(
+        "/rest/v1/social_publish_queue?content_type=eq.written_post&created_at=gte." +
+          queueCutoff() +
+          "&select=id,content_id,content_type,automation_key,title,body,status,created_at,scheduled_at,published_at,error_message,metadata" +
+          "&order=created_at.desc&limit=" + (canManageKids ? "100" : "500"),
+      ),
+      "Written social queue query",
     );
+
+    let visibleRows = rows;
+    if (!canManageKids) {
+      const sourceIds = [...new Set(rows.flatMap((row) => {
+        const source = asWrittenRecord(asWrittenRecord(row.metadata).source);
+        return [row.content_id, source.id].filter(
+          (value): value is string => typeof value === "string" && UUID_PATTERN.test(value),
+        );
+      }))];
+      const kidsSourceIds = new Set<string>();
+      if (sourceIds.length > 0) {
+        const kidsSources = requireSupabaseRows<{ id: string }>(
+          await supabaseServerAdminRequest<unknown>(
+            "/rest/v1/kids_content?id=in.(" + sourceIds.map(encodeURIComponent).join(",") + ")&select=id",
+          ),
+          "Written social Kids source visibility query",
+        );
+        for (const source of kidsSources) {
+          if (typeof source.id === "string") kidsSourceIds.add(source.id);
+        }
+      }
+      visibleRows = rows.filter((row) => isWrittenPostVisibleToSocialManager(row, kidsSourceIds));
+    }
+
+    const items = visibleRows.slice(0, 100).map((row) => ({
+      id: row.id,
+      title: row.title,
+      body: row.body,
+      status: row.status,
+      created_at: row.created_at,
+      scheduled_at: row.scheduled_at,
+      published_at: row.published_at,
+      error_message: row.error_message,
+      metadata: row.metadata,
+    }));
     return NextResponse.json(
-      { items: rows ?? [] },
+      { items },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
@@ -75,10 +134,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     const { category, batchSize: requestedBatchSize } = parsedRequest.value;
+    let allowKids = false;
+    if (category === "auto" || category === "kids") {
+      const kidsAuth = await requireAdminApi("kids.manage");
+      if (category === "kids" && !kidsAuth.ok) {
+        return NextResponse.json({ error: "Kids management permission is required for this category." }, { status: 403 });
+      }
+      if (
+        kidsAuth.ok &&
+        (kidsAuth.profile.id !== manageAuth.profile.id || kidsAuth.profile.id !== publishAuth.profile.id)
+      ) {
+        return NextResponse.json({ error: "Administrator identity changed during Kids authorization." }, { status: 403 });
+      }
+      allowKids = kidsAuth.ok;
+    }
 
     const dispatch = await dispatchGitHubWorkflow("generate-written-content.yml", {
       category,
       batch_size: String(requestedBatchSize),
+      allow_kids: String(allowKids),
     });
 
     try {
@@ -89,6 +163,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           category,
           batchSize: requestedBatchSize,
+          allowKids,
           workflowFile: dispatch.workflowFile,
           repository: dispatch.repository,
         },

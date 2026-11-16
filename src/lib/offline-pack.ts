@@ -1,7 +1,12 @@
 "use client";
 
 import { offlineDb } from "@/lib/offline-db";
-import { filterOfflineSupplementalKidsRoutes, getPublishedKidsOfflineRoutes, resolveSafeOfflineRoute } from "@/lib/offline-route-safety";
+import {
+  filterOfflineSupplementalKidsRoutes,
+  getPublishedKidsOfflineRoutes,
+  isOfflineRouteInventoryComplete,
+  resolveSafeOfflineRoute,
+} from "@/lib/offline-route-safety";
 
 type OfflineManifest = {
   version: string;
@@ -154,8 +159,15 @@ function mergedRoutes(
   const currentKidsRoutes = extraRoutes;
   const safeManifestRoutes = filterOfflineSupplementalKidsRoutes(manifest.routes ?? [], currentKidsRoutes);
   const safeSupplementalRoutes = filterOfflineSupplementalKidsRoutes(supplementalRoutes, currentKidsRoutes);
+  const safeAdditionalRoutes = filterOfflineSupplementalKidsRoutes(additionalRoutes, currentKidsRoutes);
   return Array.from(
-    new Set([...ESSENTIAL_ROUTES, ...safeManifestRoutes, ...safeSupplementalRoutes, ...additionalRoutes, ...currentKidsRoutes])
+    new Set([
+      ...ESSENTIAL_ROUTES,
+      ...safeManifestRoutes,
+      ...safeSupplementalRoutes,
+      ...safeAdditionalRoutes,
+      ...currentKidsRoutes,
+    ])
   ).filter(isCacheableOfflinePageRoute);
 }
 
@@ -486,7 +498,7 @@ export async function hydrateOfflineContent(
     const completion = await verifyCompletedDatasets(manifest);
     if (
       completion &&
-      routeInventory.every(route => completion.cachedRoutes.includes(route)) &&
+      isOfflineRouteInventoryComplete(routeInventory, completion.cachedRoutes) &&
       (await verifyCompletedRoutes(completion.cachedRoutes))
     ) {
       return {
@@ -642,8 +654,17 @@ export async function getOfflineLibraryStatus(expectedRoutes: string[] = []): Pr
     await offlineDb.initialize();
     const completion = await verifyCompletedDatasets(manifest);
     if (!completion) return { complete: false, cachedRoutes: 0 };
-    const requiredRoutes = mergedRoutes(manifest, await fetchSupplementalRouteInventory(), expectedRoutes);
-    const complete = requiredRoutes.every(route => completion.cachedRoutes.includes(route));
+    const existingKidsRows = await offlineDb.getAll<unknown>("kids");
+    const existingKidsRoutes = getPublishedKidsOfflineRoutes(existingKidsRows);
+    const requiredRoutes = mergedRoutes(
+      manifest,
+      await fetchSupplementalRouteInventory(),
+      expectedRoutes,
+      existingKidsRoutes,
+    );
+    const complete =
+      isOfflineRouteInventoryComplete(requiredRoutes, completion.cachedRoutes) &&
+      await verifyCompletedRoutes(completion.cachedRoutes);
     return complete
       ? { complete: true, cachedRoutes: completion.cachedRoutes.length }
       : { complete: false, cachedRoutes: 0 };

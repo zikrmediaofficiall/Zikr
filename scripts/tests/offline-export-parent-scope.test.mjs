@@ -72,5 +72,10 @@ test("offline export applies parent scope before validating and writing child da
   assert.match(exporter, /getPublishedParentScope\(dataset, exported\)/);
   assert.match(exporter, /parentScope\?\.hasParents === false/);
   assert.match(exporter, /\[\.\.\.filters, parentScope\.filter\]/);
-  assert.match(exporter, /isParentScopedOfflineDataset\(dataset\) \? 0 : configuredMinimum/);
+  assert.match(exporter, /isParentScopedOfflineDataset\(dataset\)[\s\S]*?resolveOfflineDatasetMinimum\(dataset, configuredMinimum, Boolean\(serviceRoleKey\)\)/);
+  const workflow = readFileSync(".github/workflows/refresh-offline-content.yml", "utf8");
+  assert.match(workflow, /"scripts\/lib\/offline-export-parent-scope\.mjs"/,
+    "changes to parent-scope export rules must trigger an offline snapshot refresh");
+  assert.match(workflow, /"scripts\/lib\/offline-export-route-pruning\.mjs"/,
+    "changes to published-route pruning rules must trigger an offline snapshot refresh");
 });

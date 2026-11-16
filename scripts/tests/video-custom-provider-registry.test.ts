@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { getVideoEngineConfig, parseCustomVideoSpaces } from "../../src/features/videos/providers/types";
+import { getVideoEngineConfig, isVideoAiPlanningEnabled, parseCustomVideoSpaces } from "../../src/features/videos/providers/types";
 
 const providerSource = readFileSync("src/features/videos/providers/hf-space-provider.ts", "utf8");
 const pythonSource = readFileSync("scripts/jobs/hf-space-video.py", "utf8");
+const visualsPageSource = readFileSync("src/app/admin/video/visuals/page.tsx", "utf8");
 
 const entries = parseCustomVideoSpaces(JSON.stringify([
   { space: "example/wan-free", variant: "wan2_2_fast", enabled: true },
@@ -28,6 +29,42 @@ const config = getVideoEngineConfig({ ...process.env,
 });
 assert.ok(config.order.includes("hf_custom_1"));
 assert.deepEqual(config.customSpaces.map((entry) => entry.name), ["hf_custom_1"]);
+const disabledAiConfig = getVideoEngineConfig({
+  NODE_ENV: process.env.NODE_ENV ?? "test",
+  VIDEO_AI_ENABLED: "false",
+  HF_VIDEO_CUSTOM_SPACES: JSON.stringify([{ space: "example/wan-free", variant: "wan2_2_fast", enabled: true }]),
+});
+assert.equal(disabledAiConfig.aiEnabled, false);
+assert.equal(disabledAiConfig.customSpaces.length, 1);
+
+const scheduledFreeProviderConfig = getVideoEngineConfig({
+  NODE_ENV: "test",
+  VIDEO_FREE_ONLY: "true",
+  VIDEO_AI_ENABLED: "true",
+  HF_WAN_VIDEO_ENABLED: "true",
+  HF_LTX_FAST_VIDEO_ENABLED: "true",
+  VIDEO_PROVIDER_ORDER: "hf_ltx_fast,hf_wan,template",
+});
+assert.equal(scheduledFreeProviderConfig.freeOnly, true);
+assert.equal(scheduledFreeProviderConfig.hfLtxFastEnabled, true);
+assert.equal(scheduledFreeProviderConfig.hfWanEnabled, true);
+assert.ok(scheduledFreeProviderConfig.order.includes("hf_ltx_fast"));
+assert.ok(scheduledFreeProviderConfig.order.includes("hf_wan"));
+assert.ok(scheduledFreeProviderConfig.order.includes("template"));
+assert.equal(
+  isVideoAiPlanningEnabled({
+    NODE_ENV: "test",
+    VIDEO_FREE_ONLY: "true",
+    VIDEO_AI_ENABLED: "true",
+    GEMINI_API_KEY: "test-key",
+  }),
+  false,
+  "free-only video generation must not make Gemini planning requests even when a key exists",
+);
+assert.ok(
+  visualsPageSource.includes("...(config.aiEnabled ? config.customSpaces.map((entry) => entry.name) : [])"),
+  "Admin visuals must not label custom providers enabled while the global AI switch is off",
+);
 const missingConfig = getVideoEngineConfig({ ...process.env, ...process.env, VIDEO_FREE_ONLY: "true", VIDEO_PROVIDER_ORDER: "hf_custom_2,hf_wan" });
 assert.ok(!missingConfig.order.includes("hf_custom_2"));
 console.log("Custom Hugging Face provider registry tests passed.");

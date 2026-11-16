@@ -8,11 +8,12 @@ import { resolveYouTubeVideoDisclosure } from "@/features/social/services/youtub
 import { getFacebookPageCredentials } from "@/features/social/services/facebook-credentials";
 import { resolveSocialPublishCutoff } from "@/features/social/services/facebook-queue-recovery-policy";
 import { extractFacebookReelsNextAllowedAt, isFacebookReelsCooldownDeferredError } from "@/features/social/services/facebook-reels-rate-limit";
-import { isVideoContentType, isVideoQueueItemApprovedForPublishing, type VideoPublishRequestSnapshot } from "@/features/videos/services/video-publish-approval";
+import { buildVideoApprovalSnapshotHashForRequest, isVideoContentType, isVideoQueueItemApprovedForPublishing, type VideoPublishRequestSnapshot } from "@/features/videos/services/video-publish-approval";
 import { shouldRestorePurgedPublishedVideo } from "@/features/videos/services/video-media-contract";
 import {
   buildDueSocialQueueClaimFilter,
   buildSocialPublishLeaseFilter,
+  buildVideoSocialQueueUpdateFilter,
   mergeUniqueSocialPublishCandidates,
   requireSocialQueueRows,
   scanSocialQueueCandidatePages,
@@ -23,8 +24,18 @@ import {
 import { getPublishedVideoStagingCleanupEligibleAt, PUBLISHED_VIDEO_CLEANUP_POSTGREST_FILTER, shouldRetryPublishedVideoCleanup } from "@/features/social/services/published-video-cleanup";
 import { patchSocialQueueMetadataWithCas } from "@/features/social/services/social-queue-metadata";
 import { buildNextRowVersionUpdatedAt } from "@/lib/supabase/row-version";
-import { buildSocialPublishInFlightMetadata, buildStaleSocialPublishRecoveryFilter, buildStaleSocialPublishRecoveryMetadata, clearRevalidatedSocialApprovalDeferrals, clearSocialPublishInFlightMetadata } from "@/features/social/services/social-publish-recovery-policy";
-import { isEligibleKidsWrittenPostForPublishing, isKidsWrittenPostCandidate, type CurrentKidsStory } from "@/features/social/services/written-content";
+import {
+  buildKidsSocialCatalogReconciliationQuery,
+  buildKidsCatalogSyncFailureState,
+  isKidsSocialCatalogPublicationInSync,
+  isKidsCatalogReconciliationEnabled,
+  resolveKidsSocialCatalogPublicationSnapshot,
+  shouldResetKidsCatalogSyncAfterPublicationChange,
+  KIDS_SOCIAL_CATALOG_RECONCILIATION_MAX_ROWS,
+  KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE,
+} from "@/features/social/services/kids-social-catalog-reconciliation";
+import { buildSocialPublishInFlightMetadata, buildStaleSocialPublishRecoveryFilter, buildStaleSocialPublishRecoveryMetadata, clearRevalidatedSocialApprovalDeferrals, clearSocialPublishInFlightMetadata, shouldScheduleSocialPublishRetry } from "@/features/social/services/social-publish-recovery-policy";
+import { isEligibleKidsWrittenPostForPublishing, isKidsWrittenPostCandidate, isUnclassifiedKidsSocialQueueItem, isKidsWrittenSourceReservation, type CurrentKidsStory } from "@/features/social/services/written-content";
 import { canAttemptSocialPlatform, getEnabledSocialPlatforms, getManualReconciliationPlatforms, getUnavailableSocialPlatforms, isAmbiguousProviderOutcome, isAuthBlocked, isPermanentSocialFailure, mergeAuthBlockedPlatforms, normalizeSocialAttemptCount, normalizeSocialPlatformResults } from "@/features/social/services/platform-availability";
 
 export type SocialPlatform = "facebook" | "facebook_reels" | "youtube";
@@ -57,6 +68,9 @@ type PlatformResult = {
   error?: string;
   requiresReconciliation?: boolean;
   approvalBlocked?: boolean;
+  providerCallSkipped?: boolean;
+  videoCatalogApprovalBlocked?: boolean;
+  videoCatalogPublicationPending?: boolean;
 };
 
 function siteUrl() {
@@ -135,7 +149,7 @@ async function hasVideoApprovalForQueueItem(item: SocialPublishQueueItem): Promi
       request: rows?.[0] ?? null,
     });
   } catch (error) {
-    console.error("[social-publishing] Automated QA lookup failed; holding video item:", item.id, error);
+    console.error("[social-publishing] Video approval lookup failed; holding video item:", item.id, error);
     return false;
   }
 }
@@ -147,6 +161,28 @@ async function checkVideoCatalogPublication(item: SocialPublishQueueItem): Promi
   }
 
   try {
+    const requestRows = await supabaseServerAdminRequest<Array<VideoPublishRequestSnapshot>>(
+      "/rest/v1/video_generation_requests?id=eq." + encodeURIComponent(item.content_id) +
+        "&select=status,category,video_url,source_hash,content_hash,template_version,content&limit=2",
+    );
+    if (!Array.isArray(requestRows) || requestRows.length === 0) {
+      return { status: "pending", reason: "The video generation request is not available for catalog revalidation." };
+    }
+    if (requestRows.length !== 1) {
+      return { status: "blocked", reason: "The video generation request ID is not unique." };
+    }
+    const request = requestRows[0];
+    if (request.status !== "completed" || !request.video_url || request.video_url.trim() !== item.video_url.trim()) {
+      return { status: "blocked", reason: "The current generation request no longer matches the queued video asset." };
+    }
+    const requestContent = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+      ? request.content as Record<string, unknown>
+      : null;
+    const expectedApprovalSnapshotHash = buildVideoApprovalSnapshotHashForRequest(request);
+    if (!expectedApprovalSnapshotHash) {
+      return { status: "blocked", reason: "The current generation request does not have a complete approval fingerprint." };
+    }
+
     const rows = await supabaseServerAdminRequest<Array<{ published: boolean | null; metadata: unknown }>>(
       "/rest/v1/videos?metadata->>videoGenerationRequestId=eq." +
         encodeURIComponent(item.content_id) +
@@ -162,8 +198,10 @@ async function checkVideoCatalogPublication(item: SocialPublishQueueItem): Promi
     return evaluateVideoCatalogPublication({
       contentId: item.content_id,
       queuedVideoUrl: item.video_url,
+      requestAudience: requestContent?.audience,
       queueAudience: item.metadata?.audience,
       queueKidsContentQaStatus: item.metadata?.kidsContentQaStatus,
+      expectedApprovalSnapshotHash,
       row: rows[0],
     });
   } catch (error) {
@@ -195,7 +233,10 @@ function isKidsWrittenQueueItem(item: SocialPublishQueueItem): boolean {
 async function checkWrittenPostSourceApproval(
   item: SocialPublishQueueItem,
 ): Promise<WrittenPostSourceApproval> {
-  if (item.content_type !== "written_post") return "not_applicable";
+  const contentType = typeof item.content_type === "string" ? item.content_type.trim().toLowerCase() : "";
+  if (isVideoContentType(contentType)) return "not_applicable";
+  if (isUnclassifiedKidsSocialQueueItem(item)) return "blocked";
+  if (contentType !== "written_post") return "not_applicable";
 
   const metadata = item.metadata ?? {};
   const sourceId = item.content_id;
@@ -220,12 +261,13 @@ async function checkWrittenPostSourceApproval(
 
   if (!sourceId) return "blocked";
   try {
-    const articles = await supabaseServerAdminRequest<Array<{ id: string; published: unknown }>>(
+    const articles = await supabaseServerAdminRequest<Array<{ id: string; published: unknown; metadata: unknown }>>(
       "/rest/v1/articles?id=eq." + encodeURIComponent(sourceId) +
-        "&select=id,published&limit=2",
+        "&select=id,published,metadata&limit=2",
     );
     if (!Array.isArray(articles)) throw new Error("Written article publication lookup returned invalid data.");
     if (articles.length !== 1) return "blocked";
+    if (isKidsWrittenSourceReservation(articles[0].metadata)) return "blocked";
     if (articles[0].published === true) return "approved";
     if (typeof articles[0].published !== "boolean") {
       throw new Error("Written article publication flag is invalid.");
@@ -603,14 +645,26 @@ async function publishPlatform(
       };
     }
     if (!(await hasVideoApprovalForQueueItem(item))) {
-      return { platform, ok: false, approvalBlocked: true, error: "Video held because automated QA is missing, incomplete or stale." };
+      return { platform, ok: false, approvalBlocked: true, error: "Video held because automated QA or Kids human review is missing, incomplete or stale." };
     }
     const catalogApproval = await checkVideoCatalogPublication(item);
     if (catalogApproval.status === "blocked") {
-      return { platform, ok: false, error: "Video catalog approval is blocked: " + catalogApproval.reason };
+      return {
+        platform,
+        ok: false,
+        providerCallSkipped: true,
+        videoCatalogApprovalBlocked: true,
+        error: "Video catalog approval is blocked: " + catalogApproval.reason,
+      };
     }
     if (catalogApproval.status === "pending") {
-      return { platform, ok: false, approvalBlocked: true, error: "Video catalog publication is pending: " + catalogApproval.reason };
+      return {
+        platform,
+        ok: false,
+        providerCallSkipped: true,
+        videoCatalogPublicationPending: true,
+        error: "Video catalog publication is pending: " + catalogApproval.reason,
+      };
     }
     const publication =
       platform === "facebook"
@@ -652,22 +706,26 @@ async function publishPlatform(
  * has confirmed publication. Provider post IDs and the text/audit records stay.
  * Supabase originals are kept only until Cloudinary and Supabase cleanup succeed.
  */
+type KidsCatalogSyncResult =
+  | { ok: true }
+  | { ok: false; reason: string };
+
+type KidsCatalogSyncState = "synced" | "pending" | "held";
+
 async function syncKidsSocialPublicationToCatalog(
   item: SocialPublishQueueItem,
   queueMetadata: Record<string, unknown>,
-): Promise<void> {
-  if (!isVideoContentType(item.content_type) || !item.content_id) return;
-  if (queueMetadata.audience !== "kids" || queueMetadata.kidsContentQaStatus !== "passed") return;
+): Promise<KidsCatalogSyncResult> {
+  if (!isVideoContentType(item.content_type) || queueMetadata.audience !== "kids") return { ok: true };
+  if (queueMetadata.kidsContentQaStatus !== "passed") {
+    return { ok: false, reason: "Kids queue row has no current automated QA pass." };
+  }
 
-  const rawResults = queueMetadata.platformResults;
-  const results = normalizeSocialPlatformResults(rawResults);
-  const successfulPlatforms = item.target_platforms.filter((platform) => {
-    const result = results[platform];
-    if (!result || typeof result !== "object" || Array.isArray(result)) return false;
-    const row = result as { ok?: unknown; remoteId?: unknown };
-    return row.ok === true && typeof row.remoteId === "string" && row.remoteId.trim().length > 0;
-  });
-  if (successfulPlatforms.length === 0) return;
+  const queueItem = { ...item, metadata: queueMetadata };
+  const snapshot = resolveKidsSocialCatalogPublicationSnapshot(queueItem);
+  if (!snapshot) {
+    return { ok: false, reason: "Kids queue row has no complete confirmed provider-publication result." };
+  }
 
   try {
     const rows = await supabaseServerAdminRequest<Array<{
@@ -677,37 +735,55 @@ async function syncKidsSocialPublicationToCatalog(
       updated_at: string | null;
     }>>(
       "/rest/v1/videos?metadata->>videoGenerationRequestId=eq." +
-        encodeURIComponent(item.content_id) +
+        encodeURIComponent(item.content_id ?? "") +
         "&metadata->>audience=eq.kids&select=id,published,metadata,updated_at&limit=2",
     );
     if (!Array.isArray(rows) || rows.length !== 1) {
-      if (Array.isArray(rows) && rows.length > 1) {
-        console.error("[social-publishing] Kids catalog reconciliation stopped: request maps to multiple video rows:", item.content_id);
-      }
-      return;
+      return {
+        ok: false,
+        reason: Array.isArray(rows) && rows.length > 1
+          ? "Generation request maps to multiple Kids catalog rows."
+          : "The matching Kids catalog row is not available.",
+      };
     }
 
     const row = rows[0];
-    if (row.published !== true) return;
+    if (row.published !== true) {
+      return { ok: false, reason: "The Kids catalog row is no longer published." };
+    }
     if (typeof row.updated_at !== "string" || !Number.isFinite(Date.parse(row.updated_at))) {
-      console.warn("[social-publishing] Kids catalog row has no valid updated_at; refusing an unversioned metadata update:", item.content_id);
-      return;
+      return { ok: false, reason: "Kids catalog row has no valid updated_at revision." };
     }
     const existing = row.metadata ?? {};
     if (
       existing.generator !== "zikr_internal_video_factory" ||
       existing.audience !== "kids" ||
       existing.kidsVideoQaStatus !== "passed"
-    ) return;
+    ) {
+      return { ok: false, reason: "Kids catalog provenance or QA state no longer matches the queue." };
+    }
+    if (isKidsSocialCatalogPublicationInSync(existing, snapshot)) return { ok: true };
 
-    const allTargetsSucceeded = item.target_platforms.every((platform) => successfulPlatforms.includes(platform));
     const updatedAt = buildNextRowVersionUpdatedAt(row.updated_at);
+    const existingPublication = existing.socialPublication &&
+      typeof existing.socialPublication === "object" &&
+      !Array.isArray(existing.socialPublication)
+      ? existing.socialPublication as Record<string, unknown>
+      : {};
+    const existingPublishedAt = typeof existingPublication.publishedAt === "string" &&
+      Number.isFinite(Date.parse(existingPublication.publishedAt))
+      ? existingPublication.publishedAt
+      : null;
+    const queuePublishedAt = typeof item.published_at === "string" &&
+      Number.isFinite(Date.parse(item.published_at))
+      ? item.published_at
+      : null;
     const nextMetadata = {
       ...existing,
       socialPublication: {
-        status: allTargetsSucceeded ? "published" : "partial",
-        platforms: successfulPlatforms,
-        publishedAt: updatedAt,
+        status: snapshot.status,
+        platforms: snapshot.platforms,
+        publishedAt: queuePublishedAt ?? existingPublishedAt ?? updatedAt,
       },
     };
     const query = "/rest/v1/videos?id=eq." + encodeURIComponent(row.id) +
@@ -717,12 +793,140 @@ async function syncKidsSocialPublicationToCatalog(
       headers: { "Content-Type": "application/json", Prefer: "return=representation" },
       body: JSON.stringify({ metadata: nextMetadata, updated_at: updatedAt }),
     });
-    if (!updated?.length) {
-      console.warn("[social-publishing] Kids catalog social status was not updated after a concurrent change:", item.content_id);
+    if (!Array.isArray(updated) || updated.length !== 1) {
+      return { ok: false, reason: "Kids catalog metadata compare-and-set did not update exactly one row." };
     }
+    return { ok: true };
   } catch (error) {
     console.error("[social-publishing] Kids social status sync failed:", item.content_id, error);
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message.slice(0, 400) : "Unknown Kids catalog synchronization error.",
+    };
   }
+}
+
+async function markKidsCatalogSyncState(
+  item: SocialPublishQueueItem,
+  requestedState: KidsCatalogSyncState,
+  reason?: string,
+): Promise<KidsCatalogSyncState | "stale"> {
+  const filter = buildVideoSocialQueueUpdateFilter(item.id, item.status, item.updated_at);
+  if (!filter) return "stale";
+
+  const now = new Date().toISOString();
+  const existingAttempts = Number(item.metadata?.kidsCatalogSyncAttempts ?? 0);
+  const safeAttempts = Number.isSafeInteger(existingAttempts) && existingAttempts >= 0 ? existingAttempts : 0;
+  const failure = requestedState === "pending"
+    ? buildKidsCatalogSyncFailureState(item.metadata, reason ?? "Catalog synchronization did not complete.", now)
+    : null;
+  const state = failure?.status ?? requestedState;
+  const attempts = failure?.attempts ?? safeAttempts;
+  const updatedAt = buildNextRowVersionUpdatedAt(item.updated_at);
+  const metadata = {
+    ...(item.metadata ?? {}),
+    kidsCatalogSyncStatus: state,
+    kidsCatalogSyncAttempts: attempts,
+    kidsCatalogSyncLastAttemptAt: now,
+    kidsCatalogSyncLastError: reason?.slice(0, 500) ?? null,
+    kidsCatalogSyncSyncedAt: state === "synced" ? now : null,
+    kidsCatalogSyncManualReconciliationRequired: state === "held",
+  };
+  const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(
+    "/rest/v1/social_publish_queue?" + filter,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ metadata, updated_at: updatedAt }),
+    },
+  );
+  if (!Array.isArray(updated) || updated.length !== 1) return "stale";
+  return state;
+}
+
+/**
+ * Retry catalog-only reconciliation for already-published Kids queue rows.
+ * This path verifies the current human approval and only updates catalog
+ * metadata; it never calls Facebook/YouTube or changes external posts.
+ */
+export async function reconcilePublishedKidsVideoCatalog(limit = KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE) {
+  if (!isKidsCatalogReconciliationEnabled(process.env)) {
+    return { enabled: false, scanned: 0, candidates: 0, synced: 0, pending: 0, held: 0, failed: 0, truncated: false };
+  }
+
+  const pageSize = Math.max(1, Math.min(KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE, Math.floor(limit) || 1));
+  const cutoff = resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER);
+  const scan = await scanSocialQueueCandidatePages<SocialPublishQueueItem>({
+    pageSize,
+    maxRows: KIDS_SOCIAL_CATALOG_RECONCILIATION_MAX_ROWS,
+    fetchPage: async (offset, requestedLimit) => {
+      const rows = await supabaseServerAdminRequest<SocialPublishQueueItem[]>(
+        "/rest/v1/social_publish_queue?" +
+          buildKidsSocialCatalogReconciliationQuery(cutoff, offset, requestedLimit),
+      );
+      return requireSocialQueueRows<SocialPublishQueueItem>(rows, "Kids catalog reconciliation query");
+    },
+    // Read the bounded inventory before writing row metadata so offset pages
+    // cannot shift as successful/held rows leave the pending filter.
+    hasEnoughCandidates: () => false,
+  });
+
+  const result = {
+    enabled: true,
+    scanned: 0,
+    candidates: 0,
+    synced: 0,
+    pending: 0,
+    held: 0,
+    failed: 0,
+    truncated: scan.truncated,
+  };
+  for (const item of scan.rows) {
+    result.scanned += 1;
+    try {
+      const snapshot = resolveKidsSocialCatalogPublicationSnapshot(item);
+      if (!snapshot) {
+        const state = await markKidsCatalogSyncState(item, "held", "Published Kids queue row has incomplete or inconsistent confirmed provider results.");
+        if (state === "held") result.held += 1;
+        else result.failed += 1;
+        continue;
+      }
+      result.candidates += 1;
+
+      const approval = await checkVideoCatalogPublication(item);
+      if (approval.status === "blocked") {
+        const state = await markKidsCatalogSyncState(item, "held", approval.reason);
+        if (state === "held") result.held += 1;
+        else result.failed += 1;
+        continue;
+      }
+      if (approval.status === "pending") {
+        const state = await markKidsCatalogSyncState(item, "pending", approval.reason);
+        if (state === "pending") result.pending += 1;
+        else if (state === "held") result.held += 1;
+        else result.failed += 1;
+        continue;
+      }
+
+      const sync = await syncKidsSocialPublicationToCatalog(item, item.metadata ?? {});
+      const state = await markKidsCatalogSyncState(
+        item,
+        sync.ok ? "synced" : "pending",
+        sync.ok ? undefined : sync.reason,
+      );
+      if (state === "synced") result.synced += 1;
+      else if (state === "pending") result.pending += 1;
+      else if (state === "held") result.held += 1;
+      else result.failed += 1;
+    } catch (error) {
+      result.failed += 1;
+      console.error("[social-publishing] Kids catalog reconciliation row failed:", item.id, error);
+    }
+  }
+  if (scan.truncated) {
+    console.warn("[social-publishing] Kids catalog reconciliation reached its bounded row cap; remaining rows will be considered on a later run.");
+  }
+  return result;
 }
 
 async function syncYouTubeVideoReferenceToCatalog(
@@ -898,12 +1102,12 @@ export async function resetQueuedSocialVideoMedia(
 
 export async function retryPendingPublishedVideoCleanup(limit = 25): Promise<{
   attempted: number;
-  cleaned: number;
+  markedForRetention: number;
   pending: number;
   error?: string;
 }> {
   let attempted = 0;
-  let cleaned = 0;
+  let markedForRetention = 0;
   try {
     const cutoff = new Date(process.env.SOCIAL_PUBLISH_AFTER ?? "2026-11-06T20:00:00Z");
     if (!Number.isFinite(cutoff.getTime())) throw new Error("Invalid SOCIAL_PUBLISH_AFTER cutoff.");
@@ -917,18 +1121,18 @@ export async function retryPendingPublishedVideoCleanup(limit = 25): Promise<{
       if (!isVideoContentType(item.content_type)) continue;
       if (!shouldRetryPublishedVideoCleanup(item.metadata)) continue;
       attempted += 1;
-      if (await disposePublishedVideo(item)) cleaned += 1;
+      if (await disposePublishedVideo(item)) markedForRetention += 1;
     }
   } catch (error) {
-    console.error("[social-publishing] Failed to retry published-video cleanup:", error);
+    console.error("[social-publishing] Failed to refresh published-video staging-retention markers:", error);
     return {
       attempted,
-      cleaned,
-      pending: Math.max(1, attempted - cleaned),
+      markedForRetention,
+      pending: Math.max(1, attempted - markedForRetention),
       error: error instanceof Error ? error.message : String(error),
     };
   }
-  return { attempted, cleaned, pending: Math.max(0, attempted - cleaned) };
+  return { attempted, markedForRetention, pending: Math.max(0, attempted - markedForRetention) };
 }
 
 export async function processSocialPublishItem(
@@ -1098,7 +1302,10 @@ export async function processSocialPublishItem(
       // This recovery path reuses already-confirmed provider results. Keep the
       // catalog fallback in sync just as the normal provider-result path does.
       await syncYouTubeVideoReferenceToCatalog(item, previous.youtube);
-      await syncKidsSocialPublicationToCatalog(item, previousMetadata);
+      const kidsCatalogSync = await syncKidsSocialPublicationToCatalog(item, previousMetadata);
+      if (!kidsCatalogSync.ok) {
+        console.warn("[social-publishing] Kids catalog sync will be retried by the catalog reconciler:", item.content_id, kidsCatalogSync.reason);
+      }
       if (isVideoContentType(item.content_type)) await disposePublishedVideo({ ...item, metadata: previousMetadata });
       return "published";
     }
@@ -1185,7 +1392,7 @@ export async function processSocialPublishItem(
   const deferredFailures = failures.filter(failure =>
     failure.platform === "facebook_reels" && isFacebookReelsCooldownDeferredError(failure.error),
   );
-  const operationalFailures = failures.filter(failure => !deferredFailures.includes(failure));
+  const operationalFailures = failures.filter(failure => !failure.providerCallSkipped && !deferredFailures.includes(failure));
   const allTargetsSucceeded = platforms.every(platform => {
     const result = mergedResults[platform];
     return result?.ok === true && typeof result.remoteId === "string" && result.remoteId.trim().length > 0;
@@ -1197,7 +1404,7 @@ export async function processSocialPublishItem(
   const hasNonAuthFailure = operationalFailures.some(failure => !isAuthBlocked(failure.platform, failure.error));
   const hasTransientFailure = operationalFailures.some(failure => {
     const message = failure.error?.toLowerCase() || "";
-    return /http\s+(408|425|429|500|502|503|504)|timeout|timed out|fetch failed|temporar|rate limit|overloaded|quota/i.test(message);
+    return /http\s+(408|425|429|500|502|503|504)|timeout|timed out|fetch failed|temporar|rate limit|overloaded|quota|video catalog publication is pending/i.test(message);
   });
   const facebookReelsNextAllowedAt = failures
     .filter(failure => failure.platform === "facebook_reels")
@@ -1210,10 +1417,10 @@ export async function processSocialPublishItem(
       : {}),
   };
   for (const result of results) {
-    if (result.approvalBlocked) continue;
+    if (result.approvalBlocked || result.providerCallSkipped) continue;
     maxAttemptsByPlatform[result.platform] = (normalizeSocialAttemptCount(maxAttemptsByPlatform[result.platform] ?? 0) ?? 0) + 1;
   }
-  const attemptedProviderCalls = results.filter(result => !result.approvalBlocked).length;
+  const attemptedProviderCalls = results.filter(result => !result.approvalBlocked && !result.providerCallSkipped).length;
   const attempts = (normalizeSocialAttemptCount(previousMetadata.attempts ?? 0) ?? 0) + (facebookReelsNextAllowedAt ? 0 : attemptedProviderCalls > 0 ? 1 : 0);
   const retryableOperationalFailures = operationalFailures.some(failure => {
     const currentPlatformAttempts = normalizeSocialAttemptCount(maxAttemptsByPlatform[failure.platform] ?? 0);
@@ -1222,12 +1429,22 @@ export async function processSocialPublishItem(
       !isAuthBlocked(failure.platform, failure.error) &&
       !isPermanentSocialFailure(failure.error);
   });
+  const videoCatalogApprovalBlocked = results.some(result => result.videoCatalogApprovalBlocked === true);
+  const videoCatalogPublicationPending = results.some(result => result.videoCatalogPublicationPending === true);
+  const videoCatalogApprovalReason = results.find(result => result.videoCatalogApprovalBlocked === true || result.videoCatalogPublicationPending === true)?.error ?? null;
   const hasDeferredTargets = unavailablePlatforms.length > 0 || approvalDeferredPlatforms.length > 0 || deferredFailures.length > 0;
-  const shouldRetry = Boolean(facebookReelsNextAllowedAt) || hasDeferredTargets ||
-    (retryableOperationalFailures && (hasTransientFailure || successes.length > 0));
+  const shouldRetry = shouldScheduleSocialPublishRetry({
+    facebookReelsNextAllowedAt,
+    hasDeferredTargets,
+    videoCatalogApprovalBlocked,
+    videoCatalogPublicationPending,
+    retryableOperationalFailures,
+    hasTransientFailure,
+    hasSuccesses: successes.length > 0,
+  });
   const retryDelayMinutes = hasAuthFailure ? 15 : socialRetryDelayMinutes(attempts, item.id);
   const nextRetryAt = facebookReelsNextAllowedAt ?? (shouldRetry
-    ? new Date(Date.now() + (hasDeferredTargets ? 15 : retryDelayMinutes) * 60_000).toISOString()
+    ? new Date(Date.now() + (hasDeferredTargets || videoCatalogPublicationPending ? 15 : retryDelayMinutes) * 60_000).toISOString()
     : null);
 
   const nextStatus: SocialQueueStatus = allTargetsSucceeded
@@ -1260,7 +1477,7 @@ export async function processSocialPublishItem(
     inFlightStartedAt,
     attemptCompletedAt,
   );
-  const publishMetadata = {
+  const publishMetadata: Record<string, unknown> = {
     ...completedMetadata,
     attempts,
     maxAttempts,
@@ -1272,15 +1489,46 @@ export async function processSocialPublishItem(
     permanentFailurePlatforms,
     unavailablePlatforms,
     approvalDeferredPlatforms,
+    videoCatalogApprovalBlocked,
+    videoCatalogPublicationPending,
+    videoCatalogApprovalReason,
+    videoCatalogPublicationRetryAt: videoCatalogPublicationPending ? nextRetryAt : null,
     facebookReelsNextAllowedAt,
     deferredPlatforms: deferredFailures.map(failure => failure.platform),
     platformResults: mergedResults,
   };
 
+  const previousKidsCatalogSnapshot = resolveKidsSocialCatalogPublicationSnapshot(item);
+  const nextKidsCatalogSnapshot = resolveKidsSocialCatalogPublicationSnapshot({
+    ...item,
+    status: persistedStatus,
+    metadata: publishMetadata,
+  });
+  if (
+    isVideoContentType(item.content_type) &&
+    publishMetadata.audience === "kids" &&
+    shouldResetKidsCatalogSyncAfterPublicationChange(
+      publishMetadata.kidsCatalogSyncStatus,
+      previousKidsCatalogSnapshot,
+      nextKidsCatalogSnapshot,
+    )
+  ) {
+    // A partial snapshot may have been reconciled successfully before a later
+    // provider retry adds another confirmed target. Reopen the catalog sync so
+    // a failed live update cannot leave the catalog permanently stale.
+    publishMetadata.kidsCatalogSyncStatus = "pending";
+    publishMetadata.kidsCatalogSyncAttempts = 0;
+    publishMetadata.kidsCatalogSyncLastAttemptAt = null;
+    publishMetadata.kidsCatalogSyncLastError = null;
+    publishMetadata.kidsCatalogSyncSyncedAt = null;
+    publishMetadata.kidsCatalogSyncManualReconciliationRequired = false;
+  }
+
   const errorMessages = operationalFailures.map(failure =>
     `${failure.platform}: ${failure.error ?? "unknown error"}` +
       (failure.requiresReconciliation ? " (remote outcome unknown; manual reconciliation required before retry)" : ""),
   );
+  if (videoCatalogApprovalReason) errorMessages.push(videoCatalogApprovalReason);
   if (unavailablePlatforms.length) errorMessages.push("Waiting for channel configuration: " + unavailablePlatforms.join(", "));
   if (approvalDeferredPlatforms.length) errorMessages.push("Approval revalidation held publishing for: " + approvalDeferredPlatforms.join(", "));
   const finalized = await markQueueItem(item.id, persistedStatus, {
@@ -1297,7 +1545,10 @@ export async function processSocialPublishItem(
   // Persist the confirmed YouTube video ID to the public catalog even when
   // another requested target is deferred; this provides a resilient playback fallback.
   await syncYouTubeVideoReferenceToCatalog(item, mergedResults.youtube);
-  await syncKidsSocialPublicationToCatalog(item, publishMetadata);
+  const kidsCatalogSync = await syncKidsSocialPublicationToCatalog(item, publishMetadata);
+  if (!kidsCatalogSync.ok) {
+    console.warn("[social-publishing] Kids catalog sync will be retried by the catalog reconciler:", item.content_id, kidsCatalogSync.reason);
+  }
 
   if (allTargetsSucceeded) {
     if (isVideoContentType(item.content_type)) await disposePublishedVideo({ ...item, metadata: publishMetadata });

@@ -9,6 +9,7 @@ export type NotificationPermission =
   "granted" | "denied" | "default" | "unsupported";
 
 type NativeNotificationFacade = {
+  checkNotificationPermission?: () => Promise<unknown>;
   requestNotificationPermission?: () => Promise<unknown>;
   scheduleLocalNotification?: (notification: {
     id: number;
@@ -58,25 +59,51 @@ async function showNativeNotification(
   }
 }
 
+function normalizeNativeNotificationPermission(result: unknown): NotificationPermission | null {
+  const display = (result as { display?: unknown } | undefined)?.display;
+  if (display === "granted" || display === "denied") return display;
+  if (display === "prompt" || display === "prompt-with-rationale" || display === "default") return "default";
+  return null;
+}
+
+export async function getNotificationPermission(): Promise<NotificationPermission> {
+  if (typeof window === "undefined") return "unsupported";
+
+  const native = (window as NativeNotificationWindow).zikrNative;
+  if (native) {
+    if (!native.checkNotificationPermission) return "unsupported";
+    try {
+      return normalizeNativeNotificationPermission(await native.checkNotificationPermission()) ?? "unsupported";
+    } catch {
+      return "unsupported";
+    }
+  }
+
+  if (!("Notification" in window)) return "unsupported";
+  return Notification.permission as NotificationPermission;
+}
+
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (typeof window === "undefined") return "unsupported";
 
   const native = (window as NativeNotificationWindow).zikrNative;
-  if (native?.requestNotificationPermission) {
+  if (native) {
+    if (!native.requestNotificationPermission) return "unsupported";
     try {
-      const result = await native.requestNotificationPermission();
-      const display = (result as { display?: string } | undefined)?.display;
-      if (display === "granted" || display === "denied" || display === "prompt") {
-        return display === "prompt" ? "default" : (display as NotificationPermission);
-      }
+      return normalizeNativeNotificationPermission(await native.requestNotificationPermission()) ?? "unsupported";
     } catch {
-      return "denied";
+      // A bridge failure is not a user denial. Keep the opt-in retryable.
+      return "unsupported";
     }
   }
-  if (native) return "granted";
 
   if (!("Notification" in window)) return "unsupported";
-  return Notification.requestPermission() as Promise<NotificationPermission>;
+  try {
+    return await Notification.requestPermission() as NotificationPermission;
+  } catch {
+    // Browser permission APIs can reject in restricted WebViews; do not report a denial.
+    return "unsupported";
+  }
 }
 
 /**

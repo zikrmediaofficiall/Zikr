@@ -38,4 +38,24 @@ for (const filename of readdirSync(workflowDirectory).filter((name) => name.ends
   }
 }
 
+const circleConfig = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "../../.circleci/config.yml"),
+  "utf8",
+);
+const circleJobLines = circleConfig.split(/\r?\n/);
+const androidRebuildStart = circleJobLines.findIndex((line) => line === "  android-rebuild:");
+const androidRebuildEnd = circleJobLines.findIndex((line, index) =>
+  index > androidRebuildStart && (line === "workflows:" || /^  [a-z0-9_-]+:$/.test(line)),
+);
+const androidRebuildJob = androidRebuildStart >= 0
+  ? circleJobLines.slice(androidRebuildStart + 1, androidRebuildEnd >= 0 ? androidRebuildEnd : circleJobLines.length).join("\n")
+  : "";
+assert.ok(androidRebuildJob, "CircleCI Android rebuild job must be present");
+for (const secretName of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
+  assert.ok(
+    androidRebuildJob.includes(secretName + ': ""'),
+    "Android signing builds must not inherit the project-level Supabase credential: " + secretName,
+  );
+}
+
 console.log("CI architecture and workflow runtime contract tests passed.");

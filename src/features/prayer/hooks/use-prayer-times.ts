@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getCurrentPrayer,
   getNextPrayer,
+  getPrayerTimes as fetchPrayerTimes,
   type PrayerTime,
 } from "@/features/prayer/services/prayer-times";
 
@@ -38,18 +39,10 @@ export function usePrayerTimes(): UsePrayerTimesReturn {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(
-          `/api/prayer-times?latitude=${latitude}&longitude=${longitude}&method=4`
-        );
-        if (!response.ok) throw new Error("Failed to fetch prayer times");
-        const data = await response.json();
-        const next = data.data?.timings ?? data.timings;
-        const timeZone =
-          typeof data.data?.meta?.timezone === "string"
-            ? data.data.meta.timezone
-            : typeof data.meta?.timezone === "string"
-              ? data.meta.timezone
-              : undefined;
+        const data = await fetchPrayerTimes(latitude, longitude, undefined, 4);
+        if (!data) throw new Error("Failed to fetch prayer times");
+        const next = data.data?.timings;
+        const timeZone = data.data?.meta?.timezone;
         const evaluatedAt = new Date();
         setTimes(next);
         if (next) {

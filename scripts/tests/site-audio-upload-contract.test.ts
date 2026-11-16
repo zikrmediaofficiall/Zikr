@@ -113,8 +113,19 @@ assert.deepEqual(
 const adminRoute = readFileSync("src/app/api/admin/site-audio/route.ts", "utf8");
 const uploadRoute = readFileSync("src/app/api/admin/site-audio/upload/route.ts", "utf8");
 const manager = readFileSync("src/features/admin/components/site-audio-manager.tsx", "utf8");
+const postStart = adminRoute.indexOf("export async function POST");
+const patchStart = adminRoute.indexOf("export async function PATCH");
+const deleteStart = adminRoute.indexOf("export async function DELETE");
+assert.ok(adminRoute.slice(postStart, patchStart).includes('requireAdminStepUpApi("audio.manage", "/admin/site-audio")'), "asset registration must require MFA step-up");
+assert.ok(adminRoute.slice(patchStart, deleteStart).includes('requireAdminStepUpApi("audio.manage", "/admin/site-audio")'), "primary asset changes must require MFA step-up");
+assert.ok(manager.includes('!response.ok && payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)'), "primary asset UI must complete step-up before changing the primary selection");
 assert.ok(adminRoute.includes("readBoundedJsonBody(request)"));
 assert.ok(uploadRoute.includes("readBoundedJsonBody(request)"));
+assert.ok(uploadRoute.includes("requireAdminStepUpApi('audio.manage', '/admin/site-audio')"), "signed site-audio upload URLs must require server-side MFA step-up");
+assert.ok(!uploadRoute.includes("requireAdminApi('audio.manage')"), "upload URL issuance must not rely on role-only authorization");
+assert.ok(manager.includes('!presign.ok && signed.error === "step_up_required" && redirectToAdminStepUp(signed.nextPath)'), "the upload UI must complete step-up before receiving a signed Storage capability");
+assert.ok(manager.includes('!save.ok && payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)'), "the upload UI must handle step-up expiry before registering an uploaded asset");
+
 assert.equal(adminRoute.includes("request.json()"), false, "admin site-audio JSON bodies must remain bounded");
 assert.equal(uploadRoute.includes("request.json()"), false, "site-audio upload JSON bodies must remain bounded");
 const oversizedRequest = new Request("https://zikrmediaofficial.vercel.app/api/admin/site-audio", {
@@ -139,6 +150,12 @@ assert.ok(
 assert.match(uploadRoute, /SITE_AUDIO_ALLOWED_MIME_TYPES/);
 assert.match(uploadRoute, /SITE_AUDIO_MAX_BYTES/);
 assert.match(uploadRoute, /MP3 أو WAV أو OGG أو M4A أو AAC أو WebM/, "the upload error must list every supported audio format");
+const uploadSuccessStart = uploadRoute.indexOf("return NextResponse.json({\n    path,");
+const uploadSuccessEnd = uploadRoute.indexOf("\n  }, { headers:", uploadSuccessStart);
+assert.ok(uploadSuccessStart >= 0 && uploadSuccessEnd > uploadSuccessStart, "the signed capability response must remain identifiable");
+assert.match(uploadRoute.slice(uploadSuccessStart, uploadSuccessEnd + 160), /Cache-Control.*no-store, private/,
+  "the signed upload URL and token must never be cacheable by browsers or intermediaries");
+
 const signedUrlPosition = uploadRoute.indexOf("createSignedUploadUrl");
 const auditEventPosition = uploadRoute.indexOf("await recordAdminAuditEvent", signedUrlPosition);
 assert.ok(signedUrlPosition >= 0 && auditEventPosition > signedUrlPosition, "the audit event is recorded after the signed URL is created");
@@ -154,7 +171,6 @@ assert.ok(manager.includes("const presignAuditRecorded = signed.auditRecorded !=
 assert.match(manager, /!presignAuditRecorded/);
 assert.match(adminRoute, /recordAuditSafely/);
 const primaryPatchStart = adminRoute.indexOf("export async function PATCH");
-const deleteStart = adminRoute.indexOf("export async function DELETE");
 const primaryPatch = adminRoute.slice(primaryPatchStart, deleteStart);
 assert.ok(primaryPatch.includes("admin_set_primary_site_audio_asset"));
 assert.ok(primaryPatch.includes("auditRecorded: true"));

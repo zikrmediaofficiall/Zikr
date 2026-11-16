@@ -21,11 +21,15 @@ The global external-publishing emergency stop is the Admin → Automation settin
 
 ## Automated video QA
 
-Every public video target requires a persisted, five-part automated QA result (source, audio, visuals, captions, rights) bound to the current source, content, template version, and media URL. The worker checks it before claim and immediately before each provider call. A missing, failed, stale, or changed QA result holds the video; no human review is required. Written-only posts keep their separate reviewed-source path.
+Every public video target requires a persisted, five-part automated QA result (source, audio, visuals, captions, rights) bound to the current source, content, template version, and media URL. The worker checks it before claim and immediately before each provider call. A missing, failed, stale, or changed QA result holds the video. General-audience videos may proceed after automated QA; Kids videos additionally require a matching human approval record with all five checks, a non-system reviewer, and the same approval fingerprint. Written-only posts keep their separate reviewed-source path.
 
 ## Independent retry behavior
 
 Successful provider post IDs are retained and never republished. An unavailable provider is marked in `unavailablePlatforms` and retried on a later scheduled run without consuming attempts. Facebook auth failures are scoped to Facebook targets. Per-channel attempt ceilings are stored under `platformAttempts`. After Facebook reauthorization, only Facebook failures/attempt counters are cleared; YouTube delivery history is retained.
+
+## Kids catalog metadata reconciliation
+
+A confirmed provider post and its internal video-catalog metadata are separate writes. If the provider succeeds but the catalog compare-and-set fails, the queue row remains the source of the confirmed remote result. The scheduled worker has an opt-in catalog-only reconciliation path controlled by `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED` (default `false`). The production GitHub Actions workflow maps the repository variable of the same name into the worker environment; it remains disabled unless the owner explicitly sets that variable to `true`. The current runner reaches this branch only when the Admin auto-publish setting and `SOCIAL_PUBLISH_ENABLED=true` also admit the social worker; either gate pauses reconciliation. The flag itself never enables provider delivery. It scans a bounded set of already-published Kids rows, revalidates the current generation request and human-approval fingerprint, and updates only the internal `videos.metadata.socialPublication` field. It does not call Facebook/YouTube, republish, delete media, or alter provider posts. Rows that fail approval or exhaust eight sync attempts are held for manual review; do not mark them approved automatically.
 
 ## Monitoring
 
@@ -42,7 +46,7 @@ Use the channel-specific connection test and reconnect that provider. The retry 
 ## Queue readiness, immediate publishing, and remote deletion
 
 - Admin → Social Publishing separates the active queue from the published-video ledger. The queue shows the exact persisted QA approval state for every generated video, including the automated checklist results, missing checks, fingerprint version, and any reason publication was held.
-- A video is eligible only when the automated source, audio, visuals, captions, and rights checks all pass for the exact MP4. Immediate publishing only advances already eligible queue rows; it never bypasses the automated QA gate.
+- A general-audience video is eligible only when the automated source, audio, visuals, captions, and rights checks all pass for the exact MP4. A Kids video also needs a matching human approval record; automated QA alone never releases it to an external platform. Immediate publishing only advances already eligible queue rows and cannot bypass either gate.
 - The “Publish selected now” action moves selected eligible items to the front of the next GitHub Actions run. Facebook Reels provider cooldowns and platform authentication limits still apply; the action does not override provider restrictions.
 - The Published Videos view uses only successful per-platform remote IDs saved in `metadata.platformResults`. “Delete from platform” calls the provider API and records each outcome in `metadata.platformDeletions`. It does not remove the ZIKR queue/audit row or the original media object.
 - Deletion is independent per platform: a successful YouTube removal stays recorded even if Facebook deletion fails. Rows without a verified remote ID are marked unavailable for safe deletion rather than guessing from titles or timestamps.

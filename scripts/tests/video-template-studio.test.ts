@@ -98,8 +98,28 @@ assert.doesNotMatch(blockerFixMigration, /FROM auth\.users/i);
 assert.match(migration, /video_template_versions_one_active_per_template/i);
 
 assert.match(api, /requireAdminApi\("video\.manage"\)/);
+const templateGetHandler = api.slice(api.indexOf("export async function GET"), api.indexOf("export async function POST"));
+assert.match(templateGetHandler, /if \(!auth\.ok\)[\s\S]*?Cache-Control[\s\S]*?no-store/, "template GET auth failures must be no-store");
+assert.match(templateGetHandler, /status: 500[\s\S]*?Cache-Control[\s\S]*?no-store/, "template GET failures must be no-store");
+
 for (const action of ["create-version", "approve-version", "activate-version", "preview-version"]) {
   assert.ok(api.includes(action), `template API action ${action} missing`);
+}
+assert.match(templateGetHandler, /requireAdminApi\("kids\.manage"\)/, "Kids templates and previews must be hidden from general-only video managers");
+const templatePostHandler = api.slice(api.indexOf("export async function POST"));
+assert.equal(templatePostHandler.split('requireAdminApi("kids.manage")').length - 1, 4, "Every Kids template mutation and preview must require kids.manage");
+for (const [action, nextAction] of [
+  ["create-version", "approve-version"],
+  ["approve-version", "activate-version"],
+  ["activate-version", "preview-version"],
+  ["preview-version", null],
+] as const) {
+  const start = api.indexOf(`if (body.action === "${action}")`);
+  const end = nextAction ? api.indexOf(`if (body.action === "${nextAction}")`, start) : api.length;
+  const block = api.slice(start, end);
+  assert.ok(block.includes('template.audience === "kids"'), `${action} must resolve the template audience`);
+  assert.ok(block.includes('requireAdminApi("kids.manage")'), `${action} must require kids.manage for Kids templates`);
+  assert.ok(block.includes("kidsAuth.profile.id !== auth.profile.id"), `${action} must bind Kids permission to the authenticated admin`);
 }
 assert.match(api, /created_by === auth\.profile\.id/);
 assert.match(api, /skipSocialPublish: true/);

@@ -3,6 +3,13 @@ import test from "node:test";
 import { waitForVercelDeploymentReady } from "../verify-vercel-deployment-ready.mjs";
 import { verifySupabaseEdgeHealth } from "../verify-supabase-edge-health.mjs";
 
+const expectedAliasUrl = "https://zikrmediaofficial.vercel.app";
+const expectedAlias = ["zikrmediaofficial.vercel.app"];
+const productionIdentity = {
+  target: "production",
+  alias: expectedAlias,
+};
+
 test("Vercel deployment readiness waits for READY and uses the exact deployment URL", async () => {
   let calls = 0;
   const waits = [];
@@ -13,6 +20,7 @@ test("Vercel deployment readiness waits for READY and uses the exact deployment 
     teamId: "team_test",
     expectedSha: "a".repeat(40),
     expectedProjectId: "prj_test",
+    expectedAliasUrl,
     maxAttempts: 3,
     intervalMs: 25,
     sleep: async (milliseconds) => waits.push(milliseconds),
@@ -24,6 +32,7 @@ test("Vercel deployment readiness waits for READY and uses the exact deployment 
       assert.equal(init.headers.Authorization, "Bearer test-token");
       return new Response(JSON.stringify({
         readyState: calls === 1 ? "BUILDING" : "READY",
+        ...productionIdentity,
         projectId: "prj_test",
         gitSource: { sha: "a".repeat(40) },
       }), { status: 200, headers: { "content-type": "application/json" } });
@@ -45,6 +54,7 @@ test("Vercel readiness rejects terminal deployment failures and non-deployment U
       teamId: "team_test",
       expectedSha: "a".repeat(40),
       expectedProjectId: "prj_test",
+      expectedAliasUrl,
       maxAttempts: 1,
       fetchImpl: async () => new Response(JSON.stringify({ readyState: "ERROR" }), { status: 200 }),
     }),
@@ -57,15 +67,16 @@ test("Vercel readiness rejects terminal deployment failures and non-deployment U
       teamId: "team_test",
       expectedSha: "a".repeat(40),
       expectedProjectId: "prj_test",
+      expectedAliasUrl,
       maxAttempts: 1,
-      fetchImpl: async () => new Response(JSON.stringify({ readyState: "READY", projectId: "prj_test", gitSource: { sha: "a".repeat(40) } }), { status: 200 }),
+      fetchImpl: async () => new Response(JSON.stringify({ readyState: "READY", ...productionIdentity, projectId: "prj_test", gitSource: { sha: "a".repeat(40) } }), { status: 200 }),
     }),
     /Vercel-hosted deployment URL/,
   );
 });
 
 test("Supabase health smoke is a read-only GET and verifies status, CORS, and no-store", async () => {
-  const expectedOrigin = "https://zikrmediaofficial.vercel.app";
+  const expectedOrigin = expectedAliasUrl;
   let requestUrl;
   let requestInit;
   const payload = await verifySupabaseEdgeHealth({
@@ -100,7 +111,7 @@ test("Supabase health smoke is a read-only GET and verifies status, CORS, and no
 test("Supabase health smoke fails closed on bad health, CORS, or cache headers", async () => {
   const base = {
     supabaseUrl: "https://zqtssvlvmkzeeyqghqfk.supabase.co",
-    expectedOrigin: "https://zikrmediaofficial.vercel.app",
+    expectedOrigin: expectedAliasUrl,
   };
   await assert.rejects(
     verifySupabaseEdgeHealth({
@@ -141,6 +152,7 @@ test("Vercel readiness rejects a deployment for the wrong project or commit", as
     teamId: "team_test",
     expectedSha: "a".repeat(40),
     expectedProjectId: "prj_test",
+    expectedAliasUrl,
     maxAttempts: 1,
   };
   await assert.rejects(
@@ -148,6 +160,7 @@ test("Vercel readiness rejects a deployment for the wrong project or commit", as
       ...base,
       fetchImpl: async () => new Response(JSON.stringify({
         readyState: "READY",
+        ...productionIdentity,
         projectId: "prj_other",
         gitSource: { sha: "a".repeat(40) },
       }), { status: 200 }),
@@ -159,6 +172,7 @@ test("Vercel readiness rejects a deployment for the wrong project or commit", as
       ...base,
       fetchImpl: async () => new Response(JSON.stringify({
         readyState: "READY",
+        ...productionIdentity,
         projectId: "prj_test",
         gitSource: { sha: "b".repeat(40) },
       }), { status: 200 }),
@@ -174,6 +188,7 @@ test("Vercel readiness rejects abbreviated and overlong commit SHAs", async () =
     teamId: "team_test",
     expectedSha: "a".repeat(40),
     expectedProjectId: "prj_test",
+    expectedAliasUrl,
     maxAttempts: 1,
   };
 
@@ -183,6 +198,7 @@ test("Vercel readiness rejects abbreviated and overlong commit SHAs", async () =
         ...base,
         fetchImpl: async () => new Response(JSON.stringify({
           readyState: "READY",
+          ...productionIdentity,
           projectId: "prj_test",
           gitSource: { sha: actualSha },
         }), { status: 200 }),

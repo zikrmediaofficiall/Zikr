@@ -147,6 +147,25 @@ export function ProfileLocalSettings({ initialReminder }: Props) {
         </Button>
       </Card>
 
+      <Card className="space-y-4">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold tracking-[0.18em] text-brand-gold/70">
+            NOTIFICATIONS
+          </p>
+          <h2 className="text-2xl font-bold text-brand-gold">إشعارات التطبيق</h2>
+          <p className="leading-8 text-brand-cream/70">
+            افتح خيارات السماح بإشعارات الصلاة والأذكار على هذا الجهاز.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => window.dispatchEvent(new CustomEvent("zikr:show-notification-banner", { detail: { force: true } }))}
+        >
+          إعداد الإشعارات
+        </Button>
+      </Card>
+
       <Card className="space-y-5">
         <div className="space-y-2">
           <p className="text-xs font-semibold tracking-[0.18em] text-brand-gold/70">

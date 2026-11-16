@@ -140,10 +140,18 @@ const automationSettingActionStart = adminSystemActions.indexOf("export async fu
 const automationSettingActionEnd = adminSystemActions.indexOf("export async function requestVideoAutomationRunAction", automationSettingActionStart);
 const automationSettingAction = adminSystemActions.slice(automationSettingActionStart, automationSettingActionEnd);
 assert.ok(automationSettingActionStart >= 0 && automationSettingActionEnd > automationSettingActionStart, "the guarded automation settings action must remain present");
-assert.match(
-  videoGenerationRoute,
-  /deleteFailed\s*=\s*\(body as \{\s*deleteFailed\?: unknown\s*\}\)\.deleteFailed === true/,
-  "bulk deletion must require an explicit boolean true, not truthy strings such as \"false\"",
+assert.ok(
+  automationSettingAction.includes('requireAdminStepUp("system.manage", "/admin/automation")'),
+  "video automation settings must remain protected by the system-manage MFA step-up action.",
+);
+const videoGenerationDelete = videoGenerationRoute.split("export async function DELETE()")[1]?.split("export async function PATCH")[0] ?? "";
+assert.ok(videoGenerationDelete.includes("VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT"), "legacy video request deletion must remain disabled until media, catalog, and queue references are audited");
+assert.ok(videoGenerationDelete.includes("status: 410"), "legacy video request deletion must return 410");
+assert.ok(videoGenerationDelete.includes("requireAdminStepUpApi('video.delete', '/admin/video/requests')"), "disabled legacy endpoint remains step-up protected");
+assert.ok(!videoGenerationDelete.includes("supabaseServerAdminRequest") && !videoGenerationDelete.includes("method: 'DELETE'"), "disabled legacy endpoint must not mutate database rows");
+assert.ok(
+  videoGenerationRoute.includes("requireAdminStepUpApi('video.delete', '/admin/video/requests')"),
+  "bulk video-request deletion must enforce the server-side video.delete step-up guard.",
 );
 assert.ok(
   route.includes("async function acquirePurgeLock(token: string)") &&
@@ -297,4 +305,38 @@ assert.ok(
     control.includes('<option value="" disabled>اختر نطاق الحذف صراحةً</option>') &&
     control.includes("disabled={busy || !scope || confirmation !== CONFIRMATION_PHRASE}"),
   "the destructive scope must be explicitly selected before the confirmation action can run.",
+);
+
+const failedVideoDeleteAction = read("src/features/admin/actions/video.ts");
+const adminCommandCenter = read("src/features/admin/components/admin-platform-command-center.tsx");
+assert.ok(
+  failedVideoDeleteAction.includes("VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT") &&
+    failedVideoDeleteAction.includes("deletionStarted: false") &&
+    failedVideoDeleteAction.includes("recordsDeleted: 0") &&
+    failedVideoDeleteAction.includes("No rows were changed."),
+  "the legacy bulk-delete server action must return an explicit non-destructive hold result",
+);
+assert.match(
+  failedVideoDeleteAction,
+  /requireAdminStepUp\(["']video\.delete["']/,
+  "the legacy server action must retain its server-side video.delete step-up guard",
+);
+assert.ok(
+  failedVideoDeleteAction.indexOf("requireAdminStepUp") < failedVideoDeleteAction.indexOf("return {"),
+  "step-up authorization must complete before the safe hold result is returned",
+);
+assert.doesNotMatch(
+  failedVideoDeleteAction,
+  /supabaseServerAdminRequest|method:\s*["']DELETE|recordAdminAuditEvent|revalidatePath/,
+  "the legacy bulk-delete server action must not perform database writes or destructive side effects",
+);
+assert.ok(
+  !adminCommandCenter.includes("deleteFailedVideoGenerationAction") &&
+    !adminCommandCenter.includes("<form action={"),
+  "the admin command center must not expose the unsafe bulk-delete server action",
+);
+assert.ok(
+  adminCommandCenter.includes("الحذف الجماعي متوقف حتى اكتمال مراجعة مراجع الوسائط") &&
+    adminCommandCenter.includes("الحذف معطّل مؤقتًا"),
+  "the admin command center must explain why failed request records are retained",
 );

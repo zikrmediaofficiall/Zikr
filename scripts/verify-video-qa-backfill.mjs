@@ -24,6 +24,11 @@ for (const token of [
   "content->automatedVideoQa=is.null",
   "KIDS_CLASSIFICATION_BLOCK_REASON",
   "isKidsClassificationRevalidation",
+  "isKidsQaRevalidation",
+  "content->>kidsVideoQaStatus=is.null",
+  "content->>approvalReviewerId=eq.system%3Azikr-video-factory",
+  "normalizeVideoAudience",
+  "revalidatedKidsSpecificQa",
   "content->automatedVideoQa->>blockedReason=eq.",
   "revalidatedAfterCanonicalKidsClassification",
   'approvalStatus: "qa_failed"',
@@ -37,6 +42,15 @@ for (const forbidden of ["social_publish_queue", "processSocialPublishQueue", "p
   if (backfill.includes(forbidden)) failures.push("Legacy QA backfill must never enqueue or publish content: " + forbidden);
 }
 if (!backfill.includes("process.argv.includes(\"--apply\")")) failures.push("Legacy QA backfill must default to dry-run unless --apply is explicit");
+for (const token of [
+  "assertBackfillTargetProject(",
+  "assertBackfillApplyConfirmation(",
+  "process.env.EXPECTED_PROJECT_REF",
+  "process.env.BACKFILL_APPLY",
+  "process.env.BACKFILL_CONFIRMATION",
+]) {
+  if (!backfill.includes(token)) failures.push("Legacy QA backfill must enforce its own canonical-project and typed-apply guard: " + token);
+}
 if (!backfill.includes("templateVersionId")) failures.push("Legacy QA backfill must block historical requests bound to mutable template IDs");
 if (!backfill.includes("videoUrl") || !backfill.includes("Cloudinary")) failures.push("Legacy QA backfill must check media ownership and live asset availability");
 
@@ -62,6 +76,8 @@ if (!workflow.includes("workflow_dispatch:") || !workflow.includes("push:") ||
     !workflow.includes("SUPABASE_SERVICE_ROLE_KEY") ||
     !workflow.includes("inputs.apply == true") ||
     !workflow.includes("default: false") ||
+    !workflow.includes("EXPECTED_PROJECT_REF: zqtssvlvmkzeeyqghqfk") ||
+    !workflow.includes("BACKFILL_CONFIRMATION:") ||
     !workflow.includes("BACKFILL_APPLY") ||
     !workflow.includes("inputs.confirmation == 'APPLY_QA_BACKFILL'") ||
     !workflow.includes("APPLY_QA_BACKFILL") ||
@@ -107,8 +123,8 @@ if (!dynamicWorker.includes("source.category === \"story\"") ||
     !dynamicWorker.includes('"generationMode" in source')) {
   failures.push("Kids classification recovery must be restricted to canonical deterministic Kids story sources");
 }
-if (!backfill.includes("originalContent.curatedSourceId.startsWith(\"kids-series:\")") ||
-    !backfill.includes('validatedContent.audience !== "kids"')) {
+if (!backfill.includes('normalizeVideoMarker(originalContent.curatedSourceId).startsWith("kids-series:")') ||
+    !backfill.includes('normalizeVideoAudience(validatedContent.audience, false) !== "kids"')) {
   failures.push("Legacy Kids backfill must reclassify only after a canonical source lookup restores the Kids audience");
 }
 if (!dynamicWorker.includes("function getAiAttemptsPerRunLimit()") ||

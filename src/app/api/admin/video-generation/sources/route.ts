@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/features/admin/services/admin";
 import { listVideoSources, resolveVideoSource } from "@/features/videos/services/video-sources";
 import { listCuratedVideoSources } from "@/features/videos/data/curated-content";
+import { isKidsVideoSource } from "@/features/videos/services/video-audience-visibility";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdminApi("video.manage");
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const kidsAuth = await requireAdminApi("kids.manage");
+  const canManageKids = kidsAuth.ok && kidsAuth.profile.id === auth.profile.id;
 
   try {
     const params = request.nextUrl.searchParams;
@@ -30,7 +33,8 @@ export async function GET(request: NextRequest) {
     const curated = listCuratedVideoSources(category as "hadith" | "story" | "dua" | "adhkar" | "other");
     const databaseSources = category === "other" ? [] : await listVideoSources(category);
     const ids = new Set(databaseSources.map(source => source.id));
-    const sources = [...databaseSources, ...curated.filter(source => !ids.has(source.id))];
+    const sources = [...databaseSources, ...curated.filter(source => !ids.has(source.id))]
+      .filter((source) => canManageKids || !isKidsVideoSource(source));
     return NextResponse.json({ sources }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[api/admin/video-generation/sources] GET:", error);

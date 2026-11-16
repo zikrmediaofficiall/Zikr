@@ -1,12 +1,37 @@
 import { safeApiFetch } from '@/lib/services/http';
 import { ServiceError } from '@/lib/types/common';
+import { parsePrayerCoordinate } from './prayer-location-validation';
 
 // Use local API proxy to avoid CORS and crawl issues
 const API_BASE = '/api/prayer-times';
 const CACHE_TTL_MS = 60_000;
+const MAX_PRAYER_TIMES_CACHE_ENTRIES = 100;
 
 const prayerTimesCache = new Map<string, { expiresAt: number; data: PrayerTimesResponse | null }>();
 const prayerTimesInFlight = new Map<string, Promise<PrayerTimesResponse | null>>();
+
+function prunePrayerTimesCache(now: number): void {
+  for (const [key, entry] of prayerTimesCache) {
+    if (entry.expiresAt <= now) prayerTimesCache.delete(key);
+  }
+
+  while (prayerTimesCache.size >= MAX_PRAYER_TIMES_CACHE_ENTRIES) {
+    const oldestKey = prayerTimesCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    prayerTimesCache.delete(oldestKey);
+  }
+}
+
+function isValidPrayerDate(date: string | undefined): boolean {
+  if (date === undefined) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(date);
+}
+
+function isValidCalculationMethod(method: number): boolean {
+  return Number.isInteger(method) && method >= 0 && method <= 99;
+}
 
 export interface PrayerTime {
   Fajr: string;
@@ -59,6 +84,94 @@ export interface PrayerTimesResponse {
   };
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function isValidPrayerTimeZone(value: unknown): value is string {
+  if (typeof value !== "string" || !value.trim()) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date(0));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate the provider payload before exposing it to UI/countdown/native
+ * scheduling consumers. A 200 response with an empty or partial data object
+ * is not a usable prayer-time result.
+ */
+function isValidPrayerTimesResponse(value: unknown): value is PrayerTimesResponse {
+  const response = asRecord(value);
+  const data = asRecord(response?.data);
+  const timings = asRecord(data?.timings);
+  const date = asRecord(data?.date);
+  const hijri = asRecord(date?.hijri);
+  const hijriMonth = asRecord(hijri?.month);
+  const meta = asRecord(data?.meta);
+  const method = asRecord(meta?.method);
+
+  if (
+    response?.code !== 200 ||
+    typeof response.status !== "string" ||
+    response.status.toUpperCase() !== "OK" ||
+    !timings ||
+    !date ||
+    !hijri ||
+    !hijriMonth ||
+    !meta ||
+    !method
+  ) {
+    return false;
+  }
+
+  const requiredPrayerTimes = [
+    "Fajr",
+    "Sunrise",
+    "Dhuhr",
+    "Asr",
+    "Sunset",
+    "Maghrib",
+    "Isha",
+    "Imsak",
+    "Midnight",
+  ];
+  if (!requiredPrayerTimes.every((key) =>
+    typeof timings[key] === "string" &&
+    parsePrayerTimeMinutes(timings[key] as string) !== null
+  )) {
+    return false;
+  }
+
+  const latitude = meta.latitude;
+  const longitude = meta.longitude;
+  return (
+    typeof latitude === "number" &&
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    typeof longitude === "number" &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180 &&
+    isValidPrayerTimeZone(meta.timezone) &&
+    typeof method.name === "string" &&
+    Boolean(method.name.trim()) &&
+    typeof meta.school === "string" &&
+    Boolean(meta.school.trim()) &&
+    typeof hijri.day === "string" &&
+    /^\d{1,2}$/.test(hijri.day) &&
+    typeof hijri.year === "string" &&
+    /^\d{3,4}$/.test(hijri.year) &&
+    typeof hijriMonth.ar === "string" &&
+    Boolean(hijriMonth.ar.trim())
+  );
+}
+
 export interface CityCoordinates {
   city: string;
   country: string;
@@ -90,8 +203,8 @@ async function fetchPrayerTimesUncached(
 
   if (date) params.append('date', date);
 
-  const { data } = await safeApiFetch<PrayerTimesResponse>(`${API_BASE}?${params.toString()}`);
-  return data || null;
+  const { data } = await safeApiFetch<unknown>(`${API_BASE}?${params.toString()}`);
+  return isValidPrayerTimesResponse(data) ? data : null;
 }
 
 /**
@@ -103,18 +216,35 @@ export async function getPrayerTimes(
   date?: string,
   method: number = 4,
 ): Promise<PrayerTimesResponse | null> {
-  const cacheKey = buildPrayerCacheKey(latitude, longitude, date, method);
+  const validLatitude = parsePrayerCoordinate(latitude, -90, 90);
+  const validLongitude = parsePrayerCoordinate(longitude, -180, 180);
+  if (
+    validLatitude === null ||
+    validLongitude === null ||
+    !isValidPrayerDate(date) ||
+    !isValidCalculationMethod(method)
+  ) {
+    return null;
+  }
+
+  const cacheKey = buildPrayerCacheKey(validLatitude, validLongitude, date, method);
   const now = Date.now();
   const cached = prayerTimesCache.get(cacheKey);
 
-  if (cached && cached.expiresAt > now) return cached.data;
+  if (cached && cached.expiresAt > now) {
+    prayerTimesCache.delete(cacheKey);
+    prayerTimesCache.set(cacheKey, cached);
+    return cached.data;
+  }
+  if (cached) prayerTimesCache.delete(cacheKey);
 
   const existingRequest = prayerTimesInFlight.get(cacheKey);
   if (existingRequest) return existingRequest;
 
   const request = (async () => {
     try {
-      const data = await fetchPrayerTimesUncached(latitude, longitude, date, method);
+      const data = await fetchPrayerTimesUncached(validLatitude, validLongitude, date, method);
+      prunePrayerTimesCache(Date.now());
       prayerTimesCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
       return data;
     } catch (error) {
@@ -140,19 +270,33 @@ export async function getPrayerTimesByCity(
   method: number = 4,
 ): Promise<PrayerTimesResponse | null> {
   const cleanCity = city.trim();
-  if (!cleanCity) return null;
+  const cleanCountry = country?.trim() ?? "";
+  if (
+    !cleanCity ||
+    cleanCity.length > 120 ||
+    cleanCountry.length > 120 ||
+    !isValidPrayerDate(date) ||
+    !isValidCalculationMethod(method)
+  ) {
+    return null;
+  }
 
   const cacheKey = [
     'city',
     cleanCity.toLowerCase(),
-    country?.trim().toLowerCase() ?? '',
+    cleanCountry.toLowerCase(),
     date ?? 'today',
     method,
   ].join('|');
   const now = Date.now();
   const cached = prayerTimesCache.get(cacheKey);
 
-  if (cached && cached.expiresAt > now) return cached.data;
+  if (cached && cached.expiresAt > now) {
+    prayerTimesCache.delete(cacheKey);
+    prayerTimesCache.set(cacheKey, cached);
+    return cached.data;
+  }
+  if (cached) prayerTimesCache.delete(cacheKey);
 
   const existingRequest = prayerTimesInFlight.get(cacheKey);
   if (existingRequest) return existingRequest;
@@ -162,15 +306,16 @@ export async function getPrayerTimesByCity(
       const params = new URLSearchParams({ method: method.toString() });
       if (date) params.append('date', date);
 
-      if (country?.trim()) {
+      if (cleanCountry) {
         params.append('city', cleanCity);
-        params.append('country', country.trim());
+        params.append('country', cleanCountry);
       } else {
         params.append('address', cleanCity);
       }
 
-      const { data } = await safeApiFetch<PrayerTimesResponse>(`${API_BASE}?${params.toString()}`);
-      const result = data || null;
+      const { data } = await safeApiFetch<unknown>(`${API_BASE}?${params.toString()}`);
+      const result = isValidPrayerTimesResponse(data) ? data : null;
+      prunePrayerTimesCache(Date.now());
       prayerTimesCache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
       return result;
     } catch (error) {
@@ -273,7 +418,8 @@ export function getMinutesOfDayInTimeZone(currentTime: Date, timeZone?: string):
 export const getPrayerTimesByCoordinates = getPrayerTimes;
 
 export function parsePrayerTimeMinutes(timeStr: string): number | null {
-  const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
+  if (typeof timeStr !== "string") return null;
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?:$|\s)/);
   if (!match) return null;
   const hours = Number(match[1]);
   const minutes = Number(match[2]);

@@ -17,6 +17,21 @@ function asString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+export function requireSiteAudioArrayResult(data, label) {
+  if (!Array.isArray(data)) {
+    throw new Error(`${label} returned incomplete data; refusing cleanup.`);
+  }
+  return data;
+}
+
+export function assertSiteAudioIntentUpdateResult(data, expectedStoragePath) {
+  const storagePath = asString(expectedStoragePath);
+  if (!storagePath || !data || typeof data !== "object" || data.storage_path !== storagePath) {
+    throw new Error("Site-audio intent compare-and-set did not update the expected row; refusing to report cleanup success.");
+  }
+  return true;
+}
+
 export function fingerprintSiteAudioStoragePath(value) {
   const storagePath = asString(value);
   if (!storagePath) throw new Error("A site-audio storage path is required for fingerprinting.");
@@ -33,7 +48,16 @@ export function assertExpectedSupabaseProject(supabaseUrl, expectedProjectRef) {
     throw new Error("EXPECTED_PROJECT_REF must be the canonical 20-character Supabase project ref.");
   }
   const parsed = new URL(supabaseUrl);
-  if (parsed.protocol !== "https:" || parsed.hostname.toLowerCase() !== expected + ".supabase.co") {
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname.toLowerCase() !== expected + ".supabase.co" ||
+    parsed.port ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash
+  ) {
     throw new Error("Refusing site-audio cleanup for an unexpected Supabase project.");
   }
   return expected;
@@ -117,16 +141,18 @@ function splitStoragePath(storagePath) {
   return { directory: parts[0], fileName: parts[1] };
 }
 
-async function updateIntent(client, storagePath, expectedStatus, patch) {
-  const { data, error } = await client
+async function updateIntent(client, storagePath, expectedStatus, expectedAssetId, patch) {
+  let query = client
     .from("site_audio_upload_intents")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("storage_path", storagePath)
-    .eq("status", expectedStatus)
-    .select("storage_path")
-    .maybeSingle();
+    .eq("status", expectedStatus);
+  query = expectedAssetId === null
+    ? query.is("asset_id", null)
+    : query.eq("asset_id", expectedAssetId);
+  const { data, error } = await query.select("storage_path").maybeSingle();
   if (error) throw new Error("Could not reconcile site-audio upload intent: " + error.message);
-  return Boolean(data);
+  return assertSiteAudioIntentUpdateResult(data, storagePath);
 }
 
 async function findAssetReference(client, storagePath) {
@@ -136,10 +162,11 @@ async function findAssetReference(client, storagePath) {
     .eq("storage_path", storagePath)
     .limit(2);
   if (error) throw new Error("Could not verify site-audio metadata references: " + error.message);
-  if ((data ?? []).length > 1) {
+  const rows = requireSiteAudioArrayResult(data, "site-audio asset reference inventory");
+  if (rows.length > 1) {
     throw new Error("Multiple site-audio metadata rows reference one upload path; refusing cleanup.");
   }
-  return data?.[0] ?? null;
+  return rows[0] ?? null;
 }
 
 async function listExactObject(client, directory, fileName) {
@@ -148,7 +175,8 @@ async function listExactObject(client, directory, fileName) {
     limit: 20,
   });
   if (error) throw new Error("Could not inspect site-audio Storage path: " + error.message);
-  return (data ?? []).find((object) => object.name === fileName) ?? null;
+  const objects = requireSiteAudioArrayResult(data, "site-audio Storage object inventory");
+  return objects.find((object) => object.name === fileName) ?? null;
 }
 
 async function main() {
@@ -181,7 +209,7 @@ async function main() {
       .order("storage_path", { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) throw new Error("Could not read expired site-audio upload intents: " + error.message);
-    return data ?? [];
+    return data;
   });
 
   const validatedExpiredIntents = selectExpiredSiteAudioUploadIntents(expiredIntents, now.getTime());
@@ -197,7 +225,7 @@ async function main() {
       throw new Error("An expired site-audio intent retains an asset pointer that cannot be matched to the canonical asset; refusing cleanup.");
     }
     if (apply) {
-      await updateIntent(client, intent.storage_path, intent.status, {
+      await updateIntent(client, intent.storage_path, intent.status, intent.asset_id, {
         status: "registered",
         asset_id: referencedAsset.id,
       });
@@ -215,7 +243,7 @@ async function main() {
     const referencedAsset = await findAssetReference(client, intent.storage_path);
     if (referencedAsset) {
       if (apply) {
-        await updateIntent(client, intent.storage_path, intent.status, {
+        await updateIntent(client, intent.storage_path, intent.status, null, {
           status: "registered",
           asset_id: referencedAsset.id,
         });
@@ -226,7 +254,7 @@ async function main() {
 
     const object = await listExactObject(client, directory, fileName);
     if (!object) {
-      if (apply) await updateIntent(client, intent.storage_path, intent.status, { status: "cleaned", asset_id: null });
+      if (apply) await updateIntent(client, intent.storage_path, intent.status, null, { status: "cleaned", asset_id: null });
       console.log("RECONCILE missing site-audio object (" + safePathLogReference(intent.storage_path) + ").");
       continue;
     }
@@ -264,7 +292,7 @@ async function main() {
 
     const latestReference = await findAssetReference(client, intent.storage_path);
     if (latestReference) {
-      await updateIntent(client, intent.storage_path, intent.status, {
+      await updateIntent(client, intent.storage_path, intent.status, null, {
         status: "registered",
         asset_id: latestReference.id,
       });
@@ -280,7 +308,7 @@ async function main() {
       throw new Error("Site-audio Storage object is still present after removal; intent remains pending.");
     }
 
-    await updateIntent(client, intent.storage_path, intent.status, { status: "cleaned", asset_id: null });
+    await updateIntent(client, intent.storage_path, intent.status, null, { status: "cleaned", asset_id: null });
     console.log("REMOVED verified unreferenced site-audio object (" + safePathLogReference(intent.storage_path) + ").");
   }
 

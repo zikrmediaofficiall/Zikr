@@ -107,10 +107,25 @@ const supabaseGateJob =
   circle.match(/^  supabase-production-gate:\n([\s\S]*?)(?=^  [a-z0-9_-]+:\n|^workflows:\n)/m)?.[1] ?? "";
 const supabaseGateWorkflow = circle.split("      - supabase-production-gate:")[1]?.split("\n      - android-rebuild:")[0] ?? "";
 assert.ok(
-  supabaseGateJob.includes("SUPABASE_SERVICE_ROLE_KEY") &&
-    !supabaseGateJob.includes("ANDROID_KEYSTORE"),
-  "Supabase production verification must require only its database credential, not Android signing material",
+  supabaseGateJob.includes("SUPABASE_SERVICE_ROLE_KEY"),
+  "Supabase production verification must validate its database credential",
 );
+assert.doesNotMatch(
+  supabaseGateJob,
+  /^\s*(?:ANDROID_KEYSTORE_BASE64|ANDROID_KEYSTORE_PASSWORD|ANDROID_KEY_ALIAS|ANDROID_KEY_PASSWORD):\s*(?!"")\S.*$/m,
+  "Supabase production verification must not receive non-empty Android signing material",
+);
+for (const secretName of [
+  "ANDROID_KEYSTORE_BASE64",
+  "ANDROID_KEYSTORE_PASSWORD",
+  "ANDROID_KEY_ALIAS",
+  "ANDROID_KEY_PASSWORD",
+]) {
+  assert.ok(
+    supabaseGateJob.includes(secretName + ': ""'),
+    "Supabase production verification must shadow inherited Android signing secrets with an empty value: " + secretName,
+  );
+}
 assert.ok(
   !supabaseGateWorkflow.includes("android-signing"),
   "the Supabase production gate must not inherit the Android signing context",
@@ -119,6 +134,29 @@ const androidRebuildWorkflow = circle.split("      - android-rebuild:")[1]?.spli
 assert.ok(
   androidRebuildWorkflow.includes("android-signing"),
   "the signed Android rebuild must retain its dedicated signing context",
+);
+const circleJobLines = circle.split(/\r?\n/);
+const androidRebuildStart = circleJobLines.findIndex((line) => line === "  android-rebuild:");
+const androidRebuildEnd = circleJobLines.findIndex((line, index) =>
+  index > androidRebuildStart && (line === "workflows:" || /^  [a-z0-9_-]+:$/.test(line)),
+);
+const androidRebuildJob = androidRebuildStart >= 0
+  ? circleJobLines.slice(androidRebuildStart + 1, androidRebuildEnd >= 0 ? androidRebuildEnd : circleJobLines.length).join("\n")
+  : "";
+for (const secretName of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
+  assert.ok(
+    androidRebuildJob.includes(secretName + ': ""'),
+    "the signed Android rebuild must shadow project-level Supabase credentials: " + secretName,
+  );
+}
+const androidRebuildSupabaseCredentialLines = androidRebuildJob
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => /^(?:SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY):/.test(line));
+assert.deepEqual(
+  androidRebuildSupabaseCredentialLines.sort(),
+  ['SUPABASE_SERVICE_ROLE_KEY: ""', 'SUPABASE_URL: ""'],
+  "the signed Android rebuild must not receive non-empty Supabase service credentials",
 );
 for (const contract of [
   "NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app",

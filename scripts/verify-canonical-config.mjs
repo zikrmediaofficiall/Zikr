@@ -7,6 +7,8 @@ const root = process.cwd();
 const production = "https://zikrmediaofficial.vercel.app";
 const nativeCallback = "com.zikr.app://auth/callback";
 const localWildcard = "http://localhost:3000/**";
+const loopbackIPv4 = "http://127.0.0.1:3000/**";
+const loopbackIPv6 = "http://[::1]:3000/**";
 const browserCallback = production + "/auth/callback";
 const canonicalSupabaseProject = "zqtssvlvmkzeeyqghqfk";
 const canonicalSupabaseUrl = `https://${canonicalSupabaseProject}.supabase.co`;
@@ -26,12 +28,12 @@ function fail(message) {
 const config = read("supabase/config.toml");
 const authBlock = config.match(/\[auth\]([\s\S]*?)(?=\n\[|$)/)?.[0] ?? "";
 const siteUrl = authBlock.match(/^site_url\s*=\s*"([^"]+)"/m)?.[1] ?? "";
-const redirects = authBlock.match(/additional_redirect_urls\s*=\s*\[([\s\S]*?)\]/m)
-  ? Array.from(authBlock.match(/additional_redirect_urls\s*=\s*\[([\s\S]*?)\]/m)[1].matchAll(/"([^"]+)"/g), m => m[1])
+const redirectMatch = authBlock.match(/additional_redirect_urls\s*=\s*\[([\s\S]*?)\n\s*\]/m);
+const redirects = redirectMatch
+  ? Array.from(redirectMatch[1].matchAll(/"([^"]+)"/g), m => m[1])
   : [];
 
-const expected = [nativeCallback, localWildcard, browserCallback];
-
+const expected = [nativeCallback, localWildcard, loopbackIPv4, loopbackIPv6, browserCallback];
 if (siteUrl !== production) fail(`Supabase Auth site_url drift: ${siteUrl || "<missing>"}`);
 if (JSON.stringify(redirects) !== JSON.stringify(expected)) {
   fail(`Supabase Auth redirect allowlist drift: ${JSON.stringify(redirects)}`);

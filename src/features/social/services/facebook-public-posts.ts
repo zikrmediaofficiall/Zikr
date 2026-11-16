@@ -3,6 +3,7 @@ import "server-only";
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 import { getServerEnv } from "@/lib/env";
 import { isSocialPlatformDeletionCurrent } from "./social-deletion-visibility";
+import { isGeneralAudienceVideoMetadata } from "@/features/videos/services/video-audience-visibility";
 
 type SocialQueueRow = {
   id: string;
@@ -77,6 +78,7 @@ export async function getFacebookPublishedPosts(limit = 6): Promise<FacebookPubl
         "&target_platforms=cs.%7Bfacebook%7D" +
         "&status=in.%28published%2Cpartial%29" +
         "&published_at=not.is.null" +
+        "&or=(metadata->>audience.is.null,metadata->>audience.eq.general)" +
         "&order=published_at.desc&limit=100",
       { method: "GET", timeoutMs: 8000, retries: 2 },
     );
@@ -84,6 +86,8 @@ export async function getFacebookPublishedPosts(limit = 6): Promise<FacebookPubl
     return (rows ?? []).flatMap((row) => {
       if (!Array.isArray(row.target_platforms) || !row.target_platforms.includes("facebook")) return [];
       if (!row.published_at || !["published", "partial"].includes(row.status)) return [];
+      // The general /videos hub must not mirror child-directed or unknown-audience posts.
+      if (!isGeneralAudienceVideoMetadata(row.metadata)) return [];
       const delivery = facebookDelivery(row.metadata);
       const remoteId = delivery?.ok === true && typeof delivery.remoteId === "string"
         ? delivery.remoteId.trim()

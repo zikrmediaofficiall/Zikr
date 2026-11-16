@@ -70,6 +70,9 @@ export function buildFacebookQueueRecoveryPatch(
   );
   if (metadata.sourceMediaMissing === true || metadata.authBlocked !== true || facebookTargets.length === 0) return null;
 
+  const hasPermanentFailureMetadata = Array.isArray(metadata.permanentFailurePlatforms);
+  if (!hasPermanentFailureMetadata && metadata.permanentFailure === true) return null;
+
   const declaredBlocked = Array.isArray(metadata.authBlockedPlatforms)
     ? metadata.authBlockedPlatforms.filter((platform): platform is FacebookQueueRecoveryPlatform =>
         platform === "facebook" || platform === "facebook_reels",
@@ -99,12 +102,17 @@ export function buildFacebookQueueRecoveryPatch(
   // Prefer explicit per-platform auth blocks. For legacy global flags, infer
   // only targets with an auth-shaped error; fall back to all Facebook targets
   // only when the old row has no Facebook result ledger at all.
+  // A permanent failure always wins over an overlapping stale auth-block marker.
+  // Reauthorization may release only targets that are not explicitly permanent.
+  const recoverableFacebookTargets = facebookTargets.filter(
+    (platform) => !declaredPermanent.includes(platform),
+  );
   const blockedTargets = declaredBlocked.length > 0
-    ? facebookTargets.filter((platform) => declaredBlocked.includes(platform))
+    ? recoverableFacebookTargets.filter((platform) => declaredBlocked.includes(platform))
     : inferredAuthBlockedTargets.length > 0
-      ? inferredAuthBlockedTargets
+      ? inferredAuthBlockedTargets.filter((platform) => !declaredPermanent.includes(platform))
       : facebookResultTargets.length === 0
-        ? facebookTargets.filter((platform) => !declaredPermanent.includes(platform))
+        ? recoverableFacebookTargets
         : [];
   if (blockedTargets.length === 0) return null;
 
@@ -129,8 +137,6 @@ export function buildFacebookQueueRecoveryPatch(
         !blockedTargets.some((target) => target === String(platform)),
       )
     : [];
-  const hasPermanentFailureMetadata = Array.isArray(metadata.permanentFailurePlatforms);
-
   return {
     status: "queued",
     scheduled_at: now,

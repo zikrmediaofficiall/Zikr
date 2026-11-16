@@ -8,6 +8,8 @@ import { readBoundedJsonBody } from '@/lib/request/bounded-json-body';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+
 const ALLOWED_VIDEO_TYPES = new Set([
   'video/mp4',
   'video/webm',
@@ -47,6 +49,10 @@ export async function POST(request: NextRequest) {
     }
     if (!Number.isSafeInteger(contentLength) || contentLength <= 0) {
       return jsonError('حجم ملف الفيديو غير صالح.', 400);
+    }
+
+    if (contentLength > MAX_VIDEO_BYTES) {
+      return jsonError('حجم الفيديو يتجاوز الحد الأقصى المسموح به وهو 50 ميجابايت.', 413);
     }
 
     const upload = await createPresignedUploadUrl({

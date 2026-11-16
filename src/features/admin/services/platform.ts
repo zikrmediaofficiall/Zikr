@@ -5,7 +5,8 @@ import {
   supabaseServerAdminCount,
   supabaseServerAdminRequest,
 } from "@/lib/supabase/server";
-import type { AdminPermission } from "@/features/admin/services/permissions";
+import { buildAdminVideoQueueOverview } from "@/features/admin/services/admin-dashboard-visibility";
+import { hasAdminPermission, type AdminPermission, type AdminRole } from "@/features/admin/services/permissions";
 import { readAdminRows } from "@/features/admin/services/safe-read";
 import { getServerEnv } from "@/lib/env";
 
@@ -159,59 +160,16 @@ export async function getAdminSnapshot() {
   };
 }
 
-const OVERVIEW_TABLES = [
-  ["videos", "الفيديوهات"],
-  ["articles", "المقالات"],
-  ["stories", "القصص"],
-  ["duas", "الأدعية"],
-  ["competitions", "المسابقات"],
-  ["kids_content", "محتوى الأطفال"],
-  ["profiles", "المستخدمون"],
-  ["prophets", "الأنبياء"],
-  ["companions", "الصحابة"],
-  ["scholars", "العلماء"],
-  ["conquests", "الفتوحات"],
-  ["battles", "الغزوات"],
-  ["tawasheeh", "التواشيح"],
-  ["quran_reciters", "القراء"],
-  ["quran_surahs", "السور"],
-  ["hadiths", "الأحاديث"],
-] as const;
+export async function getAdminOverview(role: AdminRole) {
+  const videoCounts = hasAdminPermission(role, "video.manage")
+    ? await getExactStatusCounts("video_generation_requests", ["pending", "processing", "retry_wait", "failed"])
+    : null;
 
-export async function getAdminOverview() {
-  const counts = await Promise.all(
-    OVERVIEW_TABLES.map(async ([table, label]) => [
-      table,
-      { label, count: await safeCount(table) },
-    ] as const),
+  return buildAdminVideoQueueOverview(
+    role,
+    videoCounts,
+    new Date().toISOString(),
   );
-
-  const [videoCounts, sectionsRes] = await Promise.all([
-    getExactStatusCounts("video_generation_requests", ["pending", "processing", "retry_wait", "failed"]),
-    readAdminRows<{ value?: unknown }>("/rest/v1/site_settings?key=eq.section_visibility&select=value&limit=1"),
-  ]);
-  const sections = sectionsRes.rows;
-  const unavailable = [
-    !videoCounts.available && "video_generation_requests",
-    !sectionsRes.ok && "site_settings",
-  ].filter(Boolean) as string[];
-
-  const visibility =
-    sections[0]?.value && typeof sections[0].value === "object"
-      ? (sections[0].value as { visibility?: Record<string, boolean> }).visibility ?? {}
-      : {};
-
-  return {
-    counts: Object.fromEntries(counts),
-    unavailable,
-    videoGeneration: videoCounts.counts,
-    sections: {
-      total: Object.keys(visibility).length,
-      enabled: Object.values(visibility).filter(Boolean).length,
-      disabled: Object.values(visibility).filter((value) => !value).length,
-    },
-    generatedAt: new Date().toISOString(),
-  };
 }
 
 const GITHUB_WORKFLOW_PATHS = new Set([

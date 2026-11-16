@@ -45,14 +45,18 @@ export function chooseWrittenSourceKind(
  category: WrittenCategory,
  hasKidsPostToday: boolean,
  randomIndex: number,
+ allowKids = true,
 ): WrittenSourceKind | null {
- if (availableKinds.length === 0) return null;
- if (category === "auto" && !hasKidsPostToday && availableKinds.includes("kids_story")) {
+ const allowedKinds = allowKids
+  ? availableKinds
+  : availableKinds.filter((kind) => kind !== "kids_story");
+ if (allowedKinds.length === 0) return null;
+ if (allowKids && category === "auto" && !hasKidsPostToday && allowedKinds.includes("kids_story")) {
   return "kids_story";
  }
- const eligibleKinds = (category === "auto" || category === "kids") && hasKidsPostToday
-  ? availableKinds.filter((kind) => kind !== "kids_story")
-  : availableKinds;
+ const eligibleKinds = allowKids && (category === "auto" || category === "kids") && hasKidsPostToday
+  ? allowedKinds.filter((kind) => kind !== "kids_story")
+  : allowedKinds;
  if (eligibleKinds.length === 0) return null;
  const index = Number.isFinite(randomIndex)
   ? Math.max(0, Math.min(eligibleKinds.length - 1, Math.floor(randomIndex)))
@@ -60,8 +64,13 @@ export function chooseWrittenSourceKind(
  return eligibleKinds[index] ?? null;
 }
 
-export function shouldBackfillKidsWrittenPost(sourceType: string, hasKidsPostToday: boolean): boolean {
- return sourceType !== "kids_story" || !hasKidsPostToday;
+export function shouldBackfillKidsWrittenPost(
+ sourceType: string,
+ hasKidsPostToday: boolean,
+ allowKids = true,
+): boolean {
+ const normalizedSourceType = typeof sourceType === "string" ? sourceType.trim().toLowerCase() : "";
+ return normalizedSourceType !== "kids_story" || (allowKids && !hasKidsPostToday);
 }
 
 export function scheduleKidsBackfillWithinUtcDay(now: Date): string | null {
@@ -81,18 +90,34 @@ export function containsKidsPersonalDataSolicitation(value: string): boolean {
   .toLowerCase()
   .replace(/\s+/g, " ")
   .trim();
- const personalData = "(?:اسم(?:ك(?: الكامل)?| مدرستك| ولي امرك| والديك)|رقم(?:ك| هاتفك| هاتف| الموبايل| جوالك| الجوال| التليفون(?:ك| المحمول| الارضي)?| تليفون(?:ك| المحمول| الارضي)?| الفون| فونك| الواتساب| الواتس اب| واتس اب| واتسابك| واتساب| ولي امرك)|موبايلك|تليفونك|فونك|عنوانك|عنوان (?:بيتك|منزلك)|مدرستك|بريدك(?: الالكتروني)?|ايميلك|كلمة المرور|كلمة السر|موقعك|مكانك|صورتك|صورك|صورة لك|صورة شخصية|حسابك|اسم المستخدم|بياناتك الشخصية|معلوماتك الشخصية)";
+ const personalData = "(?:اسم(?:ك(?: الكامل)?| مدرستك| ولي امرك| والديك)|رقم(?:ك| هاتفك| هاتف| الموبايل| جوالك| الجوال| التليفون(?:ك| المحمول| الارضي)?| تليفون(?:ك| المحمول| الارضي)?| الفون| فونك| الواتساب| الواتس اب| واتس اب| واتسابك| واتساب| ولي امرك)|موبايلك|تليفونك|فونك|عنوانك|عنوان (?:بيتك|منزلك)|مدرستك|بريدك(?: الالكتروني)?|ايميلك|كلمة المرور|كلمة السر|موقعك|مكانك|صورتك|صورك|صورة لك|صورة شخصية|حسابك|اسم المستخدم|بياناتك الشخصية|معلوماتك الشخصية|عمرك|سنك|تاريخ ميلادك|عيد ميلادك)";
  const askVerbs = "(?:ارسل(?:لي)?|ابعث(?:لي)?|ابعت(?:لي)?|ابعتي(?:لي)?|شارك|اكتب(?:لي)?|اذكر|قل لي|قوللي|قولي|اخبرني|اعطني|اديني|تعطيني|هات(?:لي)?|وريني|اترك|ضع|سجل|ادخل|ارسل لي|ابعث لي|ابعت لي|ارسال|مشاركة|تبعت(?:لي)?|ترسل(?:لي)?|تديني|تقولي|تكتب(?:لي)?)";
  const channels = "(?:واتساب|واتس اب|تيليجرام|تلجرام|انستجرام|سناب(?: شات)?|فيسبوك|ماسنجر|الخاص|رسالة خاصة)";
  const asksForData = new RegExp("(?:^|\\s)" + askVerbs + "(?:\\s+[^.!؟?]{1,30})?\\s+" + personalData, "u");
- const asksDirectly = new RegExp("(?:^|\\s)(?:ما|ما هو|ما هي|اين|اين هو|اين هي)(?:\\s+[^.!؟?]{0,24})?\\s+" + personalData, "u");
+ const asksDirectly = new RegExp("(?:^|\\s)(?:ما(?:\\s+(?:هو|هي))?|ايه(?:\\s+(?:هو|هي))?|اين(?:\\s+(?:هو|هي))?|فين(?:\\s+(?:هو|هي))?|متى)\\s+" + personalData, "u");
+ const asksEgyptianPersonalData = new RegExp("(?:^|\\s)" + personalData + "\\s+(?:ايه|كام|كم|فين|وين)(?:\\s|[؟?!.،,;:]|$)", "u");
+ const asksEgyptianAge = /(?:^|\s)(?:عندك|عمرك|سنك)\s+(?:كام|كم)(?:\s+سنة)?(?:\s|[؟?!.،,;:]|$)|(?:^|\s)كام\s+سنة(?:\s+عندك)?(?:\s|[؟?!.،,;:]|$)/u;
+ const asksEgyptianLocation = /(?:^|\s)(?:(?:فين|وين|اين)\s+(?:(?:انت|انتي)\s+)?(?:ساكن(?:ة)?|عايش(?:ة)?|بتسكن|بتعيش|بتدرس|بتروح(?:\s+المدرسة)?|بتسكني|بتعيشي)|(?:(?:انت|انتي)\s+)?(?:ساكن(?:ة)?|عايش(?:ة)?|بتسكن|بتعيش|بتدرس|بتروح(?:\s+المدرسة)?|بتسكني|بتعيشي)\s+(?:فين|وين)|(?:انت|انتي)\s+(?:فين|وين)|(?:فين|وين)\s+(?:انت|انتي))(?:\s|[؟?!.،,;:]|$)/u;
  const asksForContact = new RegExp("(?:^|\\s)(?:راسلني|تواصل معي|اتصل بي|قابلني|كلمني)(?:\\s+[^.!؟?]{1,30})?(?:" + channels + ")?", "u");
- const asksInEnglish = /\b(?:send|share|tell me|give me|write|enter|leave|dm|message|contact|call|meet|text me)\b[\s\S]{0,45}\b(?:your (?:full )?name|phone(?: number)?|home address|address|school|email|password|location|photo|picture|selfie|account|username|whatsapp|telegram|instagram|snapchat|facebook|where you live)\b/i;
+ const asksInEnglish = /\b(?:can i have|may i have|could i get|would you share|send|share|tell me|give me|write|enter|leave|dm|message|contact|call|meet|text me)\b[\s\S]{0,45}\b(?:your (?:full )?name|phone(?: number)?|home(?: address)?|address|school|email|password|location|photo|picture|selfie|account|username|whatsapp|telegram|instagram|snapchat|facebook|age|birthday|date of birth|where you live)\b/i;
+ const asksDirectlyInEnglish = /\b(?:what(?:['’]s|\s+is)|where(?:['’]s|\s+is)|which(?:\s+is)?)\b[\s\S]{0,45}\byour\s+(?:full\s+)?(?:name|phone(?:\s+number)?|home(?:\s+address)?|address|school|email|password|location|photo|picture|selfie|account|username|whatsapp|telegram|instagram|snapchat|facebook|age|birthday|date\s+of\s+birth)\b/i;
+ const asksForLocationInEnglish = /\bwhere\s+(?:do\s+you\s+live|are\s+you|do\s+you\s+study|are\s+you\s+studying|do\s+you\s+go\s+to\s+school)\b|\b(?:which|what)\s+school\s+(?:do\s+you\s+(?:attend|go\s+to)|are\s+you\s+(?:at|in))\b|\bhow\s+old\s+are\s+you\b/i;
+ const englishSafetyWarning = /\b(?:do\s+not|don't|dont|never|should\s+not|shouldn't|must\s+not|mustn't|avoid)\s+(?:ask(?:\s+for)?|share|send|give|tell|write|enter|leave|dm|message|contact|call|meet|text|post|publish|reveal|provide)\b/i;
  const asksForPrivateChannel = /(?:^|\s)(?:ابعت(?:لي)?|ابعث(?:لي)?|ابعتي(?:لي)?|ارسل(?:لي)?|ابعث لي|ابعت لي|ابعتي لي|ارسل لي)(?:\s+[^.!؟?]{0,16})?(?:على\s+)?(?:الخاص|رسالة خاصة|واتساب|واتس اب|تيليجرام|تلجرام|انستجرام|سناب(?: شات)?|ماسنجر)(?:\s|$)/u;
  const privateEnglishContact = /\b(?:dm me|message me privately|contact me|call me|meet me|send (?:me )?(?:a )?(?:private )?dm|leave (?:me )?(?:a )?dm|(?:whatsapp|telegram|instagram|snapchat) me)\b/i;
+ const englishClauses = normalized.split(/[.!?؟;,\n]+|\b(?:but|however|instead|then|and|or|also|as\s+well\s+as)\b/iu);
+ const asksEnglish = englishClauses.some((clause) => {
+  const candidate = clause.trim();
+  if (!candidate || englishSafetyWarning.test(candidate)) return false;
+  return asksInEnglish.test(candidate) ||
+   asksDirectlyInEnglish.test(candidate) ||
+   asksForLocationInEnglish.test(candidate) ||
+   privateEnglishContact.test(candidate);
+ });
  return asksForData.test(normalized) || asksDirectly.test(normalized) ||
-  asksForContact.test(normalized) || asksForPrivateChannel.test(normalized) ||
-  asksInEnglish.test(normalized) || privateEnglishContact.test(normalized);
+  asksEgyptianPersonalData.test(normalized) || asksEgyptianAge.test(normalized) ||
+  asksEgyptianLocation.test(normalized) || asksForContact.test(normalized) ||
+  asksForPrivateChannel.test(normalized) || asksEnglish;
 }
 
 export function validateWrittenPostDraft(value:unknown):{ok:boolean;reason?:string}{
@@ -230,7 +255,10 @@ export function buildWrittenBackfillQueuePayload(input: {
  now: string;
  scheduledAt: string;
 }) {
- const isKidsStory = input.sourceType === "kids_story";
+ const normalizedSourceType = typeof input.sourceType === "string"
+  ? input.sourceType.trim().toLowerCase()
+  : "";
+ const isKidsStory = normalizedSourceType === "kids_story";
  if (isKidsStory && (
   !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(input.sourceId) ||
   !/^\/kids\/[a-z0-9-]+$/i.test(input.publicPath)
@@ -261,7 +289,7 @@ export function buildWrittenBackfillQueuePayload(input: {
     ageGroup: input.ageGroup ?? null,
    } : {}),
    source: {
-    type: input.sourceType,
+    type: normalizedSourceType,
     id: input.sourceId,
     title: input.sourceTitle || input.title,
     reference: input.sourceReference || "",
@@ -325,22 +353,187 @@ export type KidsWrittenPublishQueueItem = Pick<
   "content_type" | "content_id" | "title" | "body" | "metadata"
 >;
 
+export function isKidsAudience(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const audience = value.trim().toLowerCase();
+  return audience === "kids" || audience === "kid" || audience === "children" || audience === "child";
+}
+
+function isKidsPublicPath(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const candidate = value.trim();
+  if (!candidate) return false;
+
+  let pathname = candidate;
+  try {
+    pathname = new URL(candidate, "https://zikr.invalid").pathname;
+  } catch {
+    pathname = candidate.split(/[?#]/, 1)[0];
+  }
+
+  // Queue/backfill metadata can be legacy or malformed. Decode a bounded
+  // number of layers so double-encoded Kids routes cannot be relabeled as
+  // general content. Malformed or excessively nested paths fail closed.
+  for (let depth = 0; depth < 5; depth += 1) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(pathname);
+    } catch {
+      return true;
+    }
+    if (decoded === pathname) break;
+    pathname = decoded;
+  }
+  if (/%[0-9a-f]{2}/i.test(pathname)) return true;
+
+  const normalizedSeparators = pathname
+    .replace(/\\/g, "/")
+    .replace(/\/+/g, "/");
+  try {
+    // Resolve dot segments only after decoding so encoded traversal cannot
+    // hide a Kids route from the source-reservation check.
+    pathname = new URL(normalizedSeparators, "https://zikr.invalid").pathname;
+  } catch {
+    return true;
+  }
+
+  pathname = pathname.replace(/\/+$/, "").toLowerCase();
+  return pathname === "/kids" || pathname.startsWith("/kids/");
+}
+
 export function isKidsWrittenSourceReservation(value: unknown): boolean {
   const metadata = asWrittenRecord(value);
   const sourceMetadata = asWrittenRecord(metadata.source);
-  const publicPath = typeof metadata.publicPath === "string" ? metadata.publicPath : "";
-  return metadata.audience === "kids" ||
+  const sourceTypes = [
+    sourceMetadata.type,
+    sourceMetadata.contentType,
+    sourceMetadata.content_type,
+    metadata.sourceType,
+    metadata.source_type,
+  ].map((candidate) => typeof candidate === "string" ? candidate.trim().toLowerCase() : "");
+  const categories = [
+    metadata.category,
+    metadata.contentCategory,
+    metadata.content_category,
+    sourceMetadata.category,
+    sourceMetadata.contentCategory,
+    sourceMetadata.content_category,
+  ];
+  const automationKeys = [
+    metadata.automationKey,
+    metadata.sourceAutomationKey,
+  ].map((candidate) => typeof candidate === "string" ? candidate.trim().toLowerCase() : "");
+
+  return isKidsAudience(metadata.audience) ||
+    isKidsAudience(sourceMetadata.audience) ||
+    categories.some((category) => isKidsAudience(category) ||
+      (typeof category === "string" && category.trim().toLowerCase() === "kids_story")) ||
+    metadata.isKids === true ||
+    metadata.is_kids === true ||
+    sourceMetadata.isKids === true ||
+    sourceMetadata.is_kids === true ||
     typeof metadata.kidsContentId === "string" ||
-    sourceMetadata.type === "kids_story" ||
-    publicPath === "/kids" ||
-    publicPath.startsWith("/kids/");
+    typeof metadata.kids_content_id === "string" ||
+    typeof sourceMetadata.kidsContentId === "string" ||
+    typeof sourceMetadata.kids_content_id === "string" ||
+    sourceTypes.includes("kids_story") ||
+    automationKeys.some((key) =>
+      key.startsWith("written-social-v1:kids_story:") ||
+      key.startsWith("written-v1:kids_story:")
+    ) ||
+    isKidsPublicPath(metadata.publicPath) ||
+    isKidsPublicPath(metadata.public_path) ||
+    isKidsPublicPath(sourceMetadata.publicPath) ||
+    isKidsPublicPath(sourceMetadata.public_path);
+}
+
+/** Reject a backfill row when any Kids marker conflicts with a non-Kids source type. */
+export function isSafeWrittenBackfillSource(sourceType: string, metadata: unknown): boolean {
+  const normalizedSourceType = typeof sourceType === "string" ? sourceType.trim().toLowerCase() : "";
+  return normalizedSourceType === "kids_story" || !isKidsWrittenSourceReservation(metadata);
 }
 
 export function isKidsWrittenPostCandidate(
   row: { content_type?: unknown; metadata?: unknown; automation_key?: unknown },
 ): boolean {
-  if (row.content_type !== "written_post") return false;
-  const automationKey = typeof row.automation_key === "string" ? row.automation_key : "";
+  const contentType = typeof row.content_type === "string" ? row.content_type.trim().toLowerCase() : "";
+  if (contentType !== "written_post") return false;
+  const automationKey = typeof row.automation_key === "string" ? row.automation_key.trim().toLowerCase() : "";
+  return isKidsWrittenSourceReservation(row.metadata) ||
+    automationKey.startsWith("written-social-v1:kids_story:") ||
+    automationKey.startsWith("written-v1:kids_story:");
+}
+
+const GENERAL_WRITTEN_SOURCE_TYPES = new Set([
+  "quran",
+  "hadith",
+  "dua",
+  "adhkar",
+  "story",
+  "prophets",
+  "companions",
+  "knowledge",
+]);
+
+/**
+ * Return only positively classified general-audience written posts to social
+ * managers who do not have Kids-management permission. Unknown legacy rows
+ * fail closed; a Kids-source ID lookup supplements queue metadata markers.
+ */
+export function isWrittenPostVisibleToSocialManager(
+  row: {
+    content_type?: unknown;
+    content_id?: unknown;
+    metadata?: unknown;
+    automation_key?: unknown;
+  },
+  kidsSourceIds: ReadonlySet<string> = new Set<string>(),
+): boolean {
+  const contentType = typeof row.content_type === "string" ? row.content_type.trim().toLowerCase() : "";
+  if (contentType !== "written_post" || isKidsWrittenPostCandidate(row)) return false;
+
+  const metadata = asWrittenRecord(row.metadata);
+  const source = asWrittenRecord(metadata.source);
+  const sourceType = typeof source.type === "string" ? source.type.trim().toLowerCase() : "";
+  const sourceId = typeof source.id === "string" ? source.id.trim() : "";
+  const contentId = typeof row.content_id === "string" ? row.content_id.trim() : "";
+  const audience = metadata.audience;
+  const rawPublicPath = typeof metadata.publicPath === "string"
+    ? metadata.publicPath
+    : typeof metadata.public_path === "string"
+      ? metadata.public_path
+      : "";
+  const publicPath = rawPublicPath.trim();
+
+  if (
+    !GENERAL_WRITTEN_SOURCE_TYPES.has(sourceType) ||
+    !sourceId ||
+    !publicPath.startsWith("/") ||
+    publicPath.startsWith("//") ||
+    isKidsPublicPath(publicPath) ||
+    (audience !== undefined && audience !== null &&
+      (typeof audience !== "string" || !["general", "all", "public"].includes(audience.trim().toLowerCase()))) ||
+    (contentId && kidsSourceIds.has(contentId)) ||
+    kidsSourceIds.has(sourceId)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * A Kids marker on an unsupported non-video queue type must not fall through
+ * the written-post approval gate as "not applicable". Video rows use their
+ * separate generation/catalog approval path; written_post rows use the live
+ * Kids source check below.
+ */
+export function isUnclassifiedKidsSocialQueueItem(
+  row: { content_type?: unknown; metadata?: unknown; automation_key?: unknown },
+): boolean {
+  const contentType = typeof row.content_type === "string" ? row.content_type.trim().toLowerCase() : "";
+  if (contentType === "written_post" || contentType.endsWith("_video")) return false;
+  const automationKey = typeof row.automation_key === "string" ? row.automation_key.trim().toLowerCase() : "";
   return isKidsWrittenSourceReservation(row.metadata) ||
     automationKey.startsWith("written-social-v1:kids_story:");
 }

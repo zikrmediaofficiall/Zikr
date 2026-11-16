@@ -90,8 +90,20 @@ const writtenSocialRoute = readFileSync(
   resolve(process.cwd(), "src/app/api/admin/social/written/route.ts"),
   "utf8",
 );
+const writtenStudioPage = readFileSync(
+  resolve(process.cwd(), "src/app/admin/social/written-studio/page.tsx"),
+  "utf8",
+);
+const writtenStudioClient = readFileSync(
+  resolve(process.cwd(), "src/app/admin/social/written-studio/written-studio-client.tsx"),
+  "utf8",
+);
 const videoRoute = readFileSync(
   resolve(process.cwd(), "src/app/api/admin/videos/[id]/route.ts"),
+  "utf8",
+);
+const videoRequestsRoute = readFileSync(
+  "src/app/api/admin/videos/route.ts",
   "utf8",
 );
 const videoGenerationRoute = readFileSync(
@@ -391,6 +403,32 @@ assert.match(
 );
 assert.match(
   writtenSocialRoute,
+  /export async function GET\(\)[\s\S]*?requireAdminApi\("kids\.manage"\)[\s\S]*?isWrittenPostVisibleToSocialManager/,
+  "written queue reads must filter Kids and unknown legacy rows unless the same administrator has kids.manage",
+);
+assert.match(
+  writtenSocialRoute,
+  /kidsAuth\.profile\.id !== auth\.profile\.id/,
+  "written queue Kids visibility must bind permission checks to the same administrator session",
+);
+assert.match(
+  writtenSocialRoute,
+  /kids_content\?id=in\.\([\s\S]*?kidsSourceIds/,
+  "written queue reads must resolve source IDs against kids_content before returning general-only rows",
+);
+assert.match(
+  writtenSocialRoute,
+  /select=id,content_id,content_type,automation_key/,
+  "written queue visibility classification must select the content_type consumed by the fail-closed helper",
+);
+assert.match(
+  writtenSocialRoute,
+  /const items = visibleRows\.slice\(0, 100\)\.map/,
+  "internal content IDs and automation keys must not be added to the written-studio response contract",
+);
+
+assert.match(
+  writtenSocialRoute,
   /requireAdminApi\("social\.manage"\)[\s\S]*?requireAdminStepUpApi\("social\.publish"/,
   "written-content generation must require separate management permission and publishing permission with MFA step-up",
 );
@@ -406,13 +444,36 @@ assert.doesNotMatch(
 );
 assert.match(
   videoRoute,
-  /recordAdminAuditEvent\([\s\S]*?video_generation\.update[\s\S]*?recordAdminAuditEvent\([\s\S]*?video_generation\.delete_failed/,
-  "video mutation endpoints must append audit events",
+  /recordAdminAuditEvent\([\s\S]*?video_generation\.update/,
+  "video request updates must append audit events",
+);
+const videoDetailReadRoute = videoRoute;
+const videoGenerationReadRoute = videoGenerationRoute;
+const videoTemplateReadRoute = readFileSync(resolve(process.cwd(), "src/app/api/admin/video/templates/route.ts"), "utf8");
+const videoSourceReadRoute = readFileSync(resolve(process.cwd(), "src/app/api/admin/video-generation/sources/route.ts"), "utf8");
+for (const [name, source, filter] of [
+  ["video list", videoRequestsRoute, "canViewVideoRequestRow(request, canManageKids)"],
+  ["video detail", videoDetailReadRoute, "canViewVideoRequestRow(item, canManageKids)"],
+  ["video generation list", videoGenerationReadRoute, "canViewVideoRequestRow(row, canManageKids)"],
+  ["video templates", videoTemplateReadRoute, "canViewVideoTemplateAudience(template.audience, canManageKids)"],
+  ["video sources", videoSourceReadRoute, "!isKidsVideoSource(source)"],
+]) {
+  assert.match(source, /requireAdminApi\(['"]kids\.manage['"]\)/, name + " must resolve the separate Kids permission");
+  assert.ok(source.includes(filter), name + " must filter Kids-only data before returning it");
+}
+const legacyVideoDelete = videoRoute.match(/export async function DELETE\(\)[\s\S]*$/)?.[0] ?? "";
+assert.match(legacyVideoDelete, /VIDEO_REQUEST_DELETE_REQUIRES_REFERENCE_AUDIT/);
+assert.match(legacyVideoDelete, /status: 410/);
+assert.match(legacyVideoDelete, /requireAdminStepUpApi\(['"]video\.delete['"]/);
+assert.doesNotMatch(
+  legacyVideoDelete,
+  /supabaseServerAdminRequest|runPostCommitAudit|recordAdminAuditEvent|method:\s*['"]DELETE['"]/,
+  "legacy single-row video deletion must remain disabled until media and queue references are audited",
 );
 const legacyVideoPatch = videoRoute.match(/export async function PATCH\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
 assert.match(
   legacyVideoPatch,
-  /body\.status !== 'pending'[\s\S]*?currentRows\[0\]\.status !== 'failed'[\s\S]*?updateVideoRequestStatus\(id, 'pending', undefined, 'failed'\)/,
+  /body\.status !== 'pending'[\s\S]*?current\.status !== 'failed'[\s\S]*?requireAdminApi\(['"]kids\.manage['"]\)[\s\S]*?updateVideoRequestStatus\(id, 'pending', undefined, 'failed', current\.updated_at\)/,
   "the legacy request reset must be limited to failed rows and use the compare-and-set retry service",
 );
 assert.match(
@@ -426,8 +487,9 @@ assert.doesNotMatch(
   "unrestricted status mutation must not remain reachable through the legacy route",
 );
 assert.match(videoAutomation, /select=content,status,updated_at/);
-assert.match(videoAutomation, /expectedUpdatedAt = existingRow\.updated_at/);
-assert.match(videoAutomation, /&updated_at=eq\.\$\{encodeURIComponent\(expectedUpdatedAt\)\}/,
+assert.match(videoAutomation, /expectedRowUpdatedAt = existingRow\.updated_at/);
+assert.match(videoAutomation, /expectedUpdatedAt && existingRow\.updated_at !== expectedUpdatedAt/);
+assert.match(videoAutomation, /&updated_at=eq\.\$\{encodeURIComponent\(expectedRowUpdatedAt\)\}/,
   "failed-request retry must compare the same row version that supplied its preserved content metadata");
 
 
@@ -522,6 +584,19 @@ assert.doesNotMatch(
   "video-generation deletion must not be authorized by the less-privileged video.manage permission",
 );
 
+const kidsVideoApprovalBlock = videoGenerationRoute.match(
+  /if \(action === ['"]approve_publish['"]\) \{[\s\S]*?(?=if \(action === ["']retry_publish["']\))/,
+)?.[0] ?? "";
+const kidsApprovalGatePosition = kidsVideoApprovalBlock.indexOf("requireAdminApi('kids.manage')");
+const kidsAudiencePosition = kidsVideoApprovalBlock.indexOf("const isKidsVideo = audience === 'kids'");
+const kidsApprovalRpcPosition = kidsVideoApprovalBlock.indexOf("admin_approve_video_generation_request");
+assert.ok(
+  kidsAudiencePosition >= 0 && kidsApprovalGatePosition > kidsAudiencePosition &&
+    kidsApprovalRpcPosition > kidsApprovalGatePosition,
+  "Kids video human approval must require kids.manage after audience resolution and before the atomic approval RPC",
+);
+// Role permissions are already asserted against the bounded videoManagerPermissions match above.
+
 const clientPrivilegeHardeningMigration = readFileSync(
   "supabase/migrations/20261112103200_revoke_client_non_dml_table_privileges.sql",
   "utf8",
@@ -565,13 +640,25 @@ assert.ok(
   "video deletion must remain behind the retention-safe server path",
 );
 assert.ok(
-  storageWritePolicyMigration.includes("CREATE POLICY video_assets_admin_insert") &&
-    storageWritePolicyMigration.includes("FOR INSERT") &&
-    storageWritePolicyMigration.includes("TO authenticated") &&
-    storageWritePolicyMigration.includes("bucket_id = 'videos'") &&
-    storageWritePolicyMigration.includes("(storage.foldername(name))[1] = (SELECT auth.uid())::text") &&
-    storageWritePolicyMigration.includes("private.has_admin_role(ARRAY['admin', 'super_admin', 'video_manager']::text[])"),
-  "only full admins and video managers may upload into their own video prefix",
+  storageWritePolicyMigration.includes("DROP POLICY IF EXISTS video_assets_admin_insert ON storage.objects;") &&
+    !storageWritePolicyMigration.includes("CREATE POLICY video_assets_admin_insert"),
+  "authenticated clients must not mint video upload capabilities directly through Storage RLS; video uploads use the audited server-signed capability",
+);
+const videoUploadRouteForStorage = readFileSync(
+  "src/app/api/admin/videos/upload/route.ts",
+  "utf8",
+);
+const genericStoragePresignRoute = readFileSync(
+  "src/app/api/storage/presign/route.ts",
+  "utf8",
+);
+assert.match(videoUploadRouteForStorage, /requireAdminStepUpApi\(['"]video\.manage['"]/);
+assert.match(videoUploadRouteForStorage, /runPostCommitAudit/);
+assert.match(videoUploadRouteForStorage, /purpose:\s*['"]video['"]/);
+assert.match(
+  genericStoragePresignRoute,
+  /const PURPOSES = new Set<StorageObjectPurpose>\(\['avatar', 'media', 'audio', 'document'\]\)/,
+  "the generic user presign route must not expose the service-role video upload purpose",
 );
 assert.ok(
   !storageWritePolicyMigration.includes("CREATE POLICY video_assets_admin_update") &&
@@ -583,5 +670,16 @@ assert.ok(
   !storageWritePolicyMigration.includes("profiles.role"),
   "storage policies must not treat every delegated profile.role=admin as a full administrator",
 );
+
+assert.ok(videoRequestsRoute.includes("requireAdminApi('video.manage')"), "video queue must require video.manage");
+assert.ok(videoRequestsRoute.includes("'Cache-Control': 'no-store'"), "private video queue responses must be no-store");
+
+
+assert.ok(writtenSocialRoute.includes('requireAdminApi("kids.manage")'), "written Kids generation must require the dedicated Kids permission");
+assert.ok(writtenSocialRoute.includes('allow_kids: String(allowKids)'), "the admin API must pass its server-derived Kids authorization to GitHub Actions");
+assert.ok(writtenSocialRoute.includes('category === "kids" && !kidsAuth.ok'), "explicit Kids generation must be denied without kids.manage");
+assert.ok(writtenSocialRoute.includes("kidsAuth.profile.id !== manageAuth.profile.id") && writtenSocialRoute.includes("kidsAuth.profile.id !== publishAuth.profile.id"), "Kids authorization must bind to the same administrator as social.manage and social.publish step-up");
+assert.ok(writtenStudioPage.includes('hasAdminPermission(profile.role, "kids.manage")'), "the written studio must derive Kids controls from the effective delegated role");
+assert.ok(writtenStudioClient.includes('CATEGORY_OPTIONS.filter((option) => option.value !== "kids")'), "the written studio must hide the Kids category from social-only managers");
 
 console.log("Admin RBAC/RLS migration contract passed.");

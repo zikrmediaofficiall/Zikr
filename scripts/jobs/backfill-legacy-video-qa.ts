@@ -1,5 +1,11 @@
 import { getServerEnv } from "../../src/lib/env";
 import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
+import {
+  assertBackfillApplyConfirmation,
+  assertBackfillTargetProject,
+  classifyBackfillPatchResult,
+} from "../../src/features/videos/services/video-qa-backfill-policy";
+import { normalizeVideoAudience, normalizeVideoMarker } from "../../src/features/videos/services/video-audience-visibility";
 import { sourceHash, videoContentHash } from "../../src/features/videos/providers/content-hash";
 import { AI_VISUAL_POLICY_VERSION } from "../../src/features/videos/providers/ai-visual-policy";
 import {
@@ -20,6 +26,7 @@ import {
 } from "./template-video-automation";
 
 type LegacyVideoRequest = GeneratedRequest & {
+  updated_at: string;
   source_hash: string | null;
   content_hash: string | null;
   template_version: string | null;
@@ -36,10 +43,18 @@ const KIDS_CLASSIFICATION_BLOCK_REASON =
 
 function isKidsClassificationRevalidation(content: RecordValue) {
   const qa = asRecord(content.automatedVideoQa);
-  return qa.status === "blocked" &&
+  return normalizeVideoMarker(qa.status) === "blocked" &&
     qa.blockedReason === KIDS_CLASSIFICATION_BLOCK_REASON &&
-    typeof content.curatedSourceId === "string" &&
-    content.curatedSourceId.startsWith("kids-series:");
+    normalizeVideoMarker(content.curatedSourceId).startsWith("kids-series:");
+}
+
+function isKidsQaRevalidation(content: RecordValue) {
+  const qa = asRecord(content.automatedVideoQa);
+  return normalizeVideoAudience(content.audience, false) === "kids" &&
+    normalizeVideoMarker(content.kidsVideoQaStatus) !== "passed" &&
+    normalizeVideoMarker(content.approvalStatus) === "approved" &&
+    content.approvalReviewerId === "system:zikr-video-factory" &&
+    normalizeVideoMarker(qa.status) === "passed";
 }
 
 function asRecord(value: unknown): RecordValue {
@@ -122,29 +137,46 @@ function expectedHashes(request: LegacyVideoRequest) {
 async function patchRequest(
   id: string,
   content: RecordValue,
+  expectedUpdatedAt: string,
   expectedBlockedReason?: string,
-) {
+  expectedKidsQaStatus?: string | null,
+): Promise<boolean> {
+  if (!expectedUpdatedAt.trim()) {
+    throw new Error("Legacy Video QA backfill requires the selected row's updated_at value.");
+  }
   const qaGuard = expectedBlockedReason
     ? "&content->automatedVideoQa->>blockedReason=eq." + encodeURIComponent(expectedBlockedReason)
-    : "&content->automatedVideoQa=is.null";
-  await supabaseServerAdminRequest(
-    "/rest/v1/video_generation_requests?id=eq." + encodeURIComponent(id) + "&status=eq.completed" + qaGuard,
+    : expectedKidsQaStatus !== undefined
+      ? "&content->>audience=eq.kids&content->>kidsVideoQaStatus=" + (expectedKidsQaStatus === null ? "is.null" : "eq." + encodeURIComponent(expectedKidsQaStatus)) + "&content->>approvalStatus=eq.approved&content->>approvalReviewerId=eq.system%3Azikr-video-factory&content->automatedVideoQa->>status=eq.passed"
+      : "&content->automatedVideoQa=is.null";
+  const updatedRows = await supabaseServerAdminRequest<RecordValue[]>(
+    "/rest/v1/video_generation_requests?id=eq." +
+      encodeURIComponent(id) +
+      "&status=eq.completed&updated_at=eq." +
+      encodeURIComponent(expectedUpdatedAt) +
+      qaGuard +
+      "&select=id,updated_at",
     {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        Prefer: "return=minimal",
+        Prefer: "return=representation",
       },
       body: JSON.stringify({ content, updated_at: new Date().toISOString() }),
     },
   );
+  const outcome = classifyBackfillPatchResult(updatedRows);
+  if (outcome === "unexpected") {
+    throw new Error("Legacy Video QA backfill expected exactly one updated row; refusing to report a successful write.");
+  }
+  return outcome === "updated";
 }
 
 async function listLegacyRequests(): Promise<LegacyVideoRequest[]> {
-  const select = "select=id,title,description,category,content,status,automation_key,video_url,source_hash,content_hash,template_version,scene,render_duration_ms,provider";
+  const select = "select=id,title,description,category,content,status,updated_at,automation_key,video_url,source_hash,content_hash,template_version,scene,render_duration_ms,provider";
   const cutoff = "/rest/v1/video_generation_requests?status=eq.completed&video_url=not.is.null&" + select +
     "&order=created_at.asc&limit=200&";
-  const [missingQa, kidsClassificationBlocked] = await Promise.all([
+  const [missingQa, kidsClassificationBlocked, kidsQaMissing, kidsQaBlocked] = await Promise.all([
     supabaseServerAdminRequest<LegacyVideoRequest[]>(
       cutoff + "content->automatedVideoQa=is.null",
     ),
@@ -154,9 +186,19 @@ async function listLegacyRequests(): Promise<LegacyVideoRequest[]> {
       "&content->automatedVideoQa->>blockedReason=eq." + encodeURIComponent(KIDS_CLASSIFICATION_BLOCK_REASON) +
       "&content->>curatedSourceId=like.kids-series%3A*",
     ),
+    supabaseServerAdminRequest<LegacyVideoRequest[]>(
+      cutoff + "content->>audience=eq.kids&content->>kidsVideoQaStatus=is.null" +
+      "&content->>approvalStatus=eq.approved&content->>approvalReviewerId=eq.system%3Azikr-video-factory" +
+      "&content->automatedVideoQa->>status=eq.passed",
+    ),
+    supabaseServerAdminRequest<LegacyVideoRequest[]>(
+      cutoff + "content->>audience=eq.kids&content->>kidsVideoQaStatus=eq.blocked" +
+      "&content->>approvalStatus=eq.approved&content->>approvalReviewerId=eq.system%3Azikr-video-factory" +
+      "&content->automatedVideoQa->>status=eq.passed",
+    ),
   ]);
   const byId = new Map<string, LegacyVideoRequest>();
-  for (const request of [...(missingQa ?? []), ...(kidsClassificationBlocked ?? [])]) {
+  for (const request of [...(missingQa ?? []), ...(kidsClassificationBlocked ?? []), ...(kidsQaMissing ?? []), ...(kidsQaBlocked ?? [])]) {
     byId.set(request.id, request);
   }
   return [...byId.values()];
@@ -165,8 +207,13 @@ async function listLegacyRequests(): Promise<LegacyVideoRequest[]> {
 async function processRequest(request: LegacyVideoRequest, apply: boolean) {
   const originalContent = asRecord(request.content);
   const revalidatingKidsClassification = isKidsClassificationRevalidation(originalContent);
+  const revalidatingKidsQa = isKidsQaRevalidation(originalContent);
+  const existingReviewer = typeof originalContent.approvalReviewerId === "string" ? originalContent.approvalReviewerId.trim() : "";
   const existingQa = asRecord(originalContent.automatedVideoQa);
-  if (Object.keys(existingQa).length > 0 && !revalidatingKidsClassification) {
+  if (existingReviewer && existingReviewer !== "system:zikr-video-factory") {
+    return { id: request.id, status: "skipped", reason: "Existing human review is preserved; automated backfill will not overwrite it." };
+  }
+  if (Object.keys(existingQa).length > 0 && !revalidatingKidsClassification && !revalidatingKidsQa) {
     return { id: request.id, status: "skipped", reason: "Existing QA decision is not eligible for automatic revalidation." };
   }
   const checkedAt = new Date().toISOString();
@@ -179,7 +226,7 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
     const missingChecks = REQUIRED_VIDEO_APPROVAL_CHECKS.filter((key) => reviewChecks[key] !== true);
     const blockedContent: RecordValue = {
       ...originalContent,
-      ...(originalContent.audience === "kids" || revalidatingKidsClassification ? { kidsVideoQaStatus: "blocked" } : {}),
+      ...(normalizeVideoAudience(originalContent.audience, false) === "kids" || revalidatingKidsClassification || revalidatingKidsQa ? { kidsVideoQaStatus: "blocked" } : {}),
       approvalStatus: "qa_failed",
       approvalReviewerId: null,
       approvalReviewedAt: null,
@@ -216,11 +263,16 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
       };
     }
     if (apply) {
-      await patchRequest(
+      const updated = await patchRequest(
         request.id,
         blockedContent,
+        request.updated_at,
         revalidatingKidsClassification ? KIDS_CLASSIFICATION_BLOCK_REASON : undefined,
+        revalidatingKidsQa ? (typeof originalContent.kidsVideoQaStatus === "string" ? originalContent.kidsVideoQaStatus : null) : undefined,
       );
+      if (!updated) {
+        return { id: request.id, status: "stale", reason: "The request changed after selection; no QA metadata was written." };
+      }
     }
     return { id: request.id, status: "blocked", reason, missingChecks };
   };
@@ -252,7 +304,7 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
     if (["quran", "hadith", "dua", "adhkar", "story"].includes(request.category)) {
       await validateSourceContent(requestForValidation);
     }
-    if (asRecord(requestForValidation.content).audience === "kids") {
+    if (normalizeVideoAudience(asRecord(requestForValidation.content).audience, false) === "kids") {
       assertKidsStoryContract(requestForValidation);
     }
     sourceRevalidated = true;
@@ -261,9 +313,8 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
   }
 
   const validatedContent = asRecord(requestForValidation.content);
-  if (typeof originalContent.curatedSourceId === "string" &&
-      originalContent.curatedSourceId.startsWith("kids-series:") &&
-      validatedContent.audience !== "kids") {
+  if (normalizeVideoMarker(originalContent.curatedSourceId).startsWith("kids-series:") &&
+      normalizeVideoAudience(validatedContent.audience, false) !== "kids") {
     return fail("Canonical Kids source lookup did not restore the explicit Kids audience metadata.");
   }
   if (typeof request.provider === "string" && request.provider.trim()) {
@@ -292,7 +343,9 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
       templateVersion: request.template_version,
     },
   );
-  const isKidsVideo = validatedContent.audience === "kids";
+  const normalizedAudience = normalizeVideoAudience(validatedContent.audience);
+  if (!normalizedAudience) return fail("Unknown audience marker after source revalidation.");
+  const isKidsVideo = normalizedAudience === "kids";
   const kidsVideoQaStatus = isKidsVideo
     ? hasCompleteKidsVideoSeriesMetadata(validatedContent) && hasCompleteVideoApprovalChecklist(checks)
       ? "passed"
@@ -305,7 +358,7 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
       contentHash: request.content_hash,
       templateVersion: request.template_version,
       videoUrl: request.video_url,
-      audience: isKidsVideo ? "kids" : "general",
+      audience: normalizedAudience,
       ...(isKidsVideo ? { kidsVideoQaStatus } : {}),
     },
     checks,
@@ -329,6 +382,7 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
         contentHashVerified: true,
         currentVisualPolicyVersion: AI_VISUAL_POLICY_VERSION,
         method: "safe_legacy_backfill_v1",
+        ...(revalidatingKidsQa ? { revalidatedKidsSpecificQa: true } : {}),
       },
     },
   };
@@ -343,11 +397,16 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
     };
   }
   if (apply) {
-    await patchRequest(
+    const updated = await patchRequest(
       request.id,
       approvedContent,
+      request.updated_at,
       revalidatingKidsClassification ? KIDS_CLASSIFICATION_BLOCK_REASON : undefined,
+      revalidatingKidsQa ? (typeof originalContent.kidsVideoQaStatus === "string" ? originalContent.kidsVideoQaStatus : null) : undefined,
     );
+    if (!updated) {
+      return { id: request.id, status: "stale", reason: "The request changed after selection; no QA metadata was written." };
+    }
   }
   return {
     id: request.id,
@@ -364,6 +423,12 @@ async function main() {
     throw new Error("Legacy Video QA backfill requires the production Supabase service-role environment.");
   }
   const apply = process.argv.includes("--apply");
+  assertBackfillTargetProject(SUPABASE_URL, process.env.EXPECTED_PROJECT_REF);
+  assertBackfillApplyConfirmation(
+    apply,
+    process.env.BACKFILL_APPLY,
+    process.env.BACKFILL_CONFIRMATION,
+  );
   const rows = await listLegacyRequests();
   console.log("[video-qa-backfill] mode=" + (apply ? "apply" : "dry-run") + " candidates=" + rows.length);
   const results = [];
@@ -374,7 +439,8 @@ async function main() {
   }
   const passed = results.filter((item) => item.status === "passed").length;
   const blocked = results.filter((item) => item.status === "blocked").length;
-  console.log("[video-qa-backfill] complete passed=" + passed + " blocked=" + blocked + " applied=" + apply);
+  const stale = results.filter((item) => item.status === "stale").length;
+  console.log("[video-qa-backfill] complete passed=" + passed + " blocked=" + blocked + " stale=" + stale + " applied=" + apply);
 }
 
 main().catch((error) => {

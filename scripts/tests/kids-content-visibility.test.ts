@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { getKidsQuizQuestions, isKidsContentType, KIDS_CONTENT_TYPES, normalizeKidsVideoEmbedUrl, parseKidsQuizData } from "../../src/features/kids/services/kids-content-validation";
+import { requireSupabaseRows } from "../../src/lib/supabase/array-response";
+import { kidsContent } from "../../src/features/kids/data/content";
 import { readFileSync } from "node:fs";
-import { getConfirmedPublicKidsVideoSocialPlatforms, isPublicKidsVideoSocialQueueRow, resolveKidsVideoSocialPublication } from "../../src/features/social/services/kids-video-social-visibility";
+import { classifyKidsVideoGenerationRequestId, getConfirmedPublicKidsVideoSocialPlatforms, isPublicKidsVideoSocialQueueRow, resolveKidsVideoSocialPublication } from "../../src/features/social/services/kids-video-social-visibility";
 import { loadKidsSocialQueueRows } from "../../src/features/social/services/kids-video-social-query";
 import {
   normalizeOfflineKidsRows,
@@ -15,6 +17,7 @@ import {
   hasKidsEnglishContent,
   isKidsContentPubliclyVisible,
   mergeKidsContentWithFallback,
+  prepareKidsFallbackContent,
   shouldTreatKidsContentLookupAsUnavailable,
 } from "../../src/features/kids/services/kids-content-visibility";
 import { isKidsVideoGenerationRequestContent } from "../../src/features/kids/services/kids-video-request-visibility";
@@ -53,6 +56,20 @@ for (const [publicStatus, visibilityStatus, expected] of [
   );
 }
 const kidsContentServiceSource = readFileSync("src/features/kids/services/kids-content.ts", "utf8");
+assert.deepEqual(requireSupabaseRows([], "valid empty query"), []);
+assert.deepEqual(requireSupabaseRows([{ id: "row-1" }], "valid query"), [{ id: "row-1" }]);
+for (const invalidPayload of [undefined, null, {}, "[]", 0]) {
+  assert.throws(
+    () => requireSupabaseRows(invalidPayload, "Kids query"),
+    /non-array response; refusing to treat it as an empty result/,
+    "an empty or malformed HTTP body must not be confused with a valid empty PostgREST row set",
+  );
+}
+assert.equal(
+  (kidsContentServiceSource.match(/requireSupabaseRows</g) ?? []).length,
+  4,
+  "Kids list and detail reads must validate both public rows and service-role visibility rows",
+);
 assert.equal(hasKidsEnglishContent({ title_en: "Wudu steps", content_en: "Original educational content prepared for families." }), false);
 assert.equal(hasKidsEnglishContent({ title_en: "Wudu steps", content_en: "Original educational content prepared for Zikr families." }), false);
 assert.equal(hasKidsEnglishContent({ title_en: "Kindness story", content_en: "A child invites a classmate to join a game." }), true);
@@ -117,6 +134,25 @@ assert.equal(isKidsContentPubliclyVisible({ type: "story", metadata: { age_appro
 assert.equal(isKidsContentPubliclyVisible({ type: "story", metadata: {} }), false, "legacy stories without explicit age approval must remain private until reviewed");
 assert.equal(isKidsContentPubliclyVisible({ type: "unknown", metadata: {} }), false, "unsupported content types must not be exposed through the public Kids resolver");
 assert.equal(isKidsContentPubliclyVisible({ type: "game", metadata: {} }), true, "non-story Kids content keeps its existing publication contract");
+
+const approvedStaticKidsFallback = prepareKidsFallbackContent(kidsContent);
+const explicitlyApprovedStaticStories = kidsContent.filter(
+  (item) => item.type === "story" && item.metadata?.age_appropriate === true,
+);
+assert.equal(
+  approvedStaticKidsFallback.filter((item) => item.type === "story").length,
+  explicitlyApprovedStaticStories.length,
+  "static fallback must retain only stories that already carry explicit age approval",
+);
+assert.equal(
+  approvedStaticKidsFallback.some((item) => item.type === "story" && item.metadata?.age_appropriate !== true),
+  false,
+  "static fallback preparation must never manufacture age approval for unreviewed stories",
+);
+assert.ok(
+  kidsContent.some((item) => item.type === "story" && item.metadata?.age_appropriate !== true),
+  "the regression fixture must include legacy/unreviewed static stories so the bypass stays covered",
+);
 assert.deepEqual(
   buildKidsStoryAgeReviewPatch({ reviewNote: "unsafe" }, true, false, "2026-11-14T13:00:00.000Z"),
   { metadata: { reviewNote: "unsafe", age_appropriate: false }, published: false, updated_at: "2026-11-14T13:00:00.000Z" },
@@ -256,6 +292,10 @@ assert.ok(adminManager.includes("isKidsContentType(item.type) ? typeLabels[item.
 assert.ok(adminManager.includes('fileName="featured_image_file"'), "the Kids form must submit the selected file to its validated server action");
 assert.ok(imageField.includes("name={fileName}"), "the image field must include the server-action file input name");
 assert.equal(imageField.includes("fetch("), false, "Kids media must not upload before the server validates the slug");
+assert.match(adminManager, /<Field name="content_en" label="المحتوى بالإنجليزية \(اختياري\)" textarea/,
+  "the Kids admin form must expose the optional English body that the public English locale requires");
+assert.ok(adminAction.includes('content_en: value(formData, "content_en")'),
+  "the Kids admin action must persist the English body supplied by the form");
 
 const kidsDetailPage = readFileSync("src/app/kids/[slug]/page.tsx", "utf8");
 const kidsQuizValidation = readFileSync("src/features/kids/services/kids-content-validation.ts", "utf8");
@@ -280,8 +320,42 @@ assert.match(kidsVideoDetailPage, /loading="lazy"/, "the public Kids video detai
 assert.ok(kidsVideosApi.includes("loadKidsSocialQueueRows(requestIds"), "the Kids video feed must read the complete paginated Kids social history");
 assert.ok(kidsVideosApi.includes("status=eq.completed"), "only completed generation requests may supply public Kids story metadata");
 assert.ok(kidsVideosApi.includes("isKidsVideoGenerationRequestContent(content)"), "linked request text must be validated as Kids content before it is exposed");
-assert.match(kidsVideosApi, /VIDEO_GENERATION_REQUEST_ID_PATTERN\.test\(id\.trim\(\)\)/, "only valid generation UUIDs may enter the Kids feed Supabase filters");
+assert.ok(
+  kidsVideosApi.includes("classifyKidsVideoGenerationRequestId"),
+  "the Kids feed must classify generation request IDs before constructing Supabase filters",
+);
+assert.deepEqual(
+  classifyKidsVideoGenerationRequestId("123e4567-e89b-42d3-a456-426614174000"),
+  { kind: "valid", id: "123e4567-e89b-42d3-a456-426614174000" },
+  "a valid UUID must be normalized and admitted to the bounded request lookup",
+);
+assert.deepEqual(classifyKidsVideoGenerationRequestId(null), { kind: "missing" });
+assert.deepEqual(classifyKidsVideoGenerationRequestId(undefined), { kind: "missing" });
+assert.deepEqual(classifyKidsVideoGenerationRequestId(""), { kind: "missing" });
+for (const invalidId of [
+  "not-a-uuid",
+  "  ",
+  "123e4567-e89b-42d3-a456-426614174000,evil",
+  "123e4567-e89b-02d3-a456-426614174000",
+  "123e4567-e89b-42d3-0456-426614174000",
+  123,
+  {},
+]) {
+  assert.deepEqual(
+    classifyKidsVideoGenerationRequestId(invalidId),
+    { kind: "invalid" },
+    "malformed request IDs must never enter the Kids feed Supabase filters",
+  );
+}
+assert.ok(
+  kidsVideosApi.includes('return state.kind === "valid" ? [state.id] : [];') &&
+    kidsVideosApi.includes('const requestId = requestIdState.kind === "valid" ? requestIdState.id : "";') &&
+    kidsVideosApi.includes('const socialQueueRows = requestIdState.kind === "valid"') &&
+    kidsVideosApi.includes("socialQueueByRequestId.get(requestId)"),
+  "only validated UUIDs may be used for request and social queue lookups",
+);
 assert.ok(kidsVideosApi.includes("resolveKidsVideoSocialPublication"), "the Kids video feed must aggregate all original and supplemental social queue rows");
+assert.ok(kidsVideosApi.includes("socialPublicationReadStatus"), "the Kids feed must expose whether its social publication state was verified");
 assert.ok(kidsVideosApi.includes("socialQueueReadSucceeded = true"), "stored social badges must be used only after a successful live queue read");
 assert.ok(kidsVideosApi.includes("Promise.allSettled"), "a social queue read failure must be distinguishable from a legitimate empty result");
 assert.doesNotMatch(kidsVideosApi, /status=in\.\(published,partial\)/, "queued, processing and failed supplemental rows must participate in live publication reconciliation");
@@ -470,15 +544,21 @@ assert.deepEqual(
 );
 
 const socialPublisherSource = readFileSync("src/features/social/services/social-publishing.ts", "utf8");
+const kidsCatalogPolicySource = readFileSync("src/features/social/services/kids-social-catalog-reconciliation.ts", "utf8");
 const kidsSocialSyncStart = socialPublisherSource.indexOf("async function syncKidsSocialPublicationToCatalog");
-const kidsSocialSyncEnd = socialPublisherSource.indexOf("async function syncYouTubeVideoReferenceToCatalog", kidsSocialSyncStart);
+const kidsSocialSyncEnd = socialPublisherSource.indexOf("async function markKidsCatalogSyncState", kidsSocialSyncStart);
 const kidsSocialSyncSource = kidsSocialSyncStart >= 0 && kidsSocialSyncEnd > kidsSocialSyncStart
   ? socialPublisherSource.slice(kidsSocialSyncStart, kidsSocialSyncEnd)
   : "";
 assert.match(
+  kidsCatalogPolicySource,
+  /normalizeSocialPlatformResults\(item\.metadata\?\.platformResults\)/,
+  "Kids catalog synchronization must normalize legacy object/array result ledgers before deriving publication state",
+);
+assert.match(
   kidsSocialSyncSource,
-  /normalizeSocialPlatformResults\(rawResults\)/,
-  "Kids catalog synchronization must normalize legacy array-shaped platform results before deriving publication badges",
+  /resolveKidsSocialCatalogPublicationSnapshot\(queueItem\)/,
+  "the catalog writer must consume the tested publication snapshot instead of duplicating result parsing",
 );
 
 const originalYoutubeQueueRow = {
@@ -694,18 +774,26 @@ const kidsSocialPostsApi = readFileSync("src/app/api/kids/social-posts/route.ts"
 assert.match(kidsSocialPostsApi, /process\.env\.VERCEL_ENV === "production"/, "a missing service-role key must be visible in production");
 assert.match(kidsSocialPostsApi, /status: 503/, "a missing production service-role key must not silently produce an empty Kids posts feed");
 assert.match(kidsSocialPostsApi, /return NextResponse\.json\(\[\]/, "preview and development may retain their intentional empty-feed fallback");
+assert.equal(
+  (kidsSocialPostsApi.match(/requireSupabaseRows</g) ?? []).length,
+  2,
+  "Kids social queue and source lookups must reject malformed/empty HTTP bodies instead of returning a false empty feed",
+);
 const kidsHomePage = readFileSync("src/app/kids/page.tsx", "utf8");
 const kidsVideoService = readFileSync("src/features/videos/services/videos.ts", "utf8");
+const kidsVideoSocialDetailService = readFileSync("src/features/social/services/kids-video-social-detail.ts", "utf8");
 const kidsSocialQueryService = readFileSync("src/features/social/services/kids-video-social-query.ts", "utf8");
 assert.match(kidsVideoService, /resolveKidsVideoSocialPublicationForDetail/);
-assert.match(kidsVideoService, /loadKidsSocialQueueRows\(\[requestId\]/, "the Kids video detail route must reconcile every page of live social queue history");
+assert.match(kidsVideoSocialDetailService, /loadKidsSocialQueueRows\(\[requestIdState\.id\], request\)/, "the Kids video detail route must reconcile every page of live social queue history using a validated request UUID");
+assert.match(kidsVideoSocialDetailService, /reason: "queue_read_failed"/, "the Kids video detail must preserve an explicit unavailable state when the queue read fails");
 assert.match(kidsSocialQueryService, /metadata->>audience=eq\.kids/, "the shared Kids social queue reader must never use general-audience rows");
 assert.match(kidsSocialQueryService, /order=created_at\.desc,id\.desc/, "the shared Kids social queue reader must use a stable keyset order");
 assert.match(kidsSocialQueryService, /KIDS_SOCIAL_QUEUE_MAX_ROWS = 5_000/, "an oversized social history must fail closed instead of returning a truncated badge");
 assert.doesNotMatch(kidsVideoService, /limit=600/, "the Kids video detail must not silently truncate supplemental publication history");
-assert.match(kidsVideoService, /metadata:\s*\{\s*\.\.\.metadata,\s*socialPublication\s*\}/, "the Kids video detail response must replace stale catalog social badges with the live result");
+assert.match(kidsVideoService, /socialPublication:\s*socialPublicationResolution\.publication[\s\S]*socialPublicationReadStatus:\s*socialPublicationResolution\.status/, "the Kids video detail response must replace stale catalog badges and preserve read availability");
 assert.match(kidsVideoDetailPage, /نص منشور مُجهّز/, "unpublished generated copy must be labelled as prepared copy, not a published post");
 assert.match(kidsVideoDetailPage, /لم يتم نشره بعد/, "the Kids video detail page must state when a generated caption has no confirmed platform delivery");
+assert.match(kidsVideoDetailPage, /تعذر التحقق من حالة النشر/, "the Kids video detail page must not label an unavailable social queue as unpublished");
 const kidsGamesAdminPage = readFileSync("src/app/admin/kids/games/page.tsx", "utf8");
 const kidsLevelsAdminPage = readFileSync("src/app/admin/kids/levels/page.tsx", "utf8");
 const kidsContentData = readFileSync("src/features/kids/data/content.ts", "utf8");
@@ -858,7 +946,15 @@ assert.match(service, /published=eq\.true&is_active=eq\.true/, "public Kids quer
 assert.match(service, /select=\*&published=eq\.true&is_active=eq\.true/, "the Kids page must preserve every active published content type");
 const kidsVisibilitySource = readFileSync("src/features/kids/services/kids-content-visibility.ts", "utf8");
 assert.match(kidsVisibilitySource, /metadata\.age_appropriate === true/, "public Kids story visibility must require explicit age-suitability approval");
-assert.ok(kidsContentServiceSource.includes("age_appropriate: true"), "curated static fallback stories must carry explicit age approval");
+assert.ok(
+  kidsContentServiceSource.includes("prepareKidsFallbackContent(dedupeBySlug(kidsContent))"),
+  "static fallback must pass through the explicit age-approval filter before public use",
+);
+assert.doesNotMatch(
+  kidsContentServiceSource,
+  /age_appropriate:\s*true/,
+  "static fallback preparation must never manufacture an age-approval flag",
+);
 assert.ok(kidsContentServiceSource.includes("FALLBACK_KIDS_CONTENT.find"), "fallback detail lookup must use the same age-approved curated list");
 assert.match(service, /isKidsContentPubliclyVisible/, "public Kids services must reject unsupported types even when the database RLS policy is unavailable");
 assert.match(service, /FALLBACK_KIDS_CONTENT\.filter\(isKidsContentPubliclyVisible\)/, "static fallback lists must apply the same supported-type visibility gate");
@@ -901,6 +997,9 @@ const offlineKidsRows = normalizeOfflineKidsRows([
   { id: "unapproved-story", slug: "unapproved-story", title_ar: "قصة غير معتمدة", type: "story", age_group: "6-8", content_ar: "نص", published: true, is_active: true, metadata: { age_appropriate: false } },
   { id: "legacy-story", slug: "legacy-story", title_ar: "قصة قديمة", type: "story", age_group: "6-8", content_ar: "نص", published: true, is_active: true, metadata: {} },
   { id: "inactive-game", slug: "inactive-game", title_ar: "لعبة غير نشطة", type: "game", age_group: "6-8", content_ar: "نص", published: true, is_active: false, metadata: {} },
+  { id: "unpublished-game", slug: "unpublished-game", title_ar: "لعبة غير منشورة", type: "game", age_group: "6-8", content_ar: "نص", published: false, is_active: true, metadata: {} },
+  { id: "missing-published", slug: "missing-published", title_ar: "نشر غير محدد", type: "game", age_group: "6-8", content_ar: "نص", is_active: true, metadata: {} },
+  { id: "missing-active", slug: "missing-active", title_ar: "تفعيل غير محدد", type: "game", age_group: "6-8", content_ar: "نص", published: true, metadata: {} },
   { id: "public-game", slug: "public-game", title_ar: "لعبة", title_en: "Game", type: "game", age_group: "6-8", content_ar: "نص", content_en: "Text", published: true, is_active: true, metadata: {} },
 ], "ar");
 assert.deepEqual(
@@ -987,5 +1086,35 @@ await assert.rejects(
   "an oversized Kids social history must fail closed instead of silently truncating deletion or publication evidence",
 );
 assert.equal(oversizedPage, 11, "the bounded Kids history scan must detect rows beyond its 5,000-row safety limit");
+
+const kidsVideoPublicReadMigration = readFileSync(
+  "supabase/migrations/20261114210000_restrict_public_kids_video_read_to_qa_passed.sql",
+  "utf8",
+);
+assert.match(kidsVideoPublicReadMigration, /DROP POLICY IF EXISTS videos_public_read ON public\.videos/i);
+assert.match(kidsVideoPublicReadMigration, /CREATE POLICY videos_public_read[\s\S]*?TO anon, authenticated[\s\S]*?published IS TRUE/i);
+assert.match(kidsVideoPublicReadMigration, /metadata IS NULL/i);
+assert.match(kidsVideoPublicReadMigration, /jsonb_typeof\(metadata\) = 'object'/i);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'audience' IS NULL/i);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'audience' = 'general'/i);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'audience' = 'kids'/i);
+assert.doesNotMatch(
+  kidsVideoPublicReadMigration,
+  /lower\(btrim\(coalesce\(metadata->>'audience', ''\)\)\) <> 'kids'/i,
+  "unknown and malformed audience values must fail closed instead of being treated as general",
+);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'generator' = 'zikr_internal_video_factory'/);
+assert.match(kidsVideoPublicReadMigration, /metadata->>'kidsVideoQaStatus' = 'passed'/);
+assert.match(kidsVideoPublicReadMigration, /metadata->'automatedVideoQa'->>'status' = 'passed'/);
+assert.doesNotMatch(
+  kidsVideoPublicReadMigration,
+  /DELETE FROM public\.videos|TRUNCATE TABLE public\.videos|DROP TABLE public\.videos/i,
+  "Kids video visibility hardening must preserve every existing video row",
+);
+const publicVideoService = readFileSync("src/features/videos/services/videos.ts", "utf8");
+assert.match(publicVideoService, /metadata->>audience=eq\.kids/);
+assert.match(publicVideoService, /metadata->>generator=eq\.zikr_internal_video_factory/);
+assert.match(publicVideoService, /metadata->>kidsVideoQaStatus=eq\.passed/);
+assert.match(publicVideoService, /metadata->automatedVideoQa->>status=eq\.passed/);
 
 console.log("Kids content visibility and fallback contracts passed.");
