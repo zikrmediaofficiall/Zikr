@@ -1,6 +1,8 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { selectAndroidRelease } from "../android-release-selection";
+export { selectAndroidRelease } from "../android-release-selection";
 
 const RELEASES_API_BASE =
   "https://api.github.com/repos/zikrofficial-X/Zikr/releases";
@@ -179,18 +181,19 @@ export async function getAndroidReleaseSetting(): Promise<AndroidReleaseSetting>
 
   return { mode: "auto", releaseTag: null };
 }
-export function selectAndroidRelease(
-  latestStable: GitHubRelease | null,
-  pinned: GitHubRelease | null
-): GitHubRelease | null {
-  if (
-    pinned &&
-    latestStable &&
-    compareVersions(pinned.tag_name ?? "", latestStable.tag_name ?? "") >= 0
-  ) {
-    return pinned;
-  }
-  return latestStable ?? pinned;
+
+export async function getSelectedAndroidRelease(): Promise<GitHubRelease | null> {
+  const [setting, latestStable] = await Promise.all([
+    getAndroidReleaseSetting(),
+    getLatestStableAndroidRelease(),
+  ]);
+
+  const pinnedRelease =
+    setting.mode === "pinned" && setting.releaseTag
+      ? await getStableReleaseByTag(setting.releaseTag)
+      : null;
+
+  return selectAndroidRelease(latestStable, pinnedRelease);
 }
 
 export function findApkAsset(
