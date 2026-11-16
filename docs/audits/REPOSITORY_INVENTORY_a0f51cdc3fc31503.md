@@ -12,7 +12,7 @@ Generated: 2026-11-16T13:04:59.302Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `58acf21c1543c0e3056ccf9cde8239b60bc3202c`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `677ec0e06344bbeb0366d0b0438a9d632bb1e660`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -35,15 +35,16 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - `UNREVIEWED`: 1894
-- `REVIEWED_SOURCE_ONLY`: 27
+- `REVIEWED_SOURCE_ONLY`: 24
 - `FIX_PENDING_PR337`: 9
+- `FIX_PENDING_PR343`: 5
 - `FIX_PENDING_PR339`: 5
-- `FIX_PENDING_PR343`: 4
 - `FIX_PENDING_PR338`: 4
 - `FIX_PENDING_PR340`: 3
 - `SECURITY_FIX_PENDING_PR340`: 3
 - `DOCS_RECONCILIATION_PENDING`: 2
 - `FIX_PENDING_PR341`: 2
+- `REVIEWED_PARTIAL`: 2
 - `OWNER_SETTING_REQUIRED`: 1
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
@@ -73,13 +74,13 @@ High-priority unreviewed files: **748**.
 | 340 | Kids category-level public video RLS guard | `86b166410669b47f2984854fc3c4f364f8370c9b` | PostgreSQL 17 integration, Quality Gate + CircleCI passed |
 | 341 | Complete bounded Quran-audio reference pagination for storage audit | `f1fa0e5c7c6959bfd2d0b6552c808efb72c0ee80` | Quality Gate + CircleCI passed |
 | 342 | Validated offline-content snapshot manifest | `e38c9d69cb7d9ef0aac2f1992d10b96538533563` | Quality Gate + CircleCI passed |
-| 343 | Production Apple Universal Links configuration guard | `68edfb6aeccd57981f0fb811443da7960e1996c8` | previous head failed a stale test assertion; corrected head was pending rerun |
+| 343 | Production Apple Universal Links configuration guard | `68edfb6aeccd57981f0fb811443da7960e1996c8` | Quality Gate run 43871761649, Android Debug APK run 43871760192, and all CircleCI checks passed |
 
 All PRs remain unmerged. PR342 is a content-manifest snapshot, not a production database mutation.
 
 ## Background workflow findings
 
-- Offline-content refresh run `43845944941` validated 25 datasets and pushed a branch, but the workflow token could not create its PR. PR342 was opened as a draft for review. The owner must enable GitHub Actions PR creation or provide a least-privilege `GH_TOKEN` with `pull-requests:write`.
+- Offline-content refresh run `43845944941` validated 25 datasets and pushed a branch, but the workflow token could not create its PR. PR342 was opened manually and marked ready for review after green checks. The owner must enable GitHub Actions PR creation or provide a least-privilege `GH_TOKEN` with `pull-requests:write`.
 - Storage-retention run `43843404168` failed closed at the 5,000-row cap for `quran_audio.metadata`. No storage deletion occurred; owner confirmation was skipped. PR341 raises only this known inventory cap to 25,000 and retains fail-closed behavior above it.
 - No content generation, Gemini call, social publication, production migration, production DB mutation, Storage deletion, Android release, or Vercel deployment was triggered by this audit.
 
@@ -90,3 +91,9 @@ All PRs remain unmerged. PR342 is a content-manifest snapshot, not a production 
 - The real Apple Team ID is absent from the repository. An owner must set Vercel Production `IOS_ASSOCIATED_DOMAIN_APP_ID=<TEAM_ID>.com.zikr.app`, redeploy, and verify AASA HTTP 200.
 - Physical Android/iOS device acceptance, store-signed certificate comparison, iOS archive/signing, and native push/deep-link acceptance remain manual. No release was created.
 - Repository-wide file review is **not complete**. The matrix marks all remaining files `UNREVIEWED`; continue in priority order and update the matrix only with actual content and evidence.
+
+## Post-snapshot update — 2026-11-16T13:07:49.942Z
+
+- PR #343 corrected head `68edfb6aeccd57981f0fb811443da7960e1996c8` passed Quality Gate run `43871761649`, Android Debug APK run `43871760192`, and all three CircleCI checks. It is ready for review, unmerged.
+- PR #342 is ready for review after its Quality Gate and CircleCI checks passed. It remains a manifest-only offline snapshot update.
+- The status matrix has been refreshed with these exact heads and now distinguishes two partially inspected scheduler Edge Functions from fully source-read files.
