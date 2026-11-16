@@ -6,6 +6,7 @@ import {
   supabaseServerAdminRequest,
 } from "@/lib/supabase/server";
 import { buildAdminVideoQueueOverview } from "@/features/admin/services/admin-dashboard-visibility";
+import { getVisibleAdminSearchSourceKeys, type AdminSearchSourceKey } from "@/features/admin/services/admin-search-visibility";
 import { hasAdminPermission, type AdminPermission, type AdminRole } from "@/features/admin/services/permissions";
 import { readAdminRows } from "@/features/admin/services/safe-read";
 import { getServerEnv } from "@/lib/env";
@@ -347,21 +348,22 @@ export type AdminSearchResult = {
   updated_at: string;
 };
 
-export async function searchAdminContent(query: string): Promise<{
+export async function searchAdminContent(query: string, role: AdminRole): Promise<{
   items: AdminSearchResult[];
   unavailableSources: string[];
 }> {
   const term = query.trim();
   if (!term) return { items: [], unavailableSources: [] };
   const pattern = encodeURIComponent(`%${term}%`);
-  const requests = [
-    ["مقال", "/rest/v1/articles?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
-    ["قصة", "/rest/v1/stories?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
-    ["فيديو", "/rest/v1/videos?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",description.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
-    ["حديث", "/rest/v1/hadiths?select=id,text_ar,grade_ar,published,updated_at&or=(text_ar.ilike." + pattern + ",grade_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
-    ["دعاء", "/rest/v1/duas?select=id,title_ar,text_ar,published,updated_at&or=(title_ar.ilike." + pattern + ",text_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
-    ["مكتبة", "/rest/v1/content_library?select=id,title_ar,title_en,slug,published,updated_at&or=(title_ar.ilike." + pattern + ",title_en.ilike." + pattern + ",body_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
-  ] as const;
+  const sourcePaths: Record<AdminSearchSourceKey, readonly [string, string]> = {
+    articles: ["مقال", "/rest/v1/articles?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    stories: ["قصة", "/rest/v1/stories?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    videos: ["فيديو", "/rest/v1/videos?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",description.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    hadiths: ["حديث", "/rest/v1/hadiths?select=id,text_ar,grade_ar,published,updated_at&or=(text_ar.ilike." + pattern + ",grade_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    duas: ["دعاء", "/rest/v1/duas?select=id,title_ar,text_ar,published,updated_at&or=(title_ar.ilike." + pattern + ",text_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    content_library: ["مكتبة", "/rest/v1/content_library?select=id,title_ar,title_en,slug,published,updated_at&or=(title_ar.ilike." + pattern + ",title_en.ilike." + pattern + ",body_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+  };
+  const requests = getVisibleAdminSearchSourceKeys(role).map((source) => sourcePaths[source]);
 
   const results = await Promise.all(
     requests.map(async ([type, path]) => {
