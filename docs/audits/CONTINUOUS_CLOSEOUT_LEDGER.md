@@ -2644,3 +2644,36 @@ No content generation, Gemini request, social publishing, production database mu
 - Vercel runtime aggregation showed 7 `TypeError: fetch failed`/`ETIMEDOUT` events affecting 7 users over 24h on `/` and `/quran/[surah]/[ayah]`; 3 recent logs were GET `/` in iad1/sfo1, latest at 2026-11-16T20:36:01Z. Inspected homepage, layout, site-setting/article and Quran local-corpus/tafsir paths catch network errors and fall back to bundled/local data; no unhandled 500 is confirmed, but transient outbound network timeouts remain a monitoring item. Homepage HTML was reachable; API/route smoke endpoints were not independently verifiable.
 - `next.config.ts` has HSTS/nosniff/frame denial/referrer/permissions headers and CSP; `unsafe-inline` and explicit ad hosts remain a hardening opportunity. No build/deploy was run.
 - PR #369 exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3` is draft/open; CircleCI contexts and Android debug build pass, Quality Gate is in progress. PR #370 exact head `f5596f7ad1b72e666c084923123814e5e001c0e1` is draft/open; Quality Gate and source/application CircleCI contexts are pending. No owner approval or merge occurred.
+
+
+## 2026-11-16T21:02Z — Quran catalog, ayah and tafsir seed validation
+
+### Files read and source validation
+
+- Read and parsed all 23 high-priority SQL files: `20260929010000_seed_canonical_quran_catalog.sql`, all 13 `20261009160001..13_quran_ayahs_seed_chunk_02..14.sql` files, and all nine `20260817074038..74342_quran_tafsir_expansion_01..09.sql` files.
+- Canonical catalog source: 114 surah rows, 172 unique reciter codes, 422 ayah rows (chunk 01/14), and a deterministic cross-join for 19,608 surah/reciter audio pairs. Every reciter URL is HTTPS on `mp3quran.net`; recitation type is `surah`. Inserts use conflict-safe upserts; no DELETE/DROP/TRUNCATE was found.
+- The 13 subsequent ayah chunks contain 5,814 rows. Combined with the catalog's 422 rows: 6,236 unique `(surah_id, ayah_number)` keys across 114 surahs, no duplicates, non-empty Arabic/Uthmani text, valid page/juz/sajda fields, and one idempotent conflict-upsert statement per chunk.
+- The nine tafsir migrations contain 6,236 unique keys (700 rows in each of the first eight files, 636 in the ninth), author `التفسير الميسر`, matching AlQuran.cloud surah source URLs, no empty text (20–1,451 characters), no duplicate keys, and idempotent `ON CONFLICT` upserts. No destructive SQL was found.
+
+### Remote application and read-only data evidence
+
+- Supabase migration history contains all 23 exact versions; total remote applied migrations remains 449 through `20261116045100`.
+- Read-only production query: 114 surahs, expected ayah count 6,236, actual Quran ayahs 6,236 and unique keys 6,236; all 114 per-surah counts match, with zero empty Arabic/Uthmani text.
+- Tafsir al-Muyassar: 6,236 rows and unique keys across 114 surahs; zero missing/extra ayah links, zero empty tafsir text and zero unexpected source URLs.
+- Reciters: 172 rows/unique codes, zero invalid HTTPS host/type records. Audio: 19,608 rows/unique surah-reciter pairs, zero invalid external MP3 URLs/types, zero missing reciter or surah references.
+- All 23 migration rows are now `REVIEWED_DATA_VALIDATED`. No migration was applied, replayed, rolled back or edited; no audio was downloaded and no storage object was changed.
+
+### Matrix reconciliation
+
+- Matrix blob is now `6c1a3ed41fee37a1fbc2d11a0ad11a562c47ee96`, tied to unchanged main source `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` and unchanged full manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
+- 1,959 tracked blobs remain inventoried; 1,364 are still `UNREVIEWED` (482 high priority), 595 are in a reviewed/pending category. The 23 Quran migrations moved from `UNREVIEWED` to `REVIEWED_DATA_VALIDATED`.
+
+### Repair PR check update
+
+- PR #369 exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`: Quality Gate run `43953516859` passed `QUALITY_GATE=PASSED_FULL`; focused output confirms the admin queue alert retry regression test passed. CircleCI source-verify, application-build-docs and config-guard passed; Android debug APK run `43953516793` passed. PR remains draft/unmerged pending authorized CODEOWNERS review.
+- PR #370 exact head `f5596f7ad1b72e666c084923123814e5e001c0e1`: first Quality Gate failure was caused by the verifier not loading `src/features/search/services/search.ts`; the source path was added. Fresh Quality Gate run `43953972981` and Android debug APK run `43953973140` were still in progress at this timestamp; CircleCI source-verify pending, application-build-docs and config-guard passed. No merge.
+- Documentation PR #344 received matrix, inventory summary, project status and ledger updates; its exact current head/check state must be rechecked after this commit.
+
+### Safety
+
+No production SQL mutation, migration execution, data repair, content generation, Gemini request, social publishing, audio/media download, Storage deletion, release, merge, deployment or smoke test was performed. Full repository audit remains OPEN; 1,364 tracked blobs remain unreviewed, owner review and device acceptance are outstanding.
