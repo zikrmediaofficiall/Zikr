@@ -9,6 +9,7 @@ import {
   reconcileYoutubeFallbackMetadata,
   resolveLatestConfirmedYoutubeQueueState,
   resolveYoutubeCatalogReference,
+  resolveCatalogThumbnail,
   resolveVideoMediaUrl,
   resolveVideoThumbnail,
   resolveVideoYoutubeId,
@@ -449,4 +450,44 @@ test("exact Supabase inventory counts require a numeric Content-Range", async ()
     if (originalKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     else process.env.SUPABASE_SERVICE_ROLE_KEY = originalKey;
   }
+});
+
+
+test("catalog thumbnails follow confirmed YouTube ID changes without replacing custom artwork", () => {
+  const oldId = "oldVideo123";
+  const nextId = "newVideo999";
+  const oldThumbnail = "https://img.youtube.com/vi/" + oldId + "/hqdefault.jpg";
+  const nextThumbnail = "https://i.ytimg.com/vi/" + nextId + "/hqdefault.jpg";
+  const customThumbnail = "https://res.cloudinary.com/zikr/image/upload/custom-poster.jpg";
+
+  assert.equal(
+    resolveCatalogThumbnail(oldThumbnail, nextId, "/branding/og-image.jpg"),
+    nextThumbnail,
+    "a queue-confirmed republish must replace a stale YouTube thumbnail",
+  );
+  assert.equal(
+    resolveCatalogThumbnail(oldThumbnail, null, "/branding/og-image.jpg"),
+    "/branding/og-image.jpg",
+    "a confirmed deletion without a newer publication must not retain the deleted video's thumbnail",
+  );
+  assert.equal(
+    resolveCatalogThumbnail("/branding/og-image.jpg", nextId, "/branding/og-image.jpg"),
+    nextThumbnail,
+    "a neutral placeholder must yield to a confirmed YouTube publication",
+  );
+  assert.equal(
+    resolveCatalogThumbnail(customThumbnail, nextId, "/branding/og-image.jpg"),
+    customThumbnail,
+    "custom Cloudinary artwork must remain untouched",
+  );
+  assert.equal(
+    resolveCatalogThumbnail(nextThumbnail, nextId, "/branding/og-image.jpg"),
+    nextThumbnail,
+    "a thumbnail already matching the confirmed ID must be preserved",
+  );
+  assert.equal(
+    resolveCatalogThumbnail("https://i.ytimg.com/vi/otherVideo9/hqdefault.jpg", nextId, "/branding/og-image.jpg"),
+    "https://i.ytimg.com/vi/newVideo999/hqdefault.jpg",
+    "a mismatched YouTube-derived thumbnail must not survive catalog reconciliation",
+  );
 });
