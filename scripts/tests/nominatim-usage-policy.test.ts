@@ -31,6 +31,8 @@ const prayer = readFileSync("src/features/prayer/components/prayer-times-page.ts
 const attribution = readFileSync("src/components/location/openstreetmap-attribution.tsx", "utf8");
 const migration = readFileSync("supabase/migrations/20261116210000_nominatim_global_min_interval.sql", "utf8");
 const integration = readFileSync("scripts/tests/nominatim-global-rate-limit.integration.sh", "utf8");
+const integrationSql = readFileSync("scripts/tests/nominatim-global-rate-limit.integration.sql", "utf8");
+const integrationSetup = readFileSync("scripts/tests/nominatim-global-rate-limit.integration-setup.sql", "utf8");
 const qualityGate = readFileSync(".github/workflows/quality-gate.yml", "utf8");
 
 assert.match(route, /consumeReverseGeocodeClientRateLimit/);
@@ -51,7 +53,13 @@ assert.match(migration, /clock_timestamp\(\)/);
 assert.match(migration, /window_started_at = v_slot/);
 assert.match(migration, /REVOKE ALL ON FUNCTION public\.consume_min_interval_rate_limit[\s\S]*FROM PUBLIC, anon, authenticated/);
 assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.consume_min_interval_rate_limit[\s\S]*TO service_role/);
-assert.match(integration, /sleep 1\.05/);
+assert.match(integration, /nominatim-global-rate-limit\.integration-setup\.sql/);
+assert.match(integration, /nominatim-global-rate-limit\.integration\.sql/);
+assert.match(integrationSql, /pg_sleep\(1\.05\)/);
+assert.match(integrationSql, /has_function_privilege\([\s\S]*service_role/);
+assert.match(integrationSetup, /CREATE ROLE anon NOLOGIN/);
+assert.match(integrationSetup, /CREATE ROLE authenticated NOLOGIN/);
+assert.match(integrationSetup, /CREATE ROLE service_role NOLOGIN/);
 assert.match(qualityGate, /Verify Nominatim global minimum request interval against PostgreSQL 17/);
 assert.match(env, /NOMINATIM_BASE_URL/);
 assert.match(envExample, /NOMINATIM_BASE_URL=https:\/\/nominatim\.openstreetmap\.org/);
