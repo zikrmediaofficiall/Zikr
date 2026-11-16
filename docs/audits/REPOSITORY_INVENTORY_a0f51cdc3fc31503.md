@@ -12,7 +12,7 @@ Generated: 2026-11-16T13:04:59.302Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `80cf4b3c4c5085e5b6902984a68ac40f3bb4051f`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `137d6c8afc271b57aaba55a5f4e4fe0478e21a37`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -127,3 +127,12 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 ## SEO helper trace — 2026-11-16T13:22:13.767Z
 
 - Read `src/lib/site.ts` and `src/lib/seo/sitemap-shards.ts`: canonical site URL is centralized; noindex path rules are applied before sitemap inclusion; shard count uses ceiling division; shard IDs are bounded non-negative integers; XML values are escaped; responses are cached and shard documents carry noindex headers. No focused sitemap-shard unit test was found under `scripts/tests`; no reproducible SEO defect was observed in the inspected path.
+
+## Admin RBAC and API permission scan — 2026-11-16T13:28:56.818Z
+
+- Fetched all 27 `src/app/api/admin/**/route.ts` files and enumerated exported HTTP methods plus authorization markers. Every route had an explicit admin permission gate, AAL2 step-up for sensitive mutations, or signed OAuth-state validation for callbacks. This was a permission-gate scan; full request validation and business-logic review of all 27 routes remains open.
+- Specific high-risk paths: Kids social-written publishing requires `kids.manage`; video-generation, template, retry, create and upload paths require `video.manage` plus `kids.manage` for Kids-targeted work; social connect/callback paths require `social.manage`, step-up and signed state; media/site-audio mutations require `media.manage` and step-up; analytics requires `analytics.view`.
+- `video-purge` is intentionally disabled: its POST handler returns 409 before any file or memory deletion branch. The two legacy YouTube/Facebook media endpoints return 410 after authorization. No purge/upload/publish operation was invoked.
+- Role integrity: `profiles.role` updates are protected by the `guard_profile_sensitive_fields` trigger; delegated `admin_role_assignments` writes are service-role-only. `admin_update_user_role` is SECURITY INVOKER with empty search_path and EXECUTE granted only to service_role. The server action requires `users.roles` + AAL2 and blocks self-demotion; only super_admin can assign full-admin roles. Role lookup errors resolve to `user` (fail closed).
+- Live grants/policies confirm authenticated users can SELECT their own delegated assignment but cannot INSERT/UPDATE/DELETE assignments; the trigger blocks direct profile role/email changes. All five relevant migrations are applied. Existing role-resolution and PostgreSQL integration tests cover these cases and the main Quality Gate is green.
+- No missing route permission guard or reproducible role-escalation path was found in this scan. The remaining 66 admin page routes and full route business logic are still in the unreviewed queue.
