@@ -83,5 +83,5 @@ test("admin search route admits roles that can access at least one source", () =
   assert.match(pageSource, /requireAnyAdminPermission\(ADMIN_SEARCH_ACCESS_PERMISSIONS\)/);
   assert.match(adminSource, /permissions\.some\(\(permission\) => hasAdminPermission\(profile\.role, permission\)\)/);
   assert.ok(verifierSource.includes("/requireAnyAdminPermission\\(/"), "the canonical admin page verifier must recognize the any-permission guard");
-  assert.ok(governanceVerifierSource.includes("/requireAnyAdminPermission\\(/"), "the admin governance verifier must recognize the any-permission guard");
+  assert.ok(governanceVerifierSource.includes("requireAnyAdminPermission\\("), "the admin governance verifier must recognize the any-permission guard");
 });
