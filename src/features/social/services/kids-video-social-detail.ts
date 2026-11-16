@@ -25,6 +25,36 @@ export type KidsVideoSocialPublicationDetailResolution =
  * A verified empty history means "not published". A missing/invalid ID or failed
  * queue read means "unknown"; legacy catalog metadata is not proof of live delivery.
  */
+/**
+ * Prefer the caption confirmed by the live social queue. Catalog socialCaption
+ * is only a prepared fallback and may be stale after an edited/retried post.
+ */
+export function resolveKidsVideoDetailSocialCaption(
+  metadata: Record<string, unknown> | null | undefined,
+): string | null {
+  const record = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? metadata
+    : {};
+  const publication = record.socialPublication && typeof record.socialPublication === "object" && !Array.isArray(record.socialPublication)
+    ? record.socialPublication as Record<string, unknown>
+    : null;
+  const hasConfirmedPublication = Boolean(
+    publication &&
+    (publication.status === "published" || publication.status === "partial") &&
+    Array.isArray(publication.platforms) &&
+    publication.platforms.some((platform) => typeof platform === "string" && platform.trim().length > 0)
+  );
+  const publishedCaption = hasConfirmedPublication &&
+    typeof record.socialPublicationCaption === "string" &&
+    record.socialPublicationCaption.trim()
+    ? record.socialPublicationCaption
+    : null;
+  const preparedCaption = typeof record.socialCaption === "string" && record.socialCaption.trim()
+    ? record.socialCaption
+    : null;
+  return publishedCaption ?? preparedCaption;
+}
+
 export async function resolveKidsVideoSocialPublicationForDetail(
   requestId: unknown,
   stored: unknown,

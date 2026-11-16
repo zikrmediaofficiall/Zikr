@@ -9,7 +9,10 @@ import {
   classifyKidsVideoGenerationRequestId,
   resolveKidsVideoSocialPublication,
 } from "../../src/features/social/services/kids-video-social-visibility";
-import { resolveKidsVideoSocialPublicationForDetail } from "../../src/features/social/services/kids-video-social-detail";
+import {
+  resolveKidsVideoDetailSocialCaption,
+  resolveKidsVideoSocialPublicationForDetail,
+} from "../../src/features/social/services/kids-video-social-detail";
 
 const requestId = "60000000-0000-4000-8000-000000000001";
 const queueId = (value: number) =>
@@ -188,6 +191,25 @@ assert.deepEqual(
   "a detail page must use confirmed live queue delivery state and its confirmed caption",
 );
 
+assert.equal(
+  resolveKidsVideoDetailSocialCaption({
+    socialPublication: publishedDetail.publication,
+    socialPublicationCaption: publishedDetail.caption,
+    socialCaption: "stale catalog caption",
+  }),
+  "حكاية أصلية من ذِكر عن الصدق.",
+  "the detail page must prefer the confirmed queue caption over stale catalog metadata",
+);
+assert.equal(
+  resolveKidsVideoDetailSocialCaption({
+    socialPublication: null,
+    socialPublicationCaption: "stale queue caption",
+    socialCaption: "prepared catalog caption",
+  }),
+  "prepared catalog caption",
+  "without confirmed live delivery, the prepared catalog caption remains the fallback",
+);
+
 const emptyDetail = await resolveKidsVideoSocialPublicationForDetail(
   requestId,
   staleCatalogPublication,
@@ -246,7 +268,11 @@ const detailPageSource = readFileSync(
 );
 assert.doesNotMatch(detailPageSource, /resolveKidsVideoSocialPublicationForDetail/);
 assert.doesNotMatch(detailPageSource, /supabaseServerAdminRequest/);
-assert.match(detailPageSource, /metadata\.socialPublicationCaption/);
+assert.equal(
+  (detailPageSource.match(/resolveKidsVideoDetailSocialCaption/g) ?? []).length,
+  3,
+  "both page rendering and page metadata must use the queue-first caption resolver",
+);
 assert.match(detailPageSource, /metadata\.socialPublicationReadStatus/);
 assert.match(detailPageSource, /metadata\.socialPublication/);
 
