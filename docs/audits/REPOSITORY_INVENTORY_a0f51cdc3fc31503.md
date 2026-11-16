@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T20:54:00Z
+Updated: 2026-11-16T21:02:00Z
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T20:54:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `8ea0d36166c612316c4ebf1a229791583fc52fe5`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `6c1a3ed41fee37a1fbc2d11a0ad11a562c47ee96`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -58,7 +58,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
-- `REVIEWED_DATA_VALIDATED`: 16
+- `REVIEWED_DATA_VALIDATED`: 39
 - `REVIEWED_PARTIAL`: 51
 - `REVIEWED_PERMISSION_SCAN`: 94
 - `REVIEWED_PRODUCTION_APPLIED`: 46
@@ -66,18 +66,19 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_REGRESSION_COVERAGE`: 43
 - `REVIEWED_SOURCE_ONLY`: 260
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1387
+- `UNREVIEWED`: 1364
 
-High-priority unreviewed files: **505**. The matrix has 1,959 file rows; 572 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **482**. The matrix has 1,959 file rows; 595 are not marked `UNREVIEWED`.
 
-## Review batch — 2026-11-16 20:54 UTC
+## Review batch — 2026-11-16 21:02 UTC
 
-- Read and traced the admin queue-alert worker, its background-job caller, Node-safe Supabase REST helper, environment contract, and both queue-alert migrations. The worker incorrectly finalized a delivery when either configured channel succeeded; a failed configured channel was never retried. Setting/delivery-state read failures also failed open. Draft PR #369 exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3` adds per-channel retry, legacy partial recovery, fail-closed reads and regression coverage. Quality Gate remains in progress; CircleCI source/application checks remain pending, config-guard passed.
-- Read the search RPC migration, search service, content-library service, public content detail route, search page, existing contract test and canonical verifier. The SQL returns approved content-library rows as `type='content'`, but the app's type contract/filter discarded them; fallback search also omitted them. Draft PR #370 current exact head `f5596f7ad1b72e666c084923123814e5e001c0e1` adds the shared type contract and fallback. Its first Quality Gate run failed because the new verifier referenced `contents.search` without loading that file; this was corrected on the current head. Fresh exact-head Quality Gate/CircleCI checks are pending.
-- Read-only Supabase history confirms 449 applied migrations through `20261116045100`, including `20261027212803`, `20261028112016`, and `20261030090000`. Live catalog verification confirms `admin_queue_alert_deliveries` RLS enabled, anon SELECT denied, authenticated SELECT limited by `private.has_admin_role`, and service_role SELECT allowed. A read-only count found zero legacy rows with `delivered_at` set while either channel flag is false; no backfill is needed.
-- Read the full video-purge UI, GET/POST route and contract test. Every valid scope returns HTTP 409 before lock/inventory/destructive operations; UI scopes are disabled. Existing test is in `pnpm test`; main Quality Gate run `43833156580` passed full verification on exact main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. No purge was invoked.
-- Vercel's latest production deployment remains READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and not deployed. No HTTP smoke or deployment was run.
-- No content generation, Gemini request, social publish, production mutation, storage/media deletion, release, merge, deployment or workflow dispatch occurred. Owner review and exact-head checks remain open.
+- Read and parsed all 23 canonical Quran catalog/ayah/Tafsir SQL seed files, not just their filenames. The catalog migration contains 114 surahs, 172 unique reciter codes and 422 ayahs; the 13 subsequent JSONB chunks contain 5,814 ayahs. Combined source payload: **6,236 unique (surah_id, ayah_number) keys across 114 surahs**, no duplicate keys, no empty Arabic/Uthmani text, and valid page/juz/sajda ranges. Every chunk is one idempotent `ON CONFLICT` upsert; no DELETE/DROP/TRUNCATE was found.
+- Read and parsed all nine Tafsir al-Muyassar expansion migrations: **6,236 unique ayah keys**, 700 rows in each of the first eight files and 636 in the ninth; author/source URL consistency, no empty text (20–1,451 chars), no duplicate keys, and idempotent conflict handling. No DELETE/DROP/TRUNCATE was found.
+- Remote Supabase history confirms all 23 source migrations are applied (449 total). Read-only production checks: 114 surahs; 6,236 Quran ayahs and unique keys; every surah's ayah count matches its catalog; zero empty Arabic/Uthmani text or count mismatches. Tafsir al-Muyassar has 6,236 unique rows across all 114 surahs, zero missing/extra links, zero empty text and zero unexpected sources. Reciters: 172 unique codes, all valid HTTPS mp3quran.net URLs. Audio: 19,608 unique surah/reciter pairs, all external MP3 with valid URLs and no missing reciter/surah references.
+- No seed migration was applied, replayed, edited or rolled back; no audio was downloaded or changed. These 23 high-priority files are marked `REVIEWED_DATA_VALIDATED`.
+- Queue-alert retry repair remains PR #369 exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`; Quality Gate `43953516859` passed `QUALITY_GATE=PASSED_FULL`, CircleCI source/application/config passed, Android debug APK build `43953516793` passed. Owner review remains outstanding.
+- Search repair remains PR #370 exact head `f5596f7ad1b72e666c084923123814e5e001c0e1`; its initial verifier failure was repaired, and fresh exact-head Quality Gate/CircleCI checks were still running at this timestamp.
+- Production remains on READY deployment source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and not deployed. No HTTP smoke or deployment was run.
 
 ## Review batch — 2026-11-16 14:44 UTC
 
