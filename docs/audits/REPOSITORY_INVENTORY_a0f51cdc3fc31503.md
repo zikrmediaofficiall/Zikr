@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T19:52:00Z
+Updated: 2026-11-16T20:50:00Z
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T19:52:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `89b3faf15f1c2d5b8b3ab9121a2452640795cf3d`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `afdea518e9cd3b8d171c83378aaba23cd41cfbbd`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -36,14 +36,14 @@ The manifest includes every recursive tree entry (files and directories). The st
 
 ## File-status matrix
 
-- `DOCS_RECONCILIATION_PENDING`: 2
-- `FIX_PENDING_PR337`: 9
+- `DOCS_RECONCILIATION_PENDING`: 4
+- `FIX_PENDING_PR337`: 6
 - `FIX_PENDING_PR338`: 4
-- `FIX_PENDING_PR339`: 5
+- `FIX_PENDING_PR339`: 2
 - `FIX_PENDING_PR340`: 3
-- `FIX_PENDING_PR341`: 2
+- `FIX_PENDING_PR341`: 1
 - `FIX_PENDING_PR343`: 4
-- `FIX_PENDING_PR346`: 2
+- `FIX_PENDING_PR346`: 1
 - `FIX_PENDING_PR347`: 3
 - `FIX_PENDING_PR349`: 5
 - `FIX_PENDING_PR350`: 3
@@ -51,6 +51,8 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR352`: 3
 - `FIX_PENDING_PR353`: 4
 - `FIX_PENDING_PR362`: 3
+- `FIX_PENDING_PR369`: 1
+- `FIX_PENDING_PR370`: 3
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
@@ -58,15 +60,23 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 16
 - `REVIEWED_PARTIAL`: 49
-- `REVIEWED_PERMISSION_SCAN`: 96
+- `REVIEWED_PERMISSION_SCAN`: 95
 - `REVIEWED_PRODUCTION_APPLIED`: 44
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 38
-- `REVIEWED_SOURCE_ONLY`: 252
-- `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1403
+- `REVIEWED_REGRESSION_COVERAGE`: 41
+- `REVIEWED_SOURCE_ONLY`: 257
+- `SECURITY_FIX_PENDING_PR340`: 4
+- `UNREVIEWED`: 1392
 
-High-priority unreviewed files: **510**.
+High-priority unreviewed files: **506**. The matrix has 1,959 file rows; 567 are not marked `UNREVIEWED`.
+
+## Review batch — 2026-11-16 20:50 UTC
+
+- Read and traced the admin queue-alert worker, its background-job caller, delivery migration, and environment contract. The worker incorrectly finalized a delivery when either configured channel succeeded, so a failed webhook/email channel was not retried; delivery-state and setting read failures also failed open. Draft PR #369 adds per-channel retry, recovery of legacy partial rows, fail-closed reads and regression coverage. Exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`; Quality Gate/CircleCI pending.
+- Read the search RPC migration, search service, content-library service, public content detail route, search page, existing search contract test and verifier. The SQL returns approved content-library rows as `type='content'`, but the app's result union/allow-list discarded them; fallback search also omitted them. Draft PR #370 adds the shared type contract, fallback search and canonical regression checks. Exact head `537ed4102f630af80612a9b40e2d338ead2a292c`; Quality Gate/CircleCI pending.
+- Read the full video-purge UI, GET/POST route and contract test. Every valid file/memory scope is rejected with HTTP 409 before lock acquisition, inventory or destructive code; the UI disables all scopes. The existing contract test is part of `pnpm test`; main Quality Gate run `43833156580` passed full verification on exact main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. No purge was invoked.
+- Supabase read-only migration history confirms versions `20261027212803`, `20261030090000`, and `20261116045100` are applied; total remains 449. Vercel's latest production deployment remains READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; current main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and no HTTP smoke was run in this batch.
+- No content generation, Gemini request, social publish, production mutation, storage/media deletion, release, merge, deployment or workflow dispatch occurred. Owner review and exact-head checks remain open.
 
 ## Review batch — 2026-11-16 14:44 UTC
 
