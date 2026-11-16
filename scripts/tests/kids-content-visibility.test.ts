@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { getKidsQuizQuestions, isKidsContentType, KIDS_CONTENT_TYPES, normalizeKidsVideoEmbedUrl, parseKidsQuizData } from "../../src/features/kids/services/kids-content-validation";
 import { requireSupabaseRows } from "../../src/lib/supabase/array-response";
+import { kidsContent } from "../../src/features/kids/data/content";
 import { readFileSync } from "node:fs";
 import { classifyKidsVideoGenerationRequestId, getConfirmedPublicKidsVideoSocialPlatforms, isPublicKidsVideoSocialQueueRow, resolveKidsVideoSocialPublication } from "../../src/features/social/services/kids-video-social-visibility";
 import { loadKidsSocialQueueRows } from "../../src/features/social/services/kids-video-social-query";
@@ -16,6 +17,7 @@ import {
   hasKidsEnglishContent,
   isKidsContentPubliclyVisible,
   mergeKidsContentWithFallback,
+  prepareKidsFallbackContent,
   shouldTreatKidsContentLookupAsUnavailable,
 } from "../../src/features/kids/services/kids-content-visibility";
 import { isKidsVideoGenerationRequestContent } from "../../src/features/kids/services/kids-video-request-visibility";
@@ -132,6 +134,25 @@ assert.equal(isKidsContentPubliclyVisible({ type: "story", metadata: { age_appro
 assert.equal(isKidsContentPubliclyVisible({ type: "story", metadata: {} }), false, "legacy stories without explicit age approval must remain private until reviewed");
 assert.equal(isKidsContentPubliclyVisible({ type: "unknown", metadata: {} }), false, "unsupported content types must not be exposed through the public Kids resolver");
 assert.equal(isKidsContentPubliclyVisible({ type: "game", metadata: {} }), true, "non-story Kids content keeps its existing publication contract");
+
+const approvedStaticKidsFallback = prepareKidsFallbackContent(kidsContent);
+const explicitlyApprovedStaticStories = kidsContent.filter(
+  (item) => item.type === "story" && item.metadata?.age_appropriate === true,
+);
+assert.equal(
+  approvedStaticKidsFallback.filter((item) => item.type === "story").length,
+  explicitlyApprovedStaticStories.length,
+  "static fallback must retain only stories that already carry explicit age approval",
+);
+assert.equal(
+  approvedStaticKidsFallback.some((item) => item.type === "story" && item.metadata?.age_appropriate !== true),
+  false,
+  "static fallback preparation must never manufacture age approval for unreviewed stories",
+);
+assert.ok(
+  kidsContent.some((item) => item.type === "story" && item.metadata?.age_appropriate !== true),
+  "the regression fixture must include legacy/unreviewed static stories so the bypass stays covered",
+);
 assert.deepEqual(
   buildKidsStoryAgeReviewPatch({ reviewNote: "unsafe" }, true, false, "2026-11-14T13:00:00.000Z"),
   { metadata: { reviewNote: "unsafe", age_appropriate: false }, published: false, updated_at: "2026-11-14T13:00:00.000Z" },

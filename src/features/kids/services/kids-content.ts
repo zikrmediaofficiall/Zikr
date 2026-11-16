@@ -15,6 +15,7 @@ import {
   isKidsContentPubliclyVisible,
   mergeKidsContentWithFallback,
   normalizeKidsContentSlug,
+  prepareKidsFallbackContent,
   shouldTreatKidsContentLookupAsUnavailable,
 } from "@/features/kids/services/kids-content-visibility";
 
@@ -30,9 +31,7 @@ function dedupeBySlug(items: KidsItem[]): KidsItem[] {
   });
 }
 
-const FALLBACK_KIDS_CONTENT = dedupeBySlug(kidsContent).map((item) => item.type === "story"
-  ? { ...item, metadata: { ...item.metadata, age_appropriate: true } }
-  : item);
+const FALLBACK_KIDS_CONTENT = prepareKidsFallbackContent(dedupeBySlug(kidsContent));
 
 type KidsVisibilityDbRow = { slug?: unknown };
 

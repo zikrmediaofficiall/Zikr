@@ -32,6 +32,22 @@ export function normalizeKidsContentSlug(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+/**
+ * Static fallback content must obey the same explicit story age-review gate as
+ * database content. Never manufacture an approval flag while preparing fallback.
+ */
+export function prepareKidsFallbackContent<T extends { slug: string; type?: unknown; metadata?: unknown }>(
+  items: readonly T[],
+): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const slug = normalizeKidsContentSlug(item.slug);
+    if (!slug || seen.has(slug) || !isKidsContentPubliclyVisible(item)) return false;
+    seen.add(slug);
+    return true;
+  });
+}
+
 
 const GENERIC_KIDS_ENGLISH_CONTENT = /^original educational content prepared for (?:zikr )?families\.?$/i;
 
