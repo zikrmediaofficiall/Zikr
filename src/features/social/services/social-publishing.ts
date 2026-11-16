@@ -30,6 +30,7 @@ import {
   isKidsSocialCatalogPublicationInSync,
   isKidsCatalogReconciliationEnabled,
   resolveKidsSocialCatalogPublicationSnapshot,
+  shouldResetKidsCatalogSyncAfterPublicationChange,
   KIDS_SOCIAL_CATALOG_RECONCILIATION_MAX_ROWS,
   KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE,
 } from "@/features/social/services/kids-social-catalog-reconciliation";
@@ -1496,6 +1497,32 @@ export async function processSocialPublishItem(
     deferredPlatforms: deferredFailures.map(failure => failure.platform),
     platformResults: mergedResults,
   };
+
+  const previousKidsCatalogSnapshot = resolveKidsSocialCatalogPublicationSnapshot(item);
+  const nextKidsCatalogSnapshot = resolveKidsSocialCatalogPublicationSnapshot({
+    ...item,
+    status: persistedStatus,
+    metadata: publishMetadata,
+  });
+  if (
+    isVideoContentType(item.content_type) &&
+    publishMetadata.audience === "kids" &&
+    shouldResetKidsCatalogSyncAfterPublicationChange(
+      publishMetadata.kidsCatalogSyncStatus,
+      previousKidsCatalogSnapshot,
+      nextKidsCatalogSnapshot,
+    )
+  ) {
+    // A partial snapshot may have been reconciled successfully before a later
+    // provider retry adds another confirmed target. Reopen the catalog sync so
+    // a failed live update cannot leave the catalog permanently stale.
+    publishMetadata.kidsCatalogSyncStatus = "pending";
+    publishMetadata.kidsCatalogSyncAttempts = 0;
+    publishMetadata.kidsCatalogSyncLastAttemptAt = null;
+    publishMetadata.kidsCatalogSyncLastError = null;
+    publishMetadata.kidsCatalogSyncSyncedAt = null;
+    publishMetadata.kidsCatalogSyncManualReconciliationRequired = false;
+  }
 
   const errorMessages = operationalFailures.map(failure =>
     `${failure.platform}: ${failure.error ?? "unknown error"}` +
