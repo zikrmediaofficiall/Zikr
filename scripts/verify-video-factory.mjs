@@ -168,6 +168,36 @@ if (!pkg.scripts["video:factory:check"]) failures.push("video:factory:check must
 if (!pkg.scripts["verify:pr"]?.includes("pnpm video:factory:check")) failures.push("verify:pr must include Video Factory verification");
 if (!pkg.scripts["verify"]?.includes("pnpm video:factory:check")) failures.push("verify must include Video Factory verification");
 
+const providerResponse = read("src/features/videos/providers/media-response.ts");
+if (!providerResponse.includes("MAX_PROVIDER_VIDEO_BYTES = 50 * 1024 * 1024") ||
+    !providerResponse.includes("response.body.getReader")) {
+  failures.push("video provider downloads must use the shared streaming 50 MiB response boundary");
+}
+const freeProvider = read("src/features/videos/providers/free-api-provider.ts");
+if (!freeProvider.includes("resolveFreeVideoProviderDownloadUrl") ||
+    !freeProvider.includes("FREE_VIDEO_PROVIDER_ALLOWED_HOSTS") ||
+    !freeProvider.includes('redirect: "error"')) {
+  failures.push("Free API media URLs must be HTTPS, host-allowlisted, and non-redirecting");
+}
+const comfyProvider = read("src/features/videos/providers/comfyui-provider.ts");
+if (!comfyProvider.includes("readBoundedMediaResponse") ||
+    !comfyProvider.includes('redirect: "error"')) {
+  failures.push("ComfyUI output downloads must be bounded and non-redirecting");
+}
+if (!worker.includes("readBoundedMediaResponse") ||
+    !worker.includes("resolveFreeVideoProviderDownloadUrl") ||
+    !worker.includes("await stat(outputPath)")) {
+  failures.push("worker media downloads and final MP4 reads must enforce the configured size/origin contract");
+}
+const hfVideoWorker = read("scripts/jobs/hf-space-video.py");
+if (!hfVideoWorker.includes("MAX_VIDEO_BYTES = 50 * 1024 * 1024")) {
+  failures.push("Hugging Face output limit must match the Cloudinary 50 MiB upload contract");
+}
+if (!read(".env.example").includes("FREE_VIDEO_PROVIDER_ALLOWED_HOSTS=") ||
+    !read("docs/environment-variables.md").includes("FREE_VIDEO_PROVIDER_ALLOWED_HOSTS")) {
+  failures.push("Free API media host allowlist must be documented for deployment configuration");
+}
+
 if (failures.length) {
   console.error("VIDEO_FACTORY_CHECK_FAILED");
   for (const failure of failures) console.error(`❌ ${failure}`);
