@@ -32,10 +32,11 @@ jobs:
   publish:
     name: Verify and publish Android release
     if: >-
-      github.ref_type == 'tag' ||
+      (github.event_name == 'push' && github.ref_type == 'tag') ||
       (github.event_name == 'workflow_dispatch' &&
        inputs.retry == true &&
-       (github.ref == 'refs/heads/main' ||
+       (github.ref_type == 'tag' ||
+        github.ref == 'refs/heads/main' ||
         startsWith(github.ref_name, 'android-release-v')))
     runs-on: ubuntu-24.04
     steps:
@@ -50,7 +51,9 @@ jobs:
         run: |
           set -euo pipefail
           PUBLISH=false
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            PUBLISH=true
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.retry }}" == "true" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
             PUBLISH=true
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.retry }}" == "true" && "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" =~ ^android-release-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             PUBLISH=true
@@ -110,6 +113,37 @@ jobs:
           echo "TAG_TARGET_SHA=$TAG_TARGET_SHA" >> "$GITHUB_ENV"
           echo "tag_target_sha=$TAG_TARGET_SHA" >> "$GITHUB_OUTPUT"
 
+      - name: Verify explicit recovery guard for manual dispatch
+        if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          retry_flag="docs/finalization/RELEASE_RETRY.flag"
+          if [[ ! -s "${retry_flag}" ]] || [[ "$(tr -d '\r\n' < "${retry_flag}")" != "RETRY" ]]; then
+            echo "::error title=Android release retry is not authorized::Manual publisher dispatch requires the exact RELEASE_RETRY.flag value RETRY." >&2
+            exit 1
+          fi
+          version="$(jq -r '.version' package.json)"
+          tag="$(tr -d '\r\n' < .release-tag)"
+          notes="docs/releases/${version}.md"
+          if [[ ! -s "${notes}" ]] || ! grep -Fq "Release tag: \`${tag}\`" "${notes}"; then
+            echo "::error title=Android release notes are not canonical::Manual publisher dispatch requires release notes declaring the exact canonical tag." >&2
+            exit 1
+          fi
+          if [[ "${TAG_TARGET_SHA}" != "${GITHUB_SHA}" ]]; then
+            echo "::error title=Android recovery source mismatch::Manual publisher dispatch must run from the exact immutable tag target; tag target ${TAG_TARGET_SHA}, dispatch SHA ${GITHUB_SHA}." >&2
+            exit 1
+          fi
+          status_json="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TAG_TARGET_SHA}/status")"
+          android_rebuild_state="$(jq -r '[.statuses[]? | select(.context == "ci/circleci: android-rebuild")] | sort_by(.updated_at // .created_at) | last // {} | .state // empty' <<< "${status_json}")"
+          if [[ "${android_rebuild_state}" != "success" ]]; then
+            echo "::error title=Signed Android recovery build is not successful::Manual publisher dispatch requires ci/circleci: android-rebuild=success on ${TAG_TARGET_SHA}; found ${android_rebuild_state:-missing}." >&2
+            exit 1
+          fi
+          echo "PASS: manual Android recovery has an explicit retry flag, canonical release notes, exact tag SHA, and successful signed rebuild."
+          
       - name: Verify current PR CODEOWNER approval before publishing Android assets
         if: steps.gate.outputs.publish == 'true'
         env:
