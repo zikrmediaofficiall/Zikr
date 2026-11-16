@@ -27,7 +27,6 @@ AS $function$
         AND request.content->>'sourceHash' = request.source_hash
         AND request.content->>'contentHash' = request.content_hash
         AND request.content->>'templateVersion' = request.template_version
-        AND request.content->>'generatedVideoUrl' = request.video_url
         AND request.content->>'approvalStatus' = 'approved'
         AND request.content->>'approvalReviewerId' = p_metadata->>'approvalReviewerId'
         AND request.content->>'approvalReviewerId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'

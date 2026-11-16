@@ -146,7 +146,7 @@ SELECT
   metadata->>'sourceHash',
   metadata->>'contentHash',
   metadata->>'templateVersion',
-  metadata
+  metadata - 'generatedVideoUrl'
 FROM public.videos
 WHERE id = 'kids-approved';
 
@@ -161,7 +161,7 @@ SELECT
   metadata->>'sourceHash',
   metadata->>'contentHash',
   metadata->>'templateVersion',
-  metadata || jsonb_build_object(
+  (metadata - 'generatedVideoUrl') || jsonb_build_object(
     'videoGenerationRequestId', '10000000-0000-4000-8000-000000000003',
     'approvalSnapshotHash', repeat('b', 64)
   )
