@@ -6,6 +6,7 @@ import {
   isKidsCatalogReconciliationEnabled,
   isKidsSocialCatalogPublicationInSync,
   resolveKidsSocialCatalogPublicationSnapshot,
+  shouldResetKidsCatalogSyncAfterPublicationChange,
 } from "../../src/features/social/services/kids-social-catalog-reconciliation";
 
 const queueItem = {
@@ -46,6 +47,34 @@ assert.throws(() => buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:
 
 const snapshot = resolveKidsSocialCatalogPublicationSnapshot(queueItem);
 assert.deepEqual(snapshot, { status: "published", platforms: ["facebook", "youtube"] });
+const partialSnapshot = { status: "partial" as const, platforms: ["facebook" as const] };
+const expandedPartialSnapshot = { status: "partial" as const, platforms: ["facebook" as const, "youtube" as const] };
+const publishedSnapshot = { status: "published" as const, platforms: ["facebook" as const, "youtube" as const] };
+assert.equal(
+  shouldResetKidsCatalogSyncAfterPublicationChange("synced", partialSnapshot, publishedSnapshot),
+  true,
+  "a previously synced partial publication must be requeued when the final provider succeeds",
+);
+assert.equal(
+  shouldResetKidsCatalogSyncAfterPublicationChange("synced", partialSnapshot, expandedPartialSnapshot),
+  true,
+  "a newly confirmed provider target must reopen a previously synced partial snapshot",
+);
+assert.equal(
+  shouldResetKidsCatalogSyncAfterPublicationChange("synced", partialSnapshot, partialSnapshot),
+  false,
+  "an unchanged partial publication must not be needlessly requeued",
+);
+assert.equal(
+  shouldResetKidsCatalogSyncAfterPublicationChange("pending", partialSnapshot, publishedSnapshot),
+  false,
+  "an already pending sync remains pending without a redundant state transition",
+);
+assert.equal(
+  shouldResetKidsCatalogSyncAfterPublicationChange("held", partialSnapshot, publishedSnapshot),
+  false,
+  "a manual reconciliation hold must not be silently cleared by a provider retry",
+);
 const partialQueueItem = {
   ...queueItem,
   status: "partial",
