@@ -134,7 +134,7 @@ export default async function AdminProphetsPage() {
         <section className="space-y-4">
           <p className="text-xs text-brand-cream/35 mr-1">{prophets.length} نبي في قاعدة البيانات</p>
           {prophets.map((prophet) => {
-            const currentVideoId = prophet.metadata?.youtube_video_id ?? '';
+            const currentVideoId = typeof prophet.metadata?.youtube_video_id === 'string' ? prophet.metadata.youtube_video_id : '';
             return (
               <Card key={prophet.id} className="p-6 space-y-4">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
