@@ -13,7 +13,7 @@ Updated: 2026-11-16T21:48:52.502Z (reconciled with exact-head PR #375 verificati
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `f5aa8de66b1342e1842f1c733b1313bd9f002ba5`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `18b28fa97fe24219d58b9cccacb196fbbf12bdf1`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -43,7 +43,10 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR340`: 3
 - `FIX_PENDING_PR341`: 1
 - `FIX_PENDING_PR343`: 2
-- `FIX_PENDING_PR343_AND_PR376`: 1
+- `FIX_PENDING_PR343_PR376_PR377_PR378_PR379`: 1
+- `FIX_PENDING_PR379`: 4
+- `FIX_PENDING_PR378`: 3
+- `FIX_PENDING_PR377`: 1
 - `FIX_PENDING_PR346`: 1
 - `FIX_PENDING_PR347`: 2
 - `FIX_PENDING_PR349`: 5
@@ -66,13 +69,13 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 39
 - `REVIEWED_PARTIAL`: 69
-- `REVIEWED_PERMISSION_SCAN`: 90
+- `REVIEWED_PERMISSION_SCAN`: 88
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 66
 - `REVIEWED_SOURCE_ONLY`: 300
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1273
+- `UNREVIEWED`: 1271
 
 High-priority unreviewed files: **431**. The matrix has 1959 file rows; 681 are not marked `UNREVIEWED`.
 
@@ -389,3 +392,10 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - PR #377: the optional `/admin/analytics` traffic panel could fail the entire page if `getTrafficRevenueSnapshot()` throws during service-role client initialization. Exact head `aebf778509bbdd8daef1589ecbd6a111339f3029` passed canonical Quality Gate run `43965088015`, Android Debug APK `43965089158` and CircleCI config-guard. It now renders an accessible unavailable state rather than failing the page or fabricating zeroes; no GA4/YouTube request was run.
 - PR #378: new knowledge records previously defaulted to published; server actions did not enforce source/reference/grade on publication; scholar editor lacked a source field; companion/scholar slug edits could POST an existing ID and fail. Exact head `db567da1899ed9994cbc2bd1c773b878c3f62823` adds draft defaults, server publication policy, source metadata, PATCH-by-ID and tests; Quality Gate run 43966305899 and Android Debug APK run 43966303793 passed; CircleCI config-guard passed. Owner/CODEOWNERS review remains pending.
 - Read-only production counts: 12/17 published companions and 8/8 scholars lack metadata.source; all 2,964 published hadiths have both ref and grade. No records were updated. Legacy biography source remediation remains owner/editor work.
+
+
+## Review batch — prophet and battle metadata concurrency — 2026-11-16
+
+- Read the full admin prophets/battles pages and services, permission/step-up gates, YouTube ID parser, and live table schema/RLS. Both services read JSON metadata, merge the YouTube ID and updated by ID only; a concurrent metadata update could be overwritten. Publish toggles also reported success when zero rows matched, and direct post-commit audit failures could make a committed action appear failed.
+- PR #379 exact head `0f4ada7d23116bc0c367d0bce10b4aede3fc6f9e` adds `updated_at` compare-and-set (including nullable timestamps), verifies returned rows for metadata/publish updates, narrows JSON metadata and wraps post-commit audit. Quality Gate and Android Debug APK are in progress; CircleCI config-guard passed. No production mutation.
+- Live schema read: `prophets.updated_at` and `battles.updated_at` are nullable with `now()` defaults; authenticated write RLS requires `private.is_admin_user()`. No rows were changed.
