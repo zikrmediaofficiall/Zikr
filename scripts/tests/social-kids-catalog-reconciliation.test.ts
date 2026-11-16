@@ -205,6 +205,28 @@ assert.equal(
   null,
   "manual provider reconciliation must take precedence over an automatic catalog deletion snapshot",
 );
+assert.equal(
+  resolveKidsSocialCatalogPublicationSnapshot({
+    ...partialQueueItem,
+    metadata: {
+      ...partialQueueItem.metadata,
+      manualReconciliationPlatforms: ["youtube"],
+    },
+  }),
+  null,
+  "a provider-level manual reconciliation hold must block even a partial catalog snapshot",
+);
+assert.equal(
+  resolveKidsSocialCatalogPublicationSnapshot({
+    ...partialQueueItem,
+    metadata: {
+      ...partialQueueItem.metadata,
+      kidsCatalogSyncManualReconciliationRequired: true,
+    },
+  }),
+  null,
+  "a catalog-level manual reconciliation hold must block automatic snapshot writes",
+);
 
 const deletionSyncPatch = buildKidsCatalogDeletionSyncPatch(
   "kids_story_video",
@@ -217,7 +239,6 @@ assert.deepEqual(deletionSyncPatch, {
   kidsCatalogSyncLastAttemptAt: null,
   kidsCatalogSyncLastError: null,
   kidsCatalogSyncSyncedAt: null,
-  kidsCatalogSyncManualReconciliationRequired: false,
 });
 assert.deepEqual(
   buildKidsCatalogDeletionSyncPatch(
@@ -240,6 +261,19 @@ assert.deepEqual(
   ),
   {},
   "a provider-level manual reconciliation hold must not be cleared by catalog retry metadata",
+);
+assert.deepEqual(
+  buildKidsCatalogDeletionSyncPatch(
+    "kids_story_video",
+    {
+      audience: "kids",
+      kidsCatalogSyncStatus: "synced",
+      kidsCatalogSyncManualReconciliationRequired: true,
+    },
+    { status: "deleted", remoteId: "facebook-post-123" },
+  ),
+  {},
+  "a catalog-level manual reconciliation hold must not be cleared by an automatic deletion event",
 );
 assert.deepEqual(
   buildKidsCatalogDeletionSyncPatch(

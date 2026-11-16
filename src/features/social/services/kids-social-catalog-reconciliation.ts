@@ -70,7 +70,9 @@ export function resolveKidsSocialCatalogPublicationSnapshot(
     !item.content_id?.trim() ||
     !item.video_url?.trim() ||
     item.metadata?.audience !== "kids" ||
-    item.metadata?.kidsContentQaStatus !== "passed"
+    item.metadata?.kidsContentQaStatus !== "passed" ||
+    item.metadata?.kidsCatalogSyncManualReconciliationRequired === true ||
+    getManualReconciliationPlatforms(item.metadata).length > 0
   ) {
     return null;
   }
@@ -142,7 +144,10 @@ export function buildKidsCatalogDeletionSyncPatch(
     return {};
   }
 
-  if (getManualReconciliationPlatforms(metadata).length > 0) return {};
+  if (
+    metadata.kidsCatalogSyncManualReconciliationRequired === true ||
+    getManualReconciliationPlatforms(metadata).length > 0
+  ) return {};
 
   const currentStatus = metadata.kidsCatalogSyncStatus;
   if (
@@ -161,7 +166,6 @@ export function buildKidsCatalogDeletionSyncPatch(
     kidsCatalogSyncLastAttemptAt: null,
     kidsCatalogSyncLastError: null,
     kidsCatalogSyncSyncedAt: null,
-    kidsCatalogSyncManualReconciliationRequired: false,
   };
 }
 
