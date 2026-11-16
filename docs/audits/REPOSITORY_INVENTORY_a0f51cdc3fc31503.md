@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T18:55:00Z
+Updated: 2026-11-16T19:09:00Z
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T18:55:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `4563e5c21239f6d7ec882326e583e2b05c744fbc`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `ddadfd2f5c8b230df3197d12939bdc11955fef06`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -44,7 +44,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR341`: 2
 - `FIX_PENDING_PR343`: 4
 - `FIX_PENDING_PR346`: 2
-- `FIX_PENDING_PR347`: 2
+- `FIX_PENDING_PR347`: 3
 - `FIX_PENDING_PR349`: 5
 - `FIX_PENDING_PR350`: 3
 - `FIX_PENDING_PR351`: 2
@@ -57,15 +57,15 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 16
 - `REVIEWED_PARTIAL`: 39
-- `REVIEWED_PERMISSION_SCAN`: 92
+- `REVIEWED_PERMISSION_SCAN`: 93
 - `REVIEWED_PRODUCTION_APPLIED`: 32
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 26
-- `REVIEWED_SOURCE_ONLY`: 198
+- `REVIEWED_REGRESSION_COVERAGE`: 27
+- `REVIEWED_SOURCE_ONLY`: 214
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1488
+- `UNREVIEWED`: 1471
 
-High-priority unreviewed files: **563**.
+High-priority unreviewed files: **550**.
 
 ## Review batch — 2026-11-16 14:44 UTC
 
@@ -234,10 +234,10 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - **Open governance and acceptance:** PRs #352/#353 and this documentation PR remain drafts pending authorized CODEOWNERS review. `.github/CODEOWNERS` requires `@Zikrmediaofficial`, whose collaborator permission lookup returned null. Manual iOS simulator/device and Android device acceptance, Apple associated-domain configuration, and post-deploy smoke checks remain open.
 - No production DB mutation, migration application, content generation, Gemini request, social publishing, Storage deletion, Android release, merge, Vercel deployment, or production smoke test was performed.
 
-## Reconciled audit batch — 2026-11-16 18:55 UTC
+## Reconciled audit batch — 2026-11-16 19:09 UTC
 
 - Repository snapshot remains main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; this audit branch changes only audit documentation.
-- Authoritative matrix blob: 4563e5c21239f6d7ec882326e583e2b05c744fbc. Current inventory: 1,959 tracked blobs, 1,488 still unreviewed (561 high priority), 473 reviewed; the matrix is the per-file source of truth.
+- Authoritative matrix blob: ddadfd2f5c8b230df3197d12939bdc11955fef06. Current inventory: 1,959 tracked blobs, 1,471 still unreviewed (550 high priority), 488 reviewed; the matrix is the per-file source of truth.
 - Main is five commits ahead of historical verification/deployment source 26ae58fdd2220897511544e9475eab28979f88f5. Full Quality Gate passed on PR #350/#351 heads based on main a0f51; CircleCI contexts on main pass. The production deployment last recorded READY is still associated with 26ae; not rechecked this run. vercel.json has Git deployment disabled, so deployment requires an authorized manual action after owner review.
 - Read-only Supabase verification of configured project zqtssvlvmkzeeyqghqfk (Zikrofficial): ACTIVE_HEALTHY, 449 applied migrations through 20261116045100, 103 tables including storage, zero RLS-disabled tables, nine buckets. Current Kids/video policies match the reviewed migrations. No migration, DDL, DML, function deployment or storage mutation was performed.
 - Current production automation: written-content generation is scheduled 15 7,13,19 UTC and uses Gemini; it creates unpublished article drafts and service-role content_publish_queue entries (+5 minutes), plus Kids social drafts from already published/active/age-appropriate stories. The AI video worker runs 17 3,9,15,21 UTC in free-only mode with BACKGROUND_JOB_TARGET=videos and VIDEO_AUTOMATION_DRY_RUN=false; this also drains all due site content queue tables (articles/stories/etc.) through CAS-guarded publication, but not external social. Social publishing is a separate 7,22,37,52 UTC workflow that can publish public YouTube/Facebook when provider credentials and database settings permit. CircleCI English-content sync runs daily at 04:17 UTC and uses Gemini plus Supabase service-role writes. Prayer dispatch is every minute; source verification is daily. None of these workflows/functions was dispatched by this audit.
@@ -245,7 +245,7 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Kids safety: public content requires published/active and age-appropriate story state; levels require a published parent; questions are admin-only; public videos require QA, human approval, a linked request and matching hashes. Written Kids social copy and Kids videos remain blocked until human approval. PR #337 makes catalog-only reconciliation independent of provider gates but remains unmerged; main currently does not call it, and SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED defaults to false. Owner must set the GitHub repository variable to true after merge.
 - Storage: videos is a public 50 MiB bucket with zero objects at the snapshot; admin upload is step-up/audit protected but has no private staging/expiry, so draft uploads are publicly readable before form save. This is a design risk, not a current exposed object. public-assets is public/empty/no current app consumer; site-audio is public with six objects and no client write policy. No objects were deleted or created.
 - Supabase advisor: leaked-password protection remains disabled (owner setting); five RLS-enabled tables intentionally have no client policies (service-role-only); 79 unused-index notices were left untouched; one unindexed FK (site_audio_upload_intents.asset_id) and one multiple-permissive-policy notice (prophet_sections) remain.
-- Open repair PRs: #338 (GA4 reporting status consistency; full Quality Gate 43862917014 and CircleCI pass), #337 (Kids catalog/provider-gate separation; full Quality Gate + CircleCI pass), #339 (daily production video-media audit tombstone/custom-thumbnail fix; full pass), #340 (Kids category restrictive video RLS; full Quality Gate 43868893060, CircleCI and PostgreSQL 17 integration; migration PR-only), #341 (storage-retention Quran/audio reference and pagination safety; full pass), #343 (iOS App ID guard; full pass and Android debug APK, owner App ID required), #346 (YouTube upload privacy documentation/test; full Quality Gate 43875597034 and CircleCI pass, runtime default already private), #347 (path-aware release checks and guarded manual Android tag retry; full Quality Gate 43886674997 and CircleCI pass), #349 (prayer timezone migration; full pass), #350 (native splash; full pass and Android debug APK), #351 (signing-path ignore; full pass), #352 (favorite UUID validation; full pass), #353 (legacy Kids result idempotency; full Quality Gate 43920546145 and CircleCI pass; migration remains PR-only). All remain unmerged pending authorized CODEOWNERS review. PR #344 remains the audit-documentation PR.
+- Open repair PRs: #338 (GA4 reporting status consistency; full Quality Gate 43862917014 and CircleCI pass), #337 (Kids catalog/provider-gate separation; full Quality Gate + CircleCI pass), #339 (daily production video-media audit tombstone/custom-thumbnail fix; full pass), #340 (Kids category restrictive video RLS; full Quality Gate 43868893060, CircleCI and PostgreSQL 17 integration; migration PR-only), #341 (storage-retention Quran/audio reference and pagination safety; full pass), #342 (offline manifest refresh; Quality Gate 43869724449 and CircleCI pass), #343 (iOS App ID guard; full pass and Android debug APK, owner App ID required), #345 (register auth-safe-next-path test in canonical suite; Quality Gate 43874520989, Android Debug APK 43874520946 and CircleCI pass), #346 (YouTube upload privacy documentation/test; full Quality Gate 43875597034 and CircleCI pass, runtime default already private), #347 (path-aware release checks and guarded manual Android tag retry; full Quality Gate 43886674997 and CircleCI pass), #349 (prayer timezone migration; full pass), #350 (native splash; full pass and Android debug APK), #351 (signing-path ignore; full pass), #352 (favorite UUID validation; full pass), #353 (legacy Kids result idempotency; full Quality Gate 43920546145 and CircleCI pass; migration remains PR-only). All remain unmerged pending authorized CODEOWNERS review. PR #344 remains the audit-documentation PR.
 - No production publishing, content generation, Gemini request, Android release, migration, function deployment, Vercel deployment, smoke test or storage deletion was triggered.
 
 - Android release guard note: current main recovery dispatcher can target a tag, but the publisher rejects workflow_dispatch on tag refs, so tag-based recovery is fail-closed but incomplete; no current bypass was reproduced. PR #347 adds an explicit retry=true tag path with retry flag, canonical notes, exact tag SHA, existing draft/non-prerelease release, signed android-rebuild and CODEOWNER preflight. No release was triggered.
@@ -258,3 +258,6 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Content queue trust boundary: live content_publish_queue RLS has only a service_role ALL policy; anon has no SELECT and authenticated has SQL grants but no RLS policy, so client writes are blocked. Articles and stories public SELECT policies expose only published=true. The trusted site publisher validates story approval and Kids video human approval, uses exact updated_at compare-and-set and rolls back only its own write. The video worker's target=videos intentionally invokes this site publisher for all due queue rows; social publishing remains separate.
 
 - Admin/purge safety: `src/app/admin/system-actions.ts` gates settings changes with `settings.manage`, requires `social.manage` plus step-up for social settings, and blocks video automation toggles while `video_purge_in_progress` is set. The video-purge admin route requires `video.delete`, step-up and exact confirmation, but both files and memory scopes return 409 before any destructive branch; no purge was invoked.
+
+- Admin permission audit: all 47 canonical navigation pages were read and each page-level permission/step-up guard matches its navigation permission; the step-up return path is same-origin `/admin` only. Kids admin controls are role-gated and the server action has exact-object Cloudinary orphan compensation with fail-closed ambiguous-outcome retention. The video-purge endpoint returns 409 for both files and memory scopes before destructive code.
+- Offline/auth verification: PR #342 exact head e38c9d69cb7d9ef0aac2f1992d10b96538533563 passed full Quality Gate 43869724449 and all CircleCI contexts; it refreshes only manifest version/generatedAt. PR #345 exact head 19e4cb65aaf16d3fed3229a31fcb64e950282b4f passed Quality Gate 43874520989, Android Debug APK 43874520946 and all CircleCI contexts; it registers an existing auth-safe-next-path regression test omitted from main's canonical test command.
