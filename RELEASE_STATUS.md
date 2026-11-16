@@ -1,18 +1,18 @@
 # ZIKR Project Release & Build Status
 
-## Current source/deployment reconciliation — 2026-11-16 17:45 UTC
+## Current source/deployment reconciliation — 2026-11-16 20:50 UTC
 
 - Current Git main: a0f51cdc3fc31503f12ddddba76e37d9e07a15f7.
-- Last recorded production source: 26ae58fdd2220897511544e9475eab28979f88f5; Vercel deployment dpl_F8opnXTMke2VhfRSrMUcoLmQUwQw was READY and smoke checks passed at 07:47 UTC, but this was not rechecked during this audit.
-- Main is five commits ahead of the deployed source. The intervening commits include the social-publishing publishedAt/catalog timestamp consistency fix and regression coverage.
-- Main a0f51 has successful CircleCI contexts. Full Quality Gate passed on PR #350/#351 heads based on a0f51; PR #352 exact head 10e50510b1873ea66b3f0bd8e22e75b072956509 also passed full Quality Gate. The main commit itself has no attached GitHub Quality Gate run.
+- Latest production source: 00fc4ff6dba9f76a9d59cae28c2270a58cac77d9; Vercel deployment dpl_7btEkudu5wcxhicM6uRoCkWfJtyr was confirmed READY in the read-only deployment inventory at 20:50 UTC. No HTTP smoke was run in this batch.
+- Main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7 is one commit ahead of the production source; it includes the social-publishing publishedAt/catalog timestamp consistency fix and regression coverage. It is not recorded as deployed.
+- Main a0f51 passed GitHub Quality Gate run 43833156580 and the recorded CircleCI source-verify, application-build-docs and config-guard contexts.
 - vercel.json sets git.deploymentEnabled=false and defines no Vercel cron jobs. Do not infer an automatic deployment from a Git merge; manual deployment and production smoke verification are required after authorized review.
 - Apple AASA was last recorded HTTP 503; PR #343 adds a fail-closed IOS_ASSOCIATED_DOMAIN_APP_ID build guard. A valid Apple Team/App ID value remains owner-only configuration.
 - No Android release, Vercel deployment, migration apply, social publish or production mutation was triggered by this audit.
 
 ---
 
-Last reconciled: 2026-11-16 17:45 UTC. Android release records below remain historical and immutable; the last production READY check was 07:47 UTC and was not rechecked in this run.
+Last reconciled: 2026-11-16 20:50 UTC. Android release records below remain historical and immutable; the latest production deployment was confirmed READY in Vercel's read-only deployment inventory, but no HTTP smoke was run in this batch.
 Repository: https://github.com/zikrofficial-X/Zikr  
 Production URL: https://zikrmediaofficial.vercel.app
 
@@ -20,16 +20,16 @@ Production URL: https://zikrmediaofficial.vercel.app
 
 | Item | Verified state |
 |---|---|
-| Deployed source commit | `26ae58fdd2220897511544e9475eab28979f88f5` |
+| Deployed source commit | `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9` |
 | Current main commit | `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` |
-| Vercel deployment | `dpl_F8opnXTMke2VhfRSrMUcoLmQUwQw` |
+| Vercel deployment | `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` |
 | Deployment state | READY (Production) |
 | Production alias | `zikrmediaofficial.vercel.app` |
-| Deployment URL | https://zikr-92iom525u-zikr3.vercel.app |
+| Deployment URL | https://zikr-8pdpwlqag-zikr3.vercel.app |
 | Deployment created | 2026-11-16 (UTC) |
 | Runtime verification | `/api/health` returns HTTP 200 and the exact deployed SHA; core page/API smoke checks return HTTP 200 |
 
-The last recorded production deployment was READY on source `26ae58fdd2220897511544e9475eab28979f88f5`; current main is `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` (five commits ahead) and is not recorded as deployed. The 07:47 UTC READY/smoke result was not rechecked in this run. `vercel.json` keeps Git deployments disabled, so a manual owner-authorized deployment is required after review. No deployment was triggered.
+The latest production deployment is READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; current main is `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` (one commit ahead) and is not recorded as deployed. Deployment inventory was rechecked at 20:50 UTC; no HTTP smoke was run in this batch. `vercel.json` keeps Git deployments disabled, so a manual owner-authorized deployment is required after review. No deployment was triggered.
 
 ## Atomic Android release preparation
 
