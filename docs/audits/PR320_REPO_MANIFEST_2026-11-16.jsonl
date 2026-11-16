@@ -37,7 +37,7 @@
 {"path":"CLAUDE.md","type":"blob","mode":"100644","sha":"43c994c2d3617f947bcb5adf1933e21dabe46bb5","size":11}
 {"path":"DEPLOYMENT_CHECKLIST.md","type":"blob","mode":"100644","sha":"c7fb700b9f3750df36ba34609e812be3d58f0232","size":6124}
 {"path":"DOCUMENTATION_INDEX.md","type":"blob","mode":"100644","sha":"e35e031001e2d2f53a5378f995332e39101de204","size":2280}
-{"path":"PROJECT_STATUS.md","type":"blob","mode":"100644","sha":"75014985712f430be5d2c245c1fd114a39399939","size":306074}
+{"path":"PROJECT_STATUS.md","type":"blob","mode":"100644","sha":"ef5af78843d357e677f7c31524851afac875bce7","size":310827}
 {"path":"README.md","type":"blob","mode":"100644","sha":"e458476419e0b9f17f78b642ab351f2ea7cf5709","size":6272}
 {"path":"RELEASE_STATUS.md","type":"blob","mode":"100644","sha":"eb55791949000356a7723e993123b7fb92c71b40","size":7698}
 {"path":"SECURITY.md","type":"blob","mode":"100644","sha":"76b48b3cf1291ed25b069840586979de649c255b","size":1557}
@@ -211,8 +211,8 @@
 {"path":"docs/audits/ADMIN_CONTROL_CENTER_2.0_EXECUTION_2026-11-06.md","type":"blob","mode":"100644","sha":"645787f9652f1f2368c54d127e798f2ad2da7c58","size":10603}
 {"path":"docs/audits/ADMIN_CONTROL_CENTER_CLOSEOUT_2026-11-06.md","type":"blob","mode":"100644","sha":"400a77eab1cbb9db7f6f8ebfc5ac2e3f1794887f","size":6156}
 {"path":"docs/audits/ARCHITECTURE_MAP_2026-11-01.md","type":"blob","mode":"100644","sha":"b96835e6a1dc30d40568bbc9891d7d5278a4b2b0","size":20353}
-{"path":"docs/audits/CONTINUOUS_CLOSEOUT_LEDGER.md","type":"blob","mode":"100644","sha":"bcf2e2e8edc1e7bc7f4a3f922352fa6ebe7e9496","size":341779}
-{"path":"docs/audits/FILE_STATUS_MATRIX_2026-11-01.md","type":"blob","mode":"100644","sha":"cdaada7a2a450414f8235eb0c27165123891956b","size":711487}
+{"path":"docs/audits/CONTINUOUS_CLOSEOUT_LEDGER.md","type":"blob","mode":"100644","sha":"9c559847f708f1159d1b80921114489bec4a1eec","size":346532}
+{"path":"docs/audits/FILE_STATUS_MATRIX_2026-11-01.md","type":"blob","mode":"100644","sha":"a85f8da8198806d00e322b1d670cccb01f583d59","size":716240}
 {"path":"docs/audits/PG_CRON_RUNTIME_AUDIT_2026-11-01.md","type":"blob","mode":"100644","sha":"ff7b66e92013a552b66739d82bbebe129e59dd87","size":2496}
 {"path":"docs/audits/PLATFORM_READINESS_2026-11-01.md","type":"blob","mode":"100644","sha":"5b27b9db34b7c8605da2cf25d4b2fed82d2cf0a6","size":9625}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-12.md","type":"blob","mode":"100644","sha":"db70e3574a7f2bc45c1c654bd20e509f58a9a4b7","size":45782}
@@ -225,7 +225,7 @@
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14T1150Z.md","type":"blob","mode":"100644","sha":"b844a5d989c99dabdc60c36e2e3670c05272f90f","size":125235}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-14T1157Z.md","type":"blob","mode":"100644","sha":"797aa1a5222f3a980cc7494af1009565f71bd014","size":156060}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-15.md","type":"blob","mode":"100644","sha":"ac7d29d77a833df93c86acb7c2b8b56ee234835b","size":181909}
-{"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-16.md","type":"blob","mode":"100644","sha":"fa61586f1b197d05bba4a1a967b03ec464ebbbec","size":183436}
+{"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_2026-11-16.md","type":"blob","mode":"100644","sha":"429386e42189eaa4b6afcc7b4e3d2268a7d788c2","size":183843}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1336Z.md","type":"blob","mode":"100644","sha":"34f0a6fcf665aa056ad4aef36ce24a725b03b6c4","size":156598}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1357Z.md","type":"blob","mode":"100644","sha":"c762b6ae6535214bb5f5693af6627bf2bf391b63","size":156734}
 {"path":"docs/audits/PR320_FILE_STATUS_OVERLAY_20261114T1421Z.md","type":"blob","mode":"100644","sha":"a165a403422d7ed44e04e94e55429d62f739500f","size":157358}
@@ -384,7 +384,7 @@
 {"path":"mobile/capacitor-dependencies.json","type":"blob","mode":"100644","sha":"dc9b7955207c96b7aadb8893cd23e9c67abe56e2","size":809}
 {"path":"next-env.d.ts","type":"blob","mode":"100644","sha":"a419cbe4e3a5e8d4b481b851dbf4ac767de069e6","size":296}
 {"path":"next.config.ts","type":"blob","mode":"100644","sha":"b637b99fabd4b000424fce1b412da98cc72facf7","size":5959}
-{"path":"package.json","type":"blob","mode":"100644","sha":"8a704a6793ac232d368658f92dc7e87e5ede491a","size":20094}
+{"path":"package.json","type":"blob","mode":"100644","sha":"fbb28658af3a852240fa7809afd0a71dd3d7814a","size":20147}
 {"path":"plan.md","type":"blob","mode":"100644","sha":"d5a28afe7be71d4ad235b5d8763168f96e0b087f","size":3344}
 {"path":"pnpm-lock.yaml","type":"blob","mode":"100644","sha":"e5a9cb30b4552a51311c969c8c8caafb999167b3","size":186896}
 {"path":"pnpm-workspace.yaml","type":"blob","mode":"100644","sha":"4e5c80185090ab33a7b76a82973a5370c8d81d07","size":226}
@@ -478,7 +478,7 @@
 {"path":"public/video/templates/night.svg","type":"blob","mode":"100644","sha":"6c36312bb51736bed33644df164afecb7ef1b282","size":1272}
 {"path":"public/video/templates/paper.svg","type":"blob","mode":"100644","sha":"e64d12fd855cb59d7b1095d8f01d711538409506","size":1001}
 {"path":"public/video/templates/rose.svg","type":"blob","mode":"100644","sha":"d7a38daf4f6b540656435500715840fc94e567d7","size":1069}
-{"path":"scripts","type":"tree","mode":"040000","sha":"28d267e43894b50f8df6df9cc4351af054baee9d"}
+{"path":"scripts","type":"tree","mode":"040000","sha":"4d29946a63f20d82ff8a5b8ae0978eb6156e0156"}
 {"path":"scripts/cleanup-site-audio-orphans.mjs","type":"blob","mode":"100644","sha":"43095fed8ccb3c4ba2f8f21202730423cf0b2508","size":14123}
 {"path":"scripts/cleanup-supabase-storage.mjs","type":"blob","mode":"100644","sha":"eb40aaea3ee221a1b7b93d8560961e5fe419160b","size":53678}
 {"path":"scripts/ensure-ffmpeg.mjs","type":"blob","mode":"100644","sha":"0130b13b09fa88090f66435698f7623eed84ecdd","size":3245}
@@ -509,7 +509,7 @@
 {"path":"scripts/restore-quran-tafsir.sh","type":"blob","mode":"100644","sha":"19005af5048fda3db88a1b2c866b3a48f5eb0858","size":5472}
 {"path":"scripts/run-background-jobs.ts","type":"blob","mode":"100644","sha":"2640dc91d485dae517fa8c27bf758e620835a3f0","size":19444}
 {"path":"scripts/sync-hadith-english.ts","type":"blob","mode":"100644","sha":"c02bba423632eb1ce0be46cb5bbf1f2430ca21bd","size":4886}
-{"path":"scripts/tests","type":"tree","mode":"040000","sha":"22e61f7dcd27b371ed5916338248587a92fd950a"}
+{"path":"scripts/tests","type":"tree","mode":"040000","sha":"62ebc52c6cc5981fbb8aa8ee159764de84426f55"}
 {"path":"scripts/tests/admin-api-body-limits.test.mjs","type":"blob","mode":"100644","sha":"61148dd7263e9b7c78e6d462b35b2e04ab47b5ae","size":2222}
 {"path":"scripts/tests/admin-content-write-safety.test.mjs","type":"blob","mode":"100644","sha":"096b2cbef674c0d20ea533acd7ac4d980a588800","size":7688}
 {"path":"scripts/tests/admin-dashboard-visibility.test.ts","type":"blob","mode":"100644","sha":"236b8c8e038883e136a5d0c47c616f660c9bc74b","size":4620}
@@ -592,6 +592,7 @@
 {"path":"scripts/tests/native-audio-platform-assets.test.ts","type":"blob","mode":"100644","sha":"ddbbaa896af5cea86c454ac6b7c189861d937326","size":12451}
 {"path":"scripts/tests/native-google-oauth-contract.test.mjs","type":"blob","mode":"100644","sha":"523c7ddba079bbed126c26f6869efa5c6166d445","size":17136}
 {"path":"scripts/tests/native-reminder-safety.test.ts","type":"blob","mode":"100644","sha":"1f4953df819e6bc444cfaf213e3a2712964282b2","size":8170}
+{"path":"scripts/tests/notification-permission.test.ts","type":"blob","mode":"100644","sha":"665f4aaf8afe66efc541ffd6f60b289e18424f5f","size":2364}
 {"path":"scripts/tests/offline-export-bootstrap.test.mjs","type":"blob","mode":"100644","sha":"2de3a7d31bc6e0dbfee88dc851cee46ca442beed","size":6286}
 {"path":"scripts/tests/offline-export-parent-scope.test.mjs","type":"blob","mode":"100644","sha":"a7b38d80a029b13be84f94f2b71fce6458e572c7","size":3242}
 {"path":"scripts/tests/offline-export-route-pruning.test.mjs","type":"blob","mode":"100644","sha":"26b9e05579eeb9ff956653c696226b8571cb597c","size":3644}
@@ -610,7 +611,7 @@
 {"path":"scripts/tests/prayer-push-cron-reconcile.integration.sh","type":"blob","mode":"100644","sha":"b3a20dc9779deb2a29e464bf35d62fe306504e30","size":2572}
 {"path":"scripts/tests/prayer-push-cron-reconcile.integration.sql","type":"blob","mode":"100644","sha":"f72869dd0c83fc609141f61e041c6115785ff879","size":1502}
 {"path":"scripts/tests/prayer-reminder-preferences.test.ts","type":"blob","mode":"100644","sha":"0ccc0e53254c866c2f692f9fe2d756811bea9a55","size":1919}
-{"path":"scripts/tests/prayer-times.test.ts","type":"blob","mode":"100644","sha":"c67e6a6b08f85fa4f35c04f42d84fcce00f29327","size":12337}
+{"path":"scripts/tests/prayer-times.test.ts","type":"blob","mode":"100644","sha":"a480696cc8212a5b2453c0baebdebc9401326a21","size":14028}
 {"path":"scripts/tests/production-deployment-readiness.test.mjs","type":"blob","mode":"100644","sha":"994fa0dda02cd24843ef441ac6305e3cafab0d78","size":7104}
 {"path":"scripts/tests/production-smoke-contract.test.ts","type":"blob","mode":"100644","sha":"ecfa986d7654311b18f599172e4e3d2d12a596f6","size":4915}
 {"path":"scripts/tests/profile-sync.test.ts","type":"blob","mode":"100644","sha":"8acf1f04ffee95c266514e0b6503e924998a0dc5","size":3494}
@@ -763,7 +764,7 @@
 {"path":"scripts/verify-video-queue-priority.mjs","type":"blob","mode":"100644","sha":"981537f1cfda2d8530d9b58f47a4f1d27ac90dc3","size":8955}
 {"path":"scripts/verify-voice-factory.mjs","type":"blob","mode":"100644","sha":"c8ed24a9e914b99cc575b286a3975a5f698e22eb","size":4833}
 {"path":"scripts/video-engine-check.mjs","type":"blob","mode":"100644","sha":"c7dc9156901847f4b7666ead969b0f1c4aee2040","size":3597}
-{"path":"src","type":"tree","mode":"040000","sha":"fdff2f4cdf451ce4ad5a20dcd14cc91cb5dd4acc"}
+{"path":"src","type":"tree","mode":"040000","sha":"ea615c6f3d9613d01ddc917a57f59f995ea4e02d"}
 {"path":"src/app","type":"tree","mode":"040000","sha":"fc6c7d9a7909fd69bfca57f4f976b5b1c09b8a4f"}
 {"path":"src/app/.well-known","type":"tree","mode":"040000","sha":"dcb9fe013f06ef5cef5793ed0a93ed9dd9d64d98"}
 {"path":"src/app/.well-known/apple-app-site-association","type":"tree","mode":"040000","sha":"17603ee013fbf8a22408ca5bfd576ca0c8d3f140"}
@@ -1390,7 +1391,7 @@
 {"path":"src/components/ui/progress.tsx","type":"blob","mode":"100644","sha":"2a1686870e0ee7322df746927bd29a1fffbb2671","size":815}
 {"path":"src/components/ui/section-header.tsx","type":"blob","mode":"100644","sha":"14e6cfd227d14c275b95de09d967f58bbdfb5f97","size":444}
 {"path":"src/components/ui/share-button.tsx","type":"blob","mode":"100644","sha":"f6ca603a531c0911d995000e52409beb79941901","size":2334}
-{"path":"src/features","type":"tree","mode":"040000","sha":"005625582ba85832b7e16cf7c16b8b3a1bd19445"}
+{"path":"src/features","type":"tree","mode":"040000","sha":"c37e5cf0f8e62148831df90f483020de034651b3"}
 {"path":"src/features/adhkar","type":"tree","mode":"040000","sha":"ea5779d99a7f6e6f378a44396d7c62103d123bef"}
 {"path":"src/features/adhkar/components","type":"tree","mode":"040000","sha":"33462c6167c041b5b5aa76f836c448ba83a858f4"}
 {"path":"src/features/adhkar/components/adhkar-page.tsx","type":"blob","mode":"100644","sha":"c20b2c0866d4d3ff32d13951fc9d0a3f717f2cfa","size":14232}
@@ -1596,11 +1597,11 @@
 {"path":"src/features/memorization/evaluation.ts","type":"blob","mode":"100644","sha":"dd233093329f148a583163404e0984f86bc03b5a","size":4795}
 {"path":"src/features/memorization/services","type":"tree","mode":"040000","sha":"e822ee897a35b15f3ce150bae71a68c52202d571"}
 {"path":"src/features/memorization/services/progress.ts","type":"blob","mode":"100644","sha":"4d7ad534910578f47896ce27482273b4636c3eab","size":3993}
-{"path":"src/features/notifications","type":"tree","mode":"040000","sha":"77431962cea0a24687831d1eb438a88927e03fb9"}
-{"path":"src/features/notifications/services","type":"tree","mode":"040000","sha":"ea1c2d3fa53d2778480af40f83c1d6b6db2c5e01"}
+{"path":"src/features/notifications","type":"tree","mode":"040000","sha":"1bcfd89a17ddfcd5ce63e5d0e5814f3f55a1f286"}
+{"path":"src/features/notifications/services","type":"tree","mode":"040000","sha":"16ac3092860665eb323eb585b99a80a67682e1ac"}
 {"path":"src/features/notifications/services/native-notification-channels.ts","type":"blob","mode":"100644","sha":"154fda5fce99eaff6d8c8b13e45d3757682bb895","size":2138}
 {"path":"src/features/notifications/services/notification-banner-storage.ts","type":"blob","mode":"100644","sha":"282bdc14d1c1c1aeccc14f9ade3f4e83ea905782","size":915}
-{"path":"src/features/notifications/services/notifications.ts","type":"blob","mode":"100644","sha":"dd2eea47f2e434fde4436647449ce1bbd27795c3","size":6516}
+{"path":"src/features/notifications/services/notifications.ts","type":"blob","mode":"100644","sha":"2530a51790773a656be4a34fd9d8e95ae5b3d5a9","size":6735}
 {"path":"src/features/notifications/services/push-endpoint.ts","type":"blob","mode":"100644","sha":"72ddd8e83669bf6599d3b6bb56b22353ec56fa87","size":1086}
 {"path":"src/features/notifications/services/push-subscription-ownership.ts","type":"blob","mode":"100644","sha":"87f101037c83dd15a485b190b854f0e8edac9251","size":1076}
 {"path":"src/features/notifications/services/push-subscription-request.ts","type":"blob","mode":"100644","sha":"3f51e201d1d6fd742578bcc808a60c551748f136","size":4372}
@@ -1617,7 +1618,7 @@
 {"path":"src/features/poetry/data/fallback.ts","type":"blob","mode":"100644","sha":"a7e9fd9e8eaa555567b1fbbcb47073c7882e87db","size":6392}
 {"path":"src/features/poetry/services","type":"tree","mode":"040000","sha":"26702c85a1d858bac5b571cd5673e48ad67b0e2e"}
 {"path":"src/features/poetry/services/poetry-insight.ts","type":"blob","mode":"100644","sha":"8729158c1cc53c10129c511341727ce9c431391b","size":1450}
-{"path":"src/features/prayer","type":"tree","mode":"040000","sha":"9f08ffbd80fafae0cb3c148a2e58fe5f45d4c840"}
+{"path":"src/features/prayer","type":"tree","mode":"040000","sha":"e9af86c03fd3ecd1643d8bfe15db18eb239096e7"}
 {"path":"src/features/prayer/components","type":"tree","mode":"040000","sha":"55ec28184fbc8be2f08929f95b72745c286055b9"}
 {"path":"src/features/prayer/components/adhan-player.tsx","type":"blob","mode":"100644","sha":"83c653553b0188181d8dcb02c108c3f99b725da5","size":5083}
 {"path":"src/features/prayer/components/prayer-times-page.tsx","type":"blob","mode":"100644","sha":"545b6a6c4a88846796f8aa79803f7564ff4ddc53","size":15773}
@@ -1625,12 +1626,12 @@
 {"path":"src/features/prayer/hooks/use-adhan-player.ts","type":"blob","mode":"100644","sha":"cbcc8e2705060141ba31a6e5065fc4f775d7c390","size":5102}
 {"path":"src/features/prayer/hooks/use-prayer-alert.ts","type":"blob","mode":"100644","sha":"025544b5fe718d27cc5c50a1b86a5f5b6f29a1d3","size":20430}
 {"path":"src/features/prayer/hooks/use-prayer-times.ts","type":"blob","mode":"100644","sha":"8f0a4c3159f222bcd2a43ac005616121f8a7899c","size":3590}
-{"path":"src/features/prayer/services","type":"tree","mode":"040000","sha":"e7253e069ab82839def624cf1be3432df4490e11"}
+{"path":"src/features/prayer/services","type":"tree","mode":"040000","sha":"98ae31aa284b19ab66b9f61f4a16c85374bbced1"}
 {"path":"src/features/prayer/services/prayer-alert-settings.ts","type":"blob","mode":"100644","sha":"6ec49843358b3f526897680ddf3bafa4afa89e8f","size":1235}
 {"path":"src/features/prayer/services/prayer-location-validation.ts","type":"blob","mode":"100644","sha":"4ad1ea0f4c50e67876d83348bc4cef307ec47b0d","size":532}
 {"path":"src/features/prayer/services/prayer-notification-schedule.ts","type":"blob","mode":"100644","sha":"0d0d241d2b0c2eaa9b3bc7025d464f352f13a65a","size":5498}
 {"path":"src/features/prayer/services/prayer-reminder-preferences.ts","type":"blob","mode":"100644","sha":"59db8bb4e6a58e2fb2b31e46ad88d819213bc398","size":1347}
-{"path":"src/features/prayer/services/prayer-times.ts","type":"blob","mode":"100644","sha":"dbdcff7de23bf51e53b89cf559c0b3aa47100e9b","size":12529}
+{"path":"src/features/prayer/services/prayer-times.ts","type":"blob","mode":"100644","sha":"06e7a61d171f67a12d488f2a4c2f4b508e2b3d6e","size":14946}
 {"path":"src/features/prayer/services/saved-prayer-location.ts","type":"blob","mode":"100644","sha":"14b963ee8ea511f775782005211e8ab9465708b3","size":3779}
 {"path":"src/features/profile","type":"tree","mode":"040000","sha":"307beabc3817d06dee5cde7d658a86f712314cc7"}
 {"path":"src/features/profile/components","type":"tree","mode":"040000","sha":"05d2de5fc83d728ab7bc3124d8d4bddd86c5bb63"}
@@ -1929,8 +1930,8 @@
 {"path":"src/styles/tokens.css","type":"blob","mode":"100644","sha":"f9fc69685b24f4b68db55c4e9540db627d0dc7ca","size":109}
 {"path":"src/types","type":"tree","mode":"040000","sha":"ed7beedbbd51d2876b6f8df51f0297b85064c17c"}
 {"path":"src/types/google-generative-ai.d.ts","type":"blob","mode":"100644","sha":"2d5ebb0892e545705089a6a66472ea0b3ca40ee6","size":816}
-{"path":"supabase","type":"tree","mode":"040000","sha":"c18fc7bd20e6c4ae750deccbfa624b1e9145d6e7"}
-{"path":"supabase/REMOTE_MIGRATION_LEDGER.md","type":"blob","mode":"100644","sha":"764e3e7b545514ae239cc6e11a1e144b4d6aa96d","size":60553}
+{"path":"supabase","type":"tree","mode":"040000","sha":"39708950ca2905de4e00eb2809044502fcfd62cf"}
+{"path":"supabase/REMOTE_MIGRATION_LEDGER.md","type":"blob","mode":"100644","sha":"e4a4dad0533a0afae484638b4cd124d38f1c8ebe","size":66352}
 {"path":"supabase/config.toml","type":"blob","mode":"100644","sha":"6cc36f584cef7f27221b5ce9574741d18b55a3e4","size":2412}
 {"path":"supabase/functions","type":"tree","mode":"040000","sha":"a717c75b47851af0a479361b74ac8a34cacd4b3e"}
 {"path":"supabase/functions/_shared","type":"tree","mode":"040000","sha":"f52ff4ade2244925ac7ca990c7d66347163cdb54"}
