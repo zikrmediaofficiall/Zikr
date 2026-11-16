@@ -1,11 +1,28 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hasCurrentCodeOwnerApproval } from "../lib/release-gate-approval.mjs";
+import { ANDROID_DEBUG_PATH_FILTERS, CIRCLECI_VALIDATION_PATH_FILTERS, getRequiredPullRequestCheckNames } from "../lib/release-gate-checks.mjs";
 
 const workflow = readFileSync(".github/workflows/release-vercel.yml", "utf8");
 const releaseWorkflow = readFileSync(".github/workflows/release-finalization.yml", "utf8");
 const androidReleaseWorkflow = readFileSync(".github/workflows/publish-android-release-assets.yml", "utf8");
 const gate = readFileSync("scripts/verify-release-gates.mjs", "utf8");
+
+const androidWorkflowPaths = readFileSync(".github/workflows/android-native-login-test.yml", "utf8");
+const circleValidationPaths = readFileSync(".github/workflows/circleci-config-validation.yml", "utf8");
+for (const path of ANDROID_DEBUG_PATH_FILTERS) {
+  assert.ok(androidWorkflowPaths.includes(`"${path}"`), "release gate Android path policy must match the Android workflow filter: " + path);
+}
+for (const path of CIRCLECI_VALIDATION_PATH_FILTERS) {
+  assert.ok(circleValidationPaths.includes(`"${path}"`), "release gate CircleCI path policy must match the CircleCI workflow filter: " + path);
+}
+assert.deepEqual(getRequiredPullRequestCheckNames(["README.md"]), ["ZIKR / Quality Gate"], "unrelated changes must not require path-filtered checks that did not run");
+assert.deepEqual(getRequiredPullRequestCheckNames(["android/app/src/main/AndroidManifest.xml"]), ["ZIKR / Quality Gate", "Build Android Debug APK"]);
+assert.deepEqual(getRequiredPullRequestCheckNames(["src/features/auth/actions.ts"]), ["ZIKR / Quality Gate", "Build Android Debug APK"]);
+assert.deepEqual(getRequiredPullRequestCheckNames([".circleci/config.yml"]), ["ZIKR / Quality Gate", "Validate CircleCI configuration"]);
+assert.deepEqual(getRequiredPullRequestCheckNames([".github/workflows/circleci-config-validation.yml"]), ["ZIKR / Quality Gate", "Validate CircleCI configuration"]);
+assert.deepEqual(getRequiredPullRequestCheckNames(["android/app/build.gradle", ".circleci/config.yml"]), ["ZIKR / Quality Gate", "Build Android Debug APK", "Validate CircleCI configuration"]);
+assert.throws(() => getRequiredPullRequestCheckNames(null), /changedPaths/, "release gate path selection must fail closed on malformed changed-file data");
 
 const circleCiConfig = readFileSync(".circleci/config.yml", "utf8");
 const androidDraftStart = circleCiConfig.indexOf("  android-release-draft:");
