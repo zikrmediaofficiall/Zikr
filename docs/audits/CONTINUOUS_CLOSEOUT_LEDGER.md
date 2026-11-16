@@ -2754,3 +2754,26 @@ No production SQL mutation, migration execution, data repair, content generation
 - Counts: 1,344 UNREVIEWED files (479 high priority), 53 REVIEWED_PARTIAL, and 615 files in reviewed/pending categories.
 - The remote Supabase migration ledger is unchanged: PR #372 uses an existing RPC and adds no migration.
 - No production rate-limit RPC, Aladhan/Nominatim request, worker invocation, notification delivery, migration, database mutation, content generation, Gemini request, social publishing, storage change/deletion, release, merge, deployment or production smoke was performed.
+
+
+## 2026-11-16 — Prayer notification worker authentication preflight
+
+### Source review
+
+- Read the full 1,062-line worker in four contiguous source chunks and inspected its direct imports: bounded ID pagination, subscription eligibility/ownership/grace windows, IANA time-zone/DST and reminder-topic logic, provider timing normalization/failure memoization, Web Push endpoint allowlist, serial lease-write queue and delivery lease heartbeat.
+- Traced the worker's DB contracts: `get_push_scheduler_secret`, `get_push_vapid_bundle`, `ensure_push_vapid_bundle`, `plan_background_reminder_deliveries`, schedule-cache reads/upserts, bounded subscription pages, due-delivery candidate reads, per-row CAS claims, fresh preference/subscription reads, exact endpoint/key deactivation and lease-fenced finalization.
+- Confirmed `supabase/config.toml` sets `verify_jwt=false` for the worker because pg_cron supplies the private bearer secret. The worker nevertheless called the service-role `get_push_scheduler_secret` RPC before inspecting Authorization, so missing/malformed headers caused avoidable privileged database reads before 401. The source-verified content agent already performs the empty-bearer check first.
+
+### Repair batch — PR #373
+
+- Branch: `audit/zikr-prayer-worker-auth-preflight-20261116`.
+- Exact base: `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`.
+- Exact head: `ef440389dbbbb65d954ccd213e54b1c00c455441`; 2 commits ahead, 0 behind; 2 files changed.
+- Worker now requires a strict non-empty `Bearer <token>` header before calling `get_push_scheduler_secret`, rejects an empty/unavailable secret, and retains constant-time comparison for supplied tokens.
+- The canonical `scripts/tests/prayer-notification-pagination.test.ts` adds an assertion that malformed bearer rejection precedes the service-role secret RPC.
+- At the last exact-head poll, GitHub Quality Gate run `43957999023` was queued; CircleCI `config-guard` passed and `source-verify` / `application-build-docs` were pending. PR #373 remains draft/open; exact-head full verification and owner/CODEOWNERS review are still required.
+
+### Safety and inventory
+
+- Matrix rows for the worker and canonical worker test are `FIX_PENDING_PR373`; no source file was added to the main snapshot manifest. Main snapshot remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
+- No worker invocation, scheduler-secret RPC, VAPID initialization, schedule planning, notification delivery, production database mutation, migration, content generation, Gemini request, social publishing, Storage operation, release, merge, deployment or production smoke was performed.
