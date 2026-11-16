@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T21:02:00Z
+Updated: 2026-11-16T21:06:00Z
 
 ## Exact snapshot
 
@@ -79,6 +79,7 @@ High-priority unreviewed files: **482**. The matrix has 1,959 file rows; 595 are
 - Queue-alert retry repair remains PR #369 exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`; Quality Gate `43953516859` passed `QUALITY_GATE=PASSED_FULL`, CircleCI source/application/config passed, Android debug APK build `43953516793` passed. Owner review remains outstanding.
 - Search repair remains PR #370 exact head `f5596f7ad1b72e666c084923123814e5e001c0e1`; its initial verifier failure was repaired, and fresh exact-head Quality Gate/CircleCI checks were still running at this timestamp.
 - Production remains on READY deployment source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and not deployed. No HTTP smoke or deployment was run.
+- Documentation PR #344 current head `5351b2eccba90b26118e7f2e426fe4cda4140ae0` has no exact-head GitHub workflow run or CircleCI status; its earlier Quality Gate attempt was cancelled on an older head. Do not treat this documentation PR as verified.
 
 ## Review batch — 2026-11-16 14:44 UTC
 
