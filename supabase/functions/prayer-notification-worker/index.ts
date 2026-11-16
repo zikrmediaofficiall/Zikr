@@ -1037,13 +1037,16 @@ Deno.serve(async request => {
     return json({ error: "Method not allowed" }, 405);
 
   try {
+    const authorization = request.headers.get("authorization") ?? "";
+    const bearerMatch = /^Bearer\\s+(\\S+)$/i.exec(authorization.trim());
+    if (!bearerMatch) return json({ error: "Unauthorized" }, 401);
+    const supplied = bearerMatch[1];
+
     const expected = await supabase.rpc("get_push_scheduler_secret");
-    if (expected.error || typeof expected.data !== "string") {
+    if (expected.error || typeof expected.data !== "string" || !expected.data) {
       throw new Error("Scheduler authentication is unavailable");
     }
-    const supplied =
-      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-    if (!supplied || !constantTimeEqual(supplied, expected.data))
+    if (!constantTimeEqual(supplied, expected.data))
       return json({ error: "Unauthorized" }, 401);
 
     const now = new Date();
