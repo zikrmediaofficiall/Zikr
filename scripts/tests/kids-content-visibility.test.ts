@@ -940,7 +940,15 @@ assert.match(service, /published=eq\.true&is_active=eq\.true/, "public Kids quer
 assert.match(service, /select=\*&published=eq\.true&is_active=eq\.true/, "the Kids page must preserve every active published content type");
 const kidsVisibilitySource = readFileSync("src/features/kids/services/kids-content-visibility.ts", "utf8");
 assert.match(kidsVisibilitySource, /metadata\.age_appropriate === true/, "public Kids story visibility must require explicit age-suitability approval");
-assert.ok(kidsContentServiceSource.includes("age_appropriate: true"), "curated static fallback stories must carry explicit age approval");
+assert.ok(
+  kidsContentServiceSource.includes("prepareKidsFallbackContent(dedupeBySlug(kidsContent))"),
+  "static fallback must pass through the explicit age-approval filter before public use",
+);
+assert.doesNotMatch(
+  kidsContentServiceSource,
+  /age_appropriate:\\s*true/,
+  "static fallback preparation must never manufacture an age-approval flag",
+);
 assert.ok(kidsContentServiceSource.includes("FALLBACK_KIDS_CONTENT.find"), "fallback detail lookup must use the same age-approved curated list");
 assert.match(service, /isKidsContentPubliclyVisible/, "public Kids services must reject unsupported types even when the database RLS policy is unavailable");
 assert.match(service, /FALLBACK_KIDS_CONTENT\.filter\(isKidsContentPubliclyVisible\)/, "static fallback lists must apply the same supported-type visibility gate");
