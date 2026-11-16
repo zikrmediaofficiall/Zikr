@@ -13,7 +13,7 @@ Updated: 2026-11-16T22:42:30.906Z (reconciled with PR #381 narration provenance/
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `e5e45d36a4957fb9fe17fad690886a645d396788`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `493b600c7406ffc2765de8c06f78ced85f3df156`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -43,7 +43,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR340`: 3
 - `FIX_PENDING_PR341`: 1
 - `FIX_PENDING_PR343`: 2
-- `FIX_PENDING_PR343_PR376_PR377_PR378_PR379_PR380`: 1
+- `FIX_PENDING_PR343_PR376_PR377_PR378_PR379_PR380_PR381`: 1
 - `FIX_PENDING_PR346`: 1
 - `FIX_PENDING_PR347`: 2
 - `FIX_PENDING_PR349`: 5
@@ -64,20 +64,20 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR378`: 3
 - `FIX_PENDING_PR379`: 4
 - `FIX_PENDING_PR380`: 2
-- `FIX_PENDING_PR381`: 2
-- `FIX_PENDING_PR381_PARTIAL_REVIEW`: 3
+- `FIX_PENDING_PR381`: 8
+- `FIX_PENDING_PR381_PARTIAL_REVIEW`: 2
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 45
-- `REVIEWED_PARTIAL`: 67
+- `REVIEWED_PARTIAL`: 66
 - `REVIEWED_PERMISSION_SCAN`: 86
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 74
-- `REVIEWED_SOURCE_ONLY`: 304
+- `REVIEWED_REGRESSION_COVERAGE`: 72
+- `REVIEWED_SOURCE_ONLY`: 302
 - `SECURITY_FIX_PENDING_PR340`: 4
 - `UNREVIEWED`: 1248
 
@@ -428,3 +428,9 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 
 - Read full `src/features/videos/integrations/youtube.ts`, its `/videos` server-render consumer, the YouTube cache schema migration and historical no-op migration, and the expanded playlist/cache regression suite. The original singleton sync lock used an unconditional upsert after a cooldown read, so concurrent requests could both call YouTube; final upserts could overwrite a newer attempt. PR #380 exact head `66dde1c4279b6513e395a57ab906b4117a8e82ad` adds updated_at CAS claim, handles first-insert conflict as lost claim, and scopes finalization to the exact channel/attempt timestamp. Quality Gate `43969510424` and CircleCI config-guard/source-verify/application-build-docs passed. PR remains draft/open for owner review; no provider request or DB mutation.
 - Read both `20260828000001_youtube_feed_cache_history.sql` (intentional no-op preserving a transient version) and `20260828000003_youtube_feed_cache.sql` (cache/sync-state schema). Later applied migration `20261101135000` revokes client access and drops the public sync-state policy; live `youtube_sync_state` is service_role-only, while public video cache remains public-read. Both versions are in the exact-matched remote history.
+
+
+## Review batch — narration and provider-download boundary — 2026-11-16/17
+
+- PR #381 current exact head `9786fb84f61df4674cda883b472ea7df1d9c1b21` includes server-side ownership checks for Cloudinary narration, canonical Quran URL validation, redirect rejection, 15 MiB streamed narration cap, and provider download limits. The provider path now bounds Free API JSON to 64 KiB, ComfyUI prompt JSON to 64 KiB, history JSON to 2 MiB and output video to 50 MiB; Hugging Face output is capped at 50 MiB. Media response bodies are streamed and cancelled on overflow. Free API returned media URLs are limited to the configured endpoint or explicit CDN allowlist; redirects are rejected.
+- Current PR #381 exact-head checks: GitHub Quality Gate `43976532247` pending; Android Native Login Debug APK `43976532354` in progress; CircleCI config-guard passed; source-verify/application-build-docs pending. Earlier head `5eb658f...` had source-verify failure; current head is not yet verified. No provider request, generation, TTS/Gemini, Cloudinary upload/delete, social publishing or production mutation was performed.
