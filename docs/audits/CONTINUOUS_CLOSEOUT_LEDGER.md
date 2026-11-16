@@ -2908,3 +2908,40 @@ No production SQL mutation, migration execution, data repair, content generation
 
 - PR #379 exact head `0f4ada7d23116bc0c367d0bce10b4aede3fc6f9e` adds optimistic `updated_at` compare-and-set for prophet/battle metadata merges, validates returned rows for publish updates and wraps post-commit audit writes. GitHub Quality Gate and Android Native Login Debug APK are in progress at last poll; CircleCI config-guard passed. No production mutation; owner/CODEOWNERS review remains required.
 - Reconciled pointers: matrix `18b28fa97fe24219d58b9cccacb196fbbf12bdf1`; inventory `2d30386921bf238a0f9aae20fc40372cd5a77196`; project status `3e40519766a635e1efe943da3c4eee9394ffa30e`; immutable main manifest `baace6d0c66ac299edb541c7caceba56eeae19be`.
+
+
+## 2026-11-16/17 — video feed, admin audit, and template source review
+
+**Review timestamp:** 2026-11-16T22:26:56.564Z  
+**Main snapshot:** a0f51cdc3fc31503f12ddddba76e37d9e07a15f7  
+**Documentation branch before this ledger update:** 77cc5a3663ffbc563f716e75c0c7dffbb92f5083
+
+### Files and code paths read
+
+- Read the complete source of `src/features/admin/services/post-commit-audit.ts`, `src/features/admin/components/audio-choice-field.tsx`, `src/features/videos/components/video-like-button.tsx`, `src/features/videos/components/youtube-feed-card.tsx`, `src/app/api/videos/[videoId]/like/route.ts`, `supabase/migrations/20261106214309_secure_video_like_count_summary.sql`, `src/features/videos/integrations/youtube.ts`, `scripts/tests/youtube-playlist-cache.test.ts`, `src/features/videos/services/template-config.ts`, `src/features/videos/services/video-creative-variation.ts`, `src/features/videos/types/videos.ts`, and the associated template/creative/post-commit regression tests.
+- Traced public video consumers through `src/app/videos/page.tsx` and `src/app/videos/[slug]/page.tsx`; traced template configuration through the admin template API, video creation API, and template automation worker. The worker's template binding validates active/pinned versions and audience-specific assets; the create API enforces requested audience equals template audience and requires Kids permission for Kids content.
+- The audio-choice field has no repository consumer/import; it is retained as unreferenced code, not deleted.
+- Post-commit audit helper/test cover committed business mutation ordering, audit persistence failure, and logger failure containment. Template/creative tests are registered in the canonical `pnpm test` chain.
+
+### Findings and repairs
+
+- **Video likes:** main's aggregate-count migration grants public SELECT and uses `USING (true)`, so future aggregate rows for unpublished/hidden videos could be queried directly through Supabase REST despite the API route's published-video check. PR #358 exact head `1cd16fff5d673e9af1b6aa09b96d78e93566fb2e` replaces the policy with an `EXISTS` check against visible videos and adds explicit `user_id` filtering to the viewer query. Exact-head GitHub Quality Gate `43925765683`, Android Debug `43925765653`, and CircleCI config-guard/source-verify/application-build-docs passed. PR remains open/unmerged; owner/CODEOWNERS review is absent; migration is not applied. Read-only production snapshot had 0 aggregate rows. No data was changed.
+- **YouTube feed synchronization:** public `/videos` rendering calls `getYoutubeChannelFeed()`; an expired cache may enter `syncYoutubeFeed()`. The previous unconditional upsert was not an atomic lock: concurrent requests could read the same expired row, both overwrite the ten-minute lock, and both make the three YouTube API requests. Unconditional final upserts could also overwrite a newer attempt. PR #380 exact head `66dde1c4279b6513e395a57ab906b4117a8e82ad` adds compare-and-set on the singleton row's `updated_at`, handles first-insert unique conflicts as a lost claim, returns cached data when the claim is lost, and scopes success/error finalization to the exact channel/attempt timestamp. Focused tests cover winning/lost claims, first-insert conflicts, and fail-closed database errors. At last poll, Quality Gate run `43969510424` was in progress; CircleCI config-guard passed; source-verify/application-build-docs were pending. PR is draft/open. No YouTube API request or database mutation was run.
+- **Template/creative contracts:** no reproducible defect found in the inspected parser, audience asset sets, deterministic scene/hook selection, or tests. General/Kids assets are disjoint; invalid template enums/paths are rejected; create API checks audience parity and Kids permission; worker checks pinned version status and asset/audience validity. The tests verify these contracts. No content generation, TTS, Gemini, or social publish was run.
+
+### Exact source and documentation pointers
+
+- Main source blob: YouTube integration `6ac67f8de465a82c446cef9b3116d7d5ebd235eb`; like route `ab8681830ca8946bc769773e3c301a8a52b7f214`; aggregate migration `b1d7d221b98c6274b99808493e77e3cb1d7207e8`; template config `a0b0dd0eb1b26b33cc12ea0b3cfc5849a4613b1e`; creative variation `50ce96af56a4f058e2b68d657a0ea9178ce5fc68`.
+- PR #358 exact head: `1cd16fff5d673e9af1b6aa09b96d78e93566fb2e` (all recorded required checks passed; owner review absent).
+- PR #380 exact head: `66dde1c4279b6513e395a57ab906b4117a8e82ad` (Quality Gate in progress; CircleCI config-guard passed; source-verify/application-build-docs pending at last poll).
+- Matrix blob: `5840db07c872cb1aa073cf0e0036690f4c8c25bf` — 1,258 UNREVIEWED (420 high priority), 701 non-UNREVIEWED.
+- Inventory blob: `a286dc8fa07664eb98c73fad661eaef0cbe9d713`.
+- Project status blob: `1fc01e92864d541a0cb0044ef20bea2e3aac182c`.
+- Immutable manifest blob: `baace6d0c66ac299edb541c7caceba56eeae19be`.
+
+### Safety and closeout gates
+
+- No production DB mutation, migration apply, Edge Function invocation/deploy, YouTube/Gemini provider request, content generation, TTS request, social publishing, storage/media operation, secret/index change, Android/iOS release, merge, or Vercel deployment was performed.
+- PRs #358 and #380 remain unmerged. Human CODEOWNERS/owner approval is absent on the tracked audit PRs; green automated checks do not substitute for that approval.
+- The documentation branch update itself changes the exact head and requires fresh PR #344 Quality Gate and CircleCI checks. No previous-head result is reused.
+- Current main is not deployed; production Vercel remains recorded READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; current-main production smoke remains unverified.
