@@ -176,7 +176,9 @@ if (
 
 const socialWorker = read("src/features/social/services/social-publishing.ts");
 if (!socialWorker.includes("syncKidsSocialPublicationToCatalog") ||
-    !socialWorker.includes("await syncKidsSocialPublicationToCatalog(item, publishMetadata)")) {
+    !socialWorker.includes("syncKidsSocialPublicationToCatalog(publishedItem, publishMetadata)") ||
+    !socialWorker.includes("syncKidsSocialPublicationToCatalog(publishedItem, previousMetadata)") ||
+    !socialWorker.includes("published_at: publishedAt")) {
   failures.push("confirmed social-platform deliveries must sync back to the Kids catalog");
 }
 const kidsVideoDetail = read("src/app/kids/videos/[slug]/page.tsx");
