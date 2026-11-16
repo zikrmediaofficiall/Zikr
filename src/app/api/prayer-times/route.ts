@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { consumePrayerTimesRateLimit } from '@/features/prayer/services/rate-limit';
+import { getTrustedClientAddress } from '@/lib/request/client-address';
 
 const ALADHAN_API_BASE = 'https://api.aladhan.com/v1';
 const UPSTREAM_TIMEOUT_MS = 8_000;
@@ -72,6 +74,26 @@ export async function GET(request: NextRequest) {
   }
   if (!/^\d{1,2}$/.test(method) || Number(method) < 0 || Number(method) > 99) {
     return NextResponse.json({ error: 'Invalid calculation method.' }, { status: 400 });
+  }
+
+  try {
+    const clientAddress = getTrustedClientAddress(
+      request.headers.get('x-real-ip'),
+      request.headers.get('x-forwarded-for'),
+    );
+    const allowed = await consumePrayerTimesRateLimit(clientAddress);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many prayer-time lookups. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } },
+      );
+    }
+  } catch (error) {
+    console.error('[prayer-times-api] Shared rate limiter unavailable:', error);
+    return NextResponse.json(
+      { error: 'Prayer-times lookup is temporarily unavailable.' },
+      { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } },
+    );
   }
 
   const endpoint = city
