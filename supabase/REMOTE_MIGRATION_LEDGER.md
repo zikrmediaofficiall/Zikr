@@ -705,7 +705,7 @@ Method: Supabase project metadata, migration list, table inventory, Edge Functio
 
 ### Migration and table inventory
 
-- Applied migration count: 449. Latest applied version: 20261116045100_require_linked_request_for_public_kids_videos, matching the latest migration in main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7. PR-only migrations for the pending timezone and legacy Kids idempotency fixes are not in main and were not applied.
+- Applied migration count: 449. Latest applied version: 20261116045100_require_linked_request_for_public_kids_videos, matching the latest migration in main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7. PR-only migrations 20261116123500_enforce_kids_category_video_read_approval (PR #340), the prayer timezone migration (PR #349) and legacy Kids idempotency migration (PR #353) are not in main and were not applied.
 - Table inventory: 103 tables across public and storage schemas, including 93 public tables. No public table was found with RLS disabled.
 - Historical nmdeaz project counts and policy observations below must not be used to describe the currently configured project.
 
@@ -714,7 +714,7 @@ Method: Supabase project metadata, migration list, table inventory, Edge Functio
 - kids_content public reads require published and active rows; story rows additionally require metadata.age_appropriate=true.
 - kids_game_levels public reads require the level to be published and its parent game to be published.
 - kids_game_questions has no public read policy; only the admin read policy remains.
-- videos public reads require public availability, QA passed, explicit human approval, a non-system reviewer, approval timestamp, source verification and a linked video_generation_requests row with matching request/source/content/template hashes. Kids videos use the private human-approval helper; general video rows with Kids markers are excluded.
+- videos public reads require public availability, QA passed, explicit human approval, a non-system reviewer, approval timestamp, source verification and a linked video_generation_requests row with matching request/source/content/template hashes. Kids videos use the private human-approval helper; general video rows with Kids markers are excluded. Live public.videos currently has only the permissive metadata-based SELECT policy, not the category_id restrictive guard proposed by PR #340. The canonical kids-stories category has 34 published rows and all currently have audience=kids; no misclassified published row was observed. PR #340 adds defense-in-depth for hidden/inactive Kids categories and malformed/conflicting metadata.
 - increment_kids_content_shares is SECURITY INVOKER with empty search_path and service-role-only execution. save_default_prayer_location is SECURITY INVOKER with empty search_path, granted to authenticated and service_role. admin_approve_video_generation_request is SECURITY INVOKER with empty search_path and service-role-only execution. The private Kids approval helper is SECURITY DEFINER with empty search_path, schema-qualified references and boolean-only output.
 - kids_record_game_result, kids_record_game_result_internal and kids_validate_game_result_insert remain SECURITY DEFINER with search_path=public and service-role-only ACL. Table references are schema-qualified; record this as a separate hardening review item, not as public execution exposure.
 
