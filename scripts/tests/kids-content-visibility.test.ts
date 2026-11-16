@@ -544,15 +544,21 @@ assert.deepEqual(
 );
 
 const socialPublisherSource = readFileSync("src/features/social/services/social-publishing.ts", "utf8");
+const kidsCatalogPolicySource = readFileSync("src/features/social/services/kids-social-catalog-reconciliation.ts", "utf8");
 const kidsSocialSyncStart = socialPublisherSource.indexOf("async function syncKidsSocialPublicationToCatalog");
-const kidsSocialSyncEnd = socialPublisherSource.indexOf("async function syncYouTubeVideoReferenceToCatalog", kidsSocialSyncStart);
+const kidsSocialSyncEnd = socialPublisherSource.indexOf("async function markKidsCatalogSyncState", kidsSocialSyncStart);
 const kidsSocialSyncSource = kidsSocialSyncStart >= 0 && kidsSocialSyncEnd > kidsSocialSyncStart
   ? socialPublisherSource.slice(kidsSocialSyncStart, kidsSocialSyncEnd)
   : "";
 assert.match(
+  kidsCatalogPolicySource,
+  /normalizeSocialPlatformResults\(item\.metadata\?\.platformResults\)/,
+  "Kids catalog synchronization must normalize legacy object/array result ledgers before deriving publication state",
+);
+assert.match(
   kidsSocialSyncSource,
-  /normalizeSocialPlatformResults\(rawResults\)/,
-  "Kids catalog synchronization must normalize legacy array-shaped platform results before deriving publication badges",
+  /resolveKidsSocialCatalogPublicationSnapshot\(queueItem\)/,
+  "the catalog writer must consume the tested publication snapshot instead of duplicating result parsing",
 );
 
 const originalYoutubeQueueRow = {
