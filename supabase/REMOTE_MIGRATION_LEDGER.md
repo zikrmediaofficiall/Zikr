@@ -1,4 +1,6 @@
 # Supabase Remote Migration Ledger
+> **Current-project notice (2026-11-16):** Repository configuration and the connected Supabase project point to zqtssvlvmkzeeyqghqfk (Zikrofficial). Historical entries below that reference nmdeazfmtncelykzxkhs and 418/448 migration counts describe an earlier configured project snapshot and are not current state. The latest read-only snapshot is appended at the end. Historical records are retained unchanged.
+
 
 This file records migrations applied directly to the live ZIKR Supabase project during the 2026-09-19 cleanup/rebuild pass.
 
@@ -695,3 +697,59 @@ This confirms the applied `20261009054919` client-write hardening and the servic
 The route and cleanup script were inspected only. No endpoint was invoked, no job was dispatched, and no Storage object was removed. The legacy route should not be reactivated until a compare-and-set/lease claim and shared-path reference protection are in place.
 
 **Safety:** all statements above came from read-only catalog/metadata queries. No production DDL, DML, RLS changes, function replacement, cron change, bucket change, secret read, or storage operation occurred.
+
+## Current configured project — read-only snapshot, 2026-11-16
+
+Project: Zikrofficial (zqtssvlvmkzeeyqghqfk). State ACTIVE_HEALTHY; region eu-west-2; PostgreSQL 17.11.0.018.
+Method: Supabase project metadata, migration list, table inventory, Edge Function metadata, advisors and SELECT-only SQL queries. No DDL/DML, migration apply, RPC mutation, Edge Function invocation/deployment or storage mutation was performed.
+
+### Migration and table inventory
+
+- Applied migration count: 449. Latest applied version: 20261116045100_require_linked_request_for_public_kids_videos, matching the latest migration in main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7. PR-only migrations for the pending timezone and legacy Kids idempotency fixes are not in main and were not applied.
+- Table inventory: 103 tables across public and storage schemas, including 93 public tables. No public table was found with RLS disabled.
+- Historical nmdeaz project counts and policy observations below must not be used to describe the currently configured project.
+
+### Current Kids and video RLS contracts
+
+- kids_content public reads require published and active rows; story rows additionally require metadata.age_appropriate=true.
+- kids_game_levels public reads require the level to be published and its parent game to be published.
+- kids_game_questions has no public read policy; only the admin read policy remains.
+- videos public reads require public availability, QA passed, explicit human approval, a non-system reviewer, approval timestamp, source verification and a linked video_generation_requests row with matching request/source/content/template hashes. Kids videos use the private human-approval helper; general video rows with Kids markers are excluded.
+- increment_kids_content_shares is SECURITY INVOKER with empty search_path and service-role-only execution. save_default_prayer_location is SECURITY INVOKER with empty search_path, granted to authenticated and service_role. admin_approve_video_generation_request is SECURITY INVOKER with empty search_path and service-role-only execution. The private Kids approval helper is SECURITY DEFINER with empty search_path, schema-qualified references and boolean-only output.
+- kids_record_game_result, kids_record_game_result_internal and kids_validate_game_result_insert remain SECURITY DEFINER with search_path=public and service-role-only ACL. Table references are schema-qualified; record this as a separate hardening review item, not as public execution exposure.
+
+### Storage buckets and write access
+
+- Nine buckets are present: android-releases, audio, avatars, documents, media, public-assets, quran-audio, site-audio and videos.
+- videos is public with a 50 MiB limit and had zero objects at the snapshot. public-assets is public with no configured size/MIME limit and had zero objects; no current application consumer was found. site-audio is public with a 50 MiB limit and six objects. youtube-facebook-media is absent.
+- storage.objects has owner-scoped policies for user-owned buckets. No direct anon/authenticated write policies exist for videos, site-audio, public-assets or android-releases; service-role server paths own writes.
+- The admin video upload route uses video.manage step-up and post-commit audit, but the public videos bucket means a newly uploaded draft is readable before the form is saved. There are currently zero objects, so no existing object exposure was observed. Private staging/expiry is a design follow-up; no object was created or deleted.
+
+### Cron jobs and deployed Edge Functions
+
+| Job | Schedule | Active |
+|---|---|---|
+| zikr-cron-history-cleanup | 30 3 * * * | yes |
+| zikr-prayer-push-dispatch | * * * * * | yes |
+| zikr-source-verified-content-agent | 0 3 * * * | yes |
+| zikr-youtube-facebook-sync | */10 * * * * | no |
+
+- No YouTube/Facebook media cleanup cron exists.
+- Deployed Edge Functions: prayer-notification-worker v80, source-verified-content-agent v15, spiritual-ai v3 and health v3. The deployed prayer worker and source agent files inspected in this run match local main byte-for-byte. Their auth gates were inspected; neither function was invoked.
+- No sync-youtube-facebook or cleanup-youtube-facebook-media Edge Function is deployed. The Supabase sync cron is inactive; GitHub Actions is the active social publisher.
+
+### Advisor results and owner settings
+
+- Security advisor: leaked-password protection is disabled (owner must enable in Supabase Auth settings). Five RLS-enabled tables intentionally have no client policies and are service-role-only: push_subscriptions, site_audio_assets, site_audio_upload_intents, social_publish_queue and video_generation_requests.
+- Performance advisor: 79 unused-index notices, one unindexed foreign key (site_audio_upload_intents.asset_id) and one multiple-permissive-policy notice on prophet_sections. No index was dropped or added.
+- Health advisor returned no lints.
+
+### Automation safety note
+
+- GitHub Actions schedules written-content generation at 15 7,13,19 UTC using Gemini; AI video generation at 17 3,9,15,21 UTC in free-only mode with Gemini fallback disabled; and social publishing at 7,22,37,52 minutes each hour, with public YouTube/Facebook publishing when credentials and database settings permit. Kids written posts and Kids videos remain blocked from external publication until explicit human approval.
+- These workflows are production automation, not audit fixtures. None was dispatched by this audit. The Supabase YouTube/Facebook sync cron being inactive does not mean social publishing is disabled; the GitHub workflow is scheduled.
+- The legacy Next.js cleanup-media route has no caller or Vercel cron and its expected bucket is absent. It was not invoked.
+
+### Audit boundary
+
+No content generation, Gemini request, social publishing, push dispatch, production mutation, migration apply, Edge Function invocation/deployment, Android/iOS release, Vercel deployment or storage deletion was triggered. All live checks in this section were read-only.
