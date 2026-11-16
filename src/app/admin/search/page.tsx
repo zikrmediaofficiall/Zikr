@@ -22,7 +22,7 @@ export default async function AdminSearchPage({ searchParams }: { searchParams: 
       <header>
         <p className="text-xs tracking-[0.2em] text-brand-cream/30">GLOBAL SEARCH</p>
         <h1 className="mt-2 text-3xl font-bold text-brand-gold">البحث المركزي</h1>
-        <p className="mt-2 text-sm leading-7 text-brand-cream/50">بحث موحد داخل المقالات والقصص والفيديوهات ومكتبة المحتوى.</p>
+        <p className="mt-2 text-sm leading-7 text-brand-cream/50">بحث موحد داخل مصادر المحتوى المسموح بها حسب صلاحيات حسابك.</p>
       </header>
 
       <form className="flex gap-2" method="get">
