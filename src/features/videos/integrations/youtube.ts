@@ -135,7 +135,7 @@ export async function claimYoutubeSyncAttempt(input: {
   const result = input.expectedUpdatedAt ? await input.update() : await input.insert();
   if (result.error) {
     if (!input.expectedUpdatedAt && result.error.code === '23505') return false;
-    throw result.error;
+    throw new Error(result.error.message || 'Failed to claim YouTube sync state.');
   }
   return Boolean(result.data);
 }
