@@ -5,6 +5,20 @@ import { findYouTubeChannelAcrossPages, getYouTubeRefreshToken, getYouTubeUpload
 import { buildCanonicalOAuthStartRedirect } from "../../src/features/social/services/oauth-canonical-origin";
 import { createSignedOAuthState, verifySignedOAuthState } from "../../src/features/social/services/oauth-state";
 
+const previewCallback = "https://preview.example/api/admin/social/youtube/callback?code=oauth-code&state=oauth-state";
+assert.equal(
+  buildCanonicalOAuthStartRedirect(previewCallback, "https://zikrmediaofficial.vercel.app"),
+  "https://zikrmediaofficial.vercel.app/api/admin/social/youtube/callback?code=oauth-code&state=oauth-state",
+  "OAuth callbacks from a preview host must be normalized to the canonical origin",
+);
+assert.equal(
+  buildCanonicalOAuthStartRedirect(
+    "https://zikrmediaofficial.vercel.app/api/admin/social/youtube/callback?code=oauth-code&state=oauth-state",
+    "https://zikrmediaofficial.vercel.app",
+  ),
+  null,
+  "canonical OAuth callbacks must not be rewritten",
+);
 
 const previousOAuthStateSecret = process.env.OAUTH_STATE_SECRET;
 try {
