@@ -133,3 +133,23 @@ SELECT 'kids-invalid-reviewer-variant', published,
          'qualityReview', metadata->'qualityReview' || jsonb_build_object('reviewerId', '11111111-1111-4111-7111-111111111111')
        )
 FROM public.videos WHERE id = 'kids-approved';
+
+
+-- Conflicting Kids provenance must not become public merely because a legacy
+-- or malformed catalog row claims audience=general (or omits audience).
+INSERT INTO public.videos (id, published, metadata)
+VALUES
+  ('general-kids-category', true, '{"audience":"general","category":"kids_story"}'::jsonb),
+  ('general-kids-source-type', true, '{"audience":"general","sourceType":"original_kids_fiction"}'::jsonb),
+  ('general-kids-ai-mode', true, '{"audience":"general","aiMode":"original_kids_story"}'::jsonb),
+  ('general-kids-type', true, '{"audience":"general","type":"kids_story"}'::jsonb),
+  ('general-kids-content-type', true, '{"audience":"general","contentType":"kids_video"}'::jsonb),
+  ('general-kids-generation-mode', true, '{"audience":"general","generationMode":"free_deterministic_story_factory"}'::jsonb),
+  ('general-kids-source-id', true, '{"audience":"general","sourceId":"kids-series:little-good-steps:s1:e1"}'::jsonb),
+  ('general-kids-curated-source-id', true, '{"audience":"general","curatedSourceId":"kids-series:little-good-steps:s1:e1"}'::jsonb),
+  ('general-kids-public-path', true, '{"audience":"general","publicPath":"/kids/videos/episode-1"}'::jsonb),
+  ('general-kids-public-path-traversal', true, '{"audience":"general","publicPath":"/public/../kids/videos/episode-1"}'::jsonb),
+  ('legacy-kids-story-shape', true, '{"sourceType":"story","type":"story"}'::jsonb),
+  ('legacy-encoded-kids-path', true, '{"publicPath":"/%256Bids/story"}'::jsonb),
+  ('legacy-backslash-kids-path', true, '{"publicPath":"\\\\kids\\\\story"}'::jsonb),
+  ('legacy-kids-public-path-alias', true, '{"public_path":"/kids/story"}'::jsonb);

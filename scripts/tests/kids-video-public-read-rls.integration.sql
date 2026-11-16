@@ -20,7 +20,7 @@ BEGIN
       'kids-approved'
     )
   ) THEN
-    RAISE EXCEPTION 'anon can read Kids rows without matching human approval, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
+    RAISE EXCEPTION 'anon can read Kids rows without matching human approval, conflicting general/Kids provenance markers, unknown audience, malformed metadata, or unpublished video rows';
   END IF;
 END
 $anon_read$;
@@ -46,7 +46,7 @@ BEGIN
       'kids-approved'
     )
   ) THEN
-    RAISE EXCEPTION 'authenticated non-admin can read Kids rows without matching human approval, internal videos without an explicit audience, unknown audience, malformed metadata, or unpublished video rows';
+    RAISE EXCEPTION 'authenticated non-admin can read Kids rows without matching human approval, conflicting general/Kids provenance markers, unknown audience, malformed metadata, or unpublished video rows';
   END IF;
 END
 $authenticated_read$;
@@ -59,8 +59,8 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 22 THEN
-    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 22 fixtures; found %', visible_rows;
+  IF visible_rows <> 36 THEN
+    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 36 fixtures; found %', visible_rows;
   END IF;
 END
 $service_role_read$;
@@ -123,7 +123,14 @@ BEGIN
       OR policy_qual NOT ILIKE '%seriesTitle%'
       OR policy_qual NOT ILIKE '%learningObjective%'
       OR policy_qual NOT ILIKE '%seasonNumber%'
-      OR policy_qual NOT ILIKE '%episodeNumber%' THEN
+      OR policy_qual NOT ILIKE '%episodeNumber%'
+      OR policy_qual NOT ILIKE '%category%'
+      OR policy_qual NOT ILIKE '%contentType%'
+      OR policy_qual NOT ILIKE '%generationMode%'
+      OR policy_qual NOT ILIKE '%sourceId%'
+      OR policy_qual NOT ILIKE '%curatedSourceId%'
+      OR policy_qual NOT ILIKE '%publicPath%'
+      OR policy_qual NOT ILIKE '%public_path%' THEN
     RAISE EXCEPTION 'video public-read policy must enforce canonical metadata, Kids QA and matching human approval';
   END IF;
   IF policy_roles NOT ILIKE '%anon%'
