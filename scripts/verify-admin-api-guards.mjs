@@ -313,6 +313,8 @@ for (const file of routeFiles) {
         !block.includes('category === "auto" || category === "kids"') ||
         !block.includes('requireAdminApi("kids.manage")') ||
         !block.includes('category === "kids" && !kidsAuth.ok') ||
+        !block.includes("kidsAuth.profile.id !== manageAuth.profile.id") ||
+        !block.includes("kidsAuth.profile.id !== publishAuth.profile.id") ||
         !block.includes("allowKids = kidsAuth.ok")
       ) {
         failures.push(route + " POST: Kids source generation must be conditionally gated by kids.manage, with auto restricted to general sources for social-only managers.");

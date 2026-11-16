@@ -81,6 +81,12 @@ export async function POST(request: NextRequest) {
       if (category === "kids" && !kidsAuth.ok) {
         return NextResponse.json({ error: "Kids management permission is required for this category." }, { status: 403 });
       }
+      if (
+        kidsAuth.ok &&
+        (kidsAuth.profile.id !== manageAuth.profile.id || kidsAuth.profile.id !== publishAuth.profile.id)
+      ) {
+        return NextResponse.json({ error: "Administrator identity changed during Kids authorization." }, { status: 403 });
+      }
       allowKids = kidsAuth.ok;
     }
 

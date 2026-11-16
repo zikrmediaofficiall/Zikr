@@ -652,6 +652,7 @@ assert.ok(videoRequestsRoute.includes("'Cache-Control': 'no-store'"), "private v
 assert.ok(writtenSocialRoute.includes('requireAdminApi("kids.manage")'), "written Kids generation must require the dedicated Kids permission");
 assert.ok(writtenSocialRoute.includes('allow_kids: String(allowKids)'), "the admin API must pass its server-derived Kids authorization to GitHub Actions");
 assert.ok(writtenSocialRoute.includes('category === "kids" && !kidsAuth.ok'), "explicit Kids generation must be denied without kids.manage");
+assert.ok(writtenSocialRoute.includes("kidsAuth.profile.id !== manageAuth.profile.id") && writtenSocialRoute.includes("kidsAuth.profile.id !== publishAuth.profile.id"), "Kids authorization must bind to the same administrator as social.manage and social.publish step-up");
 assert.ok(writtenStudioPage.includes('hasAdminPermission(profile.role, "kids.manage")'), "the written studio must derive Kids controls from the effective delegated role");
 assert.ok(writtenStudioClient.includes('CATEGORY_OPTIONS.filter((option) => option.value !== "kids")'), "the written studio must hide the Kids category from social-only managers");
 
