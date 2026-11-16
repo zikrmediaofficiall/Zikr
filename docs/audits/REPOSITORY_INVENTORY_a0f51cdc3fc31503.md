@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T21:47:19.335Z (exact-head PR #375 checks reconciled)
+Updated: 2026-11-16T21:48:52.502Z (reconciled with exact-head PR #375 verification and review-gate state)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T21:47:19.335Z (exact-head PR #375 checks reconciled)
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `e934d8189335a72ec0046f2ce45eb9242ccdd5c2`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `c33f44d9efed67cc28f92837d8e5f52e9650e0a7`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -376,3 +376,9 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 
 - PR #375 exact head `de8b208fd05b2d407f1042c49926df0155640c99` passed GitHub Quality Gate run `43962517196`; the job's canonical source/architecture gate, Supabase Edge Function Deno type-check, and all PostgreSQL 17 integration steps passed. CircleCI `config-guard`, `source-verify`, and `application-build-docs` all passed. Supabase Preview was skipped and is not counted as a pass.
 - PR #375 remains open/unmerged because the required CODEOWNERS owner approval is absent; explicit notification comment `6930245521` is posted. No deployment or production function/cron invocation occurred.
+
+
+## Owner-review gate update — 2026-11-16T21:48Z
+
+- PR #375 exact head `de8b208fd05b2d407f1042c49926df0155640c99` remains fully green for GitHub Quality Gate and all CircleCI contexts. Supabase Preview is skipped. The automated Codex code review could not complete because the connected review account reached its usage limit (comments `6930220352` and `6930221109`); this is not a pass or a code finding. Human CODEOWNERS approval remains outstanding despite explicit owner notifications `6930245521` and `6930399909`.
+- No merge, production function/cron invocation, database mutation or Vercel deployment was performed.
