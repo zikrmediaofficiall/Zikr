@@ -63,12 +63,13 @@ export function isAllowedStorageContentType(purpose: StorageObjectPurpose, conte
 }
 
 export function sanitizeStorageSegment(value: string) {
-  return value
+  const sanitized = value
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 120);
+  return sanitized === "." || sanitized === ".." ? "" : sanitized;
 }
 
 export function buildStoragePath(ownerId: string, filename: string) {
@@ -87,8 +88,19 @@ export function parseStorageKey(key: string) {
   const separator = cleanKey.indexOf('/');
   if (separator <= 0 || separator === cleanKey.length - 1) return null;
 
-  return {
-    bucket: cleanKey.slice(0, separator),
-    path: cleanKey.slice(separator + 1),
-  };
+  const bucket = cleanKey.slice(0, separator);
+  const path = cleanKey.slice(separator + 1);
+  const segments = path.split("/");
+  if (
+    segments.some((segment) =>
+      !segment ||
+      segment === "." ||
+      segment === ".." ||
+      /[%\\\\]/.test(segment)
+    )
+  ) {
+    return null;
+  }
+
+  return { bucket, path };
 }

@@ -78,6 +78,20 @@ assert.deepEqual(parseStorageKey("avatars/user-123/avatar.png"), {
 });
 assert.equal(parseStorageKey("avatars"), null);
 assert.equal(parseStorageKey("avatars/"), null);
+assert.equal(parseStorageKey("avatars/user-123/../victim.png"), null,
+  "storage keys must reject parent-directory segments before owner-prefix checks");
+assert.equal(parseStorageKey("avatars/user-123/./avatar.png"), null,
+  "storage keys must reject dot segments");
+assert.equal(parseStorageKey("avatars/user-123/%2e%2e/victim.png"), null,
+  "storage keys must reject encoded path segments");
+assert.equal(parseStorageKey("avatars/user-123/%252e%252e/victim.png"), null,
+  "storage keys must reject double-encoded path segments");
+assert.equal(parseStorageKey("avatars/user-123\\\\victim.png"), null,
+  "storage keys must reject backslash path separators");
+assert.equal(sanitizeStorageSegment(".."), "",
+  "sanitized owner segments must never remain a dot path segment");
+assert.equal(buildStoragePath("..", "avatar.png").startsWith("anonymous/"), true,
+  "invalid owner segments must fall back to the anonymous storage namespace");
 
 const migrationPath = resolve(
   "supabase/migrations/20261110115000_restore_owner_scoped_user_storage_policies.sql",
