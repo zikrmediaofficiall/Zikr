@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T19:48:00Z
+Updated: 2026-11-16T19:52:00Z
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T19:48:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `360f92a5ea80338ce372e38039b31f15de69f9ef`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `acbac6f491c9dbf5f7aa4201108015bad6afc34f`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -235,10 +235,10 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - **Open governance and acceptance:** PRs #352/#353 and this documentation PR remain drafts pending authorized CODEOWNERS review. `.github/CODEOWNERS` requires `@Zikrmediaofficial`, whose collaborator permission lookup returned null. Manual iOS simulator/device and Android device acceptance, Apple associated-domain configuration, and post-deploy smoke checks remain open.
 - No production DB mutation, migration application, content generation, Gemini request, social publishing, Storage deletion, Android release, merge, Vercel deployment, or production smoke test was performed.
 
-## Reconciled audit batch — 2026-11-16 19:48 UTC
+## Reconciled audit batch — 2026-11-16 19:52 UTC
 
 - Repository snapshot remains main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; this audit branch changes only audit documentation.
-- Authoritative matrix blob: 360f92a5ea80338ce372e38039b31f15de69f9ef. Current inventory: 1,959 tracked blobs, 1,431 still unreviewed (528 high priority), 528 reviewed; the matrix is the per-file source of truth.
+- Authoritative matrix blob: acbac6f491c9dbf5f7aa4201108015bad6afc34f. Current inventory: 1,959 tracked blobs, 1,431 still unreviewed (528 high priority), 528 reviewed; the matrix is the per-file source of truth.
 - Main is five commits ahead of historical verification/deployment source 26ae58fdd2220897511544e9475eab28979f88f5. Full Quality Gate passed on PR #350/#351 heads based on main a0f51; CircleCI contexts on main pass. The production deployment last recorded READY is still associated with 26ae; not rechecked this run. vercel.json has Git deployment disabled, so deployment requires an authorized manual action after owner review.
 - Read-only Supabase verification of configured project zqtssvlvmkzeeyqghqfk (Zikrofficial): ACTIVE_HEALTHY, 449 applied migrations through 20261116045100, 103 tables including storage, zero RLS-disabled tables, nine buckets. Current Kids/video policies match the reviewed migrations. No migration, DDL, DML, function deployment or storage mutation was performed.
 - Current production automation: written-content generation is scheduled 15 7,13,19 UTC and uses Gemini; it creates unpublished article drafts and service-role content_publish_queue entries (+5 minutes), plus Kids social drafts from already published/active/age-appropriate stories. The AI video worker runs 17 3,9,15,21 UTC in free-only mode with BACKGROUND_JOB_TARGET=videos and VIDEO_AUTOMATION_DRY_RUN=false; this also drains all due site content queue tables (articles/stories/etc.) through CAS-guarded publication, but not external social. Social publishing is a separate 7,22,37,52 UTC workflow that can publish public YouTube/Facebook when provider credentials and database settings permit. CircleCI English-content sync runs daily at 04:17 UTC and uses Gemini plus Supabase service-role writes. Prayer dispatch is every minute; source verification is daily. None of these workflows/functions was dispatched by this audit.
@@ -270,3 +270,5 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 
 - Prayer/push review: the public prayer-location route requires authentication and uses the auth.uid-scoped RPC; push subscription intake validates bounded JSON, strict coordinates and allowlisted HTTPS endpoints, while the applied migration revokes browser access to `push_subscriptions` and grants service_role only. The notification worker uses constant-time scheduler-secret auth, bounded subscription pagination, per-delivery CAS leases, fresh preference/subscription reads and endpoint revalidation. Live Edge Function v80 is active (updated 2026-11-16T08:41:10.088Z) and cron dispatch is active every minute; no function invocation was made.
 - Prayer-time external-call hardening remains open: `/api/prayer-times` and the background worker use Aladhan with caching/timeouts but no explicit shared limiter for unique locations; `/api/geocode/reverse` also lacks shared limiting. No provider request or notification delivery was triggered.
+
+- PR #362 companion publication fix exact head `f1ef2b5581efdf46b984cf5aef95e24edff0678c` passed full Quality Gate `43938459239` (`QUALITY_GATE=PASSED_FULL`) and all CircleCI contexts; the log confirms `publication-visibility.test.ts` passed. It remains open/unmerged pending owner/CODEOWNERS review.
