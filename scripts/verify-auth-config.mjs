@@ -28,6 +28,8 @@ function requireText(label, source, token) {
 const expectedRedirects = [
   nativeCallback,
   "http://localhost:3000/**",
+  "http://127.0.0.1:3000/**",
+  "http://[::1]:3000/**",
   production + "/auth/callback",
 ];
 
@@ -44,7 +46,7 @@ if (siteUrlMatch?.[1] !== production) {
 }
 if (JSON.stringify(configuredRedirects) !== JSON.stringify(expectedRedirects)) {
   failures.push(
-    "supabase/config.toml: additional_redirect_urls must exactly match the three approved production/native/local entries",
+    "supabase/config.toml: additional_redirect_urls must exactly match the five approved production/native/loopback entries",
   );
 }
 
