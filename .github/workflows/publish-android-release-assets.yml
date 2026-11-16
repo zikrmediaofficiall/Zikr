@@ -127,9 +127,23 @@ jobs:
           fi
           version="$(jq -r '.version' package.json)"
           tag="$(tr -d '\r\n' < .release-tag)"
+          if [[ "${tag}" != "${TAG}" ]]; then
+            echo "::error title=Android release tag metadata mismatch::The repository .release-tag value must equal the immutable release tag ${TAG}." >&2
+            exit 1
+          fi
           notes="docs/releases/${version}.md"
           if [[ ! -s "${notes}" ]] || ! grep -Fq "Release tag: \`${tag}\`" "${notes}"; then
             echo "::error title=Android release notes are not canonical::Manual publisher dispatch requires release notes declaring the exact canonical tag." >&2
+            exit 1
+          fi
+          if ! release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" 2>/dev/null)"; then
+            echo "::error title=Android recovery release draft is missing::Manual publisher dispatch requires the existing GitHub draft for ${TAG}." >&2
+            exit 1
+          fi
+          release_draft="$(jq -r '.draft // false' <<< "${release_json}")"
+          release_prerelease="$(jq -r '.prerelease // false' <<< "${release_json}")"
+          if [[ "${release_draft}" != "true" || "${release_prerelease}" != "false" ]]; then
+            echo "::error title=Android recovery release state is not eligible::Manual publisher dispatch requires a draft, non-prerelease GitHub Release for ${TAG}." >&2
             exit 1
           fi
           if [[ "${TAG_TARGET_SHA}" != "${GITHUB_SHA}" ]]; then
