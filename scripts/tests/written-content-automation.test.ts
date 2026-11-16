@@ -778,6 +778,23 @@ assert.equal(isWrittenPostVisibleToSocialManager({
  ...generalQueueRow,
  metadata: { ...generalQueueRow.metadata, audience: "unknown" },
 }), false, "unknown audience values must fail closed");
+assert.equal(isKidsWrittenPostCandidate({
+ content_type: "written_post",
+ metadata: { category: "kids", source: { type: "quran", id: "ayah-2" }, publicPath: "/quran/ash-sharh" },
+}), true, "legacy Kids category markers must reserve a row even when the source type looks general");
+assert.equal(isKidsWrittenPostCandidate({
+ content_type: "written_post",
+ metadata: { source: { content_type: "kids_story", id: "kids-2" }, publicPath: "/stories/legacy" },
+}), true, "legacy source content_type markers must reserve Kids rows");
+assert.equal(isKidsWrittenPostCandidate({
+ content_type: "written_post",
+ metadata: { source_type: "kids_story", is_kids: true, public_path: "/stories/legacy" },
+}), true, "legacy top-level source and boolean Kids markers must reserve Kids rows");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { ...generalQueueRow.metadata, category: "kids" },
+}), false, "Kids category metadata must never be exposed to a social-only manager");
+
 assert.equal(isWrittenPostVisibleToSocialManager({
  ...generalQueueRow,
  metadata: { source: { type: "quran", id: "ayah-1" }, publicPath: "/articles/%ZZ" },

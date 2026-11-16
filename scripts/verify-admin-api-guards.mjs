@@ -311,7 +311,9 @@ for (const file of routeFiles) {
         !block.includes('requireAdminApi("kids.manage")') ||
         !block.includes("kidsAuth.profile.id !== auth.profile.id") ||
         !block.includes("isWrittenPostVisibleToSocialManager") ||
-        !block.includes("kids_content?id=in.")
+        !block.includes("kids_content?id=in.") ||
+        !block.includes("select=id,content_id,content_type,automation_key") ||
+        !block.includes("const items = visibleRows.slice(0, 100).map")
       ) {
         failures.push(route + " GET: Kids/unknown written posts must be hidden unless the same administrator has kids.manage and source IDs are checked against kids_content.");
       }

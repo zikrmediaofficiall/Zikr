@@ -418,6 +418,17 @@ assert.match(
 );
 assert.match(
   writtenSocialRoute,
+  /select=id,content_id,content_type,automation_key/,
+  "written queue visibility classification must select the content_type consumed by the fail-closed helper",
+);
+assert.match(
+  writtenSocialRoute,
+  /const items = visibleRows\.slice\(0, 100\)\.map/,
+  "internal content IDs and automation keys must not be added to the written-studio response contract",
+);
+
+assert.match(
+  writtenSocialRoute,
   /requireAdminApi\("social\.manage"\)[\s\S]*?requireAdminStepUpApi\("social\.publish"/,
   "written-content generation must require separate management permission and publishing permission with MFA step-up",
 );

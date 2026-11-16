@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 type WrittenQueueItem = {
   id: string;
   content_id: string | null;
+  content_type: string;
   automation_key: string | null;
   title: string;
   body: string | null;
@@ -56,7 +57,7 @@ export async function GET() {
       await supabaseServerAdminRequest<unknown>(
         "/rest/v1/social_publish_queue?content_type=eq.written_post&created_at=gte." +
           queueCutoff() +
-          "&select=id,content_id,automation_key,title,body,status,created_at,scheduled_at,published_at,error_message,metadata" +
+          "&select=id,content_id,content_type,automation_key,title,body,status,created_at,scheduled_at,published_at,error_message,metadata" +
           "&order=created_at.desc&limit=" + (canManageKids ? "100" : "500"),
       ),
       "Written social queue query",
@@ -85,8 +86,19 @@ export async function GET() {
       visibleRows = rows.filter((row) => isWrittenPostVisibleToSocialManager(row, kidsSourceIds));
     }
 
+    const items = visibleRows.slice(0, 100).map((row) => ({
+      id: row.id,
+      title: row.title,
+      body: row.body,
+      status: row.status,
+      created_at: row.created_at,
+      scheduled_at: row.scheduled_at,
+      published_at: row.published_at,
+      error_message: row.error_message,
+      metadata: row.metadata,
+    }));
     return NextResponse.json(
-      { items: visibleRows.slice(0, 100) },
+      { items },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

@@ -404,14 +404,47 @@ function isKidsPublicPath(value: unknown): boolean {
 export function isKidsWrittenSourceReservation(value: unknown): boolean {
   const metadata = asWrittenRecord(value);
   const sourceMetadata = asWrittenRecord(metadata.source);
-  const sourceType = typeof sourceMetadata.type === "string" ? sourceMetadata.type.trim().toLowerCase() : "";
+  const sourceTypes = [
+    sourceMetadata.type,
+    sourceMetadata.contentType,
+    sourceMetadata.content_type,
+    metadata.sourceType,
+    metadata.source_type,
+  ].map((candidate) => typeof candidate === "string" ? candidate.trim().toLowerCase() : "");
+  const categories = [
+    metadata.category,
+    metadata.contentCategory,
+    metadata.content_category,
+    sourceMetadata.category,
+    sourceMetadata.contentCategory,
+    sourceMetadata.content_category,
+  ];
+  const automationKeys = [
+    metadata.automationKey,
+    metadata.sourceAutomationKey,
+  ].map((candidate) => typeof candidate === "string" ? candidate.trim().toLowerCase() : "");
 
   return isKidsAudience(metadata.audience) ||
+    isKidsAudience(sourceMetadata.audience) ||
+    categories.some((category) => isKidsAudience(category) ||
+      (typeof category === "string" && category.trim().toLowerCase() === "kids_story")) ||
+    metadata.isKids === true ||
+    metadata.is_kids === true ||
+    sourceMetadata.isKids === true ||
+    sourceMetadata.is_kids === true ||
     typeof metadata.kidsContentId === "string" ||
     typeof metadata.kids_content_id === "string" ||
-    sourceType === "kids_story" ||
+    typeof sourceMetadata.kidsContentId === "string" ||
+    typeof sourceMetadata.kids_content_id === "string" ||
+    sourceTypes.includes("kids_story") ||
+    automationKeys.some((key) =>
+      key.startsWith("written-social-v1:kids_story:") ||
+      key.startsWith("written-v1:kids_story:")
+    ) ||
     isKidsPublicPath(metadata.publicPath) ||
-    isKidsPublicPath(metadata.public_path);
+    isKidsPublicPath(metadata.public_path) ||
+    isKidsPublicPath(sourceMetadata.publicPath) ||
+    isKidsPublicPath(sourceMetadata.public_path);
 }
 
 /** Reject a backfill row when any Kids marker conflicts with a non-Kids source type. */
