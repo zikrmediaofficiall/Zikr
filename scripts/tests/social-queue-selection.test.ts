@@ -406,8 +406,8 @@ assert.match(socialPublisher, /mergeUniqueSocialPublishCandidates/, "general and
 assert.match(socialPublisher, /Failed to fetch social publish queue candidates; refusing to report an empty successful batch/, "queue read failures must fail the job instead of appearing as an empty successful run");
 assert.equal(
   (socialPublisher.match(/resolveSocialPublishCutoff\(process\.env\.SOCIAL_PUBLISH_AFTER\)/g) ?? []).length,
-  2,
-  "queue reads and stale recovery must both use the shared validated cutoff rather than silently returning an empty batch",
+  3,
+  "general queue reads, stale recovery, and opt-in Kids catalog reconciliation must all use the shared validated cutoff",
 );
 assert.match(socialPublisher, /buildDueSocialQueueClaimFilter\(item\.id, claimStatus, claimAt, item\.updated_at\)/, "the worker claim must compare the exact candidate row version and due time");
 assert.match(socialPublisher, /buildSocialPublishLeaseFilter\(item\.id, claimLease\.status, claimLease\.updatedAt\)/, "the provider in-flight marker must compare the exact initial worker lease");
