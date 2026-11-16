@@ -161,6 +161,12 @@ assert.match(
   "the production publisher must pass through the opt-in catalog-only reconciliation flag and keep it disabled by default",
 );
 
+const environmentDocs = readFileSync("docs/environment-variables.md", "utf8");
+assert.ok(
+  environmentDocs.includes("reconciliation pauses whenever either publishing gate is off"),
+  "the catalog-only switch must document that the current runner still requires the Admin auto-publish and SOCIAL_PUBLISH_ENABLED gates",
+);
+
 const worker = readFileSync("scripts/jobs/social-publishing.ts", "utf8");
 assert.ok(worker.includes("reconcilePublishedKidsVideoCatalog()"), "the scheduled worker must run the opt-in reconciler");
 const operations = readFileSync("docs/admin/SOCIAL_PUBLISHING_OPERATIONS.md", "utf8");
