@@ -12,7 +12,7 @@ Generated: 2026-11-16T13:04:59.302Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `1a85c1ec06e99c330f234b2f7d306c299f009dca`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `45886857f7889a4991eb88bdcb100dd2c2130894`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -35,19 +35,21 @@ The manifest includes every recursive tree entry (files and directories). The st
 
 ## File-status matrix
 
-- `UNREVIEWED`: 1721
+- `UNREVIEWED`: 1684
 - `REVIEWED_PERMISSION_SCAN`: 92
-- `REVIEWED_SOURCE_ONLY`: 63
-- `REVIEWED_PARTIAL`: 13
-- `REVIEWED_REGRESSION_COVERAGE`: 12
+- `REVIEWED_SOURCE_ONLY`: 89
+- `REVIEWED_REGRESSION_COVERAGE`: 18
+- `REVIEWED_PARTIAL`: 15
 - `REVIEWED_PRODUCTION_APPLIED`: 12
 - `FIX_PENDING_PR337`: 9
-- `FIX_PENDING_PR343`: 5
 - `FIX_PENDING_PR339`: 5
 - `SECURITY_FIX_PENDING_PR340`: 5
+- `FIX_PENDING_PR343`: 4
 - `FIX_PENDING_PR338`: 4
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `FIX_PENDING_PR340`: 3
+- `FIX_PENDING_PR346`: 2
+- `FIX_PENDING_PR347`: 2
 - `DOCS_RECONCILIATION_PENDING`: 2
 - `REVIEWED_DATA_VALIDATED`: 2
 - `FIX_PENDING_PR341`: 2
@@ -57,7 +59,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 
-High-priority unreviewed files: **700**.
+High-priority unreviewed files: **688**.
 
 ## Verified repository and production state
 
@@ -75,13 +77,16 @@ High-priority unreviewed files: **700**.
 |---:|---|---|---|
 | 337 | Kids catalog reconciliation independent of external provider credentials | `75236ba6ca8bd9e3b0971d03ffa0516e9eec3b14` | Quality Gate + CircleCI passed |
 | 338 | GA4 reporting status presentation | `e16bddb0dbcacb6b69194f91b548bd83aa8afc72` | Quality Gate + CircleCI passed |
-| 339 | YouTube fallback publication state typing | `49061f73ef33a7a9cea758e3c36c8ac7f88dfddb` | Quality Gate + CircleCI passed |
+| 339 | YouTube fallback publication state and catalog thumbnail reconciliation | `14160729b5e70f84987f259a454725e6e0991500` | Quality Gate `43884467828` passed with `QUALITY_GATE=PASSED_FULL`; all CircleCI contexts passed |
 | 340 | Kids category-level public video RLS guard | `86b166410669b47f2984854fc3c4f364f8370c9b` | PostgreSQL 17 integration, Quality Gate + CircleCI passed |
 | 341 | Complete bounded Quran-audio reference pagination for storage audit | `f1fa0e5c7c6959bfd2d0b6552c808efb72c0ee80` | Quality Gate + CircleCI passed |
 | 342 | Validated offline-content snapshot manifest | `e38c9d69cb7d9ef0aac2f1992d10b96538533563` | Quality Gate + CircleCI passed |
-| 343 | Production Apple Universal Links configuration guard | `68edfb6aeccd57981f0fb811443da7960e1996c8` | Quality Gate run 43871761649, Android Debug APK run 43871760192, and all CircleCI checks passed |
+| 343 | Production Apple Universal Links configuration guard | `68edfb6aeccd57981f0fb811443da7960e1996c8` | Quality Gate `43871761649`, Android Debug APK `43871760192`, and CircleCI passed |
+| 345 | Register safe-next-path regression in the canonical test suite | `19e4cb65aaf16d3fed3229a31fcb64e950282b4` | Quality Gate `43874520989`, Android Debug APK `43874520946`, and CircleCI passed |
+| 346 | Document and test private-by-default YouTube upload visibility | `2bedf9639885ac64da7e2b24d7e3e075d3c57c7a` | Quality Gate `43875597034` and CircleCI passed |
+| 347 | Path-aware release preflight and guarded Android manual retry | `aac6b1654c9ce656cc4e018bb1f04baa44ecaef7` | Quality Gate `43885652937` in progress; CircleCI config-guard passed, source/application checks pending |
 
-All PRs remain unmerged. PR342 is a content-manifest snapshot, not a production database mutation.
+All listed repair PRs remain unmerged pending independent CODEOWNERS review. PR344 is the documentation/inventory reconciliation PR. PR342 is a content-manifest snapshot, not a production database mutation.
 
 ## Background workflow findings
 
@@ -95,7 +100,7 @@ All PRs remain unmerged. PR342 is a content-manifest snapshot, not a production 
 - Branch-protection details could not be read through the connected GitHub API; do not merge until an authorized owner confirms required rules and approvals.
 - The real Apple Team ID is absent from the repository. An owner must set Vercel Production `IOS_ASSOCIATED_DOMAIN_APP_ID=<TEAM_ID>.com.zikr.app`, redeploy, and verify AASA HTTP 200.
 - Physical Android/iOS device acceptance, store-signed certificate comparison, iOS archive/signing, and native push/deep-link acceptance remain manual. No release was created.
-- Repository-wide file review is **not complete**. The matrix marks all remaining files `UNREVIEWED`; continue in priority order and update the matrix only with actual content and evidence.
+- Repository-wide file review is **not complete**. The matrix explicitly marks remaining paths `UNREVIEWED` and separately tracks source-only review, regression coverage, production evidence, pending repair PRs, and owner-only gates. Continue in priority order and update statuses only from actual source and evidence.
 
 ## Post-snapshot update — 2026-11-16T13:07:49.942Z
 
@@ -168,3 +173,13 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - `/api/auth/profile-sync` requires a valid Supabase user and is no-store. The service uses service_role but builds a constrained payload containing only the authenticated user's ID, current email, and blank-only display name/avatar fields; it does not accept role or assignment data. The profile trigger blocks non-service role/email changes. Profile update parsing constrains locale, display-name length, bio length, reciter code, daily target and IANA timezone.
 - The profile sync route has no explicit rate limiter; it is idempotent and only writes the caller's profile. No cross-user write or role escalation path was found. Full profile/avatar UI consumer review remains open.
 - Auth regression tests (`auth-safe-next-path`, `oauth-origin`, `native-google-oauth-contract`, `profile-sync`, `safe-redirect`, `auth-password-security`) are part of the canonical `pnpm test` script; main Quality Gate passed. No OAuth flow was initiated during this audit.
+
+## Release, Supabase restore and media-audit review — 2026-11-16T14:28:49.058Z
+
+- Re-read the actual contents of `.github/workflows/release-finalization.yml`, `.github/workflows/release-vercel.yml`, `.github/workflows/supabase-restore-seed-data.yml`, `.github/workflows/refresh-offline-content.yml`, `.github/workflows/audit-video-media.yml`, `.github/workflows/dispatch-android-release-recovery.yml`, `scripts/restore-quran-tafsir.sh`, `scripts/verify-supabase-db-url.py`, `scripts/verify-release-gates.mjs`, `scripts/jobs/audit-video-media.ts`, `scripts/verify-video-media-audit.mjs`, `src/features/videos/services/video-media-contract.ts`, and the related package scripts. No production workflow was dispatched.
+- Reproducible Android release-gate defect: `publish-android-release-assets.yml` treated any tag ref as publish-authorized even for `workflow_dispatch`, ignoring the explicit `retry=true` input and bypassing the separate recovery workflow's retry flag, exact-source, release-notes and signed-build gates. PR347 adds an event-aware job/step gate and repeats the manual-recovery checks inside the publisher. Exact head `aac6b1654c9ce656cc4e018bb1f04baa44ecaef7`; Quality Gate run `43885652937` and two CircleCI checks were pending at this snapshot. No release was dispatched.
+- PR339's catalog-thumbnail repair passed the full Quality Gate on exact head `14160729b5e70f84987f259a454725e6e0991500` (run `43884467828`, `QUALITY_GATE=PASSED_FULL`) and all three CircleCI contexts. It refreshes stale YouTube-derived thumbnails after a queue-confirmed ID change while preserving custom Cloudinary artwork.
+- The earlier PR344 head `848557034730f3e7ff770b2649b323f51c7b4983` initially failed because the PostgreSQL test container shut down between integration tests; the failed job was rerun, and Quality Gate run `43879477756` then passed with `QUALITY_GATE=PASSED_FULL`. All three CircleCI contexts passed on that exact head.
+- The status matrix was recomputed from **1,959** tracked file rows. Current counts: **1684 UNREVIEWED**, **688 high-priority UNREVIEWED**, **89 REVIEWED_SOURCE_ONLY**, **5 FIX_PENDING_PR339**, **2 FIX_PENDING_PR346**, and **2 FIX_PENDING_PR347**. The complete per-status counts are in the matrix.
+- PR345 and PR346 have green full Quality Gate and CircleCI evidence on their exact heads; PR347's current head is still under verification. No PR has owner review or has been merged.
+- No Gemini/content generation, social publishing, production DB mutation, storage deletion, Android release, Vercel deployment, or production resource change was performed.
