@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T22:42:30.906Z (reconciled with PR #381 narration provenance/SSRF repair and current exact-head CI state)
+Updated: 2026-11-16T23:17:35.173Z (reconciled with PR #376/#381 exact-head tests and current production deployment source)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T22:42:30.906Z (reconciled with PR #381 narration provenance/
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `64f927182496506735cfc6763b4356bb91f3de2f`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `2525503fc835a405cd174897cf4df3b66e175019`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -59,13 +59,13 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR373`: 4
 - `FIX_PENDING_PR374`: 1
 - `FIX_PENDING_PR375`: 2
-- `FIX_PENDING_PR376`: 2
+- `FIX_PENDING_PR376`: 5
 - `FIX_PENDING_PR377`: 1
 - `FIX_PENDING_PR378`: 3
 - `FIX_PENDING_PR379`: 4
 - `FIX_PENDING_PR380`: 2
-- `FIX_PENDING_PR381`: 8
-- `FIX_PENDING_PR381_PARTIAL_REVIEW`: 2
+- `FIX_PENDING_PR381`: 9
+- `FIX_PENDING_PR381_PARTIAL_REVIEW`: 3
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
@@ -76,12 +76,12 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_PERMISSION_SCAN`: 86
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 72
-- `REVIEWED_SOURCE_ONLY`: 302
+- `REVIEWED_REGRESSION_COVERAGE`: 71
+- `REVIEWED_SOURCE_ONLY`: 300
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1248
+- `UNREVIEWED`: 1246
 
-High-priority unreviewed files: **414**. The matrix has 1959 file rows; 711 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **414**. The matrix has 1959 file rows; 713 are not marked `UNREVIEWED`.
 
 ## Review batch — 2026-11-17 (narration provenance and worker SSRF guard)
 
@@ -137,6 +137,15 @@ High-priority unreviewed files: **414**. The matrix has 1959 file rows; 711 are 
 - **Reminder timezone repair:** PR #349 advanced to `b085fec9a4197f33ce354c63dba43f1728f04457`; the newline-tolerant SQL privilege contract assertion now passes. Quality Gate run `43912365514` reported `QUALITY_GATE=PASSED_FULL`, including PostgreSQL reminder integration, and all three CircleCI contexts passed. The migration remains unapplied to production pending review.
 - Additional review gaps recorded, not silently closed: Gradle 8.13 wrapper properties lack `distributionSha256Sum` and the wrapper JAR checksum is not verified; Dependabot only covers npm, not Gradle/GitHub Actions; iOS has no simulator/archive CI and lacks a configured Apple Development Team; the 4.7 MB `adhan.wav` could not be decoded through the repository binary endpoint, so its iOS notification duration/codec remains unverified. `salawat.wav` was verified as 13.24-second mono PCM 16-bit/22.05 kHz. No native device was used.
 - Current matrix: **1,570 UNREVIEWED** (600 high priority), 157 source-only, 37 partial, 16 data-validated, 5 pending PR #349, 3 pending PR #350, and 2 pending PR #351. Matrix blob `c75970d6c5f31cff7873a2217be4642a2cf8d94c`; immutable main manifest remains `baace6d0c66ac299edb541c7caceba56eeae19be`.
+
+## Review batch — 2026-11-17 (admin search and provider media boundary)
+
+- PR #376 exact head `f4f37ab05f1e6b8f4fd529f1aaeb7bdcb5c69813` passed GitHub Quality Gate `43976195809`, Android Native Login Debug APK `43976197454`, and CircleCI config-guard. The admin search page now uses an any-permission server gate; service-role source queries are filtered by effective role before execution. Draft articles/stories route to admin content; video/Kids results route to the admin video console. Focused tests and the full canonical gate passed.
+- PR #381 exact head `c9ef7c0c232ac1aa38168ac48db3bb5d06b77073` passed GitHub Quality Gate `43976824147`, Android Native Login Debug APK `43976824118`, and CircleCI config-guard/source-verify/application-build-docs. In addition to narration provenance, it bounds Free API JSON to 64 KiB, ComfyUI prompt/history JSON to 64 KiB/2 MiB, provider video streams to 50 MiB, aligns Hugging Face output to the Cloudinary 50 MiB contract, rejects redirects, validates Free API media host allowlists, and stat-checks rendered MP4s before reading them into memory. A stale verifier reference to `worker` was corrected to the canonical `template` variable and covered by regression.
+- PR #375 exact head `de8b208fd05b2d407f1042c49926df0155640c99` remains green on Quality Gate `43962517196` and all three CircleCI contexts; Supabase Preview is skipped, not passed.
+- All three code PRs remain open/unmerged with no CODEOWNERS approval. New helper/test files are PR-only and intentionally excluded from the immutable main manifest and main-snapshot matrix.
+- Current production Vercel deployment remains READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` has no matching Vercel deployment. No deployment was triggered; formal post-merge smoke remains outstanding.
+- No content generation, provider request, upload, social publishing, production DB mutation, Storage operation, secret/index change, Android/iOS release, merge or deployment was run.
 
 ## Verified repository and production state
 
