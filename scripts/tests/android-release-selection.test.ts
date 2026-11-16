@@ -34,6 +34,8 @@ assert.match(service, /isSupabaseConfigured\(\)/);
 assert.match(service, /if \(error\)[\s\S]*Unable to read Android release setting/);
 assert.match(service, /setting\.mode === "pinned" && setting\.releaseTag/);
 assert.match(service, /getStableReleaseByTag\(setting\.releaseTag\)/);
+assert.match(service, /response\.status === 404/);
+assert.match(service, /GitHub Android release lookup failed/);
 assert.match(service, /return selectAndroidRelease\(latestStable, pinnedRelease\)/);
 
 for (const path of [
