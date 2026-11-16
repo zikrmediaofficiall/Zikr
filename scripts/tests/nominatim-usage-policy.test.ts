@@ -34,6 +34,7 @@ const integration = readFileSync("scripts/tests/nominatim-global-rate-limit.inte
 const integrationSql = readFileSync("scripts/tests/nominatim-global-rate-limit.integration.sql", "utf8");
 const integrationSetup = readFileSync("scripts/tests/nominatim-global-rate-limit.integration-setup.sql", "utf8");
 const qualityGate = readFileSync(".github/workflows/quality-gate.yml", "utf8");
+const supabaseTypes = readFileSync("src/lib/types/supabase.ts", "utf8");
 
 assert.match(route, /consumeReverseGeocodeClientRateLimit/);
 assert.match(route, /getTrustedClientAddress/);
@@ -48,6 +49,7 @@ assert.match(limiter, /p_limit: limit/);
 assert.match(limiter, /p_window_seconds: windowSeconds/);
 assert.match(limiter, /GLOBAL_INTERVAL_MS = 1000/);
 assert.match(limiter, /consume_min_interval_rate_limit/);
+assert.match(supabaseTypes, /consume_min_interval_rate_limit/);
 assert.match(migration, /pg_advisory_xact_lock\(hashtext\(p_actor::text\), hashtext\(p_bucket\)\)/);
 assert.match(migration, /clock_timestamp\(\)/);
 assert.match(migration, /window_started_at = v_slot/);
