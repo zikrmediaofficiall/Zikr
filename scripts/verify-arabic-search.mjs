@@ -12,6 +12,7 @@ const files = {
   scholars: "src/features/scholars/services/scholars.ts",
   migrationOne: "supabase/migrations/20261030043335_arabic_full_text_search_v2.sql",
   migrationTwo: "supabase/migrations/20261030044153_arabic_search_surahs_and_content_library.sql",
+  search: "src/features/search/services/search.ts",
   searchContract: "src/features/search/services/search-contract.ts",
 };
 const contents = Object.fromEntries(
