@@ -2895,7 +2895,7 @@ No production SQL mutation, migration execution, data repair, content generation
 ## PR #377 and #378 verification checkpoint — 2026-11-16
 
 - PR #377 exact head `aebf778509bbdd8daef1589ecbd6a111339f3029` passed GitHub Quality Gate `43965088015`, Android Native Login Debug APK `43965089158` and CircleCI config-guard. It contains only an optional-panel error boundary and regression test; no external analytics request was made.
-- PR #378 exact head `db567da1899ed9994cbc2bd1c773b878c3f62823` remains in progress at last poll: Quality Gate `43966305899` and Android Native Login Debug APK `43966303793` were running; CircleCI config-guard passed. No merge or production write.
+- PR #378 exact head `db567da1899ed9994cbc2bd1c773b878c3f62823` passed Quality Gate `43966305899`, Android Native Login Debug APK `43966303793` and CircleCI config-guard. No merge or production write; owner/CODEOWNERS review remains pending.
 - Knowledge content baseline (read-only): 12/17 published companions and 8/8 published scholars have no metadata.source; all 2,964 published hadiths have both ref and grade. PR #378 prevents new first publications without sources, defaults new records to draft and leaves existing production rows unchanged. Manual source remediation remains owner/editor-only.
 - Reconciled pointers at this checkpoint: matrix `f5aa8de66b1342e1842f1c733b1313bd9f002ba5`; inventory `75eba58752d393907c9fb071e25db80753ed1694`; project status `28c022e156915ad512f04cd5d5a8cb0623bac051`; immutable main manifest `baace6d0c66ac299edb541c7caceba56eeae19be`.
 
