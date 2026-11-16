@@ -3,13 +3,14 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
-import { requireAdminPermission } from "@/features/admin/services/admin";
+import { requireAnyAdminPermission } from "@/features/admin/services/admin";
+import { ADMIN_SEARCH_ACCESS_PERMISSIONS } from "@/features/admin/services/admin-search-visibility";
 import { searchAdminContent } from "@/features/admin/services/platform";
 
 export const metadata: Metadata = { title: "بحث الإدارة | الأدمن" };
 
 export default async function AdminSearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const profile = await requireAdminPermission("content.manage");
+  const profile = await requireAnyAdminPermission(ADMIN_SEARCH_ACCESS_PERMISSIONS);
   const params = await searchParams;
   const query = String(params.q ?? "").trim();
   const searchResult = query
