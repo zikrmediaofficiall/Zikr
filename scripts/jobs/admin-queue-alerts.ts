@@ -1,9 +1,16 @@
 import { createHash } from "node:crypto";
 import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
+import {
+  getQueueAlertRetrySince,
+  isQueueAlertDeliveryComplete,
+  shouldSendQueueAlertChannel,
+  shouldSkipQueueAlertDelivery,
+  type QueueAlertDelivery,
+} from "./queue-alert-contract";
 
 type QueueName = "video" | "social";
 type FailedQueueRow = { id: string; title?: string | null; error_message?: string | null; updated_at: string };
-type DeliveryRow = { alert_key: string; delivered_at: string | null };
+type DeliveryRow = { alert_key: string } & QueueAlertDelivery;
 
 type QueueAlert = {
   queue: QueueName;
@@ -66,7 +73,8 @@ async function adminAlertsEnabled() {
   return value !== false && value !== "false";
 }
 
-async function loadFailures(since: string): Promise<QueueAlert[]> {
+async function loadFailures(runStartedAt: string): Promise<QueueAlert[]> {
+  const since = getQueueAlertRetrySince(runStartedAt);
   const [video, social] = await Promise.all([
     supabaseServerAdminRequest<FailedQueueRow[]>(
       "/rest/v1/video_generation_requests?status=eq.failed&updated_at=gte." + encodeURIComponent(since) + "&select=id,title,error_message,updated_at&order=updated_at.asc&limit=50",
@@ -113,28 +121,45 @@ export async function notifyNewQueueFailures(runStartedAt: string) {
   let delivered = 0;
   for (const alert of alerts) {
     const existing = await supabaseServerAdminRequest<DeliveryRow[]>(
-      "/rest/v1/admin_queue_alert_deliveries?alert_key=eq." + encodeURIComponent(alert.alertKey) + "&select=alert_key,delivered_at&limit=1",
+      "/rest/v1/admin_queue_alert_deliveries?alert_key=eq." + encodeURIComponent(alert.alertKey) + "&select=alert_key,delivered_at,webhook_sent,email_sent&limit=1",
     ).catch(() => []);
-    if (existing[0]?.delivered_at) continue;
+    const delivery = existing[0] ?? null;
+    if (shouldSkipQueueAlertDelivery(delivery)) continue;
 
     const message = buildPayload(alert, runStartedAt);
-    let webhookSent = false;
-    let emailSent = false;
+    let webhookResult = delivery?.webhook_sent
+      ? { configured: true, sent: true }
+      : { configured: false, sent: false };
+    let emailResult = delivery?.email_sent
+      ? { configured: true, sent: true }
+      : { configured: false, sent: false };
     let lastError: string | null = null;
-    try {
-      webhookSent = (await sendWebhook(message.payload)).sent;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      console.error(`[queue-alerts] Webhook failed for ${alert.queue}: ${lastError}`);
+
+    if (shouldSendQueueAlertChannel(delivery, "webhook")) {
+      try {
+        webhookResult = await sendWebhook(message.payload);
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        console.error(`[queue-alerts] Webhook failed for ${alert.queue}: ${lastError}`);
+      }
     }
-    try {
-      emailSent = (await sendEmail(alert.title, message.text, message.html)).sent;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      console.error(`[queue-alerts] Email failed for ${alert.queue}: ${lastError}`);
+    if (shouldSendQueueAlertChannel(delivery, "email")) {
+      try {
+        emailResult = await sendEmail(alert.title, message.text, message.html);
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        console.error(`[queue-alerts] Email failed for ${alert.queue}: ${lastError}`);
+      }
     }
 
-    const deliveredAt = webhookSent || emailSent ? new Date().toISOString() : null;
+    const webhookSent = webhookResult.sent;
+    const emailSent = emailResult.sent;
+    const deliveredAt = isQueueAlertDeliveryComplete({
+      webhookConfigured: webhookResult.configured,
+      webhookSent,
+      emailConfigured: emailResult.configured,
+      emailSent,
+    }) ? new Date().toISOString() : null;
     await supabaseServerAdminRequest("/rest/v1/admin_queue_alert_deliveries?on_conflict=alert_key", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
