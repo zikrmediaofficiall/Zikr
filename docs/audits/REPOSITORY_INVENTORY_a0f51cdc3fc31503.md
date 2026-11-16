@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T20:50:00Z
+Updated: 2026-11-16T20:54:00Z
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T20:50:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `afdea518e9cd3b8d171c83378aaba23cd41cfbbd`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `8ea0d36166c612316c4ebf1a229791583fc52fe5`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -42,11 +42,11 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR339`: 2
 - `FIX_PENDING_PR340`: 3
 - `FIX_PENDING_PR341`: 1
-- `FIX_PENDING_PR343`: 4
+- `FIX_PENDING_PR343`: 3
 - `FIX_PENDING_PR346`: 1
-- `FIX_PENDING_PR347`: 3
+- `FIX_PENDING_PR347`: 2
 - `FIX_PENDING_PR349`: 5
-- `FIX_PENDING_PR350`: 3
+- `FIX_PENDING_PR350`: 2
 - `FIX_PENDING_PR351`: 2
 - `FIX_PENDING_PR352`: 3
 - `FIX_PENDING_PR353`: 4
@@ -59,23 +59,24 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 16
-- `REVIEWED_PARTIAL`: 49
-- `REVIEWED_PERMISSION_SCAN`: 95
-- `REVIEWED_PRODUCTION_APPLIED`: 44
+- `REVIEWED_PARTIAL`: 51
+- `REVIEWED_PERMISSION_SCAN`: 94
+- `REVIEWED_PRODUCTION_APPLIED`: 46
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 41
-- `REVIEWED_SOURCE_ONLY`: 257
+- `REVIEWED_REGRESSION_COVERAGE`: 43
+- `REVIEWED_SOURCE_ONLY`: 260
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1392
+- `UNREVIEWED`: 1387
 
-High-priority unreviewed files: **506**. The matrix has 1,959 file rows; 567 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **505**. The matrix has 1,959 file rows; 572 are not marked `UNREVIEWED`.
 
-## Review batch — 2026-11-16 20:50 UTC
+## Review batch — 2026-11-16 20:54 UTC
 
-- Read and traced the admin queue-alert worker, its background-job caller, delivery migration, and environment contract. The worker incorrectly finalized a delivery when either configured channel succeeded, so a failed webhook/email channel was not retried; delivery-state and setting read failures also failed open. Draft PR #369 adds per-channel retry, recovery of legacy partial rows, fail-closed reads and regression coverage. Exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`; Quality Gate/CircleCI pending.
-- Read the search RPC migration, search service, content-library service, public content detail route, search page, existing search contract test and verifier. The SQL returns approved content-library rows as `type='content'`, but the app's result union/allow-list discarded them; fallback search also omitted them. Draft PR #370 adds the shared type contract, fallback search and canonical regression checks. Exact head `537ed4102f630af80612a9b40e2d338ead2a292c`; Quality Gate/CircleCI pending.
-- Read the full video-purge UI, GET/POST route and contract test. Every valid file/memory scope is rejected with HTTP 409 before lock acquisition, inventory or destructive code; the UI disables all scopes. The existing contract test is part of `pnpm test`; main Quality Gate run `43833156580` passed full verification on exact main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. No purge was invoked.
-- Supabase read-only migration history confirms versions `20261027212803`, `20261030090000`, and `20261116045100` are applied; total remains 449. Vercel's latest production deployment remains READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; current main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and no HTTP smoke was run in this batch.
+- Read and traced the admin queue-alert worker, its background-job caller, Node-safe Supabase REST helper, environment contract, and both queue-alert migrations. The worker incorrectly finalized a delivery when either configured channel succeeded; a failed configured channel was never retried. Setting/delivery-state read failures also failed open. Draft PR #369 exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3` adds per-channel retry, legacy partial recovery, fail-closed reads and regression coverage. Quality Gate remains in progress; CircleCI source/application checks remain pending, config-guard passed.
+- Read the search RPC migration, search service, content-library service, public content detail route, search page, existing contract test and canonical verifier. The SQL returns approved content-library rows as `type='content'`, but the app's type contract/filter discarded them; fallback search also omitted them. Draft PR #370 current exact head `f5596f7ad1b72e666c084923123814e5e001c0e1` adds the shared type contract and fallback. Its first Quality Gate run failed because the new verifier referenced `contents.search` without loading that file; this was corrected on the current head. Fresh exact-head Quality Gate/CircleCI checks are pending.
+- Read-only Supabase history confirms 449 applied migrations through `20261116045100`, including `20261027212803`, `20261028112016`, and `20261030090000`. Live catalog verification confirms `admin_queue_alert_deliveries` RLS enabled, anon SELECT denied, authenticated SELECT limited by `private.has_admin_role`, and service_role SELECT allowed. A read-only count found zero legacy rows with `delivered_at` set while either channel flag is false; no backfill is needed.
+- Read the full video-purge UI, GET/POST route and contract test. Every valid scope returns HTTP 409 before lock/inventory/destructive operations; UI scopes are disabled. Existing test is in `pnpm test`; main Quality Gate run `43833156580` passed full verification on exact main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. No purge was invoked.
+- Vercel's latest production deployment remains READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and not deployed. No HTTP smoke or deployment was run.
 - No content generation, Gemini request, social publish, production mutation, storage/media deletion, release, merge, deployment or workflow dispatch occurred. Owner review and exact-head checks remain open.
 
 ## Review batch — 2026-11-16 14:44 UTC
