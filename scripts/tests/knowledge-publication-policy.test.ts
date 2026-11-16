@@ -48,7 +48,17 @@ test("new biographies remain drafts until Arabic biography and source are suppli
   );
 });
 
-test("legacy published biographies are not blocked or silently rewritten", () => {
+test("legacy published biographies retain Arabic text while source remediation is grandfathered", () => {
+  assert.match(
+    validateKnowledgePublication({
+      kind: "biography",
+      published: true,
+      wasPublished: true,
+      arabicText: "",
+      source: null,
+    }) ?? "",
+    /النص العربي مطلوب/,
+  );
   assert.equal(
     validateKnowledgePublication({
       kind: "biography",
