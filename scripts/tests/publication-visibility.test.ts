@@ -41,6 +41,9 @@ assert.match(companionService, /getDatabasePublicationState\("companions", candi
 assert.match(companionService, /return filterOfflineCompanionsByPublicationState\(fallback\)/);
 assert.match(companionDetail, /if \(isSupabaseConfigured\(\) && hasLocalFallback\)/, "detail fallback must be checked after both empty-success and failed database reads");
 assert.doesNotMatch(companionDetail, /databaseLookupFailed/, "a failed primary read must not bypass the authoritative publication-state check");
+assert.match(companionDetail, /stories: dbStories/, "a successful empty companion-story query must remain authoritative");
+assert.doesNotMatch(companionDetail, /dbStories\.length \? dbStories : localStories/, "deleted companion stories must not be resurrected from a stale offline snapshot");
+assert.match(companionDetail, /stories: isSupabaseConfigured\(\) \? \[\] : localStories/, "offline stories may be used only when Supabase is not configured");
 
 assert.match(prophetService, /database !== null/, "successful empty prophet queries must be distinguished from failed queries");
 assert.match(prophetService, /!databaseLookupFailed && hasLocalFallback/, "prophet visibility checks must be limited to known fallback slugs");
