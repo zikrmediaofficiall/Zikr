@@ -13,7 +13,7 @@ Updated: 2026-11-16T18:45:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `a96162ebb2d8ee2a74b9f90f8569975688df39ef`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `588089e715e239112bc9efe918e0e18012fc3fe1`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -56,14 +56,14 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 16
-- `REVIEWED_PARTIAL`: 41
+- `REVIEWED_PARTIAL`: 39
 - `REVIEWED_PERMISSION_SCAN`: 92
 - `REVIEWED_PRODUCTION_APPLIED`: 32
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 26
-- `REVIEWED_SOURCE_ONLY`: 193
+- `REVIEWED_SOURCE_ONLY`: 197
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1491
+- `UNREVIEWED`: 1489
 
 High-priority unreviewed files: **563**.
 
@@ -237,10 +237,10 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 ## Reconciled audit batch — 2026-11-16 18:45 UTC
 
 - Repository snapshot remains main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; this audit branch changes only audit documentation.
-- Authoritative matrix blob: a96162ebb2d8ee2a74b9f90f8569975688df39ef. Current inventory: 1,959 tracked blobs, 1,491 still unreviewed (563 high priority), 468 reviewed; the matrix is the per-file source of truth.
+- Authoritative matrix blob: 588089e715e239112bc9efe918e0e18012fc3fe1. Current inventory: 1,959 tracked blobs, 1,489 still unreviewed (561 high priority), 472 reviewed; the matrix is the per-file source of truth.
 - Main is five commits ahead of historical verification/deployment source 26ae58fdd2220897511544e9475eab28979f88f5. Full Quality Gate passed on PR #350/#351 heads based on main a0f51; CircleCI contexts on main pass. The production deployment last recorded READY is still associated with 26ae; not rechecked this run. vercel.json has Git deployment disabled, so deployment requires an authorized manual action after owner review.
 - Read-only Supabase verification of configured project zqtssvlvmkzeeyqghqfk (Zikrofficial): ACTIVE_HEALTHY, 449 applied migrations through 20261116045100, 103 tables including storage, zero RLS-disabled tables, nine buckets. Current Kids/video policies match the reviewed migrations. No migration, DDL, DML, function deployment or storage mutation was performed.
-- Current production automation: written-content generation is scheduled 15 7,13,19 UTC and uses Gemini; AI video generation is scheduled 17 3,9,15,21 UTC in free-only mode; social publishing is scheduled 7,22,37,52 UTC each hour and can publish public YouTube/Facebook when provider credentials and database settings permit. CircleCI English-content sync runs daily at 04:17 UTC and uses Gemini plus Supabase service-role writes. Prayer dispatch is every minute; source verification is daily. None of these workflows/functions was dispatched by this audit.
+- Current production automation: written-content generation is scheduled 15 7,13,19 UTC and uses Gemini; it creates unpublished article drafts and service-role content_publish_queue entries (+5 minutes), plus Kids social drafts from already published/active/age-appropriate stories. The AI video worker runs 17 3,9,15,21 UTC in free-only mode with BACKGROUND_JOB_TARGET=videos and VIDEO_AUTOMATION_DRY_RUN=false; this also drains all due site content queue tables (articles/stories/etc.) through CAS-guarded publication, but not external social. Social publishing is a separate 7,22,37,52 UTC workflow that can publish public YouTube/Facebook when provider credentials and database settings permit. CircleCI English-content sync runs daily at 04:17 UTC and uses Gemini plus Supabase service-role writes. Prayer dispatch is every minute; source verification is daily. None of these workflows/functions was dispatched by this audit.
 - Supabase YouTube/Facebook sync cron is inactive and its Edge Function is absent; GitHub Actions is the active social publisher. The legacy cleanup route has no caller/cron and the youtube-facebook-media bucket is absent. The separate audit-video-media workflow is a daily 04:41 UTC production metadata writer; main currently ignores YouTube deletion events and overwrites custom thumbnails, while PR #339 fixes this but remains unmerged. The storage-retention workflow runs daily 02:17 UTC in dry-run mode only; manual apply requires paused writers and typed confirmation, while PR #341 adds missing Quran/audio metadata references and bounded scans.
 - Kids safety: public content requires published/active and age-appropriate story state; levels require a published parent; questions are admin-only; public videos require QA, human approval, a linked request and matching hashes. Written Kids social copy and Kids videos remain blocked until human approval. PR #337 makes catalog-only reconciliation independent of provider gates but remains unmerged; main currently does not call it, and SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED defaults to false. Owner must set the GitHub repository variable to true after merge.
 - Storage: videos is a public 50 MiB bucket with zero objects at the snapshot; admin upload is step-up/audit protected but has no private staging/expiry, so draft uploads are publicly readable before form save. This is a design risk, not a current exposed object. public-assets is public/empty/no current app consumer; site-audio is public with six objects and no client write policy. No objects were deleted or created.
@@ -254,3 +254,5 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 
 - Kids public display trace: /kids consumes /api/kids/content, /api/kids/videos and /api/kids/social-posts. Content is published/active with age-appropriate visibility and guarded fallback; videos require QA pass, human approval, linked request and matching hashes; written posts require a published/active age-appropriate source plus published/partial queue state and platform visibility checks. Video feed/detail derive social state from the live queue, not only metadata; the earlier detail-page metadata inconsistency is no longer current. The optional PR #337 catalog mirror is not required for the public feed.
 - Kids video RLS hardening: live public.videos RLS currently has a permissive metadata-based policy but no restrictive category_id guard. The canonical kids-stories category has 34 published rows and all currently have audience='kids'; no misclassified published row was observed. PR #340 adds the category-level restrictive guard and passed local PostgreSQL 17 integration; migration remains unapplied.
+
+- Content queue trust boundary: live content_publish_queue RLS has only a service_role ALL policy; anon has no SELECT and authenticated has SQL grants but no RLS policy, so client writes are blocked. Articles and stories public SELECT policies expose only published=true. The trusted site publisher validates story approval and Kids video human approval, uses exact updated_at compare-and-set and rolls back only its own write. The video worker's target=videos intentionally invokes this site publisher for all due queue rows; social publishing remains separate.
