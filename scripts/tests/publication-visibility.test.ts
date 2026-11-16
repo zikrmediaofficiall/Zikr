@@ -36,6 +36,8 @@ const prophetService = readFileSync("src/features/prophets/services/prophets.ts"
 const companionService = readFileSync("src/features/companions/services/companions.ts", "utf8");
 const companionDetail = companionService.slice(companionService.indexOf("export async function getCompanionBySlug"));
 assert.match(companionService, /async function getDatabaseCompanions\(\): Promise<CompanionSummary\[\] \| null>/, "companion list reads must distinguish an empty result from a failed query");
+assert.match(companionService.slice(companionService.indexOf("async function getDatabaseCompanions"), companionService.indexOf("async function filterOfflineCompanionsByPublicationState")), /cache: "no-store"/, "companion list publication reads must not serve stale cached rows");
+assert.match(companionDetail, /cache: "no-store"/, "companion and story detail reads must observe current publication state and deletions");
 assert.match(companionService, /async function filterOfflineCompanionsByPublicationState/);
 assert.match(companionService, /getDatabasePublicationState\("companions", candidate\.slug\)/, "each offline list candidate must be checked against authoritative publication state when Supabase is configured");
 assert.match(companionService, /return filterOfflineCompanionsByPublicationState\(fallback\)/);
