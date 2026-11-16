@@ -49,6 +49,15 @@ assert.deepEqual(planQueueAlertDelivery(bothChannels, {
   sendEmail: false,
 });
 
+assert.deepEqual(planQueueAlertDelivery(bothChannels, {
+  ...webhookOnlySucceeded,
+  delivered_at: "2026-11-16T20:00:00.000Z",
+}), {
+  skip: false,
+  sendWebhook: false,
+  sendEmail: true,
+}, "legacy rows finalized by the old any-channel rule must still retry their failed configured channel");
+
 const emailOnly = { webhook: false, email: true };
 assert.deepEqual(planQueueAlertDelivery(emailOnly, {
   webhook_sent: true,
