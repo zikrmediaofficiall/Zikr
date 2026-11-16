@@ -35,9 +35,9 @@ The manifest includes every recursive tree entry (files and directories). The st
 
 ## File-status matrix
 
-- `UNREVIEWED`: 1812
-- `REVIEWED_SOURCE_ONLY`: 54
-- `REVIEWED_PERMISSION_SCAN`: 27
+- `UNREVIEWED`: 1746
+- `REVIEWED_PERMISSION_SCAN`: 92
+- `REVIEWED_SOURCE_ONLY`: 55
 - `FIX_PENDING_PR337`: 9
 - `REVIEWED_PRODUCTION_APPLIED`: 8
 - `REVIEWED_REGRESSION_COVERAGE`: 7
