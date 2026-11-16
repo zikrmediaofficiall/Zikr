@@ -34,8 +34,10 @@ assert.match(duaService, /databaseLookupFailed \? fallbackBase : FALLBACK_DUAS/,
 assert.match(duaService, /!databaseLookupFailed && localMatch/, "dua visibility checks must not run for arbitrary unknown slugs");
 const prophetService = readFileSync("src/features/prophets/services/prophets.ts", "utf8");
 const companionService = readFileSync("src/features/companions/services/companions.ts", "utf8");
-assert.match(companionService, /databaseLookupFailed = false/);
-assert.match(companionService, /!databaseLookupFailed && hasLocalFallback/);
+const companionDetail = companionService.slice(companionService.indexOf("export async function getCompanionBySlug"));
+assert.match(companionDetail, /let databaseLookupFailed = false/);
+assert.match(companionDetail, /databaseLookupFailed = true/);
+assert.match(companionDetail, /!databaseLookupFailed && hasLocalFallback/);
 
 assert.match(prophetService, /database !== null/, "successful empty prophet queries must be distinguished from failed queries");
 assert.match(prophetService, /!databaseLookupFailed && hasLocalFallback/, "prophet visibility checks must be limited to known fallback slugs");
