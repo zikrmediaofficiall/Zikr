@@ -3057,3 +3057,13 @@ No production SQL mutation, migration execution, data repair, content generation
 - Production Vercel latest deployment `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` remains READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`. Current main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` has no matching deployment. The homepage was reachable via read-only fetch, but formal post-merge production smoke is outstanding. No deployment was triggered.
 - Remaining manual/device/owner-only acceptance: physical Android/iOS testing, iOS Team ID/Associated Domains/AASA, Play App Signing fingerprint, production OAuth callback and push notification acceptance, and CODEOWNERS owner review.
 - No content generation, TTS/Gemini, provider request, Cloudinary upload/delete, social publishing, production database mutation, migration/Edge Function deployment, cron invocation, Storage/media cleanup, secret/index change, Android/iOS release, merge or Vercel deployment was performed.
+
+
+## Documentation artifact SHA reconciliation — 2026-11-17
+
+- Immutable main manifest blob: `baace6d0c66ac299edb541c7caceba56eeae19be`.
+- Main-snapshot status matrix blob: `2525503fc835a405cd174897cf4df3b66e175019` — 1,959 file rows; 0 missing paths, 0 extra paths and 0 blob-SHA mismatches against the manifest.
+- Repository inventory blob: `207688fe95a697e863f9f73fa30bd9f9f8d4b446`.
+- Project status blob: `8a1b0c1e784f2d8e7b69608687a76c798085d0f6`.
+- Remote migration ledger blob: `2bd6469ec4b9fa680a4c138c46757ae535fc1f26`.
+- Matrix counts: 1,246 UNREVIEWED (414 high priority), 713 non-UNREVIEWED. The project status and inventory both reference the current matrix/inventory/manifest SHAs. PR-only helper/test files are tracked in the closeout narrative, not inserted into the immutable main manifest.
