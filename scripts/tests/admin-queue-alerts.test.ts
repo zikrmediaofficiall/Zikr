@@ -78,5 +78,7 @@ assert.match(job, /shouldSkipQueueAlertDelivery\(delivery\)/);
 assert.match(job, /shouldSendQueueAlertChannel\(delivery, "webhook"\)/);
 assert.match(job, /shouldSendQueueAlertChannel\(delivery, "email"\)/);
 assert.match(job, /isQueueAlertDeliveryComplete\(/);
+assert.match(job, /Delivery ledger lookup failed/);
+assert.match(job, /if \\(!existing\\) continue;/, "a failed ledger read must not resend an alert blindly");
 
 console.log("Queue alert retry window and per-channel delivery contracts passed.");
