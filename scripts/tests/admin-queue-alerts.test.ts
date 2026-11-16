@@ -20,16 +20,50 @@ assert.equal(
 );
 assert.throws(() => getQueueAlertRetrySince("not-a-date"), /valid timestamp/);
 
+const bothChannels = { webhookConfigured: true, emailConfigured: true };
+const webhookOnly = { webhookConfigured: true, emailConfigured: false };
 const pendingEmail: QueueAlertDelivery = {
   delivered_at: null,
   webhook_sent: true,
   email_sent: false,
 };
-assert.equal(shouldSkipQueueAlertDelivery(pendingEmail), false);
+assert.equal(shouldSkipQueueAlertDelivery(pendingEmail, bothChannels), false);
 assert.equal(shouldSendQueueAlertChannel(pendingEmail, "webhook"), false);
 assert.equal(shouldSendQueueAlertChannel(pendingEmail, "email"), true);
 assert.equal(shouldSendQueueAlertChannel(null, "webhook"), true);
 assert.equal(shouldSendQueueAlertChannel(null, "email"), true);
+
+const legacyPartialDelivery: QueueAlertDelivery = {
+  delivered_at: "2026-11-16T11:00:00.000Z",
+  webhook_sent: true,
+  email_sent: false,
+};
+assert.equal(
+  shouldSkipQueueAlertDelivery(legacyPartialDelivery, bothChannels),
+  false,
+  "legacy delivered_at values created after either-channel success must not hide a failed configured channel",
+);
+assert.equal(
+  shouldSendQueueAlertChannel(legacyPartialDelivery, "email"),
+  true,
+  "the unsent channel from a legacy partial delivery must be retried",
+);
+assert.equal(
+  shouldSkipQueueAlertDelivery(legacyPartialDelivery, webhookOnly),
+  true,
+  "a legacy partial row is complete when every channel configured now has already succeeded",
+);
+
+const fullyDelivered: QueueAlertDelivery = {
+  delivered_at: "2026-11-16T11:00:00.000Z",
+  webhook_sent: true,
+  email_sent: true,
+};
+assert.equal(
+  shouldSkipQueueAlertDelivery(fullyDelivered, bothChannels),
+  true,
+  "fully delivered alerts must still be deduplicated",
+);
 
 assert.equal(
   isQueueAlertDeliveryComplete({
@@ -74,7 +108,9 @@ assert.equal(
 const job = readFileSync("scripts/jobs/admin-queue-alerts.ts", "utf8");
 assert.match(job, /getQueueAlertRetrySince\(runStartedAt\)/);
 assert.match(job, /select=alert_key,delivered_at,webhook_sent,email_sent/);
-assert.match(job, /shouldSkipQueueAlertDelivery\(delivery\)/);
+assert.match(job, /shouldSkipQueueAlertDelivery\(delivery, deliveryChannels\)/);
+assert.match(job, /webhookConfigured: hasWebhookConfiguration\(\)/);
+assert.match(job, /emailConfigured: hasEmailConfiguration\(\)/);
 assert.match(job, /shouldSendQueueAlertChannel\(delivery, "webhook"\)/);
 assert.match(job, /shouldSendQueueAlertChannel\(delivery, "email"\)/);
 assert.match(job, /isQueueAlertDeliveryComplete\(/);

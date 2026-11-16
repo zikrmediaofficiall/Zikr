@@ -23,6 +23,20 @@ function configured(value: string | undefined) {
   return value?.trim() || null;
 }
 
+function hasWebhookConfiguration() {
+  return Boolean(
+    configured(process.env.ADMIN_QUEUE_ALERT_WEBHOOK_URL) ??
+    configured(process.env.ADMIN_ALERT_WEBHOOK_URL)
+  );
+}
+
+function hasEmailConfiguration() {
+  const apiKey = configured(process.env.RESEND_API_KEY);
+  const to = configured(process.env.ADMIN_QUEUE_ALERT_EMAIL_TO) ?? configured(process.env.ADMIN_ALERT_EMAIL_TO);
+  const from = configured(process.env.ADMIN_QUEUE_ALERT_EMAIL_FROM) ?? configured(process.env.RESEND_FROM_EMAIL);
+  return Boolean(apiKey && to && from);
+}
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
 }
@@ -119,6 +133,10 @@ export async function notifyNewQueueFailures(runStartedAt: string) {
 
   const alerts = await loadFailures(runStartedAt);
   let delivered = 0;
+  const deliveryChannels = {
+    webhookConfigured: hasWebhookConfiguration(),
+    emailConfigured: hasEmailConfiguration(),
+  };
   for (const alert of alerts) {
     const existing = await supabaseServerAdminRequest<DeliveryRow[]>(
       "/rest/v1/admin_queue_alert_deliveries?alert_key=eq." + encodeURIComponent(alert.alertKey) + "&select=alert_key,delivered_at,webhook_sent,email_sent&limit=1",
@@ -131,7 +149,7 @@ export async function notifyNewQueueFailures(runStartedAt: string) {
     });
     if (!existing) continue;
     const delivery = existing[0] ?? null;
-    if (shouldSkipQueueAlertDelivery(delivery)) continue;
+    if (shouldSkipQueueAlertDelivery(delivery, deliveryChannels)) continue;
 
     const message = buildPayload(alert, runStartedAt);
     let webhookResult = delivery?.webhook_sent
