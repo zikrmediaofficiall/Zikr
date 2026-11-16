@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hasHadithPageRows, resolveHadithBookName, resolveHadithDisplay } from "../../src/features/hadith/types/hadith";
 import { createOfflineHadithBooksLoader } from "../../src/features/hadith/services/offline-books-loader";
+import { shouldFallbackToExternalHadith } from "../../src/features/hadith/services/database-fallback-policy";
 
 const translated = resolveHadithDisplay(
   { number: 1, arab: "النص العربي", english: "English translation", contentLocale: "en" },
@@ -35,7 +36,8 @@ assert.equal(hasHadithPageRows(undefined), false, "an absent local result must f
 assert.equal(resolveHadithBookName("صحيح البخاري", "Sahih al-Bukhari", "en"), "Sahih al-Bukhari");
 assert.equal(resolveHadithBookName("صحيح البخاري", "Sahih al-Bukhari", "ar"), "صحيح البخاري");
 assert.equal(resolveHadithBookName("صحيح البخاري", null, "en"), "صحيح البخاري", "offline English labels must fall back safely when unavailable");
-assert.equal(hasHadithPageRows([]), false, "an empty local search result must allow the remote fallback");
+assert.equal(shouldFallbackToExternalHadith([]), false, "a successful empty published-only database search must not fall through to the external catalogue");
+assert.equal(shouldFallbackToExternalHadith(null), true, "an unavailable database search may use the external catalogue");
 assert.equal(hasHadithPageRows([{ number: 1 }]), true, "non-empty local search rows remain authoritative");
 
 const offlineRows = [
@@ -60,7 +62,7 @@ assert.equal(arabicOfflineBooks[0]?.name, "صحيح البخاري");
 const hadithService = readFileSync("src/features/hadith/services/hadith.ts", "utf8");
 assert.ok(hadithService.includes("loadOfflineHadithBooks(locale)"), "offline collection names must use the requested locale");
 assert.ok(hadithService.includes("createOfflineHadithBooksLoader"), "the offline catalogue cache must retain locale-neutral rows and map each request locale");
-assert.ok(hadithService.includes("if (hasHadithPageRows(dbHadiths))"), "empty local search results must fall through to the remote provider");
+assert.ok(hadithService.includes("if (!shouldFallbackToExternalHadith(dbHadiths))"), "successful empty published-only database results must remain authoritative");
 assert.ok(hadithService.includes("return dbHadiths.map(mapDbHadith)"), "Arabic originals must remain available when English translation is missing");
 assert.ok(
   hadithService.includes("return getUmmahBook(clean, page, limit, locale);"),
