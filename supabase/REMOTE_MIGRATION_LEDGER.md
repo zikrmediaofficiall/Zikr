@@ -753,3 +753,10 @@ Method: Supabase project metadata, migration list, table inventory, Edge Functio
 ### Audit boundary
 
 No content generation, Gemini request, social publishing, push dispatch, media audit workflow dispatch, storage-retention apply, production mutation, migration apply, Edge Function invocation/deployment, Android/iOS release, Vercel deployment or storage deletion was manually triggered by this audit. Normal scheduled workflows remain enabled. All direct live database checks in this section were read-only.
+
+## Content publication queue access and worker contract — 2026-11-16
+
+- Live `content_publish_queue` has RLS enabled and only one policy: `content_publish_queue_service_role` (`ALL` for `service_role`). `anon` has no SELECT; `authenticated` has SQL-level SELECT/INSERT grants but no applicable RLS policy, so client reads/writes are blocked. `articles` and `stories` public SELECT policies require `published=true`; admin writes require `private.is_admin_user()`.
+- `generate-written-content.yml` runs daily at 07:15, 13:15 and 19:15 UTC with Gemini/service-role. It creates unpublished article drafts and schedules queue rows for +5 minutes; Kids social drafts are built only from existing published/active/age-appropriate Kids stories. It does not call social providers.
+- `generate-ai-video.yml` runs daily at 03:17, 09:17, 15:17 and 21:17 UTC with `BACKGROUND_JOB_TARGET=videos` and `VIDEO_AUTOMATION_DRY_RUN=false`. The runner also invokes `processScheduledContent`, which drains all due content queue tables (articles, stories, competitions, memorization plans, pinned messages and videos), not only videos. Stories require approved/public ownerless state; Kids videos require QA and human approval. External YouTube/Facebook publishing is a separate 15-minute target=social workflow.
+- These are normal production schedules; the audit did not invoke content generation, site publication or social publishing.
