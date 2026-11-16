@@ -98,6 +98,11 @@ jobs:
         run: bash scripts/tests/background-reminder-schedule.integration.sh
         timeout-minutes: 5
 
+      - name: Verify Nominatim global minimum request interval against PostgreSQL 17
+        shell: bash
+        run: pnpm nominatim:db:check
+        timeout-minutes: 5
+
       - name: Verify atomic prayer-location default updates against PostgreSQL 17
         shell: bash
         run: pnpm prayer-location:db:check
