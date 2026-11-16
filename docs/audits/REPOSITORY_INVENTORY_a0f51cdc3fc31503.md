@@ -12,7 +12,7 @@ Generated: 2026-11-16T13:04:59.302Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `650732ab1206d94311dc2ba59888a38829b7cca9`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `3f6abdcad0c9bd255ac3ae1850d5ffc2f2ff2ef9`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -154,3 +154,9 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - **Security hardening observation:** token fields are plaintext at the application/database column level; no envelope/application-layer encryption was found. Supabase-managed at-rest encryption plus service_role-only access are the current protections. This is not a reproduced anon/auth privilege bypass; owner/security policy must decide whether envelope encryption and key rotation are required. Do not retrofit encryption without an owner-approved key-management and rotation plan.
 - Migrations `20261028112823` and `20261028112833` are byte-for-byte duplicates (same blob SHA `4b047934470e1b23f08a0fe44548cc4c5f4700ef`) and both are applied. This is harmless migration-history duplication; do not delete or rewrite either applied migration.
 - Existing tests cover Facebook scope/page pagination, credential CAS and malformed recovery, cross-platform isolation, OAuth state profile/provider binding and expiry, YouTube channel identity, least-privilege scopes, and absence of token logging. Main Quality Gate is green. No OAuth flow or social publish was triggered.
+
+## Kids catalog reconciliation runner trace — 2026-11-16T13:43:55.158Z
+
+- PR #337 adds `reconcileKidsCatalogMetadata()` to the social worker and calls it from `processSocial()` in `scripts/run-background-jobs.ts` **before** the external publishing gate. It is opt-in only: `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED` defaults to `false` in the workflow and the pure helper returns disabled when unset.
+- When explicitly enabled, the catalog-only reconciliation is independent of Facebook/YouTube credential readiness and still runs if the workflow later disables external publishing because Cloudinary/provider credentials are unavailable. It rechecks the current request fingerprint and human approval, uses a bounded 25-row page / 100-row ceiling / 8-attempt hold, performs CAS catalog metadata synchronization, and fails closed during a video purge. It never calls Facebook/YouTube publish APIs or generates content.
+- This is an internal metadata sync and can mutate production catalog metadata when an owner explicitly enables the flag; this audit did not enable it or run the workflow. The existing Admin auto-publish and `SOCIAL_PUBLISH_ENABLED` gates still control external publishing after the catalog sync.
