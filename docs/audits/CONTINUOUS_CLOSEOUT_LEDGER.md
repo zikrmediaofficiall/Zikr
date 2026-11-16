@@ -2813,3 +2813,18 @@ No production SQL mutation, migration execution, data repair, content generation
 - The matrix had concurrent review-status updates during this run; the inventory and project-status summaries were re-read and synchronized to this exact matrix blob rather than overwriting those rows.
 
 - Latest reconciled inventory blob: `1b3d9d9aa7da29e9c7e0bef957ccfcebaeea9d1f`; project-status file blob: `027a85738c90fa9cc740a93b9aa7804b3e3afd6e`. These refer to the same main snapshot and matrix SHA `7df81b77b9067c5aaa42e8f23c76d7cc7055451f`.
+
+
+## Deployed prayer worker source parity — 2026-11-16
+
+- Read-only Supabase `get_edge_function` returned active `prayer-notification-worker` v80 (`verify_jwt=false`, artifact SHA `d6230db867bc33dd6cbd9243f759eef321e478a692dfaf1c1f4a82276447b740`).
+- All eight returned source files were compared byte-for-byte with main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; all matched:
+  - `supabase/functions/prayer-notification-worker/index.ts` — `6e0339bd0467cb070b327f8759008cd347486ccc`
+  - `pagination.ts` — `cb29782035ddac43ecd89ae6be38ea205eeb79d2`
+  - `eligibility.ts` — `919ec392d848dca85a662d83333378c820120a55`
+  - `time-zone.ts` — `368e51863acff8c4c01db0bd0ce643437f9bf7d4`
+  - `schedule-fetch.ts` — `8e464aa17fec48bd386b8564b0926a7a90b0b63c`
+  - `delivery-lease.ts` — `99e5cc116240ac40d4e8a964127a9199eb6e6102`
+  - `src/features/notifications/services/push-endpoint.ts` — `72ddd8e83669bf6599d3b6bb56b22353ec56fa87`
+  - `src/lib/async-serial-queue.ts` — `edbf8e7ccfc685996f3901617f36b0f1eeed7f75`
+- Thus the auth RPC-before-header behavior and `dubai: 8` mapping observed in v80 are exactly the current main defects addressed by PR #373. The PR is source-only and not deployed. No Edge Function invocation or deployment occurred.
