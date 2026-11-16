@@ -4,6 +4,13 @@ import {
   type AdminRole,
 } from "@/features/admin/services/permissions";
 
+export const ADMIN_SEARCH_ACCESS_PERMISSIONS = [
+  "content.manage",
+  "video.manage",
+  "knowledge.manage",
+  "library.manage",
+] as const satisfies readonly AdminPermission[];
+
 export const ADMIN_SEARCH_SOURCE_PERMISSIONS = {
   articles: "content.manage",
   stories: "content.manage",
