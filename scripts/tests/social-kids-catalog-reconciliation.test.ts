@@ -33,7 +33,7 @@ assert.equal(isKidsCatalogReconciliationEnabled({ SOCIAL_KIDS_CATALOG_RECONCILIA
 assert.equal(isKidsCatalogReconciliationEnabled({ SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED: " true " }), true);
 
 const query = buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:00.000Z", 25, 25);
-assert.match(query, /^status=eq\.published&/);
+assert.match(query, /^status=in\.\(published,partial\)&/);
 assert.ok(query.includes("metadata->>audience=eq.kids"));
 assert.ok(query.includes("metadata->>kidsContentQaStatus=eq.passed"));
 assert.ok(query.includes("metadata->>kidsCatalogSyncStatus.is.null"));
@@ -46,6 +46,22 @@ assert.throws(() => buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:
 
 const snapshot = resolveKidsSocialCatalogPublicationSnapshot(queueItem);
 assert.deepEqual(snapshot, { status: "published", platforms: ["facebook", "youtube"] });
+const partialQueueItem = {
+  ...queueItem,
+  status: "partial",
+  metadata: {
+    ...queueItem.metadata,
+    platformResults: {
+      facebook: { ok: true, remoteId: "facebook-post-123" },
+      youtube: { ok: false, error: "temporary provider failure" },
+    },
+  },
+};
+assert.deepEqual(
+  resolveKidsSocialCatalogPublicationSnapshot(partialQueueItem),
+  { status: "partial", platforms: ["facebook"] },
+  "partial queue rows with a confirmed provider ID must remain eligible for catalog reconciliation",
+);
 assert.deepEqual(
   resolveKidsSocialCatalogPublicationSnapshot({ ...queueItem, status: "processing" }),
   { status: "published", platforms: ["facebook", "youtube"] },
