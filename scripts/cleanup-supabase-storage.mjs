@@ -668,6 +668,16 @@ export function getReferenceOrderColumn(table) {
   return REFERENCE_ORDER_COLUMNS[table];
 }
 
+const MAX_REFERENCE_ROWS_PER_PATTERN = 5000;
+const MAX_QURAN_AUDIO_METADATA_REFERENCE_ROWS = 25000;
+const REFERENCE_SCAN_PAGE_SIZE = 1000;
+
+export function getReferenceScanLimit(table, column) {
+  return table === "quran_audio" && column === "metadata"
+    ? MAX_QURAN_AUDIO_METADATA_REFERENCE_ROWS
+    : MAX_REFERENCE_ROWS_PER_PATTERN;
+}
+
 async function loadUnexpectedVideoReferences(client, candidatePaths, supabaseUrl) {
   const patterns = [
     ...textReferencePatterns("kids_content", "video_url"),
@@ -832,20 +842,19 @@ async function loadUnexpectedVideoReferences(client, candidatePaths, supabaseUrl
   }
 
   const results = await Promise.all(patterns.map(async (pattern) => {
-    const rows = [];
-    for (let offset = 0; offset < 5000; offset += 1000) {
-      const orderColumn = getReferenceOrderColumn(pattern.table);
+    const orderColumn = getReferenceOrderColumn(pattern.table);
+    const maxRows = getReferenceScanLimit(pattern.table, pattern.column);
+    const label = `Reference inventory for ${pattern.table}.${pattern.column}`;
+    const rows = await collectPaginatedRows(async (offset, end) => {
       let query = client.from(pattern.table).select(pattern.column);
       query = pattern.filter(query).order(orderColumn, { ascending: true });
-      const { data, error } = await query.range(offset, offset + 999);
+      const { data, error } = await query.range(offset, end);
       if (error) {
         throw new Error(`Reference inventory failed for ${pattern.table}.${pattern.column}: ${error.message}`);
       }
-      const pageRows = requireArrayResult(data, `Reference inventory for ${pattern.table}.${pattern.column}`);
-      rows.push(...pageRows);
-      if (pageRows.length < 1000) return { pattern, rows };
-    }
-    throw new Error(`Reference inventory exceeded the safe scan limit for ${pattern.table}.${pattern.column}; refusing cleanup.`);
+      return requireArrayResult(data, label);
+    }, label, REFERENCE_SCAN_PAGE_SIZE, maxRows);
+    return { pattern, rows };
   }));
 
   for (const { pattern, rows } of results) {
