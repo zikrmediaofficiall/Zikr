@@ -2363,3 +2363,9 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 - Current production `kids-stories` category count: 34 published rows; all 34 have `audience=kids`, with zero null/general markers. No current row exposure was observed; the gap is latent for legacy/future rows. PR #340 is green but unmerged.
 - Dedicated Kids video routes use the separate QA + current fingerprint + human approval + playable-media path. They do not fall back to general videos on transient errors.
 - Updated matrix blob `2a2f7b6db328036fad599e30f0f0932ed216788d`; `1858` tracked blobs remain unreviewed.
+
+
+## 2026-11-16 13:22 UTC — SEO helper source review
+
+- Read `src/lib/site.ts` and `src/lib/seo/sitemap-shards.ts`: canonical URL handling, noindex path filters, bounded numeric shard parsing, XML escaping, cache behavior, and noindex shard headers were inspected. No reproducible defect was found in these helpers. No focused shard unit test was found under `scripts/tests`; this is a coverage observation, not a confirmed defect.
+- Matrix blob updated to `80cf4b3c4c5085e5b6902984a68ac40f3bb4051f`; 1856 files remain unreviewed.
