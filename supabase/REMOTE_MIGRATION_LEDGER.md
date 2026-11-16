@@ -661,3 +661,36 @@ This checkpoint supersedes the older 2026-11-16 snapshot above. It is a read-onl
 The production `public.background_reminder_preferences` table has RLS enabled. The authenticated role has SELECT, INSERT and UPDATE privileges; anon SELECT is denied. The table contained one row and zero timezone values absent from `pg_catalog.pg_timezone_names` at the time of the query. However, the table had no timezone-specific CHECK constraint or trigger. The application route normalizes timezone values, but authenticated owner-scoped PostgREST writes can bypass that application path. The planner and Edge worker silently fall back to UTC when a stored timezone cannot be resolved, which can evaluate a user's quiet-hours window in the wrong timezone.
 
 Draft PR #349 adds a trigger-only database guard, a fail-closed preflight for existing rows, and PostgreSQL integration tests for invalid authenticated INSERT/UPDATE. Its proposed migration `20261116150000_enforce_background_reminder_timezone.sql` is **local to the PR branch and not applied to production**. Current invalid-row count is zero, so the migration preflight should pass if the data remains unchanged before owner-approved deployment.
+
+## 2026-11-16 — read-only Kids and cleanup contract verification
+
+**Repository baseline:** `main@a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`.
+
+**Live migration history:** Supabase `list_migrations` returned 0 applied versions; latest version is `undefined`. The main-branch migration ledger remains 449 local / 449 remote with exact version-set equality. No migration was applied during this checkpoint.
+
+**Live Kids game-result privileges (read-only catalog query):**
+
+| Contract | Result |
+|---|---:|
+| `kids_game_results` RLS enabled | true |
+| authenticated SELECT | true |
+| authenticated INSERT | false |
+| authenticated UPDATE | false |
+| anon INSERT | false |
+| service_role INSERT | true |
+| authenticated EXECUTE on `kids_record_game_result_internal` | false |
+| service_role EXECUTE on `kids_record_game_result_internal` | true |
+
+This confirms the applied `20261009054919` client-write hardening and the service-role-only RPC boundary. The applied RPC from `20261001214711` still has a concurrent duplicate race: its SELECT occurs before INSERT, while the per-user trigger lock is acquired only during INSERT. PR #353 proposes `20261116180000_serialize_kids_game_result_idempotency.sql`, which acquires a two-key transaction advisory lock before the duplicate lookup. That migration exists only on PR #353 head `88b6560e52a3624d22cc8d4ca0145b2bbb6f3d7e`; it is not applied and must remain pending owner approval and exact-head CI.
+
+**Live YouTube/Facebook cleanup state (read-only):**
+
+- `cron.job` has no YouTube/Facebook media-cleanup job; `zikr-youtube-facebook-sync` is inactive.
+- `storage.buckets` has no `youtube-facebook-media` bucket.
+- `social_sync_state` has no configured cleanup secret.
+- Zero published social-sync rows are eligible for source-media cleanup.
+- Repository search found no in-repository caller for `/api/internal/youtube-facebook/cleanup-media`.
+
+The route and cleanup script were inspected only. No endpoint was invoked, no job was dispatched, and no Storage object was removed. The legacy route should not be reactivated until a compare-and-set/lease claim and shared-path reference protection are in place.
+
+**Safety:** all statements above came from read-only catalog/metadata queries. No production DDL, DML, RLS changes, function replacement, cron change, bucket change, secret read, or storage operation occurred.
