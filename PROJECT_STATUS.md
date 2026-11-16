@@ -1795,3 +1795,45 @@ The audit is not closed; continue the remaining review-required and pending-trac
 - Governance blocker: .github/CODEOWNERS assigns all files to @Zikrmediaofficial, but the collaborator permission lookup returned null. Do not merge any PR until the repository owner adds an authorized code owner/reviewer or explicitly updates the ownership policy through a reviewed change.
 - Additional hardening backlog: Gradle 8.13 wrapper properties have no distributionSha256Sum and the wrapper JAR checksum is unverified; Dependabot currently covers npm only, not Gradle or GitHub Actions. These are recorded, not claimed fixed.
 - No content generation, Gemini request, social publish, production database mutation, storage deletion, Android release, Vercel deployment or production smoke check was triggered in this continuation.
+
+## 2026-11-16 — audit continuation checkpoint (main unchanged)
+
+### Repository review progress
+
+- Main remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; the immutable manifest remains the snapshot for that exact tree.
+- The current file-status matrix is `docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl` blob `5381dec435ec76a8ec76434f1386e4b3f27582da`. It covers 1,959 tracked file rows: 1,533 remain UNREVIEWED, including 584 high-priority files; 181 are source-reviewed, 37 partial, and 18 production-applied migrations are reviewed. PR #352 has 3 pending rows, PR #353 has 4, and PR #341 remains pending.
+- This batch read the Kids game/share routes, game service, validation/registry/level/verse modules, offline queue, share component, rate-limit identity/address helpers, focused Kids tests, and the relevant migration contracts. It also read the favorites API/service path and the full 1,243-line Storage cleanup script plus its workflow.
+- Source review is not equivalent to runtime acceptance; the matrix retains source-only/partial statuses where tests were not run on the exact code head.
+
+### Reproducible defects and repair branches
+
+1. **Favorites UUID validation — PR #352.** The DELETE service previously checked only non-empty length before passing an ID to a UUID column, allowing PostgreSQL 22P02 to become HTTP 500. UUID validation and focused regression coverage are on exact head `10e50510b1873ea66b3f0bd8e22e75b072956509`. Quality Gate run `43916794764` completed with `QUALITY_GATE=PASSED_FULL`; CircleCI `config-guard`, `application-build-docs`, and `source-verify` passed. Draft remains unmerged pending CODEOWNERS review.
+2. **Legacy Kids result retry idempotency — PR #353.** The deprecated `submit-result` endpoint generated a new random ID when the client omitted a stable key. It now accepts a body ID or `Idempotency-Key` header and otherwise relies on shared validation to return 400.
+3. **Concurrent Kids result retry race — PR #353.** The production-applied RPC performed a duplicate SELECT before INSERT, while the per-user advisory lock lived only in the later insert trigger. Concurrent calls could both see no row and the loser could receive unique violation 23505/HTTP 500. The PR-only migration `20261116180000_serialize_kids_game_result_idempotency.sql` adds a two-key transaction advisory lock before the lookup. A PostgreSQL 17 integration test starts 12 concurrent calls and asserts one result row, one XP/progress increment, one non-duplicate response, and eleven duplicate responses.
+   - First PR #353 batch head `4fb5775a110aa66d89715e1ae865f5a1746a8418` passed Quality Gate run `43917757703` with `QUALITY_GATE=PASSED_FULL`.
+   - Current PR #353 head `88b6560e52a3624d22cc8d4ca0145b2bbb6f3d7e` includes the new migration and concurrency test; Quality Gate run `43919595999` and CircleCI `source-verify` were pending at the last check. It is not closed until those exact-head checks pass.
+
+### Production Supabase read-only verification
+
+- Project status: ACTIVE_HEALTHY.
+- Main migration history: 449 applied versions, latest `20261116045100`, exact local/remote set equality on main.
+- `kids_game_results`: RLS enabled; authenticated SELECT allowed; authenticated INSERT/UPDATE denied; anon INSERT denied; service_role INSERT allowed. The internal RPC is not executable by authenticated and is executable by service_role.
+- PR #353's `20261116180000` migration is only on the audit branch and has not been applied to production.
+- YouTube/Facebook cleanup state: no cleanup cron exists; the sync cron is inactive; the `youtube-facebook-media` bucket is absent; the cleanup secret is not configured; zero published rows are eligible for source-media cleanup. The route has no in-repository caller. Do not reactivate it without compare-and-set/lease and shared-path reference protections.
+- All database queries in this checkpoint were read-only. No migrations, RLS changes, production writes, or Storage operations were executed.
+
+### Storage and release safety
+
+- The full main-branch `scripts/cleanup-supabase-storage.mjs` (1,243 lines) was read. Its exact-project guard, typed confirmation, writer-pause requirement, retention RPC preflight, bounded reference scans, backup checks, and post-delete verification were inspected. No `--apply` run occurred.
+- `.github/workflows/storage-retention.yml` schedules dry-run only; destructive apply is a manual dispatch requiring explicit confirmation and paused-writer confirmation.
+- PR #341 remains the proposed bounded-pagination repair; the 966-line retention test file is not fully reviewed yet.
+- No media, files, buckets, indexes, secrets, releases, Android packages, or production resources were deleted or modified.
+
+### Release and governance gates
+
+- PR #344 remains a documentation/audit draft. The inventory and matrix were reconciled, but it is not a code closeout.
+- PRs #352 and #353 remain drafts. Authorized CODEOWNERS review is outstanding; `@Zikrmediaofficial` currently has no collaborator permission available to the connected GitHub identity. No review, merge, or branch-protection bypass was attempted.
+- No Vercel deployment was triggered. No post-deploy smoke test was run because the audit repairs have not merged.
+- Manual acceptance still required: iOS simulator/device build and deep-link verification, Android physical-device splash/notification/audio checks, provider-console OAuth validation, and owner confirmation of production migration/release gates.
+
+**Project state remains OPEN.** The remaining 1,533 unreviewed tracked files and the pending exact-head/owner/device gates prevent any claim that the repository is fully audited, error-free, merged, deployed, or closed.
