@@ -27,6 +27,10 @@ Every public video target requires a persisted, five-part automated QA result (s
 
 Successful provider post IDs are retained and never republished. An unavailable provider is marked in `unavailablePlatforms` and retried on a later scheduled run without consuming attempts. Facebook auth failures are scoped to Facebook targets. Per-channel attempt ceilings are stored under `platformAttempts`. After Facebook reauthorization, only Facebook failures/attempt counters are cleared; YouTube delivery history is retained.
 
+## Kids catalog metadata reconciliation
+
+A confirmed provider post and its internal video-catalog metadata are separate writes. If the provider succeeds but the catalog compare-and-set fails, the queue row remains the source of the confirmed remote result. The scheduled worker has an opt-in catalog-only reconciliation path controlled by `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED` (default `false`). It scans a bounded set of already-published Kids rows, revalidates the current generation request and human-approval fingerprint, and updates only the internal `videos.metadata.socialPublication` field. It does not call Facebook/YouTube, republish, delete media, or alter provider posts. Rows that fail approval or exhaust eight sync attempts are held for manual review; do not mark them approved automatically.
+
 ## Monitoring
 
 - Admin → Social Publishing shows independent connection health cards, a read-only YouTube channel test, Facebook Page test/reconnect, per-channel status totals, and queue filters for YouTube, Facebook, and Facebook Reels.

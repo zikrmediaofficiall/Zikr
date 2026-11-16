@@ -13,6 +13,7 @@ import { shouldRestorePurgedPublishedVideo } from "@/features/videos/services/vi
 import {
   buildDueSocialQueueClaimFilter,
   buildSocialPublishLeaseFilter,
+  buildVideoSocialQueueUpdateFilter,
   mergeUniqueSocialPublishCandidates,
   requireSocialQueueRows,
   scanSocialQueueCandidatePages,
@@ -23,6 +24,15 @@ import {
 import { getPublishedVideoStagingCleanupEligibleAt, PUBLISHED_VIDEO_CLEANUP_POSTGREST_FILTER, shouldRetryPublishedVideoCleanup } from "@/features/social/services/published-video-cleanup";
 import { patchSocialQueueMetadataWithCas } from "@/features/social/services/social-queue-metadata";
 import { buildNextRowVersionUpdatedAt } from "@/lib/supabase/row-version";
+import {
+  buildKidsSocialCatalogReconciliationQuery,
+  buildKidsCatalogSyncFailureState,
+  isKidsSocialCatalogPublicationInSync,
+  isKidsCatalogReconciliationEnabled,
+  resolveKidsSocialCatalogPublicationSnapshot,
+  KIDS_SOCIAL_CATALOG_RECONCILIATION_MAX_ROWS,
+  KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE,
+} from "@/features/social/services/kids-social-catalog-reconciliation";
 import { buildSocialPublishInFlightMetadata, buildStaleSocialPublishRecoveryFilter, buildStaleSocialPublishRecoveryMetadata, clearRevalidatedSocialApprovalDeferrals, clearSocialPublishInFlightMetadata, shouldScheduleSocialPublishRetry } from "@/features/social/services/social-publish-recovery-policy";
 import { isEligibleKidsWrittenPostForPublishing, isKidsWrittenPostCandidate, isUnclassifiedKidsSocialQueueItem, isKidsWrittenSourceReservation, type CurrentKidsStory } from "@/features/social/services/written-content";
 import { canAttemptSocialPlatform, getEnabledSocialPlatforms, getManualReconciliationPlatforms, getUnavailableSocialPlatforms, isAmbiguousProviderOutcome, isAuthBlocked, isPermanentSocialFailure, mergeAuthBlockedPlatforms, normalizeSocialAttemptCount, normalizeSocialPlatformResults } from "@/features/social/services/platform-availability";
@@ -695,22 +705,26 @@ async function publishPlatform(
  * has confirmed publication. Provider post IDs and the text/audit records stay.
  * Supabase originals are kept only until Cloudinary and Supabase cleanup succeed.
  */
+type KidsCatalogSyncResult =
+  | { ok: true }
+  | { ok: false; reason: string };
+
+type KidsCatalogSyncState = "synced" | "pending" | "held";
+
 async function syncKidsSocialPublicationToCatalog(
   item: SocialPublishQueueItem,
   queueMetadata: Record<string, unknown>,
-): Promise<void> {
-  if (!isVideoContentType(item.content_type) || !item.content_id) return;
-  if (queueMetadata.audience !== "kids" || queueMetadata.kidsContentQaStatus !== "passed") return;
+): Promise<KidsCatalogSyncResult> {
+  if (!isVideoContentType(item.content_type) || queueMetadata.audience !== "kids") return { ok: true };
+  if (queueMetadata.kidsContentQaStatus !== "passed") {
+    return { ok: false, reason: "Kids queue row has no current automated QA pass." };
+  }
 
-  const rawResults = queueMetadata.platformResults;
-  const results = normalizeSocialPlatformResults(rawResults);
-  const successfulPlatforms = item.target_platforms.filter((platform) => {
-    const result = results[platform];
-    if (!result || typeof result !== "object" || Array.isArray(result)) return false;
-    const row = result as { ok?: unknown; remoteId?: unknown };
-    return row.ok === true && typeof row.remoteId === "string" && row.remoteId.trim().length > 0;
-  });
-  if (successfulPlatforms.length === 0) return;
+  const queueItem = { ...item, metadata: queueMetadata };
+  const snapshot = resolveKidsSocialCatalogPublicationSnapshot(queueItem);
+  if (!snapshot) {
+    return { ok: false, reason: "Kids queue row has no complete confirmed provider-publication result." };
+  }
 
   try {
     const rows = await supabaseServerAdminRequest<Array<{
@@ -720,37 +734,55 @@ async function syncKidsSocialPublicationToCatalog(
       updated_at: string | null;
     }>>(
       "/rest/v1/videos?metadata->>videoGenerationRequestId=eq." +
-        encodeURIComponent(item.content_id) +
+        encodeURIComponent(item.content_id ?? "") +
         "&metadata->>audience=eq.kids&select=id,published,metadata,updated_at&limit=2",
     );
     if (!Array.isArray(rows) || rows.length !== 1) {
-      if (Array.isArray(rows) && rows.length > 1) {
-        console.error("[social-publishing] Kids catalog reconciliation stopped: request maps to multiple video rows:", item.content_id);
-      }
-      return;
+      return {
+        ok: false,
+        reason: Array.isArray(rows) && rows.length > 1
+          ? "Generation request maps to multiple Kids catalog rows."
+          : "The matching Kids catalog row is not available.",
+      };
     }
 
     const row = rows[0];
-    if (row.published !== true) return;
+    if (row.published !== true) {
+      return { ok: false, reason: "The Kids catalog row is no longer published." };
+    }
     if (typeof row.updated_at !== "string" || !Number.isFinite(Date.parse(row.updated_at))) {
-      console.warn("[social-publishing] Kids catalog row has no valid updated_at; refusing an unversioned metadata update:", item.content_id);
-      return;
+      return { ok: false, reason: "Kids catalog row has no valid updated_at revision." };
     }
     const existing = row.metadata ?? {};
     if (
       existing.generator !== "zikr_internal_video_factory" ||
       existing.audience !== "kids" ||
       existing.kidsVideoQaStatus !== "passed"
-    ) return;
+    ) {
+      return { ok: false, reason: "Kids catalog provenance or QA state no longer matches the queue." };
+    }
+    if (isKidsSocialCatalogPublicationInSync(existing, snapshot)) return { ok: true };
 
-    const allTargetsSucceeded = item.target_platforms.every((platform) => successfulPlatforms.includes(platform));
     const updatedAt = buildNextRowVersionUpdatedAt(row.updated_at);
+    const existingPublication = existing.socialPublication &&
+      typeof existing.socialPublication === "object" &&
+      !Array.isArray(existing.socialPublication)
+      ? existing.socialPublication as Record<string, unknown>
+      : {};
+    const existingPublishedAt = typeof existingPublication.publishedAt === "string" &&
+      Number.isFinite(Date.parse(existingPublication.publishedAt))
+      ? existingPublication.publishedAt
+      : null;
+    const queuePublishedAt = typeof item.published_at === "string" &&
+      Number.isFinite(Date.parse(item.published_at))
+      ? item.published_at
+      : null;
     const nextMetadata = {
       ...existing,
       socialPublication: {
-        status: allTargetsSucceeded ? "published" : "partial",
-        platforms: successfulPlatforms,
-        publishedAt: updatedAt,
+        status: snapshot.status,
+        platforms: snapshot.platforms,
+        publishedAt: queuePublishedAt ?? existingPublishedAt ?? updatedAt,
       },
     };
     const query = "/rest/v1/videos?id=eq." + encodeURIComponent(row.id) +
@@ -760,12 +792,140 @@ async function syncKidsSocialPublicationToCatalog(
       headers: { "Content-Type": "application/json", Prefer: "return=representation" },
       body: JSON.stringify({ metadata: nextMetadata, updated_at: updatedAt }),
     });
-    if (!updated?.length) {
-      console.warn("[social-publishing] Kids catalog social status was not updated after a concurrent change:", item.content_id);
+    if (!Array.isArray(updated) || updated.length !== 1) {
+      return { ok: false, reason: "Kids catalog metadata compare-and-set did not update exactly one row." };
     }
+    return { ok: true };
   } catch (error) {
     console.error("[social-publishing] Kids social status sync failed:", item.content_id, error);
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message.slice(0, 400) : "Unknown Kids catalog synchronization error.",
+    };
   }
+}
+
+async function markKidsCatalogSyncState(
+  item: SocialPublishQueueItem,
+  requestedState: KidsCatalogSyncState,
+  reason?: string,
+): Promise<KidsCatalogSyncState | "stale"> {
+  const filter = buildVideoSocialQueueUpdateFilter(item.id, item.status, item.updated_at);
+  if (!filter) return "stale";
+
+  const now = new Date().toISOString();
+  const existingAttempts = Number(item.metadata?.kidsCatalogSyncAttempts ?? 0);
+  const safeAttempts = Number.isSafeInteger(existingAttempts) && existingAttempts >= 0 ? existingAttempts : 0;
+  const failure = requestedState === "pending"
+    ? buildKidsCatalogSyncFailureState(item.metadata, reason ?? "Catalog synchronization did not complete.", now)
+    : null;
+  const state = failure?.status ?? requestedState;
+  const attempts = failure?.attempts ?? safeAttempts;
+  const updatedAt = buildNextRowVersionUpdatedAt(item.updated_at);
+  const metadata = {
+    ...(item.metadata ?? {}),
+    kidsCatalogSyncStatus: state,
+    kidsCatalogSyncAttempts: attempts,
+    kidsCatalogSyncLastAttemptAt: now,
+    kidsCatalogSyncLastError: reason?.slice(0, 500) ?? null,
+    kidsCatalogSyncSyncedAt: state === "synced" ? now : null,
+    kidsCatalogSyncManualReconciliationRequired: state === "held",
+  };
+  const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(
+    "/rest/v1/social_publish_queue?" + filter,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ metadata, updated_at: updatedAt }),
+    },
+  );
+  if (!Array.isArray(updated) || updated.length !== 1) return "stale";
+  return state;
+}
+
+/**
+ * Retry catalog-only reconciliation for already-published Kids queue rows.
+ * This path verifies the current human approval and only updates catalog
+ * metadata; it never calls Facebook/YouTube or changes external posts.
+ */
+export async function reconcilePublishedKidsVideoCatalog(limit = KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE) {
+  if (!isKidsCatalogReconciliationEnabled(process.env)) {
+    return { enabled: false, scanned: 0, candidates: 0, synced: 0, pending: 0, held: 0, failed: 0, truncated: false };
+  }
+
+  const pageSize = Math.max(1, Math.min(KIDS_SOCIAL_CATALOG_RECONCILIATION_PAGE_SIZE, Math.floor(limit) || 1));
+  const cutoff = resolveSocialPublishCutoff(process.env.SOCIAL_PUBLISH_AFTER);
+  const scan = await scanSocialQueueCandidatePages<SocialPublishQueueItem>({
+    pageSize,
+    maxRows: KIDS_SOCIAL_CATALOG_RECONCILIATION_MAX_ROWS,
+    fetchPage: async (offset, requestedLimit) => {
+      const rows = await supabaseServerAdminRequest<SocialPublishQueueItem[]>(
+        "/rest/v1/social_publish_queue?" +
+          buildKidsSocialCatalogReconciliationQuery(cutoff, offset, requestedLimit),
+      );
+      return requireSocialQueueRows<SocialPublishQueueItem>(rows, "Kids catalog reconciliation query");
+    },
+    // Read the bounded inventory before writing row metadata so offset pages
+    // cannot shift as successful/held rows leave the pending filter.
+    hasEnoughCandidates: () => false,
+  });
+
+  const result = {
+    enabled: true,
+    scanned: 0,
+    candidates: 0,
+    synced: 0,
+    pending: 0,
+    held: 0,
+    failed: 0,
+    truncated: scan.truncated,
+  };
+  for (const item of scan.rows) {
+    result.scanned += 1;
+    try {
+      const snapshot = resolveKidsSocialCatalogPublicationSnapshot(item);
+      if (!snapshot) {
+        const state = await markKidsCatalogSyncState(item, "held", "Published Kids queue row has incomplete or inconsistent confirmed provider results.");
+        if (state === "held") result.held += 1;
+        else result.failed += 1;
+        continue;
+      }
+      result.candidates += 1;
+
+      const approval = await checkVideoCatalogPublication(item);
+      if (approval.status === "blocked") {
+        const state = await markKidsCatalogSyncState(item, "held", approval.reason);
+        if (state === "held") result.held += 1;
+        else result.failed += 1;
+        continue;
+      }
+      if (approval.status === "pending") {
+        const state = await markKidsCatalogSyncState(item, "pending", approval.reason);
+        if (state === "pending") result.pending += 1;
+        else if (state === "held") result.held += 1;
+        else result.failed += 1;
+        continue;
+      }
+
+      const sync = await syncKidsSocialPublicationToCatalog(item, item.metadata ?? {});
+      const state = await markKidsCatalogSyncState(
+        item,
+        sync.ok ? "synced" : "pending",
+        sync.ok ? undefined : sync.reason,
+      );
+      if (state === "synced") result.synced += 1;
+      else if (state === "pending") result.pending += 1;
+      else if (state === "held") result.held += 1;
+      else result.failed += 1;
+    } catch (error) {
+      result.failed += 1;
+      console.error("[social-publishing] Kids catalog reconciliation row failed:", item.id, error);
+    }
+  }
+  if (scan.truncated) {
+    console.warn("[social-publishing] Kids catalog reconciliation reached its bounded row cap; remaining rows will be considered on a later run.");
+  }
+  return result;
 }
 
 async function syncYouTubeVideoReferenceToCatalog(
@@ -1141,7 +1301,10 @@ export async function processSocialPublishItem(
       // This recovery path reuses already-confirmed provider results. Keep the
       // catalog fallback in sync just as the normal provider-result path does.
       await syncYouTubeVideoReferenceToCatalog(item, previous.youtube);
-      await syncKidsSocialPublicationToCatalog(item, previousMetadata);
+      const kidsCatalogSync = await syncKidsSocialPublicationToCatalog(item, previousMetadata);
+      if (!kidsCatalogSync.ok) {
+        console.warn("[social-publishing] Kids catalog sync will be retried by the catalog reconciler:", item.content_id, kidsCatalogSync.reason);
+      }
       if (isVideoContentType(item.content_type)) await disposePublishedVideo({ ...item, metadata: previousMetadata });
       return "published";
     }
@@ -1355,7 +1518,10 @@ export async function processSocialPublishItem(
   // Persist the confirmed YouTube video ID to the public catalog even when
   // another requested target is deferred; this provides a resilient playback fallback.
   await syncYouTubeVideoReferenceToCatalog(item, mergedResults.youtube);
-  await syncKidsSocialPublicationToCatalog(item, publishMetadata);
+  const kidsCatalogSync = await syncKidsSocialPublicationToCatalog(item, publishMetadata);
+  if (!kidsCatalogSync.ok) {
+    console.warn("[social-publishing] Kids catalog sync will be retried by the catalog reconciler:", item.content_id, kidsCatalogSync.reason);
+  }
 
   if (allTargetsSucceeded) {
     if (isVideoContentType(item.content_type)) await disposePublishedVideo({ ...item, metadata: publishMetadata });

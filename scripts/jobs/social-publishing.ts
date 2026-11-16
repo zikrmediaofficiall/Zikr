@@ -10,6 +10,7 @@ import {
   claimPendingSocialPublishItems,
   processSocialPublishItem,
   retryPendingPublishedVideoCleanup,
+  reconcilePublishedKidsVideoCatalog,
 } from "../../src/features/social/services/social-publishing";
 
 async function isVideoPurgeInProgress(): Promise<boolean> {
@@ -85,6 +86,17 @@ export async function processSocialPublishQueue(limit = 10) {
     console.log("[social-worker] Video purge lock is active; no social queue item will be claimed.");
     return { processed: 0, succeeded: 0, deferred: 0, authBlocked: 0, approvalBlocked: 0, failed: 0, purgeLocked: true };
   }
+  // Catalog-only recovery is opt-in and never calls a social provider. It
+  // revalidates the current Kids human-approval fingerprint before updating
+  // the internal video catalog for already-published queue rows.
+  const kidsCatalogReconciliation = await reconcilePublishedKidsVideoCatalog().catch((error: unknown) => {
+    console.error("[social-worker] Kids catalog reconciliation unavailable:", error);
+    return { enabled: true, scanned: 0, candidates: 0, synced: 0, pending: 0, held: 0, failed: 1, truncated: false };
+  });
+  if (kidsCatalogReconciliation.enabled && (kidsCatalogReconciliation.scanned > 0 || kidsCatalogReconciliation.failed > 0)) {
+    console.log("[social-worker] Kids catalog reconciliation:", JSON.stringify(kidsCatalogReconciliation));
+  }
+
   // A completed render can outlive the generation toggle. Recover its durable
   // social handoff here as well as in the video worker so the separate social
   // workflow can finish it while new video generation is paused.

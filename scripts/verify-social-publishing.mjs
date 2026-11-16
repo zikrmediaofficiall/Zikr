@@ -31,6 +31,7 @@ const youtubeCredentials = read("src/features/social/services/youtube-oauth-cred
 const videoPublishApproval = read("src/features/videos/services/video-publish-approval.ts");
 const kidsVideoPublication = read("src/features/videos/services/kids-video-publication.ts");
 const videoCatalogPolicy = read("src/features/social/services/video-catalog-publication-policy.ts");
+const kidsCatalogReconciliationPolicy = read("src/features/social/services/kids-social-catalog-reconciliation.ts");
 const backgroundJobSettings = read("src/features/videos/services/background-job-settings.ts");
 const videoAutomation = read("src/features/videos/services/video-automation.ts");
 const socialWorkflow = read(".github/workflows/publish-social.yml");
@@ -239,10 +240,26 @@ const youtubeCatalogSync = youtubeCatalogSyncStart >= 0 && youtubeCatalogSyncEnd
   ? socialPublishingService.slice(youtubeCatalogSyncStart, youtubeCatalogSyncEnd)
   : "";
 if (!kidsCatalogSync.includes('typeof row.updated_at !== "string"') ||
-    !kidsCatalogSync.includes('if (row.published !== true) return;') ||
+    !kidsCatalogSync.includes('if (row.published !== true)') ||
     !kidsCatalogSync.includes('"&published=eq.true&updated_at=eq." + encodeURIComponent(row.updated_at)') ||
-    kidsCatalogSync.includes('(row.updated_at ? "&updated_at=eq."')) {
-  failures.push("Kids catalog social metadata writes must require a published row and an exact valid updated_at revision");
+    !kidsCatalogSync.includes("isKidsSocialCatalogPublicationInSync(existing, snapshot)") ||
+    !kidsCatalogSync.includes("return { ok: false, reason:")) {
+  failures.push("Kids catalog social metadata writes must be idempotent, report failed compare-and-set updates, and require a published row with an exact updated_at revision");
+}
+const kidsCatalogReconcilerStart = socialPublishingService.indexOf("export async function reconcilePublishedKidsVideoCatalog");
+const kidsCatalogReconcilerEnd = socialPublishingService.indexOf("\nasync function syncYouTubeVideoReferenceToCatalog", kidsCatalogReconcilerStart);
+const kidsCatalogReconciler = kidsCatalogReconcilerStart >= 0 && kidsCatalogReconcilerEnd > kidsCatalogReconcilerStart
+  ? socialPublishingService.slice(kidsCatalogReconcilerStart, kidsCatalogReconcilerEnd)
+  : "";
+if (!kidsCatalogReconciliationPolicy.includes("SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED") ||
+    !kidsCatalogReconciliationPolicy.includes("kidsCatalogSyncStatus.eq.pending") ||
+    !kidsCatalogReconciler.includes("checkVideoCatalogPublication(item)") ||
+    !kidsCatalogReconciler.includes("syncKidsSocialPublicationToCatalog(item, item.metadata ?? {})") ||
+    !kidsCatalogReconciler.includes("markKidsCatalogSyncState") ||
+    !kidsCatalogReconciler.includes("hasEnoughCandidates: () => false") ||
+    /publishFacebook|publishToFacebook|publishToYoutube/.test(kidsCatalogReconciler) ||
+    !socialWorker.includes("reconcilePublishedKidsVideoCatalog()")) {
+  failures.push("Kids catalog metadata failures must have a bounded opt-in, approval-revalidated, provider-free reconciliation path");
 }
 if (!youtubeCatalogSync.includes('typeof row.updated_at !== "string"') ||
     !youtubeCatalogSync.includes('"&updated_at=eq." + encodeURIComponent(row.updated_at)') ||
