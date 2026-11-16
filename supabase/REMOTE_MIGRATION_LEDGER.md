@@ -760,3 +760,17 @@ No content generation, Gemini request, social publishing, push dispatch, media a
 - `generate-written-content.yml` runs daily at 07:15, 13:15 and 19:15 UTC with Gemini/service-role. It creates unpublished article drafts and schedules queue rows for +5 minutes; Kids social drafts are built only from existing published/active/age-appropriate Kids stories. It does not call social providers.
 - `generate-ai-video.yml` runs daily at 03:17, 09:17, 15:17 and 21:17 UTC with `BACKGROUND_JOB_TARGET=videos` and `VIDEO_AUTOMATION_DRY_RUN=false`. The runner also invokes `processScheduledContent`, which drains all due content queue tables (articles, stories, competitions, memorization plans, pinned messages and videos), not only videos. Stories require approved/public ownerless state; Kids videos require QA and human approval. External YouTube/Facebook publishing is a separate 15-minute target=social workflow.
 - These are normal production schedules; the audit did not invoke content generation, site publication or social publishing.
+
+
+## Authoritative live migration reconciliation — 2026-11-16
+
+Project: `zqtssvlvmkzeeyqghqfk` (Zikrofficial), ACTIVE_HEALTHY, eu-west-2, PostgreSQL 17.11.0.018.
+
+- Supabase `list_migrations` returned **449** applied versions, latest `20261116045100_require_linked_request_for_public_kids_videos`.
+- The main-snapshot manifest contains **449** versioned files under `supabase/migrations/`. Exact version-set comparison: **449 shared, 0 local-only, 0 remote-only, 0 duplicate local IDs, 0 duplicate remote IDs**.
+- One descriptive-name mismatch exists for a shared version only: version `20261106213918` is local `20261106213918_video_likes.sql`, remote descriptive name `20261106214000_video_likes`. The version ID is identical; this is historical naming metadata, not a missing migration.
+- `20261114040000_save_default_prayer_location_atomically` is applied. Read-only PostgreSQL confirms `public.save_default_prayer_location(text,text,numeric,numeric,text)` exists, is SECURITY INVOKER with empty search_path, and EXECUTE is granted to `authenticated` and `service_role`, not `anon`. Earlier status notes claiming this RPC was missing are superseded.
+- Read-only ACL inspection confirms `get_push_scheduler_secret()` and `consume_admin_rate_limit(uuid,text,integer,integer)` are executable only by `service_role`; `plan_background_reminder_deliveries(timestamptz)` is also service-role-only.
+- RLS is enabled on `prayer_locations`, `prayer_preferences`, `prayer_schedule_cache`, `prayer_notification_deliveries`, and `push_subscriptions`. `prayer_locations` has authenticated owner-scoped SELECT/INSERT/UPDATE/DELETE policies; `prayer_schedule_cache` has an explicit false public policy; `prayer_notification_deliveries` has owner-scoped SELECT only; `push_subscriptions` has no client policies or client table grants and remains service-role-only. Anon SELECT grants on `prayer_locations` and `prayer_schedule_cache` are neutralized by RLS policies and expose no rows.
+- Deployed Edge Functions are active: `prayer-notification-worker` v80 (`verify_jwt=false`), `source-verified-content-agent` v15, `spiritual-ai` v3, and `health` v3. Read-only source retrieval of worker v80 confirms the auth-order and Dubai method-ID defects fixed in PR #373 are still present in production; no function was invoked or deployed.
+- No migration, DDL/DML, RPC mutation, Edge Function invocation/deployment, Storage mutation or production data change was performed.
