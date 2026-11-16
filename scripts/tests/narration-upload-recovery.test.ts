@@ -135,6 +135,16 @@ assert.equal(
   "all MIME types accepted by the upload route must remain attachable",
 );
 
+const uploadRoute = readFileSync("src/app/api/admin/video-generation/narration-upload/route.ts", "utf8");
+const mismatchedUploadUrl = `https://res.cloudinary.com/${cloudName}/video/upload/v1730000000/audio-human-123e4567-e89b-42d3-a456-426614174001.mp3`;
+const parsedMismatchedUpload = parseAdminNarrationAssetUrl(mismatchedUploadUrl, cloudName);
+assert.equal(parsedMismatchedUpload?.publicId, "audio-human-123e4567-e89b-42d3-a456-426614174001");
+assert.notEqual(parsedMismatchedUpload?.publicId, "audio-human-123e4567-e89b-42d3-a456-426614174000");
+assert.match(uploadRoute, /parseAdminNarrationAssetUrl\(result\.secure_url,\s*cloudName\)/);
+assert.match(uploadRoute, /parsedUpload\.publicId !== publicId/);
+assert.match(uploadRoute, /secureUrl: parsedUpload\.url/);
+assert.match(uploadRoute, /audioUrl: parsedUpload\.url/);
+
 const createRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
 const studioClient = readFileSync("src/features/admin/video-studio/components/admin-video-studio-client.tsx", "utf8");
 const audioWorker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
