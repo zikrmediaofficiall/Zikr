@@ -7,7 +7,7 @@ The production automation runs directly from `.github/workflows/generate-ai-vide
 - **Hugging Face LTX Fast**, then **Wan 2.2 Fast**: the repository environment template and production workflow prefer these public free Spaces when their explicit provider flags are enabled.
 - **Template**: deterministic FFmpeg renderer; it is the final fallback and does not require an AI provider key.
 - **ComfyUI**: optional local GPU provider, enabled only with VIDEO_AI_ENABLED=true and COMFYUI_ENABLED=true.
-- **Free API**: optional quota-based provider, enabled only with FREE_VIDEO_PROVIDER_ENABLED=true and its server-side URL/token. Returned media URLs must use HTTPS and the API endpoint host; add any CDN hostnames to FREE_VIDEO_PROVIDER_ALLOWED_HOSTS.
+- **Free API**: optional quota-based provider, enabled only with FREE_VIDEO_PROVIDER_ENABLED=true and its server-side URL/token. Returned media URLs must use HTTPS and the API endpoint host; add any CDN hostnames to FREE_VIDEO_PROVIDER_ALLOWED_HOSTS. The provider response and media download must be served directly; redirects are rejected.
 - The checked-in environment template and production workflow use VIDEO_PROVIDER_ORDER=hf_ltx_fast,hf_wan,template. The router's built-in order is hf_ltx_fast,hf_wan,comfyui,free_api; provider flags and VIDEO_FREE_ONLY still gate each candidate, and the template renderer remains the final fallback.
 - VIDEO_FREE_ONLY=true permits the public Hugging Face providers and the local template renderer while excluding paid/custom API paths unless separately and explicitly configured.
 - “Free” never means unlimited GPU, API quota, or storage.
