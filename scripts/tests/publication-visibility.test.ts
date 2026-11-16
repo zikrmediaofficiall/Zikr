@@ -20,6 +20,7 @@ const serviceContracts = [
   ["src/features/articles/services/articles.ts", '"articles", safeSlug'],
   ["src/features/dua/services/dua.ts", '"duas", cleanSlug'],
   ["src/features/prophets/services/prophets.ts", '"prophets", cleanSlug'],
+  ["src/features/companions/services/companions.ts", '"companions", cleanSlug'],
 ] as const;
 
 const articleService = readFileSync("src/features/articles/services/articles.ts", "utf8");
@@ -32,6 +33,10 @@ const duaService = readFileSync("src/features/dua/services/dua.ts", "utf8");
 assert.match(duaService, /databaseLookupFailed \? fallbackBase : FALLBACK_DUAS/, "successful empty dua queries must not reuse an old offline DB snapshot");
 assert.match(duaService, /!databaseLookupFailed && localMatch/, "dua visibility checks must not run for arbitrary unknown slugs");
 const prophetService = readFileSync("src/features/prophets/services/prophets.ts", "utf8");
+const companionService = readFileSync("src/features/companions/services/companions.ts", "utf8");
+assert.match(companionService, /databaseLookupFailed = false/);
+assert.match(companionService, /!databaseLookupFailed && hasLocalFallback/);
+
 assert.match(prophetService, /database !== null/, "successful empty prophet queries must be distinguished from failed queries");
 assert.match(prophetService, /!databaseLookupFailed && hasLocalFallback/, "prophet visibility checks must be limited to known fallback slugs");
 
