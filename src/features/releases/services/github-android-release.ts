@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { selectAndroidRelease } from "../android-release-selection";
 export { selectAndroidRelease } from "../android-release-selection";
 
@@ -161,22 +161,30 @@ export async function getStableReleaseByTag(
 }
 
 export async function getAndroidReleaseSetting(): Promise<AndroidReleaseSetting> {
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("site_settings")
-      .select("value")
-      .eq("key", "android_release")
-      .maybeSingle();
-    const value = data?.value as AndroidReleaseSetting | null;
-    if (
-      value &&
-      (value.mode === "pinned" || value.mode === "github-supabase")
-    ) {
-      return value;
-    }
-  } catch {
-    // Optional admin setting unavailable: use latest stable release.
+  if (!isSupabaseConfigured()) {
+    return { mode: "auto", releaseTag: null };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "android_release")
+    .maybeSingle();
+
+  if (error) {
+    // A failed read must not silently bypass an admin pin and promote a newer
+    // release. Callers return a temporary-unavailable response instead.
+    console.error("[android release] setting lookup failed:", error.code);
+    throw new Error("Unable to read Android release setting");
+  }
+
+  const value = data?.value as AndroidReleaseSetting | null;
+  if (
+    value &&
+    (value.mode === "pinned" || value.mode === "github-supabase")
+  ) {
+    return value;
   }
 
   return { mode: "auto", releaseTag: null };
