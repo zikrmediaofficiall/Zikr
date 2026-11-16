@@ -5,7 +5,7 @@ import { LOCAL_SOCIAL_QUEUE_DELETE_BATCH_LIMIT, canDeleteLocalSocialQueueItem } 
 import { readFileSync } from "node:fs";
 import { readBoundedJsonBody } from "../../src/lib/request/bounded-json-body";
 import { buildNextRowVersionUpdatedAt } from "../../src/lib/supabase/row-version";
-import { isSocialPlatformDeletionCurrent } from "../../src/features/social/services/social-deletion-visibility";
+import { hasSocialPlatformResultLedger, isSocialPlatformDeliveryActive, isSocialPlatformDeletionCurrent } from "../../src/features/social/services/social-deletion-visibility";
 
 const socialClient = readFileSync("src/app/admin/social/social-client.tsx", "utf8");
 assert.match(
@@ -328,6 +328,49 @@ assert.equal(
   "missing publication time must fail closed for an ambiguous legacy deletion record",
 );
 
+const currentFacebookDelivery = {
+  platformResults: { facebook: { platform: "facebook", ok: true, remoteId: "facebook-remote-current" } },
+};
+assert.equal(isSocialPlatformDeliveryActive(currentFacebookDelivery, "facebook", "2026-11-15T10:00:00.000Z"), true);
+assert.equal(
+  isSocialPlatformDeliveryActive({
+    platformResults: { facebook: { platform: "facebook", ok: true, remoteId: "   " } },
+  }, "facebook", "2026-11-15T10:00:00.000Z"),
+  false,
+  "whitespace-only remote IDs must not count as confirmed provider delivery",
+);
+assert.equal(
+  isSocialPlatformDeliveryActive({
+    ...currentFacebookDelivery,
+    platformDeletions: {
+      facebook: { status: "deleted", remoteId: "facebook-remote-current", deletedAt: "2026-11-15T10:30:00.000Z" },
+    },
+  }, "facebook", "2026-11-15T10:00:00.000Z"),
+  false,
+  "a confirmed deletion must remove the current remote post from active delivery",
+);
+assert.equal(
+  isSocialPlatformDeliveryActive({
+    ...currentFacebookDelivery,
+    platformDeletions: {
+      facebook: { status: "deleted", remoteId: "facebook-remote-old", deletedAt: "2026-11-15T10:30:00.000Z" },
+    },
+  }, "facebook", "2026-11-15T10:00:00.000Z"),
+  true,
+  "a deletion marker for an older remote ID must not hide the current post",
+);
+assert.equal(
+  isSocialPlatformDeliveryActive({
+    ...currentFacebookDelivery,
+    manualReconciliationPlatforms: ["facebook"],
+  }, "facebook", "2026-11-15T10:00:00.000Z"),
+  false,
+  "manual reconciliation holds must not count as confirmed live delivery",
+);
+assert.equal(hasSocialPlatformResultLedger({ platformResults: {} }), false);
+assert.equal(hasSocialPlatformResultLedger({ platformResults: [{ platform: "facebook", ok: true, remoteId: "facebook-1" }] }), true);
+assert.equal(hasSocialPlatformResultLedger({ platformResults: "malformed" }), true);
+
 
 const staleQueueRow = {
   ...deletionQueueRow,
@@ -577,6 +620,10 @@ assert.match(socialAdminRoute, /getLocalSocialQueueDeletionBlockers/);
 assert.match(socialAdminRoute, /confirmedNoRemotePublication/);
 assert.match(socialAdminRoute, /expectedRemoteId:\s*remoteId/);
 assert.match(socialAdminRoute, /isSocialPlatformDeletionCurrent\(previousDeletion,\s*remoteId,\s*item\.published_at\)/);
+assert.equal((socialAdminRoute.match(/isSocialPlatformDeliveryActive\(/g) ?? []).length, 3);
+assert.ok(socialAdminRoute.includes("hasSocialPlatformResultLedger(item.metadata)"));
+assert.ok(socialAdminRoute.includes('!hasResultLedger && item.status === "published"'));
+
 assert.doesNotMatch(socialAdminRoute, /previousDeletion\?\.status === "deleted" && \(!previousDeletedRemoteId/);
 assert.match(socialAdminRoute, /expectedPlatformRemoteId:\s*\{\s*platform,\s*remoteId\s*\}/);
 const remoteDeleteActionStart = socialAdminRoute.indexOf('if (action === "delete_published") {');

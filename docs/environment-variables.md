@@ -72,7 +72,7 @@ The canonical Meta variable name is `FACEBOOK_GRAPH_API_VERSION`. `META_GRAPH_AP
 
 Manual written-content generation uses `WRITTEN_CONTENT_ALLOW_KIDS` (default `false`). The scheduled generator explicitly enables Kids source selection; admin-triggered `auto` or `kids` requests pass `true` only when the caller has `kids.manage`. A social-only manager's automatic selection and legacy backfill remain general-audience only.
 
-When `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED=true`, the scheduled social worker may retry catalog metadata synchronization for Kids queue rows in `published` or `partial` state. It revalidates the linked generation request and current human-approval fingerprint before writing. If a later provider retry changes a previously synced partial snapshot, the queue marker is reopened to `pending` so a failed live catalog update remains retryable; manual `held` states remain owner-controlled. Blocked rows are held for owner review. The flag does not itself enable external delivery or call providers. The current runner evaluates it only after the Admin auto-publish setting and `SOCIAL_PUBLISH_ENABLED=true` admit the social worker, so reconciliation pauses whenever either publishing gate is off.
+When `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED=true`, the scheduled social worker may retry catalog metadata synchronization for Kids queue rows in `published` or `partial` state. It revalidates the linked generation request and current human-approval fingerprint before writing. If a later provider retry changes a previously synced partial snapshot, the queue marker is reopened to `pending` so a failed live catalog update remains retryable; manual `held` states remain owner-controlled. Blocked rows are held for owner review. The flag does not itself enable external delivery or call providers. The current runner evaluates it only after the Admin auto-publish setting and `SOCIAL_PUBLISH_ENABLED=true` admit the social worker, so reconciliation pauses whenever either publishing gate is off. The reconciliation cutoff is independent of `SOCIAL_PUBLISH_AFTER`: `SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER` defaults to `1970-01-01T00:00:00.000Z` and filters by queue `updated_at`, so a deletion or other later metadata change on an older post can still be reconciled.
 
 ## 4. Video worker contract
 
@@ -108,6 +108,7 @@ Worker/runtime configuration includes:
 - `AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL`
 - `SOCIAL_PUBLISH_ENABLED`
 - `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED` — optional catalog-only reconciliation for already-published, currently human-approved Kids videos; default `false`. It updates internal catalog metadata only, never calls Facebook/YouTube, and scans at most 100 rows per run.
+- `SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER` — optional ISO-8601 lower bound for the queue row's `updated_at` during catalog-only reconciliation; defaults to `1970-01-01T00:00:00.000Z` and is independent of the publishing cutoff.
 - `COMFYUI_ENABLED`
 - `COMFYUI_BASE_URL`
 - `COMFYUI_TIMEOUT_MS`

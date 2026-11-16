@@ -45,9 +45,9 @@ assert.throws(
   "the final page must not read past the configured 100-row reconciliation ceiling",
 );
 assert.ok(query.includes("metadata->>kidsCatalogSyncStatus.eq.pending"));
-assert.ok(query.includes("created_at=gte.2026-11-01T00%3A00%3A00.000Z"));
-assert.ok(query.includes("order=created_at.asc,id.asc&limit=25&offset=25"));
-assert.throws(() => buildKidsSocialCatalogReconciliationQuery("invalid", 0, 25), /valid social-publish cutoff/);
+assert.ok(query.includes("updated_at=gte.2026-11-01T00%3A00%3A00.000Z"));
+assert.ok(query.includes("order=updated_at.asc,id.asc&limit=25&offset=25"));
+assert.throws(() => buildKidsSocialCatalogReconciliationQuery("invalid", 0, 25), /valid reconciliation cutoff/);
 assert.throws(() => buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:00Z", 100, 25), /bounded scan/);
 assert.throws(() => buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:00Z", 0, 26), /page size/);
 
@@ -341,6 +341,10 @@ assert.ok(reconciler.includes("checkVideoCatalogPublication(item)"), "the reconc
 assert.ok(reconciler.includes("syncKidsSocialPublicationToCatalog(item, item.metadata ?? {})"));
 assert.ok(reconciler.includes("markKidsCatalogSyncState"));
 assert.ok(reconciler.includes("hasEnoughCandidates: () => false"), "the bounded inventory must be read before row writes");
+assert.ok(
+  reconciler.includes('resolveSocialPublishCutoff(process.env.SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER ?? "1970-01-01T00:00:00.000Z")'),
+  "catalog reconciliation must use its own cutoff instead of SOCIAL_PUBLISH_AFTER",
+);
 assert.doesNotMatch(reconciler, /publishFacebook|publishToFacebook|publishToYoutube/, "catalog reconciliation must not call external providers");
 
 const socialRoute = readFileSync("src/app/api/admin/social/route.ts", "utf8");
@@ -350,12 +354,18 @@ assert.ok(
 );
 
 const workflow = readFileSync(".github/workflows/publish-social.yml", "utf8");
+assert.ok(
+  workflow.includes("SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER: ${{ vars.SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER || '1970-01-01T00:00:00.000Z' }}"),
+  "the scheduled social worker must receive the independent catalog reconciliation cutoff",
+);
 assert.match(
   workflow,
   /SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED:\s*\$\{\{\s*vars\.SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED\s*\|\|\s*'false'\s*\}\}/,
   "the production publisher must pass through the opt-in catalog-only reconciliation flag and keep it disabled by default",
 );
 
+const envExample = readFileSync(".env.example", "utf8");
+assert.match(envExample, /^SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER=1970-01-01T00:00:00.000Z$/m);
 const environmentDocs = readFileSync("docs/environment-variables.md", "utf8");
 assert.ok(
   environmentDocs.includes("reconciliation pauses whenever either publishing gate is off"),
@@ -366,6 +376,7 @@ const worker = readFileSync("scripts/jobs/social-publishing.ts", "utf8");
 assert.ok(worker.includes("reconcilePublishedKidsVideoCatalog()"), "the scheduled worker must run the opt-in reconciler");
 const operations = readFileSync("docs/admin/SOCIAL_PUBLISHING_OPERATIONS.md", "utf8");
 assert.ok(operations.includes("SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED"));
+assert.ok(operations.includes("SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER"));
 assert.ok(operations.includes("does not call Facebook/YouTube"));
 
 console.log("Kids social catalog reconciliation policy and safety contracts passed.");

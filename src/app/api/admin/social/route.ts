@@ -22,7 +22,7 @@ import { inspectVideoQueueItemExternalApproval, isVideoContentType, type VideoPu
 import { buildKidsCatalogDeletionSyncPatch } from "@/features/social/services/kids-social-catalog-reconciliation";
 import { deleteSocialPlatformPost, type SocialDeletionPlatform } from "@/features/social/services/social-deletion";
 import { claimSocialQueuePlatformDeletion, patchSocialQueueMetadataWithCas } from "@/features/social/services/social-queue-metadata";
-import { isSocialPlatformDeletionCurrent } from "@/features/social/services/social-deletion-visibility";
+import { hasSocialPlatformResultLedger, isSocialPlatformDeliveryActive, isSocialPlatformDeletionCurrent } from "@/features/social/services/social-deletion-visibility";
 import { LOCAL_SOCIAL_QUEUE_DELETE_BATCH_LIMIT, getEnabledSocialPlatforms, getLocalSocialQueueDeletionBlockers, getManualReconciliationPlatforms, getRetryableSocialPlatforms, isAuthBlocked, normalizeSocialPlatformResults, parseRequestedSocialPlatforms, type SocialPlatform } from "@/features/social/services/platform-availability";
 
 export const dynamic = "force-dynamic";
@@ -74,51 +74,15 @@ type QueueItem = {
 const retryableStatuses = new Set(["failed", "partial"]);
 
 function successfulPlatforms(
-  metadata: Record<string, unknown> | null | undefined
+  metadata: Record<string, unknown> | null | undefined,
+  publishedAt?: string | null,
 ): Set<string> {
-  const values = metadata?.platformResults;
-  const result = new Set<string>();
-
-  if (values && typeof values === "object" && !Array.isArray(values)) {
-    for (const [platform, value] of Object.entries(values)) {
-      if (!value || typeof value !== "object") continue;
-      const row = value as {
-        platform?: unknown;
-        ok?: unknown;
-        remoteId?: unknown;
-      };
-      if (
-        row.ok === true &&
-        typeof row.remoteId === "string" &&
-        row.remoteId.length > 0 &&
-        (row.platform === undefined || row.platform === platform)
-      ) {
-        result.add(platform);
-      }
-    }
-    return result;
-  }
-
-  if (Array.isArray(values)) {
-    for (const value of values) {
-      if (!value || typeof value !== "object") continue;
-      const row = value as {
-        platform?: unknown;
-        ok?: unknown;
-        remoteId?: unknown;
-      };
-      if (
-        row.ok === true &&
-        typeof row.platform === "string" &&
-        typeof row.remoteId === "string" &&
-        row.remoteId.length > 0
-      ) {
-        result.add(row.platform);
-      }
-    }
-  }
-
-  return result;
+  const values = normalizeSocialPlatformResults(metadata?.platformResults);
+  return new Set(
+    Object.keys(values).filter(platform =>
+      isSocialPlatformDeliveryActive(metadata, platform, publishedAt),
+    ),
+  );
 }
 
 function authBlockedPlatforms(
@@ -372,19 +336,18 @@ export async function GET() {
     >((acc, item) => {
       for (const platform of item.target_platforms) {
         acc[platform] ??= { queued: 0, published: 0, failed: 0 };
-        const ledger = item.metadata?.platformResults;
-        const raw = ledger && typeof ledger === "object" && !Array.isArray(ledger)
-          ? (ledger as Record<string, unknown>)[platform]
-          : null;
-        const result = raw && typeof raw === "object" && !Array.isArray(raw)
-          ? raw as { ok?: unknown; remoteId?: unknown }
-          : null;
-        const isDelivered = result?.ok === true && typeof result.remoteId === "string" && result.remoteId.trim().length > 0;
+        const result = deliveryForPlatform(item.metadata, platform);
+        const hasResultLedger = hasSocialPlatformResultLedger(item.metadata);
+        const deletion = asRecord(asRecord(item.metadata?.platformDeletions)?.[platform]);
+        const deleted = isSocialPlatformDeletionCurrent(deletion, result?.remoteId, item.published_at);
+        const manualReconciliation = getManualReconciliationPlatforms(item.metadata).includes(platform as SocialPlatform);
+        if (deleted || manualReconciliation) continue;
+        const isDelivered = isSocialPlatformDeliveryActive(item.metadata, platform, item.published_at);
         const unavailable = Array.isArray(item.metadata?.unavailablePlatforms) && item.metadata?.unavailablePlatforms.includes(platform);
         const approvalDeferred = Array.isArray(item.metadata?.approvalDeferredPlatforms) && item.metadata?.approvalDeferredPlatforms.includes(platform);
-        if (isDelivered || (!result && item.status === "published")) acc[platform].published += 1;
+        if (isDelivered || (!hasResultLedger && item.status === "published")) acc[platform].published += 1;
         else if (unavailable || approvalDeferred || !result) {
-          if (item.status === "failed" && !unavailable && !approvalDeferred) acc[platform].failed += 1;
+          if (item.status === "failed" || (item.status === "published" && hasResultLedger)) acc[platform].failed += 1;
           else acc[platform].queued += 1;
         } else if (result.ok === false) acc[platform].failed += 1;
         else acc[platform].queued += 1;
@@ -393,15 +356,19 @@ export async function GET() {
     }, {});
     const numberValue = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
     const add = (target: Record<string, number>, key: string, value: unknown) => { const count = numberValue(value); if (count !== null) target[key] = (target[key] ?? 0) + count; };
-    const publishedPosts = rows.filter(item => item.published_at && (item.status === "published" || successfulPlatforms(item.metadata).size > 0));
+    const publishedPosts = rows.filter(item => item.published_at && (item.status === "published" || successfulPlatforms(item.metadata, item.published_at).size > 0));
     const platformAnalytics = { youtube: { posts: 0, views: 0, likes: 0, comments: 0, shares: 0 }, facebook: { posts: 0, views: 0, likes: 0, comments: 0, shares: 0 }, facebook_reels: { posts: 0, views: 0, likes: 0, comments: 0, shares: 0 } };
     const recentPosts = publishedPosts.flatMap(item => {
       const insights = item.metadata?.platformInsights && typeof item.metadata.platformInsights === "object" && !Array.isArray(item.metadata.platformInsights) ? item.metadata.platformInsights as Record<string, unknown> : {};
-      const results = item.metadata?.platformResults && typeof item.metadata.platformResults === "object" && !Array.isArray(item.metadata.platformResults) ? item.metadata.platformResults as Record<string, unknown> : {};
+      const hasResultLedger = hasSocialPlatformResultLedger(item.metadata);
       return item.target_platforms.flatMap(platform => {
-        const delivery = results[platform] && typeof results[platform] === "object" ? results[platform] as Record<string, unknown> : {};
-        const delivered = delivery.ok === true && typeof delivery.remoteId === "string" && delivery.remoteId.trim().length > 0;
-        if (!delivered && !(item.status === "published" && Object.keys(results).length === 0)) return [];
+        const delivery = deliveryForPlatform(item.metadata, platform) ?? {};
+        const deletion = asRecord(asRecord(item.metadata?.platformDeletions)?.[platform]);
+        const deleted = isSocialPlatformDeletionCurrent(deletion, delivery.remoteId, item.published_at);
+        const manualReconciliation = getManualReconciliationPlatforms(item.metadata).includes(platform as SocialPlatform);
+        if (deleted || manualReconciliation) return [];
+        const delivered = isSocialPlatformDeliveryActive(item.metadata, platform, item.published_at);
+        if (!delivered && !(item.status === "published" && !hasResultLedger)) return [];
         const raw = insights[platform === "facebook_reels" ? "facebookReels" : platform];
         const metric = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
         const nested = metric.metrics && typeof metric.metrics === "object" && !Array.isArray(metric.metrics) ? metric.metrics as Record<string, unknown> : metric;
@@ -775,7 +742,7 @@ export async function POST(request: NextRequest) {
           // successful remote ID. A Facebook auth-block must not be hidden just
           // because another platform (for example YouTube) succeeded.
           const targets = item.target_platforms ?? [];
-          const succeeded = successfulPlatforms(item.metadata);
+          const succeeded = successfulPlatforms(item.metadata, item.published_at);
           const allTargetsSucceeded =
             targets.length > 0 && targets.every(platform => succeeded.has(platform));
           if (allTargetsSucceeded) {
