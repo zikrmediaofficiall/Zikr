@@ -30,6 +30,8 @@ const service = readFileSync(
   "src/features/releases/services/github-android-release.ts",
   "utf8",
 );
+assert.match(service, /isSupabaseConfigured\(\)/);
+assert.match(service, /if \(error\)[\s\S]*Unable to read Android release setting/);
 assert.match(service, /setting\.mode === "pinned" && setting\.releaseTag/);
 assert.match(service, /getStableReleaseByTag\(setting\.releaseTag\)/);
 assert.match(service, /return selectAndroidRelease\(latestStable, pinnedRelease\)/);
