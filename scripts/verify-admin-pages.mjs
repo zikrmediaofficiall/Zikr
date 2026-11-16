@@ -26,6 +26,7 @@ for (const page of pages) {
   const source = readFileSync(page, "utf8");
   const hasPermissionGate =
     /requireAdminPermission\(/.test(source) ||
+    /requireAnyAdminPermission\(/.test(source) ||
     /requireAdmin\(/.test(source) ||
     /redirect\(/.test(source);
   if (!hasPermissionGate) failures.push(`${page}: missing server-side admin gate or explicit redirect`);
