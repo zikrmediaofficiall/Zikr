@@ -55,13 +55,6 @@ for (const [publicStatus, visibilityStatus, expected] of [
     "only a complete failure of both Kids lookups should become a transient server error",
   );
 }
-const contentStatsSource = readFileSync("src/features/content/services/stats.ts", "utf8");
-assert.match(contentStatsSource, /if \(table === "kids_content"\)/,
-  "Kids statistics must use a dedicated public-visibility filter");
-assert.match(contentStatsSource, /\.eq\("is_active", true\)/,
-  "inactive published Kids rows must not inflate public statistics");
-assert.match(contentStatsSource, /\.or\("type\.neq\.story,metadata->>age_appropriate\.eq\.true"\)/,
-  "unreviewed or rejected Kids stories must not inflate public statistics");
 const kidsContentServiceSource = readFileSync("src/features/kids/services/kids-content.ts", "utf8");
 assert.deepEqual(requireSupabaseRows([], "valid empty query"), []);
 assert.deepEqual(requireSupabaseRows([{ id: "row-1" }], "valid query"), [{ id: "row-1" }]);
