@@ -993,4 +993,21 @@ assert.match(pushSubscriptionRoute, /createAdminClient\(\)/, "the subscription A
 assert.match(pushSubscriptionRoute, /parsePushSubscriptionRequestBody\(body\)/, "the API must validate endpoints through the shared request parser");
 assert.match(pushWorkerSource, /isAllowedPushEndpoint/, "the worker must validate legacy endpoints before outbound push requests");
 
+const workerAuthStart = worker.indexOf("Deno.serve");
+const workerAuthSource = worker.slice(workerAuthStart);
+const bearerPreflightIndex = workerAuthSource.indexOf("const bearerMatch");
+const malformedBearerReturnIndex = workerAuthSource.indexOf(
+  'if (!bearerMatch) return json({ error: "Unauthorized" }, 401);',
+);
+const schedulerSecretRpcIndex = workerAuthSource.indexOf(
+  'supabase.rpc("get_push_scheduler_secret")',
+);
+assert.ok(workerAuthStart >= 0 && bearerPreflightIndex >= 0);
+assert.ok(
+  malformedBearerReturnIndex >= 0 && malformedBearerReturnIndex < schedulerSecretRpcIndex,
+  "missing or malformed bearer headers must be rejected before the service-role scheduler-secret RPC",
+);
+assert.match(workerAuthSource, /expected\.error \|\| typeof expected\.data !== "string" \|\| !expected\.data/);
+assert.match(workerAuthSource, /constantTimeEqual\(supplied, expected\.data\)/);
+
 console.log("Prayer notification subscription pagination and delivery lease contracts passed.");
