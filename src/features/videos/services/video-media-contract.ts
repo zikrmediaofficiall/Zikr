@@ -279,6 +279,49 @@ export function reconcileYoutubeFallbackMetadata(
   return metadata;
 }
 
+function youtubeThumbnailIdFromUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const parsed = new URL(value.trim());
+    if (
+      parsed.protocol !== "https:" ||
+      !["i.ytimg.com", "img.youtube.com"].includes(parsed.hostname.toLowerCase())
+    ) return null;
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    if (!["vi", "vi_webp"].includes(segments[0] ?? "")) return null;
+    const id = segments[1] ?? "";
+    return isValidYoutubeId(id) ? id.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keep generated YouTube thumbnails aligned with the queue-confirmed catalog ID.
+ * Preserve custom thumbnails; replace only a YouTube-derived thumbnail that no
+ * longer matches the confirmed ID (or the neutral placeholder).
+ */
+export function resolveCatalogThumbnail(
+  currentValue: unknown,
+  nextYoutubeIdValue: unknown,
+  fallbackThumbnail: string | null,
+): string | null {
+  const current = typeof currentValue === "string" ? currentValue.trim() : "";
+  const nextYoutubeId = isValidYoutubeId(nextYoutubeIdValue) ? nextYoutubeIdValue.trim() : null;
+  const currentYoutubeId = youtubeThumbnailIdFromUrl(current);
+  const isNeutralPlaceholder = current === "/branding/og-image.jpg";
+
+  if (current && !isNeutralPlaceholder && (
+    currentYoutubeId === null || currentYoutubeId === nextYoutubeId
+  )) {
+    return current;
+  }
+  if (nextYoutubeId) {
+    return "https://i.ytimg.com/vi/" + encodeURIComponent(nextYoutubeId) + "/hqdefault.jpg";
+  }
+  return fallbackThumbnail;
+}
+
 export function isUnlinkedInternalVideoMedia(row: Record<string, unknown>): boolean {
   const metadata = metadataFor(row);
   return metadata.generator === "zikr_internal_video_factory" && metadata.mediaState === "unlinked";
