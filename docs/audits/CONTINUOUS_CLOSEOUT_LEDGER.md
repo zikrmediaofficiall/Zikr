@@ -2344,3 +2344,13 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 
 - The 13 entries absent from the prior PR320 manifest include the old manifest file itself (self-excluded in its original snapshot). The remaining 12 entries are 3 directories and 9 blobs, including the newly added OAuth-origin tests, Kids social catalog reconciliation service/test, safe-relative-path helper, and linked-request Kids RLS migration. No prior manifest path is missing from the current tree.
 - Main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` has now passed GitHub Quality Gate and all CircleCI statuses, including the Android release-draft verification job. No release was created.
+
+
+## 2026-11-16 13:15 UTC — Kids RLS/offline snapshot correction
+
+- Read the live `kids_content_public_read` policy: `published=true AND is_active=true AND (type <> 'story' OR metadata->>'age_appropriate'='true')`. Migration `20261110212000_kids_content_public_read_respects_active_state.sql` is applied; the remote history is 449/449, latest version `20261116045100`.
+- Production Kids data: 65 published/active rows, 26 stories, 6 age-approved and 20 not age-approved. The 20 legacy stories remain in the database but are blocked by RLS for anon/authenticated. The service and offline resolver also filter them. The share RPC is service-role-only.
+- Current public offline `kids.json`: 45 rows (35 games, 3 quizzes, 1 wudu, 6 stories), all six stories explicitly age-approved. Manifest declares 45 Kids routes. Exporter and verifier both enforce the age gate and stale-route pruning.
+- `stories.json` has 21 general editorial stories and is not the Kids dataset. Earlier ledger statements that current `kids.json` exposed 20 unapproved stories or that the live Kids RLS policy still allowed direct anon access are historical and superseded by this current evidence.
+- No content, database rows, storage, or routes were mutated in this revalidation. The 20 unapproved legacy stories still require individual editorial review before any future approval.
+- Updated status matrix blob: `c1d2767d9e484bded04f115c5f3f676f42878d61`; remaining unreviewed count: 1874.
