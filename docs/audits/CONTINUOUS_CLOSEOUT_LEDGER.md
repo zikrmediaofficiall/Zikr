@@ -2600,7 +2600,7 @@ The matrix has 1,959 tracked-file rows. Current counts: 1,533 UNREVIEWED (584 hi
 
 - Source baseline remains main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`. The full manifest is unchanged at blob `baace6d0c66ac299edb541c7caceba56eeae19be` because no main-tree file changed.
 - Recursive inventory remains 2,459 entries: 1,959 tracked blobs and 500 directories.
-- The full per-file matrix was reconciled after reading 12 additional tracked files and tracing their direct consumers. New matrix blob: `afdea518e9cd3b8d171c83378aaba23cd41cfbbd`. Current totals: 1,392 `UNREVIEWED` (506 high priority), 257 source-only, 95 permission-scan, 49 partial, 41 regression-coverage, 16 data-validated, 4 production-smoke, 1 data-editorial and 44 production-applied (567 non-unreviewed). PR-pending statuses are counted separately.
+- The full per-file matrix was reconciled after reading 12 additional tracked files and tracing their direct consumers. New matrix blob: `8ea0d36166c612316c4ebf1a229791583fc52fe5`. Current totals: 1,387 `UNREVIEWED` (505 high priority), 260 source-only, 94 permission-scan, 51 partial, 43 regression-coverage, 16 data-validated, 4 production-smoke, 1 data-editorial and 46 production-applied (572 non-unreviewed). PR-pending statuses are counted separately.
 
 ### Reproducible repairs opened
 
@@ -2615,8 +2615,8 @@ The matrix has 1,959 tracked-file rows. Current counts: 1,533 UNREVIEWED (584 hi
 
 - Read the full applied search RPC migration, search service, public content-library service, `/content/[slug]` route, `/search` page, contract test and canonical verifier.
 - Reproduced defect: the SQL RPC returns approved `content_library` rows as `type='content'`, but the TypeScript union/runtime allow-list omitted `content` and filtered every row out. The legacy fallback also omitted the approved content library.
-- Draft PR #370 branch `audit/zikr-search-content-results-20261116`, exact head `537ed4102f630af80612a9b40e2d338ead2a292c`. It adds a shared result-type contract, keeps approved content-library matches in both indexed and fallback search, validates the displayed RPC fields, and registers regression coverage in `arabic-search:check` (included in both canonical verification commands).
-- Exact-head Quality Gate/CircleCI checks were pending at this ledger timestamp. No search RPC, production content, index or migration was invoked or changed.
+- Draft PR #370 branch `audit/zikr-search-content-results-20261116`, current exact head `f5596f7ad1b72e666c084923123814e5e001c0e1`. It adds a shared result-type contract, keeps approved content-library matches in both indexed and fallback search, validates the displayed RPC fields, and registers regression coverage in `arabic-search:check` (included in both canonical verification commands).
+- The first Quality Gate run failed because the verifier referenced `contents.search` without loading the search service; this was corrected on current head `f5596f7ad1b72e666c084923123814e5e001c0e1`. Fresh exact-head Quality Gate/CircleCI checks are pending. No search RPC, production content, index or migration was invoked or changed.
 
 ### Destructive-operation safety review
 
@@ -2626,11 +2626,11 @@ The matrix has 1,959 tracked-file rows. Current counts: 1,533 UNREVIEWED (584 hi
 
 ### Production read-only state and gates
 
-- Supabase migration history rechecked read-only: 449 applied versions through `20261116045100`; versions `20261027212803` and `20261030090000` are present. No DDL/DML, migration apply, function invocation/deployment or storage operation occurred.
+- Supabase migration history rechecked read-only: 449 applied versions through `20261116045100`; versions `20261027212803`, `20261028112016` and `20261030090000` are present. Live catalog checks confirm `admin_queue_alert_deliveries` RLS enabled, anon SELECT denied, authenticated SELECT restricted by `private.has_admin_role`, and service_role SELECT allowed. A read-only count found zero rows with `delivered_at` set while either channel flag is false. No DDL/DML, migration apply, function invocation/deployment or storage operation occurred.
 - Vercel deployment inventory rechecked read-only: latest production deployment `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` is READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`. Main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and is not deployed. No HTTP smoke was run in this batch; no deploy was triggered.
 - PR #344 documentation branch's previously checked head `55ae98fe17a0a93d9a238d53fc0c7ef919eb18f0` had successful Quality Gate/CircleCI evidence, but this batch changes its matrix, inventory summary, project status and ledger; the resulting documentation head must receive fresh exact-head checks.
 - CODEOWNERS still requires `@Zikrmediaofficial`; collaborator permission lookup is null and no independent authorized review is recorded. PRs #369 and #370 are drafts and unmerged. No approval gate, branch rule or owner review was bypassed.
 
 ### Safety declaration
 
-No content generation, Gemini request, social publishing, production database mutation, Storage/media deletion, index/secret change, Android/iOS release, merge, Vercel deployment, production smoke, or scheduled workflow dispatch was performed. Repository-wide audit remains OPEN; the remaining 1,392 tracked blobs are still explicitly UNREVIEWED, and exact-head CI, owner review and device acceptance remain outstanding.
+No content generation, Gemini request, social publishing, production database mutation, Storage/media deletion, index/secret change, Android/iOS release, merge, Vercel deployment, production smoke, or scheduled workflow dispatch was performed. Repository-wide audit remains OPEN; the remaining 1,387 tracked blobs are still explicitly UNREVIEWED, and exact-head CI, owner review and device acceptance remain outstanding.
