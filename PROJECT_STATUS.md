@@ -1941,3 +1941,9 @@ The audit is not closed; continue the remaining review-required and pending-trac
 - Confirmed the worker is intentionally `verify_jwt=false` and authenticates with the private scheduler bearer. Found that a POST with no/malformed Authorization header still performed the service-role `get_push_scheduler_secret` RPC before returning 401; the source-verified content agent already avoids that lookup for an empty bearer.
 - PR #373: `https://github.com/zikrofficial-X/Zikr/pull/373`; exact head `ef440389dbbbb65d954ccd213e54b1c00c455441`. It parses a strict non-empty Bearer header before the RPC, rejects empty secret state, preserves constant-time comparison and adds a canonical regression assertion. At the last poll, GitHub Quality Gate run `43957999023` was queued; CircleCI config-guard passed, source-verify and application-build-docs were pending. The PR remains draft/open pending exact-head checks and owner/CODEOWNERS review.
 - No Edge Function was invoked and no scheduler secret, schedule, subscription, delivery, notification, or production data was read or mutated by this audit.
+
+
+## Prayer calculation method ID audit — 2026-11-16
+
+- The live Aladhan methods endpoint identifies Gulf Region as method 8 and Dubai as method 16. Main's worker incorrectly mapped `calculation_method = 'dubai'` to 8, which would produce Gulf Region timings for background reminders when a Dubai preference is stored. The exported client label map also contained several incorrect numeric labels.
+- PR #373 now includes the method resolver and label correction in addition to auth preflight. Current exact head `c603ee90a07f86ff07f17c23e4a65ca9f130cc2b`; previous auth-only head passed full CI, but this expanded head is awaiting a new full run. No production preference rows or Aladhan prayer-time endpoints were queried.
