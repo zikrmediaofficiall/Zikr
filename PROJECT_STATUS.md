@@ -1,6 +1,6 @@
 # ZIKR Project Status
 
-## Latest audit checkpoint — 2026-11-16 13:29 UTC
+## Latest audit checkpoint — 2026-11-16 13:39 UTC
 
 - Current main source head: `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` (tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`).
 - Full file-status matrix now marks **1812 of 1,959 blobs UNREVIEWED** (704 high-priority); it distinguishes source-only review, permission scans, regression coverage, production-applied migrations, and open PR fixes.
@@ -10,11 +10,14 @@
 - Supabase migrations are aligned at 449/449; all 93 public tables have RLS enabled.
 - Kids content recheck: production `kids_content` has 65 published/active rows, including 26 stories (6 explicitly age-approved; 20 legacy stories remain unapproved). The applied `20261110212000` RLS policy blocks unapproved stories from anon/authenticated reads. The current public offline `kids.json` has 45 rows and only 6 age-approved stories; `stories.json` is a separate 21-row general editorial dataset. Earlier status entries claiming current public exposure of those 20 stories are historical and superseded.
 - General video list/detail/API and slug metadata consumers still rely on the `videos` RLS policy to exclude `category_id=kids-stories`; PR #340's category-level restrictive policy is green but unmerged. Current production has 34 published Kids-category videos and all 34 are explicitly marked `audience=kids`, so no current mismatch was observed.
+- Social OAuth recheck: Facebook and YouTube credential tables deny anon/authenticated access and grant service_role only. OAuth state is HMAC-bound to provider/admin and expires in 10 minutes; YouTube scopes reject delete-capable grants. Tokens are plaintext at the DB column level (no app-layer encryption); record this as an owner security-hardening decision, not a reproduced public access path. Two identical, already-applied Facebook credential deny-policy migrations are retained unchanged.
 - Admin RBAC recheck: all 27 admin API route files were permission-scanned; every route had an explicit admin permission, step-up, or signed OAuth-state guard. Role-assignment writes are service-role-only; the profile trigger blocks self-promotion; the audited role RPC is service-role-only. No missing guard or role-escalation path was found in this scan. All 66 admin page routes have now been permission-scanned; full data-flow, server-action and side-effect review remains open.
 - Open repair PRs: #337–#344. #337–#343 have green Quality Gate and CircleCI checks; #343 also passed the Android Debug APK job. PR #344 contains the inventory/ledger reconciliation and is still running its checks. All remain unmerged. None is merged.
 - Independent CODEOWNERS approval is blocked: `@Zikrmediaofficial` is not a repository collaborator, and the authenticated author cannot self-approve. No merge or deployment is authorized by this checkpoint.
 - Repository-wide audit remains open: all files not individually reviewed are explicitly `UNREVIEWED` in the matrix. Physical-device and Apple Team ID acceptance remain owner/manual tasks.
 
+
+> **Historical checkpoint only — superseded by the latest audit checkpoint above.** The source SHA, Vercel deployment ID, and smoke results in the following section do not describe current main or current production. Current main is `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; current production is READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9` (four commits behind), and the Apple AASA endpoint returns HTTP 503. Do not use the following historical section as current release evidence.
 
 ## Final verification — 2026-11-16
 
