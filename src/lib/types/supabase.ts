@@ -4645,6 +4645,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      consume_min_interval_rate_limit: {
+        Args: {
+          p_actor: string
+          p_bucket: string
+          p_interval_ms: number
+        }
+        Returns: boolean
+      }
       ensure_push_vapid_bundle: { Args: { candidate: Json }; Returns: Json }
       get_push_scheduler_secret: { Args: never; Returns: string }
       get_push_vapid_bundle: { Args: never; Returns: Json }
