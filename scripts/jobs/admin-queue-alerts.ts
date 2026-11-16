@@ -122,7 +122,14 @@ export async function notifyNewQueueFailures(runStartedAt: string) {
   for (const alert of alerts) {
     const existing = await supabaseServerAdminRequest<DeliveryRow[]>(
       "/rest/v1/admin_queue_alert_deliveries?alert_key=eq." + encodeURIComponent(alert.alertKey) + "&select=alert_key,delivered_at,webhook_sent,email_sent&limit=1",
-    ).catch(() => []);
+    ).catch((error) => {
+      console.error(
+        `[queue-alerts] Delivery ledger lookup failed for ${alert.queue}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      return null;
+    });
+    if (!existing) continue;
     const delivery = existing[0] ?? null;
     if (shouldSkipQueueAlertDelivery(delivery)) continue;
 
