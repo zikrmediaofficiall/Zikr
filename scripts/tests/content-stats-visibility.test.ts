@@ -11,7 +11,7 @@ assert.match(
 );
 assert.match(
   hadithService,
-  /published=eq\\.true/,
+  /published=eq\.true/,
   "the public hadith catalogue must remain scoped to published rows",
 );
 assert.match(
