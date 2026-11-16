@@ -141,6 +141,21 @@ assert.deepEqual(
   { status: "published", id: "newVideo999", publishedAt: newerYoutubePublication.published_at, supersededDeletedIds: [id] },
   "deleting an older remote YouTube ID must not clear a newer confirmed publication",
 );
+const sameIdRepublishRow = {
+  status: "published",
+  published_at: "2026-11-12T12:02:00.000Z",
+  metadata: { platformResults: { youtube: { ok: true, remoteId: id } } },
+};
+assert.deepEqual(
+  resolveLatestConfirmedYoutubeQueueState([deletedQueueRow, sameIdRepublishRow]),
+  {
+    status: "published",
+    id,
+    publishedAt: sameIdRepublishRow.published_at,
+    supersededDeletedIds: [],
+  },
+  "a later publication of the same remote ID must reactivate that ID rather than classify it as superseded",
+);
 const uncorrelatedDeletionRow = {
   ...publishedQueueRow,
   metadata: {
