@@ -23,6 +23,7 @@ export type KidsSocialCatalogQueueItem = {
 export type KidsSocialCatalogPublicationSnapshot = {
   status: "published" | "partial";
   platforms: SocialPlatform[];
+  publishedAt: string;
 };
 
 export function isKidsCatalogReconciliationEnabled(
@@ -116,6 +117,7 @@ export function resolveKidsSocialCatalogPublicationSnapshot(
   return {
     status: platforms.length === targetValidation.platforms.length ? "published" : "partial",
     platforms,
+    publishedAt: publicationAt,
   };
 }
 
@@ -180,6 +182,8 @@ export function isKidsSocialCatalogPublicationInSync(
     record.status !== snapshot.status ||
     typeof record.publishedAt !== "string" ||
     !Number.isFinite(Date.parse(record.publishedAt)) ||
+    !Number.isFinite(Date.parse(snapshot.publishedAt)) ||
+    Date.parse(record.publishedAt) !== Date.parse(snapshot.publishedAt) ||
     !Array.isArray(record.platforms)
   ) {
     return false;
@@ -197,6 +201,13 @@ export function shouldResetKidsCatalogSyncAfterPublicationChange(
   if (currentSyncStatus !== "synced" || !nextSnapshot) return false;
   if (!previousSnapshot) return true;
   if (previousSnapshot.status !== nextSnapshot.status) return true;
+  const previousPublishedAt = Date.parse(previousSnapshot.publishedAt);
+  const nextPublishedAt = Date.parse(nextSnapshot.publishedAt);
+  if (
+    !Number.isFinite(previousPublishedAt) ||
+    !Number.isFinite(nextPublishedAt) ||
+    previousPublishedAt !== nextPublishedAt
+  ) return true;
   const previousPlatforms = [...previousSnapshot.platforms].sort();
   const nextPlatforms = [...nextSnapshot.platforms].sort();
   return previousPlatforms.length !== nextPlatforms.length ||

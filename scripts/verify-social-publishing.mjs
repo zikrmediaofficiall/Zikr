@@ -244,6 +244,7 @@ if (!kidsCatalogSync.includes('typeof row.updated_at !== "string"') ||
     !kidsCatalogSync.includes('"&published=eq.true&updated_at=eq." + encodeURIComponent(row.updated_at)') ||
     kidsCatalogSync.includes('(row.updated_at ? "&updated_at=eq."') ||
     !kidsCatalogSync.includes("isKidsSocialCatalogPublicationInSync(existing, snapshot)") ||
+    !kidsCatalogSync.includes("publishedAt: snapshot.publishedAt") ||
     !kidsCatalogSync.includes("return { ok: false, reason:")) {
   failures.push("Kids catalog social metadata writes must be idempotent, report failed compare-and-set updates, and require a published row with an exact updated_at revision");
 }
@@ -252,6 +253,13 @@ const kidsCatalogReconcilerEnd = socialPublishingService.indexOf("\nasync functi
 const kidsCatalogReconciler = kidsCatalogReconcilerStart >= 0 && kidsCatalogReconcilerEnd > kidsCatalogReconcilerStart
   ? socialPublishingService.slice(kidsCatalogReconcilerStart, kidsCatalogReconcilerEnd)
   : "";
+if (!kidsCatalogReconciliationPolicy.includes("Date.parse(record.publishedAt) !== Date.parse(snapshot.publishedAt)") ||
+    !kidsCatalogReconciliationPolicy.includes("previousPublishedAt !== nextPublishedAt") ||
+    !socialPublishingService.includes("syncKidsSocialPublicationToCatalog(publishedItem, previousMetadata)") ||
+    !socialPublishingService.includes("syncKidsSocialPublicationToCatalog(publishedItem, publishMetadata)") ||
+    !socialPublishingService.includes("published_at: publishedAt")) {
+  failures.push("Kids catalog synchronization must compare and persist the exact current publication timestamp across initial, retry, and reconciliation paths");
+}
 if (!kidsCatalogReconciliationPolicy.includes("SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED") ||
     !kidsCatalogReconciliationPolicy.includes("kidsCatalogSyncStatus.eq.pending") ||
     !kidsCatalogReconciler.includes("checkVideoCatalogPublication(item)") ||

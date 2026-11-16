@@ -52,10 +52,10 @@ assert.throws(() => buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:
 assert.throws(() => buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:00Z", 0, 26), /page size/);
 
 const snapshot = resolveKidsSocialCatalogPublicationSnapshot(queueItem);
-assert.deepEqual(snapshot, { status: "published", platforms: ["facebook", "youtube"] });
-const partialSnapshot = { status: "partial" as const, platforms: ["facebook" as const] };
-const expandedPartialSnapshot = { status: "partial" as const, platforms: ["facebook" as const, "youtube" as const] };
-const publishedSnapshot = { status: "published" as const, platforms: ["facebook" as const, "youtube" as const] };
+assert.deepEqual(snapshot, { status: "published", platforms: ["facebook", "youtube"], publishedAt: "2026-11-15T10:00:00.000Z" });
+const partialSnapshot = { status: "partial" as const, platforms: ["facebook" as const], publishedAt: "2026-11-15T10:00:00.000Z" };
+const expandedPartialSnapshot = { status: "partial" as const, platforms: ["facebook" as const, "youtube" as const], publishedAt: "2026-11-15T10:00:00.000Z" };
+const publishedSnapshot = { status: "published" as const, platforms: ["facebook" as const, "youtube" as const], publishedAt: "2026-11-15T10:00:00.000Z" };
 assert.equal(
   shouldResetKidsCatalogSyncAfterPublicationChange("synced", partialSnapshot, publishedSnapshot),
   true,
@@ -70,6 +70,14 @@ assert.equal(
   shouldResetKidsCatalogSyncAfterPublicationChange("synced", partialSnapshot, partialSnapshot),
   false,
   "an unchanged partial publication must not be needlessly requeued",
+);
+assert.equal(
+  shouldResetKidsCatalogSyncAfterPublicationChange("synced", snapshot!, {
+    ...snapshot!,
+    publishedAt: "2026-11-15T10:05:00.000Z",
+  }),
+  true,
+  "a republished video with the same platforms must reopen catalog sync when its confirmed timestamp changes",
 );
 assert.equal(
   shouldResetKidsCatalogSyncAfterPublicationChange("pending", partialSnapshot, publishedSnapshot),
@@ -94,12 +102,12 @@ const partialQueueItem = {
 };
 assert.deepEqual(
   resolveKidsSocialCatalogPublicationSnapshot(partialQueueItem),
-  { status: "partial", platforms: ["facebook"] },
+  { status: "partial", platforms: ["facebook"], publishedAt: "2026-11-15T10:00:00.000Z" },
   "partial queue rows with a confirmed provider ID must remain eligible for catalog reconciliation",
 );
 assert.deepEqual(
   resolveKidsSocialCatalogPublicationSnapshot({ ...queueItem, status: "processing" }),
-  { status: "published", platforms: ["facebook", "youtube"] },
+  { status: "published", platforms: ["facebook", "youtube"], publishedAt: "2026-11-15T10:00:00.000Z" },
   "the live in-flight row must resolve to a published snapshot after every target has a confirmed remote ID",
 );
 assert.deepEqual(
@@ -114,7 +122,7 @@ assert.deepEqual(
       },
     },
   }),
-  { status: "partial", platforms: ["facebook"] },
+  { status: "partial", platforms: ["facebook"], publishedAt: "2026-11-15T10:00:00.000Z" },
   "the live publishing path must persist confirmed partial successes without waiting for the scheduled reconciler",
 );
 assert.equal(
@@ -144,7 +152,7 @@ assert.deepEqual(
       platformResults: { facebook: { ok: true, remoteId: "facebook-post-123" } },
     },
   }),
-  { status: "partial", platforms: ["facebook"] },
+  { status: "partial", platforms: ["facebook"], publishedAt: "2026-11-15T10:00:00.000Z" },
   "the in-flight processing row must still sync a confirmed partial provider result after queue finalization",
 );
 assert.equal(
@@ -171,7 +179,7 @@ const deletedFacebookQueueItem = {
 };
 assert.deepEqual(
   resolveKidsSocialCatalogPublicationSnapshot(deletedFacebookQueueItem),
-  { status: "partial", platforms: ["youtube"] },
+  { status: "partial", platforms: ["youtube"], publishedAt: "2026-11-15T10:00:00.000Z" },
   "catalog reconciliation must exclude a provider post whose exact remote ID was confirmed deleted",
 );
 const staleFacebookDeletionQueueItem = {
@@ -189,7 +197,7 @@ const staleFacebookDeletionQueueItem = {
 };
 assert.deepEqual(
   resolveKidsSocialCatalogPublicationSnapshot(staleFacebookDeletionQueueItem),
-  { status: "published", platforms: ["facebook", "youtube"] },
+  { status: "published", platforms: ["facebook", "youtube"], publishedAt: "2026-11-15T10:00:00.000Z" },
   "a deletion marker for an older remote ID must not hide the current provider publication",
 );
 
@@ -302,6 +310,17 @@ const matchingMetadata = {
   },
 };
 assert.equal(isKidsSocialCatalogPublicationInSync(matchingMetadata, snapshot!), true);
+assert.equal(
+  isKidsSocialCatalogPublicationInSync({
+    socialPublication: {
+      status: "published",
+      platforms: ["facebook", "youtube"],
+      publishedAt: "2026-11-15T09:00:00.000Z",
+    },
+  }, snapshot!),
+  false,
+  "matching platforms with an older publication timestamp must be reconciled",
+);
 assert.equal(
   isKidsSocialCatalogPublicationInSync({
     socialPublication: { status: "partial", platforms: ["facebook"], publishedAt: "2026-11-15T10:00:00.000Z" },

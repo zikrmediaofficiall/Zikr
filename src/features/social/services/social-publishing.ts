@@ -765,25 +765,12 @@ async function syncKidsSocialPublicationToCatalog(
     if (isKidsSocialCatalogPublicationInSync(existing, snapshot)) return { ok: true };
 
     const updatedAt = buildNextRowVersionUpdatedAt(row.updated_at);
-    const existingPublication = existing.socialPublication &&
-      typeof existing.socialPublication === "object" &&
-      !Array.isArray(existing.socialPublication)
-      ? existing.socialPublication as Record<string, unknown>
-      : {};
-    const existingPublishedAt = typeof existingPublication.publishedAt === "string" &&
-      Number.isFinite(Date.parse(existingPublication.publishedAt))
-      ? existingPublication.publishedAt
-      : null;
-    const queuePublishedAt = typeof item.published_at === "string" &&
-      Number.isFinite(Date.parse(item.published_at))
-      ? item.published_at
-      : null;
     const nextMetadata = {
       ...existing,
       socialPublication: {
         status: snapshot.status,
         platforms: snapshot.platforms,
-        publishedAt: queuePublishedAt ?? existingPublishedAt ?? updatedAt,
+        publishedAt: snapshot.publishedAt,
       },
     };
     const query = "/rest/v1/videos?id=eq." + encodeURIComponent(row.id) +
@@ -1293,20 +1280,30 @@ export async function processSocialPublishItem(
         typeof (result as PlatformResult).remoteId === "string" && (result as PlatformResult).remoteId?.trim());
     });
     if (allTargetsSucceeded) {
+      const existingPublishedAt = typeof item.published_at === "string" && Number.isFinite(Date.parse(item.published_at))
+        ? item.published_at
+        : null;
+      const publishedAt = existingPublishedAt ?? new Date().toISOString();
+      const publishedItem: SocialPublishQueueItem = {
+        ...item,
+        status: "published",
+        published_at: publishedAt,
+        metadata: previousMetadata,
+      };
       const updated = await markQueueItem(item.id, "published", {
         error_message: null,
         scheduled_at: null,
-        published_at: item.published_at ?? new Date().toISOString(),
+        published_at: publishedAt,
       }, claimLease);
       if (!updated) return "deferred";
       // This recovery path reuses already-confirmed provider results. Keep the
       // catalog fallback in sync just as the normal provider-result path does.
-      await syncYouTubeVideoReferenceToCatalog(item, previous.youtube);
-      const kidsCatalogSync = await syncKidsSocialPublicationToCatalog(item, previousMetadata);
+      await syncYouTubeVideoReferenceToCatalog(publishedItem, previous.youtube);
+      const kidsCatalogSync = await syncKidsSocialPublicationToCatalog(publishedItem, previousMetadata);
       if (!kidsCatalogSync.ok) {
         console.warn("[social-publishing] Kids catalog sync will be retried by the catalog reconciler:", item.content_id, kidsCatalogSync.reason);
       }
-      if (isVideoContentType(item.content_type)) await disposePublishedVideo({ ...item, metadata: previousMetadata });
+      if (isVideoContentType(item.content_type)) await disposePublishedVideo(publishedItem);
       return "published";
     }
     const manualReconciliationPlatforms = getManualReconciliationPlatforms(previousMetadata);
@@ -1498,12 +1495,23 @@ export async function processSocialPublishItem(
     platformResults: mergedResults,
   };
 
+  const newlyConfirmedSuccess = results.some((result) =>
+    result.ok === true &&
+    typeof result.remoteId === "string" &&
+    result.remoteId.trim().length > 0
+  );
+  const previousPublishedAt = typeof item.published_at === "string" && Number.isFinite(Date.parse(item.published_at))
+    ? item.published_at
+    : null;
+  const publishedAt = newlyConfirmedSuccess ? new Date().toISOString() : previousPublishedAt;
   const previousKidsCatalogSnapshot = resolveKidsSocialCatalogPublicationSnapshot(item);
-  const nextKidsCatalogSnapshot = resolveKidsSocialCatalogPublicationSnapshot({
+  const publishedItem: SocialPublishQueueItem = {
     ...item,
     status: persistedStatus,
+    published_at: publishedAt,
     metadata: publishMetadata,
-  });
+  };
+  const nextKidsCatalogSnapshot = resolveKidsSocialCatalogPublicationSnapshot(publishedItem);
   if (
     isVideoContentType(item.content_type) &&
     publishMetadata.audience === "kids" &&
@@ -1533,7 +1541,7 @@ export async function processSocialPublishItem(
   if (approvalDeferredPlatforms.length) errorMessages.push("Approval revalidation held publishing for: " + approvalDeferredPlatforms.join(", "));
   const finalized = await markQueueItem(item.id, persistedStatus, {
     scheduled_at: nextRetryAt,
-    published_at: successes.length > 0 ? new Date().toISOString() : null,
+    published_at: publishedAt,
     error_message: errorMessages.join("; ") || null,
     metadata: publishMetadata,
   }, inFlightLease);
@@ -1544,14 +1552,14 @@ export async function processSocialPublishItem(
 
   // Persist the confirmed YouTube video ID to the public catalog even when
   // another requested target is deferred; this provides a resilient playback fallback.
-  await syncYouTubeVideoReferenceToCatalog(item, mergedResults.youtube);
-  const kidsCatalogSync = await syncKidsSocialPublicationToCatalog(item, publishMetadata);
+  await syncYouTubeVideoReferenceToCatalog(publishedItem, mergedResults.youtube);
+  const kidsCatalogSync = await syncKidsSocialPublicationToCatalog(publishedItem, publishMetadata);
   if (!kidsCatalogSync.ok) {
     console.warn("[social-publishing] Kids catalog sync will be retried by the catalog reconciler:", item.content_id, kidsCatalogSync.reason);
   }
 
   if (allTargetsSucceeded) {
-    if (isVideoContentType(item.content_type)) await disposePublishedVideo({ ...item, metadata: publishMetadata });
+    if (isVideoContentType(item.content_type)) await disposePublishedVideo(publishedItem);
     return "published";
   }
   if (hasDeferredTargets && operationalFailures.length === 0) {
