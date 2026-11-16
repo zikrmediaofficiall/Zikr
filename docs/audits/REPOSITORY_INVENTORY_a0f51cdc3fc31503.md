@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T17:36:00Z
+Updated: 2026-11-16T17:44:00Z
 
 ## Exact snapshot
 
@@ -56,16 +56,16 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 16
-- `REVIEWED_PARTIAL`: 37
+- `REVIEWED_PARTIAL`: 43
 - `REVIEWED_PERMISSION_SCAN`: 92
-- `REVIEWED_PRODUCTION_APPLIED`: 18
+- `REVIEWED_PRODUCTION_APPLIED`: 32
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 18
-- `REVIEWED_SOURCE_ONLY`: 181
+- `REVIEWED_REGRESSION_COVERAGE`: 26
+- `REVIEWED_SOURCE_ONLY`: 186
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1533
+- `UNREVIEWED`: 1498
 
-High-priority unreviewed files: **584**.
+High-priority unreviewed files: **563**.
 
 ## Review batch — 2026-11-16 14:44 UTC
 
@@ -233,3 +233,17 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - **Production migration state:** Supabase remains ACTIVE_HEALTHY with 449 local / 449 remote migrations on main, exact version-set equality, latest `20261116045100`. PR #353 adds a proposed local-only migration in its branch; it has not been applied to production.
 - **Open governance and acceptance:** PRs #352/#353 and this documentation PR remain drafts pending authorized CODEOWNERS review. `.github/CODEOWNERS` requires `@Zikrmediaofficial`, whose collaborator permission lookup returned null. Manual iOS simulator/device and Android device acceptance, Apple associated-domain configuration, and post-deploy smoke checks remain open.
 - No production DB mutation, migration application, content generation, Gemini request, social publishing, Storage deletion, Android release, merge, Vercel deployment, or production smoke test was performed.
+
+## Reconciled audit batch — 2026-11-16 17:44 UTC
+
+- Repository snapshot remains main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; this audit branch changes only audit documentation.
+- Authoritative matrix blob: 1f15d46f1dbeff6f3ff6cabff8174ac427a5659d. Current inventory: 1,959 tracked blobs, 1,498 still unreviewed (563 high priority), 461 reviewed; the matrix is the per-file source of truth.
+- Main is five commits ahead of historical verification/deployment source 26ae58fdd2220897511544e9475eab28979f88f5. Full Quality Gate passed on PR #350/#351 heads based on main a0f51; CircleCI contexts on main pass. The production deployment last recorded READY is still associated with 26ae; not rechecked this run. vercel.json has Git deployment disabled, so deployment requires an authorized manual action after owner review.
+- Read-only Supabase verification of configured project zqtssvlvmkzeeyqghqfk (Zikrofficial): ACTIVE_HEALTHY, 449 applied migrations through 20261116045100, 103 tables including storage, zero RLS-disabled tables, nine buckets. Current Kids/video policies match the reviewed migrations. No migration, DDL, DML, function deployment or storage mutation was performed.
+- Current production automation: written-content generation is scheduled 15 7,13,19 UTC and uses Gemini; AI video generation is scheduled 17 3,9,15,21 UTC in free-only mode; social publishing is scheduled 7,22,37,52 UTC each hour and can publish public YouTube/Facebook when provider credentials and database settings permit. Prayer dispatch is every minute; source verification is daily. None of these workflows/functions were dispatched by this audit.
+- Supabase YouTube/Facebook sync cron is inactive and its Edge Function is absent; GitHub Actions is the active social publisher. The legacy cleanup route has no caller/cron and the youtube-facebook-media bucket is absent.
+- Kids safety: public content requires published/active and age-appropriate story state; levels require a published parent; questions are admin-only; public videos require QA, human approval, a linked request and matching hashes. Written Kids social copy and Kids videos remain blocked until human approval. PR #337 makes catalog-only reconciliation independent of provider gates but remains unmerged.
+- Storage: videos is a public 50 MiB bucket with zero objects at the snapshot; admin upload is step-up/audit protected but has no private staging/expiry, so draft uploads are publicly readable before form save. This is a design risk, not a current exposed object. public-assets is public/empty/no current app consumer; site-audio is public with six objects and no client write policy. No objects were deleted or created.
+- Supabase advisor: leaked-password protection remains disabled (owner setting); five RLS-enabled tables intentionally have no client policies (service-role-only); 79 unused-index notices were left untouched; one unindexed FK (site_audio_upload_intents.asset_id) and one multiple-permissive-policy notice (prophet_sections) remain.
+- Open repair PRs: #337 (Kids catalog/provider-gate separation; full Quality Gate + CircleCI pass), #339 (YouTube ID/thumbnail reconciliation; full pass), #343 (iOS App ID guard; full pass and Android debug APK, owner App ID required), #349 (prayer timezone migration; full pass), #350 (native splash; full pass and Android debug APK), #351 (signing-path ignore; full pass), #352 (favorite UUID validation; full pass), #353 (legacy Kids result idempotency; current head checks pending). All remain unmerged pending authorized CODEOWNERS review. PR #344 remains the audit-documentation PR.
+- No production publishing, content generation, Gemini request, Android release, migration, function deployment, Vercel deployment, smoke test or storage deletion was triggered.
