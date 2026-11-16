@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { ADMIN_SEARCH_ACCESS_PERMISSIONS, getVisibleAdminSearchSourceKeys } from "../../src/features/admin/services/admin-search-visibility";
+import { ADMIN_SEARCH_ACCESS_PERMISSIONS, getAdminSearchResultHref, getVisibleAdminSearchSourceKeys } from "../../src/features/admin/services/admin-search-visibility";
 import { hasAdminPermission, type AdminRole } from "../../src/features/admin/services/permissions";
 
 test("admin search only queries sources covered by the effective role", () => {
@@ -84,4 +84,37 @@ test("admin search route admits roles that can access at least one source", () =
   assert.match(adminSource, /permissions\.some\(\(permission\) => hasAdminPermission\(profile\.role, permission\)\)/);
   assert.ok(verifierSource.includes("/requireAnyAdminPermission\\(/"), "the canonical admin page verifier must recognize the any-permission guard");
   assert.ok(governanceVerifierSource.includes("requireAnyAdminPermission\\("), "the admin governance verifier must recognize the any-permission guard");
+});
+
+
+test("admin search keeps drafts and audience-restricted videos inside admin routes", () => {
+  assert.equal(
+    getAdminSearchResultHref({ type: "مقال", slug: "draft-article", published: false }),
+    "/admin/content",
+  );
+  assert.equal(
+    getAdminSearchResultHref({ type: "مقال", slug: "published-article", published: true }),
+    "/articles/published-article",
+  );
+  assert.equal(
+    getAdminSearchResultHref({ type: "قصة", slug: "draft-story", published: false }),
+    "/admin/content",
+  );
+  assert.equal(
+    getAdminSearchResultHref({ type: "قصة", slug: "published-story", published: true }),
+    "/stories/published-story",
+  );
+  assert.equal(
+    getAdminSearchResultHref({ type: "فيديو", slug: "kids-video", published: true }),
+    "/admin/video",
+    "Kids-only and unpublished videos must not be linked to public video routes",
+  );
+  assert.equal(
+    getAdminSearchResultHref({ type: "حديث", slug: null, published: true }),
+    "/admin/knowledge",
+  );
+  assert.equal(
+    getAdminSearchResultHref({ type: "مكتبة", slug: null, published: false }),
+    "/admin/content",
+  );
 });
