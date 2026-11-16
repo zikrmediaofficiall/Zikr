@@ -285,7 +285,7 @@ assert.throws(() => resolveVideoCatalogDuration(0), /positive number/);
 assert.throws(() => resolveVideoCatalogDuration(61), /no greater than 60/);
 assert.throws(() => resolveVideoCatalogDuration(Number.NaN), /positive number/);
 
-const videoWorker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
+
 assert.ok(videoWorker.includes("resolveVideoResolution(request.content?.resolution, request.content?.videoFormat)"));
 assert.ok(videoWorker.includes("durationSeconds: duration"));
 assert.ok(videoWorker.includes("renderDurationSeconds: rendered.durationSeconds"));
