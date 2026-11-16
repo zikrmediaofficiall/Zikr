@@ -35,6 +35,23 @@ AS $function$
         AND request.content->>'approvalReviewedAt' = p_metadata->>'approvalReviewedAt'
         AND request.content->>'approvalSnapshotHash' = p_metadata->>'approvalSnapshotHash'
         AND request.content->>'approvalSnapshotHash' ~ '^[a-f0-9]{64}$'
+        AND nullif(pg_catalog.btrim(request.category), '') IS NOT NULL
+        AND nullif(pg_catalog.btrim(request.source_hash), '') IS NOT NULL
+        AND nullif(pg_catalog.btrim(request.content_hash), '') IS NOT NULL
+        AND nullif(pg_catalog.btrim(request.video_url), '') IS NOT NULL
+        AND pg_catalog.encode(
+          extensions.digest(
+            '[' ||
+              pg_catalog.to_json(pg_catalog.btrim(request.category))::text || ',' ||
+              pg_catalog.to_json(pg_catalog.btrim(request.source_hash))::text || ',' ||
+              pg_catalog.to_json(pg_catalog.btrim(request.content_hash))::text || ',' ||
+              pg_catalog.to_json(coalesce(pg_catalog.btrim(request.template_version), ''))::text || ',' ||
+              pg_catalog.to_json(pg_catalog.btrim(request.video_url))::text ||
+              ',"kids","passed"]',
+            'sha256'
+          ),
+          'hex'
+        ) = p_metadata->>'approvalSnapshotHash'
         AND request.content->'automatedVideoQa'->>'status' = 'passed'
         AND request.content->'automatedVideoQa'->>'snapshotHash' = p_metadata->'automatedVideoQa'->>'snapshotHash'
         AND request.content->'automatedVideoQa'->>'snapshotHash' = p_metadata->>'approvalSnapshotHash'
@@ -64,7 +81,7 @@ GRANT USAGE ON SCHEMA private TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION private.video_catalog_has_current_human_kids_approval(jsonb) TO anon, authenticated;
 
 COMMENT ON FUNCTION private.video_catalog_has_current_human_kids_approval(jsonb) IS
-  'Returns true only when a published Kids video catalog row is backed by an existing completed generation request with matching media fingerprints, QA, series metadata, and human approval.';
+  'Returns true only when a published Kids video catalog row is backed by an existing completed generation request with matching media fingerprints, a recomputed current approval snapshot hash, QA, series metadata, and human approval.';
 
 
 DROP POLICY IF EXISTS videos_public_read ON public.videos;

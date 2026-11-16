@@ -59,8 +59,8 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 40 THEN
-    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 40 fixtures; found %', visible_rows;
+  IF visible_rows <> 41 THEN
+    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 41 fixtures; found %', visible_rows;
   END IF;
 END
 $service_role_read$;
@@ -147,6 +147,20 @@ BEGIN
   WHERE oid = 'public.videos'::regclass;
   IF rls_enabled IS NOT TRUE THEN
     RAISE EXCEPTION 'RLS must remain enabled on public.videos';
+  END IF;
+
+  IF has_table_privilege('anon', 'public.video_generation_requests', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.video_generation_requests', 'SELECT') THEN
+    RAISE EXCEPTION 'generation request rows must remain private to the server and service role';
+  END IF;
+
+  IF NOT has_function_privilege('anon', 'private.video_catalog_has_current_human_kids_approval(jsonb)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'private.video_catalog_has_current_human_kids_approval(jsonb)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'public roles must be able to evaluate the private approval predicate through RLS';
+  END IF;
+
+  IF pg_get_functiondef('private.video_catalog_has_current_human_kids_approval(jsonb)'::regprocedure) NOT ILIKE '%extensions.digest%' THEN
+    RAISE EXCEPTION 'public Kids video RLS must recompute the current request approval snapshot hash';
   END IF;
 
   IF NOT has_table_privilege('anon', 'public.videos', 'SELECT')
