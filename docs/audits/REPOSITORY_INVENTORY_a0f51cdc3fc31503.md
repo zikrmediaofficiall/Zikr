@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16 (subsequent read-only audit updates; exact UTC time not captured)
+Updated: 2026-11-16 (reconciled against the latest exact matrix blob; exact UTC time not captured)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16 (subsequent read-only audit updates; exact UTC time not capt
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `7f67b78bafea9916322b8a81f9ece41d692606b9`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `b1076ea6c61d237b85736824d753947f3646bfd9`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -66,12 +66,12 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_PERMISSION_SCAN`: 94
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 55
-- `REVIEWED_SOURCE_ONLY`: 287
+- `REVIEWED_REGRESSION_COVERAGE`: 62
+- `REVIEWED_SOURCE_ONLY`: 286
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1307
+- `UNREVIEWED`: 1301
 
-High-priority unreviewed files: **451**. The matrix has 1,959 file rows; 652 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **451**. The matrix has 1,959 file rows; 658 are not marked `UNREVIEWED`.
 
 ## Review batch — 2026-11-16 21:15 UTC
 
