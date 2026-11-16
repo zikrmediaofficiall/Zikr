@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T21:06:00Z
+Updated: 2026-11-16T21:15:00Z
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T21:06:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `6c1a3ed41fee37a1fbc2d11a0ad11a562c47ee96`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `b7c3a383fcc61e6cbf7450e9bb586b1de8567a4c`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -52,7 +52,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR353`: 4
 - `FIX_PENDING_PR362`: 3
 - `FIX_PENDING_PR369`: 1
-- `FIX_PENDING_PR370`: 3
+- `FIX_PENDING_PR370`: 4
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
@@ -66,20 +66,19 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_REGRESSION_COVERAGE`: 43
 - `REVIEWED_SOURCE_ONLY`: 260
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1364
+- `UNREVIEWED`: 1355
 
-High-priority unreviewed files: **482**. The matrix has 1,959 file rows; 595 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **479**. The matrix has 1,959 file rows; 604 are not marked `UNREVIEWED`.
 
-## Review batch — 2026-11-16 21:02 UTC
+## Review batch — 2026-11-16 21:15 UTC
 
-- Read and parsed all 23 canonical Quran catalog/ayah/Tafsir SQL seed files, not just their filenames. The catalog migration contains 114 surahs, 172 unique reciter codes and 422 ayahs; the 13 subsequent JSONB chunks contain 5,814 ayahs. Combined source payload: **6,236 unique (surah_id, ayah_number) keys across 114 surahs**, no duplicate keys, no empty Arabic/Uthmani text, and valid page/juz/sajda ranges. Every chunk is one idempotent `ON CONFLICT` upsert; no DELETE/DROP/TRUNCATE was found.
-- Read and parsed all nine Tafsir al-Muyassar expansion migrations: **6,236 unique ayah keys**, 700 rows in each of the first eight files and 636 in the ninth; author/source URL consistency, no empty text (20–1,451 chars), no duplicate keys, and idempotent conflict handling. No DELETE/DROP/TRUNCATE was found.
-- Remote Supabase history confirms all 23 source migrations are applied (449 total). Read-only production checks: 114 surahs; 6,236 Quran ayahs and unique keys; every surah's ayah count matches its catalog; zero empty Arabic/Uthmani text or count mismatches. Tafsir al-Muyassar has 6,236 unique rows across all 114 surahs, zero missing/extra links, zero empty text and zero unexpected sources. Reciters: 172 unique codes, all valid HTTPS mp3quran.net URLs. Audio: 19,608 unique surah/reciter pairs, all external MP3 with valid URLs and no missing reciter/surah references.
-- No seed migration was applied, replayed, edited or rolled back; no audio was downloaded or changed. These 23 high-priority files are marked `REVIEWED_DATA_VALIDATED`.
-- Queue-alert retry repair remains PR #369 exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`; Quality Gate `43953516859` passed `QUALITY_GATE=PASSED_FULL`, CircleCI source/application/config passed, Android debug APK build `43953516793` passed. Owner review remains outstanding.
-- Search repair remains PR #370 exact head `f5596f7ad1b72e666c084923123814e5e001c0e1`; its initial verifier failure was repaired, and fresh exact-head Quality Gate/CircleCI checks were still running at this timestamp.
+- Read and parsed all 23 canonical Quran catalog/ayah/Tafsir SQL seed files. Source contains 6,236 unique Quran ayahs and 6,236 unique Tafsir al-Muyassar entries across 114 surahs; all 23 migration versions are applied. Read-only production queries match every per-surah count, show zero missing/extra tafsir keys, zero empty text, 172 valid reciters and 19,608 valid external audio pairs. No migration replay or audio/storage operation occurred.
+- Read the poetry-insight route, shared AI rate-limit service/identity, poetry system prompt, bounded JSON reader, rate-limit migration and regression tests. Existing `pnpm test` coverage verifies authentication-before-body, 64 KiB streamed bound, user HMAC quota before Gemini, fail-closed limiter, prompt isolation, and byte-level body limits. Main Quality Gate run `43833156580` passed full verification on exact main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. No Gemini request was made.
+- Read-only production ACL checks confirm `consume_admin_rate_limit` is SECURITY DEFINER with `search_path=public`, EXECUTE denied to anon/authenticated and granted to service_role; `admin_rate_limits` RLS enabled, client SELECT denied and service_role SELECT allowed. Migration `20261008082029` is applied. No rate-limit RPC was invoked.
+- Read the public search API route. A cache miss set `Cache-Control: public, max-age=60, stale-while-revalidate=300`, while a cache hit omitted it. PR #370 current exact head `31c6262005e8a91f6c73e418519d0dfdda84d542` now shares the header object and adds a parity regression assertion. Earlier head `f5596f7` passed full Quality Gate/CircleCI/Android debug; the new cache-header commit requires fresh exact-head checks, which are pending.
+- PR #369 remains green on exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`: Quality Gate `43953516859` full, CircleCI source/application/config and Android debug APK `43953516793` passed. Owner review remains outstanding.
 - Production remains on READY deployment source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and not deployed. No HTTP smoke or deployment was run.
-- Documentation PR #344 current head `5351b2eccba90b26118e7f2e426fe4cda4140ae0` has no exact-head GitHub workflow run or CircleCI status; its earlier Quality Gate attempt was cancelled on an older head. Do not treat this documentation PR as verified.
+- No content generation, Gemini request, social publish, production mutation, storage/media deletion, release, merge, deployment or workflow dispatch occurred.
 
 ## Review batch — 2026-11-16 14:44 UTC
 
