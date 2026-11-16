@@ -2677,3 +2677,14 @@ No content generation, Gemini request, social publishing, production database mu
 ### Safety
 
 No production SQL mutation, migration execution, data repair, content generation, Gemini request, social publishing, audio/media download, Storage deletion, release, merge, deployment or smoke test was performed. Full repository audit remains OPEN; 1,364 tracked blobs remain unreviewed, owner review and device acceptance are outstanding.
+
+
+## 2026-11-16T21:06Z — exact-head repair verification
+
+- PR #369 remains at exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`: Quality Gate run `43953516859` completed success with `QUALITY_GATE=PASSED_FULL`; the log explicitly reports `Admin queue alert per-channel retry contract passed.` CircleCI `source-verify`, `application-build-docs`, and `config-guard` all passed; Android Native Login Debug APK run `43953516793` passed. This is build/test evidence only, not an Android release. PR remains draft/unmerged because CODEOWNERS review is outstanding.
+- PR #370 remains at exact head `f5596f7ad1b72e666c084923123814e5e001c0e1`: Quality Gate run `43953972981` completed success with `QUALITY_GATE=PASSED_FULL`; the log explicitly runs `node scripts/verify-arabic-search.mjs && tsx scripts/tests/search-index-contract.test.ts` and reports both Arabic search contract checks passed. CircleCI `source-verify`, `application-build-docs`, and `config-guard` all passed; Android Native Login Debug APK run `43953973140` passed. This is build/test evidence only, not an Android release. PR remains draft/unmerged pending CODEOWNERS review.
+- PR #370's earlier Quality Gate failure `43953175756` was not bypassed: the failing verifier lacked a `contents.search` source entry. The path was added, the branch head advanced to `f5596f7ad1b72e666c084923123814e5e001c0e1`, and the complete canonical suite was rerun successfully on that exact head.
+- Documentation PR #344 branch `audit/zikr-repository-inventory-20261116` current head at this point is `c782795ab623a7dce9e761fa147a8a53a41c0311` after the latest status/inventory/ledger reconciliation. No exact-head GitHub workflow run or CircleCI status is attached to this docs-only head; an earlier Quality Gate attempt was cancelled on an older head. This PR is not marked verified or merge-ready.
+- Matrix remains tied to main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, blob `6c1a3ed41fee37a1fbc2d11a0ad11a562c47ee96`: 1,959 tracked blobs, 1,364 still `UNREVIEWED` (482 high priority), 595 in reviewed/pending categories. The full manifest remains unchanged at blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
+- No PR was merged, no owner approval was inferred, no deployment was triggered, and no production smoke was run. Main remains one commit ahead of the latest READY production source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`.
+
