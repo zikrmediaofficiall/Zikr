@@ -35,16 +35,16 @@ The manifest includes every recursive tree entry (files and directories). The st
 
 ## File-status matrix
 
-- `UNREVIEWED`: 1746
+- `UNREVIEWED`: 1722
 - `REVIEWED_PERMISSION_SCAN`: 92
-- `REVIEWED_SOURCE_ONLY`: 55
+- `REVIEWED_SOURCE_ONLY`: 62
+- `REVIEWED_PARTIAL`: 13
+- `REVIEWED_REGRESSION_COVERAGE`: 12
+- `REVIEWED_PRODUCTION_APPLIED`: 12
 - `FIX_PENDING_PR337`: 9
-- `REVIEWED_PRODUCTION_APPLIED`: 8
-- `REVIEWED_REGRESSION_COVERAGE`: 7
 - `FIX_PENDING_PR343`: 5
 - `FIX_PENDING_PR339`: 5
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `REVIEWED_PARTIAL`: 5
 - `FIX_PENDING_PR338`: 4
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `FIX_PENDING_PR340`: 3
@@ -57,7 +57,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 
-High-priority unreviewed files: **704**.
+High-priority unreviewed files: **700**.
 
 ## Verified repository and production state
 
