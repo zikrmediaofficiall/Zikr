@@ -99,6 +99,6 @@ export function isSafeQuranAudioDownloadPath(value: unknown): value is string {
     return false;
   }
 
-  const match = /^quran-audio\/([A-Za-z0-9][A-Za-z0-9._-]{0,79})\/([1-9]|[1-9][0-9]|10[0-9]|11[0-4])\.mp3$/.exec(value);
-  return Boolean(match && !match[1].includes(".."));
+  const match = /^quran-audio\/([A-Za-z0-9][A-Za-z0-9._-]{0,79})\/([1-9][0-9]{0,2})\.mp3$/.exec(value);
+  return Boolean(match && Number(match[2]) <= 114 && !match[1].includes(".."));
 }
