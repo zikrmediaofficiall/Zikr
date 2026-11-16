@@ -12,6 +12,8 @@ export type QueueAlertConfiguredChannels = {
 };
 
 export const QUEUE_ALERT_RETRY_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+export const QUEUE_ALERT_FAILURE_PAGE_SIZE = 50;
+export const MAX_QUEUE_ALERT_FAILURE_ROWS = 500;
 
 /**
  * Revisit recent failures so a transient delivery outage or an interrupted

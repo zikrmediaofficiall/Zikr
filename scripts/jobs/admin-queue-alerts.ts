@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
 import {
   getQueueAlertRetrySince,
+  MAX_QUEUE_ALERT_FAILURE_ROWS,
+  QUEUE_ALERT_FAILURE_PAGE_SIZE,
   isQueueAlertDeliveryComplete,
   shouldSendQueueAlertChannel,
   shouldSkipQueueAlertDelivery,
@@ -87,15 +89,37 @@ async function adminAlertsEnabled() {
   return value !== false && value !== "false";
 }
 
+async function loadQueueFailures(queue: QueueName, since: string, until: string): Promise<FailedQueueRow[]> {
+  const table = queue === "video" ? "video_generation_requests" : "social_publish_queue";
+  const rows: FailedQueueRow[] = [];
+
+  // Keep the scan bounded, but do not silently alert on only the first 50
+  // failures from a seven-day retry window.
+  for (let offset = 0; offset <= MAX_QUEUE_ALERT_FAILURE_ROWS; offset += QUEUE_ALERT_FAILURE_PAGE_SIZE) {
+    const page = await supabaseServerAdminRequest<FailedQueueRow[]>(
+      `/rest/v1/${table}?status=eq.failed&updated_at=gte.${encodeURIComponent(since)}&updated_at=lte.${encodeURIComponent(until)}&select=id,title,error_message,updated_at&order=updated_at.asc,id.asc&limit=${QUEUE_ALERT_FAILURE_PAGE_SIZE}&offset=${offset}`,
+    );
+    const currentPage = page ?? [];
+    if (offset === MAX_QUEUE_ALERT_FAILURE_ROWS && currentPage.length > 0) {
+      throw new Error(
+        `Queue alert ${queue} failure inventory exceeded ${MAX_QUEUE_ALERT_FAILURE_ROWS} rows; refusing to send an incomplete alert.`,
+      );
+    }
+    rows.push(...currentPage);
+    if (currentPage.length < QUEUE_ALERT_FAILURE_PAGE_SIZE) return rows;
+  }
+
+  throw new Error(
+    `Queue alert ${queue} failure inventory exceeded ${MAX_QUEUE_ALERT_FAILURE_ROWS} rows; refusing to send an incomplete alert.`,
+  );
+}
+
 async function loadFailures(runStartedAt: string): Promise<QueueAlert[]> {
   const since = getQueueAlertRetrySince(runStartedAt);
+  const until = new Date(Date.parse(runStartedAt)).toISOString();
   const [video, social] = await Promise.all([
-    supabaseServerAdminRequest<FailedQueueRow[]>(
-      "/rest/v1/video_generation_requests?status=eq.failed&updated_at=gte." + encodeURIComponent(since) + "&select=id,title,error_message,updated_at&order=updated_at.asc&limit=50",
-    ),
-    supabaseServerAdminRequest<FailedQueueRow[]>(
-      "/rest/v1/social_publish_queue?status=eq.failed&updated_at=gte." + encodeURIComponent(since) + "&select=id,title,error_message,updated_at&order=updated_at.asc&limit=50",
-    ),
+    loadQueueFailures("video", since, until),
+    loadQueueFailures("social", since, until),
   ]);
   return ([
     { queue: "video" as const, title: "فشل جديد في طابور توليد الفيديو", rows: video },

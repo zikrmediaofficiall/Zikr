@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   getQueueAlertRetrySince,
+  MAX_QUEUE_ALERT_FAILURE_ROWS,
+  QUEUE_ALERT_FAILURE_PAGE_SIZE,
   isQueueAlertDeliveryComplete,
   QUEUE_ALERT_RETRY_LOOKBACK_MS,
   shouldSendQueueAlertChannel,
@@ -19,6 +21,9 @@ assert.equal(
   "2026-11-09T12:00:00.000Z",
 );
 assert.throws(() => getQueueAlertRetrySince("not-a-date"), /valid timestamp/);
+assert.equal(QUEUE_ALERT_FAILURE_PAGE_SIZE, 50);
+assert.equal(MAX_QUEUE_ALERT_FAILURE_ROWS, 500);
+assert.equal(MAX_QUEUE_ALERT_FAILURE_ROWS % QUEUE_ALERT_FAILURE_PAGE_SIZE, 0);
 
 const bothChannels = { webhookConfigured: true, emailConfigured: true };
 const webhookOnly = { webhookConfigured: true, emailConfigured: false };
@@ -116,5 +121,15 @@ assert.match(job, /shouldSendQueueAlertChannel\(delivery, "email"\)/);
 assert.match(job, /isQueueAlertDeliveryComplete\(/);
 assert.match(job, /Delivery ledger lookup failed/);
 assert.match(job, /if \(!existing\) continue;/, "a failed ledger read must not resend an alert blindly");
+
+assert.match(job, /updated_at=lte\\.\\$\\{encodeURIComponent\\(until\\)\\}/);
+assert.match(job, /order=updated_at\\.asc,id\\.asc/);
+assert.match(job, /offset=\\$\\{offset\\}/);
+assert.match(job, /MAX_QUEUE_ALERT_FAILURE_ROWS/);
+const videoWorkflow = readFileSync(".github/workflows/generate-ai-video.yml", "utf8");
+const socialWorkflow = readFileSync(".github/workflows/publish-social.yml", "utf8");
+for (const workflow of [videoWorkflow, socialWorkflow]) {
+  assert.match(workflow, /concurrency:\\s*\\n\\s*group:\\s*zikr-background-worker\\s*\\n\\s*cancel-in-progress:\\s*false/);
+}
 
 console.log("Queue alert retry window and per-channel delivery contracts passed.");
