@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { supabaseServerAnonRequest } from "@/lib/supabase/server";
-import { getDatabasePublicationState } from "@/lib/data/publication-visibility";
+import { getDatabasePublicationState, getDatabasePublicationStates } from "@/lib/data/publication-visibility";
 import { shouldSuppressOfflineFallback } from "@/lib/data/publication-visibility-contract";
 import { getPublicEnv } from "@/lib/env";
 import { normalizedText } from "@/lib/content-quality";
@@ -199,10 +199,22 @@ export async function getArticles(categoryId?: string, limit = 100, locale?: Loc
       if (rows.length === 0) {
         // A successful empty published query is authoritative. Do not resurrect
         // stale database snapshots; retain only bundled editorial fallbacks.
-        const staticFallback = getFallbackArticles(activeLocale).filter(
-          article => !categoryId || categoryId === "all" || article.categoryId === categoryId,
+        const staticFallback = withLongformArticles(
+          getFallbackArticles(activeLocale).filter(
+            article => !categoryId || categoryId === "all" || article.categoryId === categoryId,
+          ),
+          activeLocale,
+          categoryId,
         );
-        return withLongformArticles(staticFallback, activeLocale, categoryId).slice(0, safeLimit);
+        const publicationStates = await getDatabasePublicationStates(
+          "articles",
+          staticFallback.map((article) => article.slug),
+        );
+        return staticFallback
+          .filter((article) =>
+            !shouldSuppressOfflineFallback(publicationStates.get(article.slug) ?? "unknown"),
+          )
+          .slice(0, safeLimit);
       }
 
       let offlineArticles: Article[] = [];
