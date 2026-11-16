@@ -5,6 +5,7 @@ import {
   isPurgedInternalVideoMedia,
   isUnlinkedInternalVideoMedia,
   reconcileYoutubeFallbackMetadata,
+  resolveCatalogThumbnail,
   resolveLatestConfirmedYoutubeQueueState,
   resolveYoutubeCatalogReference,
   type YoutubeQueuePublicationState,
@@ -112,17 +113,17 @@ function thumbnailFor(
   current: string | null,
   allowCloudinary = true,
 ): string | null {
-  if (current?.trim()) return current.trim();
-  if (youtubeId) return "https://i.ytimg.com/vi/" + youtubeId + "/hqdefault.jpg";
-  if (!allowCloudinary) return "/branding/og-image.jpg";
-  const url = cloudinaryAssetUrl(metadata);
-  if (url) {
-    const parsed = new URL(url);
-    return parsed.origin + parsed.pathname
-      .replace("/video/upload/", "/video/upload/so_0/")
-      .replace(/\.(mp4|webm|mov|m4v)$/i, ".jpg");
+  let fallbackThumbnail = "/branding/og-image.jpg";
+  if (!youtubeId && allowCloudinary) {
+    const url = cloudinaryAssetUrl(metadata);
+    if (url) {
+      const parsed = new URL(url);
+      fallbackThumbnail = parsed.origin + parsed.pathname
+        .replace("/video/upload/", "/video/upload/so_0/")
+        .replace(/\.(mp4|webm|mov|m4v)$/i, ".jpg");
+    }
   }
-  return "/branding/og-image.jpg";
+  return resolveCatalogThumbnail(current, youtubeId, fallbackThumbnail);
 }
 
 async function patchCatalog(row: VideoCatalogRow, patch: Record<string, unknown>) {
@@ -230,7 +231,7 @@ async function auditOne(
     metadata: nextMetadata,
   };
   if (row.youtube_id !== youtubeId) patch.youtube_id = youtubeId;
-  if (!row.thumbnail_url && thumbnail) patch.thumbnail_url = thumbnail;
+  if (thumbnail && thumbnail !== row.thumbnail_url) patch.thumbnail_url = thumbnail;
 
   const mediaStateChanged = nextMetadata.mediaState !== metadata.mediaState;
   const mediaAuditChanged = JSON.stringify(comparableMediaAudit(nextMetadata.mediaAudit)) !==
@@ -244,7 +245,7 @@ async function auditOne(
     nextMetadata.mediaFallbackAvailable !== metadata.mediaFallbackAvailable;
   const needsUpdate = mediaStateChanged || mediaAuditChanged || confirmedFallbackChanged ||
     row.youtube_id !== youtubeId ||
-    (!row.thumbnail_url && Boolean(thumbnail));
+    thumbnail !== row.thumbnail_url;
   if (!needsUpdate) {
     return { state: mediaState, id: row.id, updated: false, youtubeFallback: hasConfirmedYoutubeFallback };
   }
