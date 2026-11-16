@@ -12,7 +12,7 @@ Generated: 2026-11-16T13:04:59.302Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `137d6c8afc271b57aaba55a5f4e4fe0478e21a37`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `15165507ea533b0afdc44cd05664f60d0ade84a5`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -140,3 +140,9 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Role integrity: `profiles.role` updates are protected by the `guard_profile_sensitive_fields` trigger; delegated `admin_role_assignments` writes are service-role-only. `admin_update_user_role` is SECURITY INVOKER with empty search_path and EXECUTE granted only to service_role. The server action requires `users.roles` + AAL2 and blocks self-demotion; only super_admin can assign full-admin roles. Role lookup errors resolve to `user` (fail closed).
 - Live grants/policies confirm authenticated users can SELECT their own delegated assignment but cannot INSERT/UPDATE/DELETE assignments; the trigger blocks direct profile role/email changes. All five relevant migrations are applied. Existing role-resolution and PostgreSQL integration tests cover these cases and the main Quality Gate is green.
 - No missing route permission guard or reproducible role-escalation path was found in this scan. The remaining 66 admin page routes and full route business logic are still in the unreviewed queue.
+
+## Admin page permission scan — 2026-11-16T13:32:45.811Z
+
+- Scanned all **66** `src/app/admin/**/page.tsx` files against their actual source. Every page either calls `requireAdminPermission`/`requireAdminStepUp` or is an alias redirect to a destination page with its own permission guard. The shared layout calls `requireAdmin` and filters navigation by role, but it is not treated as a substitute for per-page authorization.
+- Sensitive pages apply specific permissions (e.g. `kids.manage`, `video.manage`, `social.manage`, `analytics.read`, `users.read`, `security.manage`, `release.manage`, `system.manage`). Queue and dashboard pages conditionally expose sections by permission. Redirect-only legacy paths route to guarded canonical pages.
+- This closes only the page permission-gate scan. Full data fetching, server actions, client mutations, and every nested component still require file-by-file review.
