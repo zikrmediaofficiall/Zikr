@@ -2397,3 +2397,11 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 - Migrations `20261028112823` and `20261028112833` have identical content/blob SHA `4b047934470e1b23f08a0fe44548cc4c5f4700ef` and both are applied. Preserve both immutable migration records; no deletion or rewrite.
 - Existing regression tests cover provider scope checks, paginated channel/Page selection, OAuth state tampering/expiry, credential identity, cross-platform isolation, malformed queue recovery, and token-log exclusion. No OAuth or social publish operation was triggered.
 - Matrix blob `650732ab1206d94311dc2ba59888a38829b7cca9`; 1722 files remain unreviewed.
+
+
+## 2026-11-16 13:43 UTC — Kids catalog runner call-site verified
+
+- PR #337's actual runner call is present in `scripts/run-background-jobs.ts`: `reconcileKidsCatalogMetadata()` executes before the Admin `autoPublish` / `SOCIAL_PUBLISH_ENABLED` external publishing gate. The workflow opt-in defaults to false, so no catalog mutation occurs unless the owner explicitly enables `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED=true`.
+- When enabled, it runs even if Cloudinary/Facebook/YouTube credentials later disable external publishing. It is a metadata-only catalog reconciliation, not social publishing or content generation; it rechecks current human approval/fingerprint, uses bounded pagination and CAS, fails closed during video purge, and has no provider publish calls.
+- The focused test verifies the call occurs before the external publishing gate, the opt-in default, bounded scan, approval recheck and absence of provider calls. No workflow or database mutation was triggered by this audit.
+- Updated matrix blob `3f6abdcad0c9bd255ac3ae1850d5ffc2f2ff2ef9`; 1721 files remain unreviewed.
