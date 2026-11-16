@@ -20,6 +20,7 @@ const CONTENT_TABLES = {
 const PUBLISHED_TABLES = new Set([
   "articles",
   "duas",
+  "hadiths",
   "prophets",
   "companions",
   "scholars",
