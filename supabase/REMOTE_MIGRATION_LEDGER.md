@@ -746,7 +746,7 @@ Method: Supabase project metadata, migration list, table inventory, Edge Functio
 
 ### Automation safety note
 
-- GitHub Actions schedules written-content generation at 15 7,13,19 UTC using Gemini; AI video generation at 17 3,9,15,21 UTC in free-only mode with Gemini fallback disabled; and social publishing at 7,22,37,52 minutes each hour, with public YouTube/Facebook publishing when credentials and database settings permit. Kids written posts and Kids videos remain blocked from external publication until explicit human approval.
+- GitHub Actions schedules written-content generation at 15 7,13,19 UTC using Gemini; AI video generation at 17 3,9,15,21 UTC in free-only mode with Gemini fallback disabled; and social publishing at 7,22,37,52 minutes each hour, with public YouTube/Facebook publishing when credentials and database settings permit. Kids written posts and Kids videos remain blocked from external publication until explicit human approval. The Kids catalog-only reconciliation path is not merged; its GitHub variable defaults false and must be explicitly enabled by an owner after merge.
 - These workflows are production automation, not audit fixtures. None was dispatched by this audit. The Supabase YouTube/Facebook sync cron being inactive does not mean social publishing is disabled; the GitHub workflow is scheduled.
 - The legacy Next.js cleanup-media route has no caller or Vercel cron and its expected bucket is absent. It was not invoked.
 
