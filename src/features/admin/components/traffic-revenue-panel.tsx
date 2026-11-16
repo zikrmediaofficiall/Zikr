@@ -54,7 +54,19 @@ export async function TrafficRevenuePanel({
 }: {
   canManageYouTubeConnection: boolean;
 }) {
-  const snapshot = await getTrafficRevenueSnapshot();
+  const snapshot = await getTrafficRevenueSnapshot().catch(() => null);
+  if (!snapshot) {
+    return (
+      <section className="mt-8 space-y-6" dir="rtl" aria-labelledby="traffic-revenue-heading">
+        <Card className="p-5">
+          <h2 id="traffic-revenue-heading" className="font-bold text-brand-gold">محرك الزيارات والإيرادات</h2>
+          <p role="status" className="mt-2 text-sm leading-7 text-brand-cream/65">
+            تعذر تحميل لوحة الزيارات والإيرادات حاليًا. لم يتم استبدال البيانات غير المتاحة بأصفار أو مؤشرات تقديرية؛ أعد المحاولة لاحقًا.
+          </p>
+        </Card>
+      </section>
+    );
+  }
   const metrics = snapshot.metrics;
 
   return (
