@@ -2330,3 +2330,11 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 - The full file-status matrix at `docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl` has been refreshed (blob `677ec0e06344bbeb0366d0b0438a9d632bb1e660`) and now records 25 fully source-reviewed files, 2 partial scheduler-function inspections, 5 PR343 fix-pending files, and 1,894 still-unreviewed blobs. The base snapshot remains main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`.
 - Production Apple AASA remains HTTP 503 until an authorized owner supplies the real `IOS_ASSOCIATED_DOMAIN_APP_ID` in Vercel Production. No environment variable was changed and no deployment was triggered.
 - CODEOWNERS access remains unresolved; no approval or merge was performed.
+
+
+## 2026-11-16 13:09 UTC — main CI and Kids catalog verification
+
+- Main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`: CircleCI `source-verify`, `application-build-docs`, `config-guard`, and `android-release-draft` verification all passed; GitHub Quality Gate passed. This did not create an Android release.
+- Read-only production query of `video_categories.slug='kids-stories'`: 34 published videos, 0 with null metadata, 0 without `audience=kids`, and 0 marked general. The category-based RLS defect in PR #340 is preventative for legacy/future rows; no current exposed row was observed.
+- PR #344 (`127f44e41c85b8d7ca7d00716dccc000b13b5d04`) is the inventory/ledger documentation PR; its Quality Gate and CircleCI source/application jobs remain in progress, config guard passed.
+- Updated file-status matrix blob: `a7aaff211f349220d1bb9b1a5f3bf9c3c956b0a3`; the base snapshot remains main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, with 1,894 files still unreviewed.
