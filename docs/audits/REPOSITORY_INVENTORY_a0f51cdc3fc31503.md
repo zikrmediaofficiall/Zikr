@@ -80,7 +80,7 @@ High-priority unreviewed files: **451**. The matrix has 1,959 file rows; 658 are
 - Read-only production ACL checks confirm `consume_admin_rate_limit` is SECURITY DEFINER with `search_path=public`, EXECUTE denied to anon/authenticated and granted to service_role; `admin_rate_limits` RLS enabled, client SELECT denied and service_role SELECT allowed. Migration `20261008082029` is applied. No rate-limit RPC was invoked.
 - Read the public search API route. A cache miss set `Cache-Control: public, max-age=60, stale-while-revalidate=300`, while a cache hit omitted it. PR #370 current exact head `31c6262005e8a91f6c73e418519d0dfdda84d542` now shares the header object and adds a parity regression assertion. Earlier head `f5596f7` passed full Quality Gate/CircleCI/Android debug; the new cache-header commit requires fresh exact-head checks, which are pending.
 - PR #369 remains green on exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`: Quality Gate `43953516859` full, CircleCI source/application/config and Android debug APK `43953516793` passed. Owner review remains outstanding.
-- Production remains on READY deployment source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and not deployed. No HTTP smoke or deployment was run.
+- Production remains on READY deployment source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is four commits ahead and not deployed. No HTTP smoke or deployment was run.
 - No content generation, Gemini request, social publish, production mutation, storage/media deletion, release, merge, deployment or workflow dispatch occurred.
 
 ## Review batch — 2026-11-16 14:44 UTC
