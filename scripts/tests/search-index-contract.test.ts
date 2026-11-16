@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { isPublicSearchResultType } from "../../src/features/search/services/search-contract";
 
 const migration = readFileSync(
   "supabase/migrations/20261030043335_arabic_full_text_search_v2.sql",
@@ -32,6 +33,12 @@ assert.ok(search.includes("/rest/v1/rpc/search_public_content"));
 assert.ok(search.includes("searchIndexedContent"));
 assert.ok(search.includes("if (indexedResults !== null) {"));
 assert.ok(search.includes("getBundledLongformArticles"));
+assert.ok(search.includes("getPublicContentLibrary(1000, \"ar\")"));
+assert.ok(search.includes("isPublicSearchResultType(row.type)"));
+assert.ok(search.includes('type: "content"'));
+assert.ok(migration3.includes("'content'::text"));
+assert.equal(isPublicSearchResultType("content"), true, "approved content-library search results must be retained");
+assert.equal(isPublicSearchResultType("admin"), false, "unknown result types must be rejected");
 assert.ok(migration2.includes("quran_surahs_searchable_normalized_idx"));
 assert.ok(migration2.includes("content_library_searchable_normalized_idx"));
 assert.ok(migration3.includes("searchable_tags_normalized"));
