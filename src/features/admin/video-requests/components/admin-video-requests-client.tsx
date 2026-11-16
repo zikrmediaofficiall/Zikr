@@ -1,6 +1,7 @@
 "use client";
 
 import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video-publication";
+import { isKidsVideoContentMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -23,14 +24,15 @@ const APPROVAL_CHECKS: ReadonlyArray<{ key: ApprovalCheckKey; label: string }> =
 function isContentApproved(content: unknown): boolean {
   if (!content || typeof content !== "object" || Array.isArray(content)) return false;
   const record = content as Record<string, unknown>;
-  return record.audience === "kids"
+  const audience = resolveVideoRequestAudience(record);
+  if (!audience.ok) return false;
+  return audience.audience === "kids"
     ? hasHumanKidsVideoApproval(record)
     : record.approvalStatus === "approved";
 }
 
 function isKidsVideoContent(content: unknown): boolean {
-  return Boolean(content && typeof content === "object" && !Array.isArray(content)
-    && (content as Record<string, unknown>).audience === "kids");
+  return isKidsVideoContentMarker(content);
 }
 
 const STATUS_LABELS: Record<Status, string> = {
@@ -227,7 +229,11 @@ export default function AdminVideoRequestsClient({ canManageKids }: AdminVideoRe
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>التفاصيل</Button>
-                  {request.status === "failed" && <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button>}
+                  {request.status === "failed" && (() => {
+                    const retryAudience = resolveVideoRequestAudience(request.content);
+                    const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
+                    return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
+                  })()}
                 </div>
               </div>
               {request.error_message && (

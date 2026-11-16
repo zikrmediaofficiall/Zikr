@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 
 const read = (path) => readFileSync(path, "utf8");
 const route = read("src/app/api/admin/videos/[id]/retry/route.ts");
+const legacyRetryRoute = read("src/app/api/admin/videos/[id]/route.ts");
 const client = read("src/features/admin/video-requests/components/admin-video-requests-client.tsx");
 const verifier = read("scripts/verify-admin-api-guards.mjs");
 const videoFactoryVerifier = read("scripts/verify-admin-video-factory.mjs");
@@ -28,7 +29,26 @@ assert.match(
   /requireAdminStepUpApi\(['"]video\.manage['"],\s*['"]\/admin\/video\/requests['"]\)/,
   "re-queuing a failed video generation request must require video.manage plus configured MFA step-up",
 );
-assert.doesNotMatch(route, /requireAdminApi\s*\(/, "the retry route must not retain the permission-only bypass");
+assert.match(route, /requireAdminApi\(['"]kids\.manage['"]\)/,
+  "retrying a Kids generation request must additionally require kids.manage");
+assert.match(route, /resolveVideoRequestAudience\(current\.content\)/,
+  "retry authorization must classify the stored request content, including legacy Kids markers");
+assert.match(route, /kidsAuth\.profile\.id !== auth\.profile\.id/,
+  "the Kids permission check must resolve to the same authenticated administrator");
+assert.match(route, /select=status,content,updated_at/,
+  "retry authorization must read the exact audience and row revision before mutation");
+assert.match(route, /updateVideoRequestStatus\(id, 'pending', undefined, 'failed', current\.updated_at\)/,
+  "retry must compare-and-set the same revision used for Kids authorization");
+assert.match(legacyRetryRoute, /requireAdminApi\('kids\.manage'\)/,
+  "the legacy PATCH retry endpoint must enforce the same Kids permission");
+assert.match(legacyRetryRoute, /resolveVideoRequestAudience\(current\.content\)/,
+  "the legacy PATCH retry endpoint must classify the stored request audience");
+assert.match(legacyRetryRoute, /kidsAuth\.profile\.id !== auth\.profile\.id/,
+  "the legacy PATCH retry endpoint must bind both permissions to one administrator");
+assert.match(legacyRetryRoute, /updateVideoRequestStatus\(id, 'pending', undefined, 'failed', current\.updated_at\)/,
+  "the legacy PATCH retry endpoint must compare-and-set the authorized row revision");
+assert.match(client, /retryAudience\.audience !== "kids" \|\| canManageKids/,
+  "the queue UI must hide Kids retry controls from video managers without kids.manage");
 assert.ok(
   route.indexOf("requireAdminStepUpApi") < route.indexOf("supabaseServerAdminRequest"),
   "step-up authorization must run before any privileged database read or mutation",

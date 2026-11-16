@@ -266,6 +266,7 @@ export async function updateVideoRequestStatus(
   status: 'pending' | 'processing' | 'completed' | 'failed',
   metadata?: { youtubeId?: string; facebookId?: string; videoUrl?: string },
   expectedStatus?: "failed",
+  expectedUpdatedAt?: string,
 ): Promise<boolean> {
   try {
     const body: Record<string, unknown> = {
@@ -275,7 +276,7 @@ export async function updateVideoRequestStatus(
     if (metadata?.youtubeId) body.youtube_id = metadata.youtubeId;
     if (metadata?.facebookId) body.facebook_id = metadata.facebookId;
     if (metadata?.videoUrl) body.video_url = metadata.videoUrl;
-    let expectedUpdatedAt: string | null = null;
+    let expectedRowUpdatedAt: string | null = null;
     if (status === 'pending') {
       const existingContentRows = await supabaseServerAdminRequest<unknown>(
         '/rest/v1/video_generation_requests?id=eq.' + encodeURIComponent(videoId) + '&select=content,status,updated_at&limit=1',
@@ -285,7 +286,12 @@ export async function updateVideoRequestStatus(
       }
       const existingRow = existingContentRows[0] as { content: unknown; status: string; updated_at: string } | undefined;
       if (!existingRow || (expectedStatus && existingRow.status !== expectedStatus)) return false;
-      expectedUpdatedAt = existingRow.updated_at;
+      if (
+        typeof existingRow.updated_at !== "string" ||
+        !Number.isFinite(Date.parse(existingRow.updated_at)) ||
+        (expectedUpdatedAt && existingRow.updated_at !== expectedUpdatedAt)
+      ) return false;
+      expectedRowUpdatedAt = existingRow.updated_at;
       const existing = existingRow.content;
       const content = existing && typeof existing === 'object' && !Array.isArray(existing)
         ? existing as Record<string, unknown> : {};
@@ -300,9 +306,9 @@ export async function updateVideoRequestStatus(
       body.heygen_submitted_at = null;
       body.heygen_last_polled_at = null;
     }
-    if (expectedStatus && !expectedUpdatedAt) return false;
-    const filter = expectedStatus && expectedUpdatedAt
-      ? `id=eq.${encodeURIComponent(videoId)}&status=eq.${encodeURIComponent(expectedStatus)}&updated_at=eq.${encodeURIComponent(expectedUpdatedAt)}`
+    if (expectedStatus && !expectedRowUpdatedAt) return false;
+    const filter = expectedStatus && expectedRowUpdatedAt
+      ? `id=eq.${encodeURIComponent(videoId)}&status=eq.${encodeURIComponent(expectedStatus)}&updated_at=eq.${encodeURIComponent(expectedRowUpdatedAt)}`
       : `id=eq.${encodeURIComponent(videoId)}`;
     const updated = await supabaseServerAdminRequest<unknown>(
       `/rest/v1/video_generation_requests?${filter}`,

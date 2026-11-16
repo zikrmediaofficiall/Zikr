@@ -87,7 +87,7 @@ function isKidsVideoPublicPath(value: unknown): boolean {
 export function isLegacyKidsVideoStoryShape(value: unknown): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  return record.audience === undefined &&
+  return (record.audience === undefined || record.audience === null) &&
     normalizeVideoMarker(record.sourceType) === "story" &&
     normalizeVideoMarker(record.type) === "story";
 }
@@ -105,4 +105,31 @@ export function isGeneralAudienceVideoMetadata(metadata: unknown): boolean {
     return false;
   }
   return normalizeVideoAudience(record.audience) === "general";
+}
+
+
+export type VideoRequestAudienceResolution =
+  | { ok: true; audience: VideoAudience }
+  | { ok: false; reason: "invalid_content" | "unknown_audience" | "audience_marker_conflict" };
+
+/**
+ * Resolve the trust-boundary audience for an existing generation request.
+ * Legacy Kids story markers remain restricted; malformed or contradictory
+ * audience metadata fails closed instead of being treated as general content.
+ */
+export function resolveVideoRequestAudience(value: unknown): VideoRequestAudienceResolution {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false, reason: "invalid_content" };
+  }
+  const record = value as Record<string, unknown>;
+  const hasKidsIntent = isKidsVideoContentMarker(record);
+  if (record.audience === undefined || record.audience === null) {
+    return { ok: true, audience: hasKidsIntent ? "kids" : "general" };
+  }
+  const audience = normalizeVideoAudience(record.audience, false);
+  if (!audience) return { ok: false, reason: "unknown_audience" };
+  if (hasKidsIntent && audience !== "kids") {
+    return { ok: false, reason: "audience_marker_conflict" };
+  }
+  return { ok: true, audience };
 }

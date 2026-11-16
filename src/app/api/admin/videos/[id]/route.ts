@@ -7,6 +7,7 @@ import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit'
 import { supabaseServerAdminRequest } from '@/lib/supabase/server';
 import type { VideoGenerationRequest } from '@/lib/types/video';
 import { updateVideoRequestStatus } from '@/features/videos/services/video-automation';
+import { resolveVideoRequestAudience } from '@/features/videos/services/video-audience-visibility';
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -47,15 +48,36 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       );
     }
 
-    const currentRows = await supabaseServerAdminRequest<Array<{ status: string }>>(
-      `/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(id)}&select=status&limit=1`,
+    const currentRows = await supabaseServerAdminRequest<Array<{ status: string; content: unknown; updated_at: string }>>(
+      `/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(id)}&select=status,content,updated_at&limit=1`,
     );
-    if (!currentRows?.[0]) return NextResponse.json({ error: 'Video request not found' }, { status: 404 });
-    if (currentRows[0].status !== 'failed') {
+    if (!Array.isArray(currentRows)) throw new Error("Video retry lookup returned an invalid row set.");
+    const current = currentRows[0];
+    if (!current) return NextResponse.json({ error: 'Video request not found' }, { status: 404 });
+    if (current.status !== 'failed') {
       return NextResponse.json({ error: 'يمكن إعادة تعيين عمليات التوليد الفاشلة فقط.' }, { status: 409 });
     }
+    const audience = resolveVideoRequestAudience(current.content);
+    if (!audience.ok) {
+      return NextResponse.json(
+        { error: 'بيانات جمهور طلب الفيديو غير صالحة؛ تم إيقاف إعادة المحاولة.' },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+    if (audience.audience === 'kids') {
+      const kidsAuth = await requireAdminApi('kids.manage');
+      if (!kidsAuth.ok) {
+        return NextResponse.json({ error: kidsAuth.error }, { status: kidsAuth.status, headers: { 'Cache-Control': 'no-store' } });
+      }
+      if (kidsAuth.profile.id !== auth.profile.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+      }
+    }
+    if (!current.updated_at || !Number.isFinite(Date.parse(current.updated_at))) {
+      return NextResponse.json({ error: 'تاريخ تحديث العملية غير صالح؛ حدّث الصفحة ثم أعد المحاولة.' }, { status: 409 });
+    }
 
-    const updated = await updateVideoRequestStatus(id, 'pending', undefined, 'failed');
+    const updated = await updateVideoRequestStatus(id, 'pending', undefined, 'failed', current.updated_at);
     if (!updated) {
       return NextResponse.json(
         { error: 'تم تغيير حالة العملية أثناء إعادة المحاولة؛ حدّث الصفحة ثم أعد المحاولة.' },
@@ -68,7 +90,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       permission: 'video.manage',
       resourceType: 'video_generation_requests',
       resourceId: id,
-      metadata: { status: 'pending', changedFields: ['status', 'approvalStatus', 'error_message', 'error_details', 'heygen_video_id', 'heygen_status', 'heygen_submitted_at', 'heygen_last_polled_at', 'youtube_id', 'facebook_id', 'video_url'] },
+      metadata: { status: 'pending', audience: audience.audience, additionalPermission: audience.audience === 'kids' ? 'kids.manage' : null, changedFields: ['status', 'approvalStatus', 'error_message', 'error_details', 'heygen_video_id', 'heygen_status', 'heygen_submitted_at', 'heygen_last_polled_at', 'youtube_id', 'facebook_id', 'video_url'] },
       }),
       (auditError) => console.error("[api/admin/videos/[id]] audit event failed after committed mutation:", auditError),
     );
