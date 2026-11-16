@@ -2482,9 +2482,9 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 ### Snapshot and artifact identity
 
 - Main repository HEAD: `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` (unchanged).
-- Main manifest blob: `baace6d0b5e9a51d77e1a8f2b70a54b8` (unchanged).
+- Main manifest blob: `baace6d0c66ac299edb541c7caceba56eeae19be` (unchanged).
 - Updated file-status matrix blob: `5381dec435ec76a8ec76434f1386e4b3f27582da`.
-- Updated inventory blob: `f3f963cbbf5d1c8a6a2a8a5a5c6d3f8c`.
+- Updated inventory blob: `f3f96373571e9eafc5e6824cbab51e2aa81989a9`.
 - Updated project-status blob: `831d92221e7248fb7e2b74287f8705be76fe404e`.
 - Updated remote migration ledger blob: `71481def9e8450b7dc86e928d3dbcfd7eccbc6ba`.
 - The inventory and matrix remain an audit overlay for the exact main snapshot; PR-only files are not represented as if they were already on main.
