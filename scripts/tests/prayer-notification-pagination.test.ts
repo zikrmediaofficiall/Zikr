@@ -24,6 +24,14 @@ import {
   parsePushCoordinate,
 } from "../../src/features/notifications/services/push-subscription-request";
 import { getPrayerNotificationIdsToCancel } from "../../src/features/prayer/services/prayer-notification-schedule";
+import { getPrayerCalculationMethodId } from "../../supabase/functions/prayer-notification-worker/calculation-method";
+
+assert.equal(getPrayerCalculationMethodId("dubai"), 16, "Aladhan Dubai must use method ID 16, not Gulf Region ID 8");
+assert.equal(getPrayerCalculationMethodId("gulf"), 8, "Gulf Region must use Aladhan method ID 8");
+assert.equal(getPrayerCalculationMethodId("gulf-region"), 8);
+assert.equal(getPrayerCalculationMethodId("umm-al-qura"), 4);
+assert.equal(getPrayerCalculationMethodId(null), 4);
+assert.equal(getPrayerCalculationMethodId("unknown-legacy-method"), 4, "unknown legacy values must retain the safe default");
 
 const requiredPrayerNames = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
 const validProviderTimings = {
