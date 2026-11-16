@@ -13,7 +13,7 @@ Updated: 2026-11-16 (reconciled against the latest exact matrix blob; exact UTC 
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `7df81b77b9067c5aaa42e8f23c76d7cc7055451f`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `8f2c56e3dbe38055ec762a8c4f58123541d73812`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -42,7 +42,9 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR339`: 2
 - `FIX_PENDING_PR340`: 3
 - `FIX_PENDING_PR341`: 1
-- `FIX_PENDING_PR343`: 3
+- `FIX_PENDING_PR343`: 2
+- `FIX_PENDING_PR343_AND_PR376`: 1
+- `FIX_PENDING_PR376`: 2
 - `FIX_PENDING_PR346`: 1
 - `FIX_PENDING_PR347`: 2
 - `FIX_PENDING_PR349`: 5
@@ -62,16 +64,16 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 39
-- `REVIEWED_PARTIAL`: 62
-- `REVIEWED_PERMISSION_SCAN`: 94
+- `REVIEWED_PARTIAL`: 70
+- `REVIEWED_PERMISSION_SCAN`: 93
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 62
-- `REVIEWED_SOURCE_ONLY`: 286
+- `REVIEWED_REGRESSION_COVERAGE`: 66
+- `REVIEWED_SOURCE_ONLY`: 290
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1301
+- `UNREVIEWED`: 1284
 
-High-priority unreviewed files: **451**. The matrix has 1,959 file rows; 658 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **438**. The matrix has 1,959 file rows; 675 are not marked `UNREVIEWED`.
 
 ## Review batch — 2026-11-16 21:15 UTC
 
@@ -348,3 +350,12 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Video automation review: `generate-ai-video.yml` runs 17 03,09,15,21 UTC (4/day), with `VIDEO_FREE_ONLY=true`, provider order `hf_ltx_fast,hf_wan,template`, `FREE_VIDEO_PROVIDER_ENABLED=false`, `COMFYUI_ENABLED=false`, no Gemini API key, max4/run, target20/day, cap24, worker concurrency2. Arabic voice uses Edge TTS + gTTS fallback; Quran requires verified recorded recitation. `BACKGROUND_JOB_TARGET=videos` does not call external social publisher but does process due internal `content_publish_queue` entries. The separate 15-minute social workflow checks OAuth scopes, uses public YouTube privacy and retains Kids human approval. No generation, TTS smoke, provider request or social publishing was triggered.
 - Queue/lease/QA review: video claims use exact-row CAS, leases renew serially and abort on loss, quota reserves slot keys, pause/purge settings fail closed, QA precedes catalog and social handoff. The free API provider is disabled in production workflow; its returned video URL lacks a dedicated host/redirect allowlist and remains a defense-in-depth hardening item. HF output download is limited to trusted Hugging Face origins and 256 MiB, with MP4 signature validation.
 - PR #374 exact head `32894db0fdf7e7abbb456879e45669ada9964335` adds `is_approved=true` and `user_id IS NULL` to service-role video story reads; the new regression test is registered in `pnpm test`. Exact-head GitHub Quality Gate (`pnpm verify:pr`), Android Native Login Debug APK and CircleCI config-guard all passed. PR remains open/unmerged for CODEOWNERS/owner review; no production data changed.
+
+
+## Review batch — 2026-11-16 current checkpoint
+
+- Admin route/permission review read the server-filtered navigation, delegated role permission map, dashboard visibility, live overview API, content console/actions, content scheduling/timezone/cancellation services and tests, site-audio UI/routes and live FK contract. Site-audio upload/primary/delete remain step-up protected; `site_audio_upload_intents.asset_id` uses `ON DELETE SET NULL`, so shared-reference restoration is consistent. Content scheduling rejects timezone-less timestamps and DST gaps; queue cancellation uses monotonic row-version CAS and fails closed.
+- **Reproducible admin permission defect:** `/admin/search` required `content.manage`, then used service-role reads across videos, hadiths, duas and content_library without checking `video.manage`, `knowledge.manage` or `library.manage`. Delegated SEO/moderator/content roles could receive results from modules they could not open. Draft PR #376 adds a role-to-source permission map, filters sources before issuing queries, passes the effective role from the page, and adds role/wiring regression tests registered in `pnpm test`. Exact head `56360bdb48d39b44f6a13c4b50b8f52070d32f12`; Quality Gate and Android Debug APK are in progress; CircleCI config-guard passed. No merge or production change.
+- Content schedule cancellation was verified against its worker lease CAS, DST and stale-version tests; no schedule was created or cancelled. Site-audio storage was not uploaded or deleted.
+- PR #374 video story-source approval filters passed exact-head Quality Gate (`pnpm verify:pr`), Android Debug APK and CircleCI config-guard on `32894db0fdf7e7abbb456879e45669ada9964335`; owner/CODEOWNERS review remains pending.
+- No content generation, Gemini, TTS smoke, provider call, social publishing, admin mutation, production DB write, upload, storage cleanup, media deletion, native release, merge or deployment was triggered.
