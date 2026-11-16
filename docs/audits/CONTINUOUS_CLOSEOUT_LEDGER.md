@@ -2369,3 +2369,13 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 
 - Read `src/lib/site.ts` and `src/lib/seo/sitemap-shards.ts`: canonical URL handling, noindex path filters, bounded numeric shard parsing, XML escaping, cache behavior, and noindex shard headers were inspected. No reproducible defect was found in these helpers. No focused shard unit test was found under `scripts/tests`; this is a coverage observation, not a confirmed defect.
 - Matrix blob updated to `80cf4b3c4c5085e5b6902984a68ac40f3bb4051f`; 1856 files remain unreviewed.
+
+
+## 2026-11-16 13:28 UTC — admin RBAC and route permission scan
+
+- Fetched all 27 `src/app/api/admin/**/route.ts` files and enumerated HTTP methods/guard markers. Every route had an explicit permission gate, step-up requirement for sensitive mutations, or signed OAuth-state validation. This was a permission scan, not a full business-logic closure of each route.
+- Role resolution: `profiles.role='admin'` with no delegated assignment remains legacy full admin, but only service-role code can assign it. The profile trigger blocks authenticated role/email changes. Assignment lookup failures resolve to `user`. Delegated assignment table writes are service-role-only.
+- The audited role RPC is SECURITY INVOKER, `search_path=''`, and EXECUTE is granted only to service_role. The server action requires `users.roles` and AAL2; only super_admin can manage full-admin accounts; self-role changes are blocked. All five profile/role migrations are applied; integration and role-resolution tests are present.
+- `video-purge` is disabled with HTTP 409 before destructive branches; legacy YouTube/Facebook media endpoints return 410. No purge, upload, or social publish action was invoked.
+- No missing admin API permission guard or role-escalation path was reproduced. Remaining 66 admin page routes and full request/business-logic review are still open.
+- Matrix blob `137d6c8afc271b57aaba55a5f4e4fe0478e21a37`; 1812 tracked blobs remain unreviewed.
