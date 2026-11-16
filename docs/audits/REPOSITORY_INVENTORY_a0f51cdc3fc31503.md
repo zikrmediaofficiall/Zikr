@@ -12,7 +12,7 @@ Generated: 2026-11-16T13:04:59.302Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `45886857f7889a4991eb88bdcb100dd2c2130894`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `0f313d1ba206c272b81c5dd653f4e72a41c0f8e4`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -35,11 +35,11 @@ The manifest includes every recursive tree entry (files and directories). The st
 
 ## File-status matrix
 
-- `UNREVIEWED`: 1684
+- `UNREVIEWED`: 1660
 - `REVIEWED_PERMISSION_SCAN`: 92
-- `REVIEWED_SOURCE_ONLY`: 89
+- `REVIEWED_SOURCE_ONLY`: 109
 - `REVIEWED_REGRESSION_COVERAGE`: 18
-- `REVIEWED_PARTIAL`: 15
+- `REVIEWED_PARTIAL`: 19
 - `REVIEWED_PRODUCTION_APPLIED`: 12
 - `FIX_PENDING_PR337`: 9
 - `FIX_PENDING_PR339`: 5
@@ -59,12 +59,21 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 
-High-priority unreviewed files: **688**.
+High-priority unreviewed files: **674**.
+
+## Review batch — 2026-11-16 14:44 UTC
+
+- Read 24 additional tracked files at main SHA `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`: 20 are classified `REVIEWED_SOURCE_ONLY` and 4 `REVIEWED_PARTIAL`. The matrix remains one row per tracked blob; the manifest remains the immutable full-tree snapshot for the same main SHA.
+- Updated matrix blob SHA: `0f313d1ba206c272b81c5dd653f4e72a41c0f8e4`. Counts now reconcile to 1,660 `UNREVIEWED` files and 674 high-priority unreviewed files.
+- The site-audio cleanup test is already part of `pnpm test`, which is included in both canonical verification commands. Its test and cleanup script were read; no cleanup was executed.
+- Migration-history reconciliation is manual-only in its workflow and runs strict schema parity before history-only repair. The controlled release caller is behind typed RELEASE, CODEOWNER, exact-main-SHA and production-environment gates. No migration or ledger repair was run.
+- Scheduled Kids written-content generation explicitly enables Kids source selection. The worker reads only published, active, `age_appropriate=true` Kids stories and checks generated copy for child personal-data solicitation; the publishing validator rechecks the live source and text. There is no separate human-review check for the generated written copy. This is an owner policy acceptance, not a confirmed defect under the current documented video-only human-review rule.
+- YouTube upload helper defaults to private, but `.github/workflows/publish-social.yml` explicitly sets `YOUTUBE_UPLOAD_PRIVACY=public`. This is a production policy override, not a default; owner acceptance is required before treating public upload visibility as intended.
 
 ## Verified repository and production state
 
 - Main Quality Gate: passed on `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` (run `43833156580`).
-- Main CircleCI: `config-guard` passed; `source-verify` and `application-build-docs` were still pending at snapshot time.
+- Main CircleCI: `source-verify`, `application-build-docs`, and `config-guard` passed on this exact SHA.
 - Production Vercel deployment: `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr`, READY, deployed from `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`. Main is **4 commits ahead** of that production source. Vercel automatic Git deployments are disabled; no deploy was triggered by this audit.
 - Production smoke: homepage 200; `/api/health` 200; `/api/kids/videos` 200 (empty catalog); Android `assetlinks.json` 200; `robots.txt` 200; Apple AASA 503 because `IOS_ASSOCIATED_DOMAIN_APP_ID` is not configured/valid.
 - Vercel runtime error inventory showed one `TypeError: fetch failed (ETIMEDOUT)` on `/` in the prior 24-hour window; no matching runtime logs appeared in the most recent 30-minute query. It was not reproduced.
@@ -83,8 +92,10 @@ High-priority unreviewed files: **688**.
 | 342 | Validated offline-content snapshot manifest | `e38c9d69cb7d9ef0aac2f1992d10b96538533563` | Quality Gate + CircleCI passed |
 | 343 | Production Apple Universal Links configuration guard | `68edfb6aeccd57981f0fb811443da7960e1996c8` | Quality Gate `43871761649`, Android Debug APK `43871760192`, and CircleCI passed |
 | 345 | Register safe-next-path regression in the canonical test suite | `19e4cb65aaf16d3fed3229a31fcb64e950282b4` | Quality Gate `43874520989`, Android Debug APK `43874520946`, and CircleCI passed |
-| 346 | Document and test private-by-default YouTube upload visibility | `2bedf9639885ac64da7e2b24d7e3e075d3c57c7a` | Quality Gate `43875597034` and CircleCI passed |
-| 347 | Path-aware release preflight and guarded Android manual retry | `aac6b1654c9ce656cc4e018bb1f04baa44ecaef7` | Quality Gate `43885652937` in progress; CircleCI config-guard passed, source/application checks pending |
+| 346 | Document and test private-by-default YouTube upload visibility | `2bedf9639885ac64da7e2b24d7e3e075d3c57c7a` | Quality Gate `43875597034` and CircleCI passed; production workflow explicitly overrides the default to public and requires owner policy acceptance |
+| 347 | Path-aware release preflight and guarded Android manual retry | `bf215540bd52df3877154f2e0703386d09d50a55` | Quality Gate `43886674997` passed; all three CircleCI contexts passed |
+
+| 348 | Prayer notification worker pre-send lease confirmation | `adddd660a3958cf1ade08f0c5a9533162b3bb105` | Quality Gate `43887164270` passed; all three CircleCI contexts passed |
 
 All listed repair PRs remain unmerged pending independent CODEOWNERS review. PR344 is the documentation/inventory reconciliation PR. PR342 is a content-manifest snapshot, not a production database mutation.
 
