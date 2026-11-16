@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T17:10:55.778Z
+Updated: 2026-11-16T17:36:00Z
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T17:10:55.778Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `8d24b2eedefc24f202a20e58713628d059edae5f`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `5381dec435ec76a8ec76434f1386e4b3f27582da`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -48,6 +48,8 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR349`: 5
 - `FIX_PENDING_PR350`: 3
 - `FIX_PENDING_PR351`: 2
+- `FIX_PENDING_PR352`: 3
+- `FIX_PENDING_PR353`: 4
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
@@ -56,14 +58,14 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_DATA_VALIDATED`: 16
 - `REVIEWED_PARTIAL`: 37
 - `REVIEWED_PERMISSION_SCAN`: 92
-- `REVIEWED_PRODUCTION_APPLIED`: 12
+- `REVIEWED_PRODUCTION_APPLIED`: 18
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 18
-- `REVIEWED_SOURCE_ONLY`: 157
+- `REVIEWED_SOURCE_ONLY`: 181
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1570
+- `UNREVIEWED`: 1533
 
-High-priority unreviewed files: **600**.
+High-priority unreviewed files: **584**.
 
 ## Review batch — 2026-11-16 14:44 UTC
 
@@ -218,3 +220,16 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - The status matrix was recomputed from **1,959** tracked file rows. Current counts: **1684 UNREVIEWED**, **688 high-priority UNREVIEWED**, **89 REVIEWED_SOURCE_ONLY**, **5 FIX_PENDING_PR339**, **2 FIX_PENDING_PR346**, and **2 FIX_PENDING_PR347**. The complete per-status counts are in the matrix.
 - PR345 and PR346 have green full Quality Gate and CircleCI evidence on their exact heads; PR347's current head is still under verification. No PR has owner review or has been merged.
 - No Gemini/content generation, social publishing, production DB mutation, storage deletion, Android release, Vercel deployment, or production resource change was performed.
+
+
+## Review batch — 2026-11-16 17:36 UTC
+
+- Reconciled **41** status-matrix rows against actual source and database contracts at main SHA `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`: 24 source-only, 6 production-applied migrations, 3 pending PR #352, 4 pending PR #353, plus four evidence-only updates to existing PR #341 / retention-workflow / Kids visibility rows. The immutable main manifest remains unchanged.
+- Current matrix blob SHA: `5381dec435ec76a8ec76434f1386e4b3f27582da`. Counts reconcile to 1,959 file rows: 1,533 UNREVIEWED (584 high priority), 181 source-only, 37 partial, 18 production-applied, 3 pending PR #352, 4 pending PR #353, and the existing PR #341/other pending statuses.
+- **Kids result review:** read all seven Kids game/share API routes, the service, validator, registry, level system, verse puzzle resolver, offline queue, share component, rate-limit identity/address helpers, focused tests, and the relevant applied migrations. Live Supabase read-only privilege checks confirm `kids_game_results` RLS enabled; authenticated SELECT allowed but INSERT/UPDATE denied; anon INSERT denied; service_role INSERT allowed; authenticated cannot execute the internal RPC and service_role can.
+- **New Kids defects:** the deprecated `submit-result` endpoint minted a fresh random idempotency key for each retry without a client key; the internal result RPC also selected before inserting, so concurrent retries could race at the unique index and return 23505/HTTP 500 because the existing per-user trigger lock runs later. Draft PR #353 removes the random fallback and adds a two-key advisory lock before the duplicate lookup, plus a PostgreSQL 17 concurrency integration test. First repair head `4fb5775a110aa66d89715e1ae865f5a1746a8418` passed Quality Gate run `43917757703` with `QUALITY_GATE=PASSED_FULL`; current head `88b6560e52a3624d22cc8d4ca0145b2bbb6f3d7e` is awaiting Quality Gate `43919595999` and CircleCI `source-verify`. Its new migration is PR-only and not applied.
+- **Favorites defect:** malformed UUID favorite IDs previously reached PostgREST and produced 500. Draft PR #352 adds UUID validation and focused tests. Exact head `10e50510b1873ea66b3f0bd8e22e75b072956509` passed Quality Gate `43916794764` with `QUALITY_GATE=PASSED_FULL` and all three CircleCI contexts. Owner review remains outstanding.
+- **Storage/cleanup review:** read the complete 1,243-line storage cleanup script and the retention workflow. Scheduled retention runs are dry-run; apply requires manual dispatch, exact typed confirmation, and paused-writer confirmation. No cleanup was invoked. The separate legacy YouTube/Facebook cleanup route has no in-repo caller; live read-only checks found no cleanup cron, inactive sync cron, no `youtube-facebook-media` bucket, no configured cleanup secret, and zero eligible published media rows. Do not reactivate it without compare-and-set/lease and shared-path reference protection.
+- **Production migration state:** Supabase remains ACTIVE_HEALTHY with 449 local / 449 remote migrations on main, exact version-set equality, latest `20261116045100`. PR #353 adds a proposed local-only migration in its branch; it has not been applied to production.
+- **Open governance and acceptance:** PRs #352/#353 and this documentation PR remain drafts pending authorized CODEOWNERS review. `.github/CODEOWNERS` requires `@Zikrmediaofficial`, whose collaborator permission lookup returned null. Manual iOS simulator/device and Android device acceptance, Apple associated-domain configuration, and post-deploy smoke checks remain open.
+- No production DB mutation, migration application, content generation, Gemini request, social publishing, Storage deletion, Android release, merge, Vercel deployment, or production smoke test was performed.
