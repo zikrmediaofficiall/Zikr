@@ -68,6 +68,11 @@ if (!mediaContract.includes("normalizeSocialPlatformResults") ||
   failures.push("YouTube media fallback reconciliation must normalize legacy result ledgers and respect confirmed deletion timestamps");
 }
 if (!mediaContract.includes("youtubeUrl")) failures.push("Public video media contract must retain the canonical YouTube playback fallback");
+if (!mediaContract.includes("resolveCatalogThumbnail") ||
+    !audit.includes("resolveCatalogThumbnail(current, youtubeId, fallbackThumbnail)") ||
+    !audit.includes("thumbnail !== row.thumbnail_url")) {
+  failures.push("Media reconciliation must replace stale YouTube-derived catalog thumbnails while preserving custom artwork");
+}
 if (!mediaContract.includes("resolveYoutubeCatalogReference") ||
     !mediaContract.includes("supersededDeletedIds") ||
     !mediaContract.includes("deletedIds") ||
