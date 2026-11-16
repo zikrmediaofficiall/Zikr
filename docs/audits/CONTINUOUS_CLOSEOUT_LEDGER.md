@@ -2777,3 +2777,11 @@ No production SQL mutation, migration execution, data repair, content generation
 
 - Matrix rows for the worker and canonical worker test are `FIX_PENDING_PR373`; no source file was added to the main snapshot manifest. Main snapshot remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
 - No worker invocation, scheduler-secret RPC, VAPID initialization, schedule planning, notification delivery, production database mutation, migration, content generation, Gemini request, social publishing, Storage operation, release, merge, deployment or production smoke was performed.
+
+
+## 2026-11-16 — Aladhan calculation method ID correction
+
+- Live official `https://api.aladhan.com/v1/methods` response confirms `GULF.id = 8` and `DUBAI.id = 16`. Main's worker mapped `dubai` to 8; background notifications for any stored Dubai preference would therefore use Gulf Region timings. The exported client method-label map also assigned incorrect labels to multiple IDs.
+- PR #373 was expanded on the same dedicated audit branch. It now extracts a pure resolver, maps `dubai -> 16`, `gulf/gulf-region -> 8`, preserves the Umm al-Qura fallback, aligns the client label map to official IDs 0–23 and 99, and adds focused tests in both prayer test suites.
+- Current exact PR head: `c603ee90a07f86ff07f17c23e4a65ca9f130cc2b`; 7 commits ahead, 0 behind, 5 files changed. The previous auth-only head `ef440389dbbbb65d954ccd213e54b1c00c455441` passed full Quality Gate and all CircleCI checks; that does not certify the expanded head. Fresh exact-head CI is pending.
+- No production preference rows, prayer-time endpoint, Edge Function, scheduler-secret RPC, notification, or database write was used.
