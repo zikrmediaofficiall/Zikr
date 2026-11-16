@@ -106,6 +106,14 @@ assert.doesNotMatch(
   "untrusted Vercel preview aliases must not bypass the exact Supabase redirect allowlist",
 );
 assert.ok(button.includes("return PRODUCTION_URL;"), "non-v0 browser OAuth must use the canonical production origin");
+assert.ok(
+  button.includes("isLocalDevelopmentOAuthHost(window.location.hostname)"),
+  "localhost OAuth must stay on its configured local redirect origin instead of being forced to production",
+);
+assert.ok(
+  button.includes('import { isLocalDevelopmentOAuthHost } from "@/lib/auth/oauth-origin";'),
+  "browser OAuth must share the tested local-host allowlist helper",
+);
 assert.match(read(".env.example"), /^NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID=/m, "the public native OAuth client ID must be documented in the environment template");
 assert.match(read("scripts/verify-mobile-readiness.mjs"), /NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID is required for Android native Google sign-in/, "store-readiness must fail when the native Google client ID is absent");
 assert.ok(button.includes("window.location.replace(safeNext)"), "Native success must return to the in-app route");

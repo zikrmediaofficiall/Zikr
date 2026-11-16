@@ -7,6 +7,7 @@ import { SocialLogin } from "@capgo/capacitor-social-login";
 import { Button } from "@/components/ui/button";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { PRODUCTION_URL, isV0PreviewHost } from "@/lib/site";
+import { isLocalDevelopmentOAuthHost } from "@/lib/auth/oauth-origin";
 import { sanitizeInternalPath } from "@/lib/safe-redirect";
 
 type GoogleOAuthButtonProps = {
@@ -22,8 +23,8 @@ function getSafeNextPath(next?: string): string {
 
 function getCanonicalBrowserOrigin(): string {
   if (typeof window !== "undefined") {
-    const host = window.location.hostname.toLowerCase();
-    if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+    const host = window.location.hostname;
+    if (isLocalDevelopmentOAuthHost(host)) {
       return window.location.origin;
     }
 
@@ -194,7 +195,12 @@ export function GoogleOAuthButton({ next, label }: GoogleOAuthButtonProps) {
         !!previewRedirect &&
         isV0PreviewHost(window.location.hostname);
 
-      if (!isNative && !usePreviewRedirect && typeof window !== "undefined") {
+      if (
+        !isNative &&
+        !usePreviewRedirect &&
+        typeof window !== "undefined" &&
+        !isLocalDevelopmentOAuthHost(window.location.hostname)
+      ) {
         const canonicalOrigin = new URL(PRODUCTION_URL).origin;
         const currentOrigin = new URL(window.location.origin).origin;
         if (currentOrigin !== canonicalOrigin) {
