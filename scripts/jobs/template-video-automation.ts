@@ -1090,6 +1090,35 @@ export function assertKidsStoryContract(request: GeneratedRequest) {
   }
 }
 
+async function readBoundedAudioResponse(response: Response, maxBytes: number): Promise<Uint8Array> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Audio response did not expose a readable body.");
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error("Audio download exceeded the 15 MiB narration limit.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (totalBytes < 1024) throw new Error("Audio download was empty or invalid.");
+  const result = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
+}
+
 async function contentAudioUrl(request: GeneratedRequest): Promise<string> {
   const source = resolveVideoAudioSource({
     category: request.category,
@@ -1208,6 +1237,7 @@ async function getVerifiedQuranAyahAudioUrl(surahId: number, ayahNumber: number,
     const response = await fetch(url, {
       method: "GET",
       headers: { Range: "bytes=0-1023", Accept: "audio/mpeg" },
+      redirect: "error",
       signal: videoOperationSignal(signal, 15_000),
     });
     if (response.ok || response.status === 206) return url;
@@ -1493,16 +1523,13 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     throwIfVideoLeaseAborted(signal);
     let audioKind = contentAudioKind(request, audioUrl);
     if (audioUrl) {
-      const response = await fetch(audioUrl, { headers: { Accept: "audio/*" }, signal: videoOperationSignal(signal, 60_000) });
+      const response = await fetch(audioUrl, { headers: { Accept: "audio/*" }, redirect: "error", signal: videoOperationSignal(signal, 60_000) });
       if (!response.ok) throw new Error("Audio download failed (HTTP " + response.status + ").");
       const declaredAudioBytes = Number(response.headers.get("content-length") ?? 0);
       if (Number.isFinite(declaredAudioBytes) && declaredAudioBytes > MAX_VIDEO_AUDIO_BYTES) {
         throw new Error("Audio download exceeded the 15 MiB narration limit.");
       }
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.length < 1024 || bytes.length > MAX_VIDEO_AUDIO_BYTES) {
-        throw new Error("Audio download was empty, invalid, or exceeded the 15 MiB narration limit.");
-      }
+      const bytes = await readBoundedAudioResponse(response, MAX_VIDEO_AUDIO_BYTES);
       await writeFile(audioPath, bytes);
     } else {
       if (narrationProfile.mode !== "tts" || !narrationProfile.voice) {
