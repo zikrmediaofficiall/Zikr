@@ -35,9 +35,12 @@ assert.match(duaService, /!databaseLookupFailed && localMatch/, "dua visibility 
 const prophetService = readFileSync("src/features/prophets/services/prophets.ts", "utf8");
 const companionService = readFileSync("src/features/companions/services/companions.ts", "utf8");
 const companionDetail = companionService.slice(companionService.indexOf("export async function getCompanionBySlug"));
-assert.match(companionDetail, /let databaseLookupFailed = false/);
-assert.match(companionDetail, /databaseLookupFailed = true/);
-assert.match(companionDetail, /!databaseLookupFailed && hasLocalFallback/);
+assert.match(companionService, /async function getDatabaseCompanions\(\): Promise<CompanionSummary\[\] \| null>/, "companion list reads must distinguish an empty result from a failed query");
+assert.match(companionService, /async function filterOfflineCompanionsByPublicationState/);
+assert.match(companionService, /getDatabasePublicationState\("companions", candidate\.slug\)/, "each offline list candidate must be checked against authoritative publication state when Supabase is configured");
+assert.match(companionService, /return filterOfflineCompanionsByPublicationState\(fallback\)/);
+assert.match(companionDetail, /if \(isSupabaseConfigured\(\) && hasLocalFallback\)/, "detail fallback must be checked after both empty-success and failed database reads");
+assert.doesNotMatch(companionDetail, /databaseLookupFailed/, "a failed primary read must not bypass the authoritative publication-state check");
 
 assert.match(prophetService, /database !== null/, "successful empty prophet queries must be distinguished from failed queries");
 assert.match(prophetService, /!databaseLookupFailed && hasLocalFallback/, "prophet visibility checks must be limited to known fallback slugs");
