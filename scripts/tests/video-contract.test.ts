@@ -287,7 +287,10 @@ assert.throws(() => resolveVideoCatalogDuration(Number.NaN), /positive number/);
 
 
 assert.ok(videoWorker.includes("resolveVideoResolution(request.content?.resolution, request.content?.videoFormat)"));
-assert.ok(videoWorker.includes("durationSeconds: duration"));
+assert.ok(videoWorker.includes("const renderedDurationSeconds = await assertPlayableOutput(outputPath, width, height, signal)"));
+assert.ok(videoWorker.includes("durationSeconds: renderedDurationSeconds"));
+assert.ok(videoWorker.includes("duration > MAX_AUTO_VIDEO_SECONDS"));
+assert.ok(videoWorker.includes("return duration;"));
 assert.ok(videoWorker.includes("renderDurationSeconds: rendered.durationSeconds"));
 assert.ok(videoWorker.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds)"));
 const videoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");

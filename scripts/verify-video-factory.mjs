@@ -26,7 +26,7 @@ if (!template.includes("resolveRenderDuration(audioDuration, TARGET_VIDEO_SECOND
 const renderContract = read("src/features/videos/services/video-render-contract.ts");
 if (!renderContract.includes("1080x1920") || !renderContract.includes("1920x1080")) failures.push("automated renders must be restricted to the two QA-approved resolutions");
 if (!template.includes("resolveVideoResolution(request.content?.resolution, request.content?.videoFormat)")) failures.push("video worker must reject arbitrary render dimensions before invoking FFmpeg");
-if (!template.includes("durationSeconds: duration") || !template.includes("renderDurationSeconds: rendered.durationSeconds") || !template.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds)")) failures.push("catalog duration must reflect the actual rendered media duration");
+if (!template.includes("durationSeconds: renderedDurationSeconds") || !template.includes("renderDurationSeconds: rendered.durationSeconds") || !template.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds)")) failures.push("catalog duration must reflect the actual rendered media duration");
 const videoCreateRoute = read("src/app/api/admin/videos/create/route.ts");
 if (!videoCreateRoute.includes("resolveVideoResolution(content.resolution, content.videoFormat)")) failures.push("admin video creation must normalize and validate render dimensions");
 if (template.includes("https://zikrmediaofficial.vercel.app")) failures.push("video worker must not hardcode the production origin");
