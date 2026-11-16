@@ -421,6 +421,22 @@ export function isKidsWrittenPostCandidate(
     automationKey.startsWith("written-social-v1:kids_story:");
 }
 
+/**
+ * A Kids marker on an unsupported non-video queue type must not fall through
+ * the written-post approval gate as "not applicable". Video rows use their
+ * separate generation/catalog approval path; written_post rows use the live
+ * Kids source check below.
+ */
+export function isUnclassifiedKidsSocialQueueItem(
+  row: { content_type?: unknown; metadata?: unknown; automation_key?: unknown },
+): boolean {
+  const contentType = typeof row.content_type === "string" ? row.content_type.trim() : "";
+  if (contentType === "written_post" || contentType.endsWith("_video")) return false;
+  const automationKey = typeof row.automation_key === "string" ? row.automation_key : "";
+  return isKidsWrittenSourceReservation(row.metadata) ||
+    automationKey.startsWith("written-social-v1:kids_story:");
+}
+
 export function isEligibleKidsWrittenPostForPublishing(
   row: KidsWrittenPublishQueueItem,
   source: CurrentKidsStory,

@@ -24,7 +24,7 @@ import { getPublishedVideoStagingCleanupEligibleAt, PUBLISHED_VIDEO_CLEANUP_POST
 import { patchSocialQueueMetadataWithCas } from "@/features/social/services/social-queue-metadata";
 import { buildNextRowVersionUpdatedAt } from "@/lib/supabase/row-version";
 import { buildSocialPublishInFlightMetadata, buildStaleSocialPublishRecoveryFilter, buildStaleSocialPublishRecoveryMetadata, clearRevalidatedSocialApprovalDeferrals, clearSocialPublishInFlightMetadata, shouldScheduleSocialPublishRetry } from "@/features/social/services/social-publish-recovery-policy";
-import { isEligibleKidsWrittenPostForPublishing, isKidsWrittenPostCandidate, isKidsWrittenSourceReservation, type CurrentKidsStory } from "@/features/social/services/written-content";
+import { isEligibleKidsWrittenPostForPublishing, isKidsWrittenPostCandidate, isUnclassifiedKidsSocialQueueItem, isKidsWrittenSourceReservation, type CurrentKidsStory } from "@/features/social/services/written-content";
 import { canAttemptSocialPlatform, getEnabledSocialPlatforms, getManualReconciliationPlatforms, getUnavailableSocialPlatforms, isAmbiguousProviderOutcome, isAuthBlocked, isPermanentSocialFailure, mergeAuthBlockedPlatforms, normalizeSocialAttemptCount, normalizeSocialPlatformResults } from "@/features/social/services/platform-availability";
 
 export type SocialPlatform = "facebook" | "facebook_reels" | "youtube";
@@ -222,6 +222,8 @@ function isKidsWrittenQueueItem(item: SocialPublishQueueItem): boolean {
 async function checkWrittenPostSourceApproval(
   item: SocialPublishQueueItem,
 ): Promise<WrittenPostSourceApproval> {
+  if (isVideoContentType(item.content_type)) return "not_applicable";
+  if (isUnclassifiedKidsSocialQueueItem(item)) return "blocked";
   if (item.content_type !== "written_post") return "not_applicable";
 
   const metadata = item.metadata ?? {};

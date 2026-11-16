@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsAudience,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,isSafeWrittenBackfillSource,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
+import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsAudience,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,isUnclassifiedKidsSocialQueueItem,isSafeWrittenBackfillSource,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
 assert.deepEqual(asWrittenRecord({ automationPublicationHold: true }), { automationPublicationHold: true }, "object metadata must be preserved for publication-hold checks");
 assert.deepEqual(asWrittenRecord(null), {}, "missing metadata must normalize to an empty record");
 assert.deepEqual(asWrittenRecord(["invalid"]), {}, "array metadata must not be treated as a metadata record");
@@ -56,6 +56,20 @@ assert.equal(isKidsWrittenPostCandidate({
   content_type: "written_post",
   metadata: { source: { type: " KIDS_STORY " } },
 }), true, "queue candidate classification must use the normalized Kids reservation policy");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", metadata: { audience: "kids" } }), true,
+ "Kids-marked non-video queue rows with unsupported types must be held");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", metadata: { source: { type: "kids_story" } } }), true,
+ "nested Kids source markers must hold unsupported non-video queue types");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", metadata: { publicPath: "/%256Bids/story" } }), true,
+ "encoded Kids paths must hold unsupported non-video queue types");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", automation_key: "written-social-v1:kids_story:kids-1" }), true,
+ "legacy Kids automation keys must hold unsupported non-video queue types");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "other_video", metadata: { audience: "kids" } }), false,
+ "Kids videos must remain on the dedicated video approval path");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "written_post", metadata: { audience: "kids" } }), false,
+ "valid Kids written posts must use the live Kids source approval path");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", metadata: { audience: "general" } }), false,
+ "ordinary general articles must remain unaffected");
 assert.deepEqual(parseWrittenGenerationRequest({}), { ok: true, value: { category: "auto", batchSize: 1 } });
 assert.deepEqual(parseWrittenGenerationRequest({ category: "kids", batchSize: "2" }), { ok: true, value: { category: "kids", batchSize: 2 } });
 assert.deepEqual(parseWrittenGenerationRequest(null), { ok: false, reason: "invalid_body" });
@@ -651,6 +665,13 @@ assert.match(writtenStudio, /value: "kids", label: "قصص الأطفال الم
 assert.match(writtenFactory, /content_type:\s*"written_post"/);
 assert.match(writtenFactory, /target_platforms:\s*\["facebook"\]/);
 assert.match(socialPublishing, /checkWrittenPostSourceApproval\(item\)/, "social publishing must revalidate both Kids sources and general written articles before provider delivery");
+const writtenApprovalGateStart = socialPublishing.indexOf("async function checkWrittenPostSourceApproval(");
+const writtenApprovalGate = socialPublishing.slice(writtenApprovalGateStart, socialPublishing.indexOf("\n}", writtenApprovalGateStart));
+assert.ok(
+ writtenApprovalGate.indexOf("isVideoContentType(item.content_type)") < writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") &&
+ writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") < writtenApprovalGate.indexOf('item.content_type !== "written_post"'),
+ "unsupported non-video Kids-marked queue rows must be blocked before the not-applicable fallback",
+);
 assert.match(socialPublishing, /\/rest\/v1\/articles\?id=eq\./, "general written-post delivery must verify that its source article still exists");
 assert.match(socialPublishing, /select=id,published,metadata&limit=2/, "general written-post delivery must revalidate the live article audience as well as its publication flag");
 assert.ok(socialPublishing.includes("isKidsWrittenSourceReservation(articles[0].metadata)"), "a general queue row must be blocked when its source article carries any Kids marker");
