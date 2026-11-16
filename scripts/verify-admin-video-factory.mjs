@@ -126,6 +126,16 @@ const narrationRecovery = read("src/features/media/services/narration-upload-rec
 const studioClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
 const createVideoRoute = read("src/app/api/admin/videos/create/route.ts");
 const audioWorker = read("scripts/jobs/template-video-automation.ts");
+const audioSourceContract = read("src/features/media/services/video-audio-source.ts");
+if (
+  !audioSourceContract.includes("parseAdminNarrationAssetUrl") ||
+  !audioSourceContract.includes("isCanonicalQuranAyahAudioUrl") ||
+  !audioSourceContract.includes("isReadyAdminNarrationAsset") ||
+  !audioSourceContract.includes("audio/x-m4a") ||
+  !audioSourceContract.includes("MAX_ADMIN_NARRATION_BYTES")
+) {
+  failures.push("shared audio source contract must validate Cloudinary provenance, canonical Quran URLs, audit-ready media rows, MIME types and size limits");
+}
 if (
   !createVideoRoute.includes("delete content.audioUrl") ||
   !createVideoRoute.includes("delete content.audioSource") ||
