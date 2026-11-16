@@ -338,4 +338,24 @@ try {
   globalThis.fetch = originalFetch;
 }
 
+const prayerTimesApiRoute = readFileSync("src/app/api/prayer-times/route.ts", "utf8");
+const prayerTimesRateLimit = readFileSync("src/features/prayer/services/rate-limit.ts", "utf8");
+assert.match(prayerTimesApiRoute, /consumePrayerTimesRateLimit/);
+assert.match(prayerTimesApiRoute, /getTrustedClientAddress/);
+assert.match(prayerTimesApiRoute, /status: 429/);
+assert.match(prayerTimesApiRoute, /status: 503/);
+assert.match(prayerTimesApiRoute, /Retry-After': '60'/);
+assert.ok(
+  prayerTimesApiRoute.indexOf("await consumePrayerTimesRateLimit") <
+    prayerTimesApiRoute.indexOf("await fetch("),
+  "the shared caller limit must be checked before any Aladhan upstream request",
+);
+assert.match(prayerTimesRateLimit, /consume_admin_rate_limit/);
+assert.match(prayerTimesRateLimit, /getContactRateLimitActorId/);
+assert.match(prayerTimesRateLimit, /public_prayer_times_lookup/);
+assert.match(prayerTimesRateLimit, /RATE_LIMIT_MAX_REQUESTS = 30/);
+assert.match(prayerTimesRateLimit, /RATE_LIMIT_WINDOW_SECONDS = 60/);
+assert.match(prayerTimesRateLimit, /typeof data !== "boolean"/);
+assert.match(prayerTimesRateLimit, /throw new Error/);
+
 console.log("Prayer-time next-prayer, bounded cache, saved-location validation, and push-location contracts passed.");
