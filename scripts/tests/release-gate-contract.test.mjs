@@ -264,6 +264,10 @@ for (const required of [
   "TAG_TARGET_SHA",
   "GITHUB_SHA",
   "ci/circleci: android-rebuild",
+  'if ("${tag}" != "${TAG}")',
+  "releases/tags/${TAG}",
+  "release_prerelease",
+  '"${release_draft}" != "true"',
 ]) {
   assert.ok(androidReleaseWorkflow.includes(required), "manual publisher retry must enforce " + required);
 }
