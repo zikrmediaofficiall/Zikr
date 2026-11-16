@@ -35,6 +35,8 @@ assert.equal(canViewVideoRequestRow({ category: "kids", content: { audience: "ge
 assert.equal(canViewVideoRequestRow({ category: "story", content: null }, false), false);
 assert.equal(canViewVideoRequestRow({ category: "story", content: "invalid" }, false), false);
 assert.equal(canViewVideoRequestRow({ category: "kids", content: { audience: "kids" } }, true), true);
+assert.equal(canViewVideoRequestRow({ category: "general", content: { category: "kids", type: "story" } }, false), false);
+assert.equal(canViewVideoRequestRow({ category: "general", audience: "kids", content: { audience: "general" } }, false), false);
 assert.equal(canViewVideoTemplateAudience("general", false), true);
 assert.equal(canViewVideoTemplateAudience("kids", false), false);
 assert.equal(canViewVideoTemplateAudience("unknown", false), false);

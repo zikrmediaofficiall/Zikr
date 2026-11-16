@@ -152,7 +152,8 @@ export function canViewVideoRequestRow(value: unknown, canManageKids: boolean): 
   const record = value as Record<string, unknown>;
   if (!record.content || typeof record.content !== "object" || Array.isArray(record.content)) return false;
   const content = record.content as Record<string, unknown>;
-  const candidate = { ...content, category: record.category ?? content.category };
+  if (isKidsVideoContentMarker(record) || isKidsVideoContentMarker(content)) return false;
+  const candidate = { ...record, ...content, category: record.category ?? content.category };
   const resolution = resolveVideoRequestAudience(candidate);
   return resolution.ok && resolution.audience === "general";
 }
