@@ -110,9 +110,11 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/video-generation/sources/route.ts GET": ["video.manage"],
   "src/app/api/admin/video/templates/route.ts GET": ["video.manage"],
   "src/app/api/admin/video/templates/route.ts POST": ["video.manage", "kids.manage"],
-  "src/app/api/admin/videos/[id]/retry/route.ts POST": ["video.manage"],
+  // Both guards must be present: video.manage is the unconditional step-up
+  // permission; kids.manage is enforced only when the stored request is Kids.
+  "src/app/api/admin/videos/[id]/retry/route.ts POST": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/[id]/route.ts GET": ["video.manage"],
-  "src/app/api/admin/videos/[id]/route.ts PATCH": ["video.manage"],
+  "src/app/api/admin/videos/[id]/route.ts PATCH": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/[id]/route.ts DELETE": ["video.delete"],
   "src/app/api/admin/videos/create/route.ts POST": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/route.ts GET": ["video.manage"],
@@ -194,6 +196,21 @@ if (!videoPurgePost.includes('requireAdminStepUpApi("video.delete",')) {
 const videoRetrySource = readFileSync(join(apiRoot, "videos/[id]/retry/route.ts"), "utf8");
 if (!/requireAdminStepUpApi\s*\(\s*['"]video\.manage['"]\s*,\s*['"]\/admin\/video\/requests['"]\s*\)/.test(videoRetrySource)) {
   failures.push("video retry POST must enforce the configured step-up policy before re-queuing external video generation");
+}
+if (
+  !videoRetrySource.includes("resolveVideoRequestAudience(current.content)") ||
+  !/requireAdminApi\s*\(\s*['"]kids\.manage['"]\s*\)/.test(videoRetrySource) ||
+  !videoRetrySource.includes("kidsAuth.profile.id !== auth.profile.id")
+) {
+  failures.push("video retry POST must conditionally require kids.manage for Kids requests and bind both guards to the same administrator");
+}
+const legacyVideoRetrySource = readFileSync(join(apiRoot, "videos/[id]/route.ts"), "utf8");
+if (
+  !legacyVideoRetrySource.includes("resolveVideoRequestAudience(current.content)") ||
+  !/requireAdminApi\s*\(\s*['"]kids\.manage['"]\s*\)/.test(legacyVideoRetrySource) ||
+  !legacyVideoRetrySource.includes("kidsAuth.profile.id !== auth.profile.id")
+) {
+  failures.push("legacy video retry PATCH must conditionally require kids.manage for Kids requests and bind both guards to the same administrator");
 }
 
 const socialRouteSource = readFileSync(join(apiRoot, "social/route.ts"), "utf8");

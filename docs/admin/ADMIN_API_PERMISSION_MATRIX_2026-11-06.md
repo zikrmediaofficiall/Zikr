@@ -37,9 +37,9 @@
 | GET | `/api/admin/social/youtube/callback` | `social.manage`, `social.publish` (MFA step-up) — validates upload/read scopes and stores the publishing refresh token |
 | GET | `/api/admin/video/templates` | `video.manage` |
 | POST | `/api/admin/video/templates` | `video.manage`, `kids.manage` (Kids templates only) |
-| POST | `/api/admin/videos/[id]/retry` | `video.manage` |
+| POST | `/api/admin/videos/[id]/retry` | `video.manage`; `kids.manage` for Kids audience only |
 | GET | `/api/admin/videos/[id]` | `video.manage` |
-| PATCH | `/api/admin/videos/[id]` | `video.manage` |
+| PATCH | `/api/admin/videos/[id]` | `video.manage`; `kids.manage` for Kids audience only |
 | DELETE | `/api/admin/videos/[id]` | `video.delete` |
 | POST | `/api/admin/videos/create` | `video.manage`, `kids.manage` (Kids audience only) |
 | GET | `/api/admin/videos` | `video.manage` |
