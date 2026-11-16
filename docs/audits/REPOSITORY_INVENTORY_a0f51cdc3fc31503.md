@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T21:15:00Z
+Updated: 2026-11-16 (subsequent read-only audit updates; exact UTC time not captured)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T21:15:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `b7c3a383fcc61e6cbf7450e9bb586b1de8567a4c`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `8694ba42365f003a6a6cb8c635ce53384630313f`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -59,14 +59,14 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 39
-- `REVIEWED_PARTIAL`: 51
+- `REVIEWED_PARTIAL`: 52
 - `REVIEWED_PERMISSION_SCAN`: 94
-- `REVIEWED_PRODUCTION_APPLIED`: 46
+- `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 43
-- `REVIEWED_SOURCE_ONLY`: 260
+- `REVIEWED_SOURCE_ONLY`: 265
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1355
+- `UNREVIEWED`: 1345
 
 High-priority unreviewed files: **479**. The matrix has 1,959 file rows; 604 are not marked `UNREVIEWED`.
 
@@ -298,3 +298,6 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - CI/CD review: CircleCI release rebuild requires `android-signing` context and exact release branch/tag; GitHub Android release/recovery and production finalization workflows are protected/manual. Production finalization is the only authorized workflow that runs Supabase migrations/data restore, Edge Function deployment, Vercel deployment and smoke checks; it was not triggered.
 - Vercel read-only state: project settings show Node22, `pnpm install --frozen-lockfile`, `pnpm build`, production branch main and `git.deploymentEnabled=false`; no root `vercel.json` exists. Latest production deployment `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` is READY on commit `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`. Main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is 4 commits ahead (6 files changed, all social worker/catalog reconciliation/tests/verifiers; no public page source file in that diff). No deployment was triggered.
 - Runtime monitoring: Vercel aggregated 7 `TypeError: fetch failed` / `ETIMEDOUT` events affecting 7 users over 24h on `/` and `/quran/[surah]/[ayah]`; 3 recent logs were GET `/` in iad1/sfo1. Inspected homepage/site-content/articles and Quran local-corpus/tafsir loaders catch network errors and use fallbacks; no unhandled 500 was confirmed. Homepage HTML was reachable; API/route smoke endpoints could not be independently fetched, so full production smoke remains pending.
+
+- SEO/public route review: `robots.ts` allows crawling of public noindex pages while disallowing only admin/api/auth. `sitemap.ts`, sitemap index and shard routes use canonical origin, bounded shards, XML escaping and the shared noindex filter. `/kids` and `/kids/adventures` layouts use `pageMetadata` without noindex and are intentionally indexable; approved age-appropriate Kids story details are included separately. PR #371 was closed without merge after the proposed noindex change was disproved by actual layout metadata; no code change was merged.
+- AASA/Android association: the iOS Apple App Site Association route returns 503 until the owner configures the real Apple Team ID plus `.com.zikr.app` in Vercel Production and redeploys. Android assetlinks route has a release fingerprint fallback and environment override; Play App Signing fingerprint acceptance remains owner/device verification.
