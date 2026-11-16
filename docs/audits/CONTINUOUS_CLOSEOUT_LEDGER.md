@@ -2994,9 +2994,9 @@ No production SQL mutation, migration execution, data repair, content generation
 
 ### Current audit artifacts
 
-- Matrix blob: `e09ee8b61942891ce1ed858c44beb5034d3a5faf` — 1,248 UNREVIEWED (414 high priority), 711 non-UNREVIEWED.
-- Inventory blob: `4a90a86d5098856a361a37821c12ec02f266e636`.
-- Project status blob: `1e8494b6d01b3e92e14e800a21446192f506b985`.
+- Matrix blob: `e5e45d36a4957fb9fe17fad690886a645d396788` — 1,248 UNREVIEWED (414 high priority), 711 non-UNREVIEWED.
+- Inventory blob: `ca81f49e989efe950b9272c56d9608fa0d7828e4`.
+- Project status blob: `45579584fcd690adda1c08dc4f1eb457e770f6fd`.
 - Immutable manifest blob: `baace6d0c66ac299edb541c7caceba56eeae19be`.
 
 ### Safety and closeout gates
@@ -3007,3 +3007,12 @@ No production SQL mutation, migration execution, data repair, content generation
 - Current main remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; production Vercel remains recorded READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`. Current-main production smoke is unverified.
 
 - Remote migration ledger blob `2bd6469ec4b9fa680a4c138c46757ae535fc1f26` records 449 exact-matched migrations, correct deployed RPC signatures/ACLs, current Kids RLS, Storage and cron evidence. Older missing-contract/signature entries are superseded.
+
+
+## Current PR and Supabase checkpoint — 2026-11-16
+
+- PR #378 exact head `dbfe0c440e317557a7e9eef0c8837d30da6527bd` passed Quality Gate `43972345412`, Android Debug APK `43972345453` and CircleCI config-guard after the follow-up Arabic-text validation correction. Existing legacy source gaps remain unchanged.
+- PR #380 exact head `66dde1c4279b6513e395a57ab906b4117a8e82ad` passed Quality Gate `43969510424` and all three CircleCI contexts; draft/open for owner review.
+- PR #381 corrected exact head `06103c8627c264d4cf497ed93c68859d09b0a958` remains pending its fresh exact-head checks; the first head failed at a stale verifier assertion and was corrected, not bypassed.
+- PR #344 current head `b39c897d8268714988f58cffcfd3330033d6cb39`: Quality Gate `43972775109` in progress; CircleCI config-guard passed; source-verify/application-build-docs pending. No merge/deploy.
+- Current artifacts: matrix `e5e45d36a4957fb9fe17fad690886a645d396788` (1,248 UNREVIEWED / 414 high priority / 711 other rows); inventory `ca81f49e989efe950b9272c56d9608fa0d7828e4`; project status `45579584fcd690adda1c08dc4f1eb457e770f6fd`; remote migration ledger `2bd6469ec4b9fa680a4c138c46757ae535fc1f26`; immutable main manifest `baace6d0c66ac299edb541c7caceba56eeae19be`.
