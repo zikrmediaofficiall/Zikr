@@ -634,12 +634,12 @@ assert.match(worker, /select=id,content_type,automation_key,metadata&limit=1000/
 assert.match(worker, /todaysKidsPosts\.some\(isKidsWrittenPostCandidate\)/, "backfill must recognize both current and legacy Kids queue reservations");
 assert.match(worker, /todaysKidsArticles\.some\(\(row\) => isKidsWrittenSourceReservation\(row\.metadata\)\)/, "backfill must reserve a Kids source article even if its social queue insert has not completed");
 assert.match(worker, /articles\?metadata->>automation=eq\.written-content-v2&published=eq\.true&created_at=/, "unpublished generated articles must not reserve the daily approved Kids slot");
-assert.match(worker, /shouldBackfillKidsWrittenPost\(sourceType,hasKidsPostToday\)/, "Kids backfill must stop after one daily reservation");
+assert.match(worker, /shouldBackfillKidsWrittenPost\(sourceType,hasKidsPostToday,allowKids\)/, "Kids backfill must stop after one daily reservation and honor the Kids permission gate");
 assert.match(worker, /scheduleKidsBackfillWithinUtcDay\(now\)/, "Kids backfill must not schedule its reserved slot into a future UTC day");
 assert.match(worker, /if\(sourceType==="kids_story"\)hasKidsPostToday=true/, "a successful Kids backfill must reserve the current UTC day for later rows");
 assert.match(worker, /source\.kind==="kids_story"/);
 assert.match(worker, /chooseWrittenSourceKind\(/);
-assert.match(worker, /const todaysKidsPosts = category === "auto" \|\| category === "kids"/, "explicit Kids generation must inspect the same UTC-day reservation before selecting a source");
+assert.match(worker, /const todaysKidsPosts = allowKids && \(category === "auto" \|\| category === "kids"\)/, "only authorized Kids or auto runs may inspect and select Kids source reservations");
 assert.match(worker, /todays\.some\(\(row\) => isKidsWrittenSourceReservation\(row\.metadata\)\)/, "automatic and explicit Kids generation must honor a same-day source article reservation even without a queue row");
 const dailyKidsReservationScan = worker.match(/const todays=await readRequired<Row>\(([\s\S]*?)\);/)?.[1] ?? "";
 assert.match(dailyKidsReservationScan, /published=eq\.true/, "unpublished generated articles must not reserve the daily Kids slot during generation");
