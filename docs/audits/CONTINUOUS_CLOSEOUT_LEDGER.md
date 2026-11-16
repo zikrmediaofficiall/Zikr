@@ -2354,3 +2354,12 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 - `stories.json` has 21 general editorial stories and is not the Kids dataset. Earlier ledger statements that current `kids.json` exposed 20 unapproved stories or that the live Kids RLS policy still allowed direct anon access are historical and superseded by this current evidence.
 - No content, database rows, storage, or routes were mutated in this revalidation. The 20 unapproved legacy stories still require individual editorial review before any future approval.
 - Updated status matrix blob: `c1d2767d9e484bded04f115c5f3f676f42878d61`; remaining unreviewed count: 1874.
+
+
+## 2026-11-16 13:20 UTC — SEO/public route and video consumer trace
+
+- Production smoke: `robots.txt`, `sitemap.xml`, `sitemap-index.xml`, `/kids`, and `/videos` returned HTTP 200. Robots excludes admin/API/auth; sitemap uses canonical URLs, noindex filtering, content-length thresholds, and age-approved Kids stories only. Sitemap shard route validates non-negative numeric IDs, escapes XML, and sends `X-Robots-Tag: noindex`.
+- Public general-video consumers `getVideos`, `getVideoBySlug`, `/videos`, `/videos/[slug]`, its metadata layout, and `/api/content/videos/[slug]` use anon Supabase reads and rely on RLS. They filter audience null/general but do not independently exclude the Kids category. PR #340's category-level restrictive policy is required to prevent a Kids-category row with null/contradictory metadata from appearing in the general catalog or metadata response.
+- Current production `kids-stories` category count: 34 published rows; all 34 have `audience=kids`, with zero null/general markers. No current row exposure was observed; the gap is latent for legacy/future rows. PR #340 is green but unmerged.
+- Dedicated Kids video routes use the separate QA + current fingerprint + human approval + playable-media path. They do not fall back to general videos on transient errors.
+- Updated matrix blob `2a2f7b6db328036fad599e30f0f0932ed216788d`; `1858` tracked blobs remain unreviewed.
