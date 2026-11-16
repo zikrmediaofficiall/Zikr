@@ -30,7 +30,7 @@ export function planQueueAlertDelivery(
   channels: QueueAlertChannelAvailability,
   previous: QueueAlertDeliveryState | null,
 ): QueueAlertDeliveryPlan {
-  if (previous?.delivered_at) {
+  if (previous && queueAlertChannelsComplete(channels, previous)) {
     return { skip: true, sendWebhook: false, sendEmail: false };
   }
 
