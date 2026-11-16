@@ -122,6 +122,24 @@ export function buildYoutubeSyncAttemptState(input: {
   };
 }
 
+type YoutubeSyncClaimResult = {
+  data: { id: number } | null;
+  error: { code?: string; message?: string } | null;
+};
+
+export async function claimYoutubeSyncAttempt(input: {
+  expectedUpdatedAt: string | null;
+  update: () => Promise<YoutubeSyncClaimResult>;
+  insert: () => Promise<YoutubeSyncClaimResult>;
+}): Promise<boolean> {
+  const result = input.expectedUpdatedAt ? await input.update() : await input.insert();
+  if (result.error) {
+    if (!input.expectedUpdatedAt && result.error.code === '23505') return false;
+    throw result.error;
+  }
+  return Boolean(result.data);
+}
+
 export type YoutubeSyncHealth = {
   configured: boolean;
   status: YoutubeSyncStateRow['status'];
@@ -262,7 +280,7 @@ async function readCachedVideos(channelId: string): Promise<YoutubeVideo[]> {
   return ((data ?? []) as YoutubeCacheRow[]).map(toVideo);
 }
 
-type YoutubeSyncSnapshot = YoutubeSyncHealth & { cachedPlaylists: YoutubePlaylist[] };
+type YoutubeSyncSnapshot = YoutubeSyncHealth & { cachedPlaylists: YoutubePlaylist[]; updatedAt: string | null };
 
 async function readSyncHealth(channelId: string): Promise<YoutubeSyncSnapshot> {
   const supabase = createAdminClient();
@@ -278,6 +296,9 @@ async function readSyncHealth(channelId: string): Promise<YoutubeSyncSnapshot> {
     nextAllowedSyncAt: sameChannel ? row?.next_allowed_sync_at ?? null : null,
     lastError: sameChannel && row?.last_error ? safeYoutubeErrorMessage(row.last_error) : null,
     cachedPlaylists: getCachedPlaylistsForChannel(row, channelId),
+    // Keep the singleton row revision even when the configured channel changed;
+    // the compare-and-set claim must protect the whole row, not only one channel.
+    updatedAt: row?.updated_at ?? null,
   };
 }
 
@@ -340,10 +361,40 @@ export async function syncYoutubeFeed(maxResults = 24): Promise<YoutubeChannelFe
     lastSuccessAt: health.lastSuccessAt,
     cachedPlaylists: health.cachedPlaylists,
   });
-  const { error: stateError } = await supabase
-    .from('youtube_sync_state')
-    .upsert(syncLockState);
-  if (stateError) throw stateError;
+  const claimAcquired = await claimYoutubeSyncAttempt({
+    expectedUpdatedAt: health.updatedAt,
+    update: async () => {
+      const { data, error } = await supabase
+        .from('youtube_sync_state')
+        .update(syncLockState)
+        .eq('id', 1)
+        .eq('updated_at', health.updatedAt)
+        .select('id')
+        .maybeSingle();
+      return { data, error };
+    },
+    insert: async () => {
+      const { data, error } = await supabase
+        .from('youtube_sync_state')
+        .insert(syncLockState)
+        .select('id')
+        .maybeSingle();
+      return { data, error };
+    },
+  });
+  if (!claimAcquired) {
+    const [cached, channel] = await Promise.all([readCachedVideos(channelId), readCachedChannel(channelId)]);
+    return {
+      configured: true,
+      channelId,
+      channel,
+      videos: cached.slice(0, maxResults),
+      playlists: health.cachedPlaylists,
+      stale: true,
+      error: 'YouTube sync is already in progress.',
+      errorCode: 'unknown',
+    };
+  }
 
   try {
     const [videosResponse, playlistsResponse, channelResponse] = await Promise.all([
@@ -388,14 +439,24 @@ export async function syncYoutubeFeed(maxResults = 24): Promise<YoutubeChannelFe
     const videos = await readCachedVideos(channelId);
     const channel = toYoutubeChannel(channelProfile);
     const playlists: YoutubePlaylist[] = (playlistsResponse.items ?? []).map((item) => ({ id: item.id, title: item.snippet.title, description: item.snippet.description ?? '', thumbnailUrl: pickThumbnail(item.snippet), itemCount: item.contentDetails?.itemCount ?? null }));
-    const { error: successStateError } = await supabase.from('youtube_sync_state').upsert({ id: 1, channel_id: channelId, status: 'ok', last_attempted_at: syncedAt, last_success_at: syncedAt, next_allowed_sync_at: new Date(Date.now() + CACHE_TTL_MS).toISOString(), last_error: null, playlists }, { onConflict: 'id' });
+    const { error: successStateError } = await supabase
+      .from('youtube_sync_state')
+      .update({ status: 'ok', last_attempted_at: attemptAt, last_success_at: syncedAt, next_allowed_sync_at: new Date(Date.now() + CACHE_TTL_MS).toISOString(), last_error: null, playlists })
+      .eq('id', 1)
+      .eq('channel_id', channelId)
+      .eq('last_attempted_at', attemptAt);
     if (successStateError) throw successStateError;
     return { configured: true, channelId, channel, videos: videos.slice(0, maxResults), playlists, stale: false };
   } catch (error) {
     const errorCode = getYoutubeErrorCode(error);
     const cooldown = errorCode === 'quota_exceeded' ? QUOTA_COOLDOWN_MS : ERROR_COOLDOWN_MS;
     const message = safeYoutubeErrorMessage(error);
-    await supabase.from('youtube_sync_state').upsert({ id: 1, channel_id: channelId, status: errorCode === 'quota_exceeded' ? 'quota_exceeded' : 'error', last_attempted_at: new Date().toISOString(), next_allowed_sync_at: new Date(Date.now() + cooldown).toISOString(), last_error: errorCode === 'quota_exceeded' ? 'YouTube API quota is temporarily exhausted.' : message.slice(0, 500) });
+    await supabase
+      .from('youtube_sync_state')
+      .update({ status: errorCode === 'quota_exceeded' ? 'quota_exceeded' : 'error', next_allowed_sync_at: new Date(Date.now() + cooldown).toISOString(), last_error: errorCode === 'quota_exceeded' ? 'YouTube API quota is temporarily exhausted.' : message.slice(0, 500) })
+      .eq('id', 1)
+      .eq('channel_id', channelId)
+      .eq('last_attempted_at', attemptAt);
     const [cached, channel] = await Promise.all([readCachedVideos(channelId), readCachedChannel(channelId)]);
     return { configured: true, channelId, channel, videos: cached.slice(0, maxResults), playlists: health.cachedPlaylists, stale: cached.length > 0 || health.cachedPlaylists.length > 0, error: errorCode === 'quota_exceeded' ? 'YouTube API quota is temporarily exhausted; cached content remains available.' : message, errorCode };
   }
