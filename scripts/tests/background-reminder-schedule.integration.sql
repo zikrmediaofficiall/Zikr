@@ -99,9 +99,9 @@ END
 $disabled_intervals$;
 
 
--- Authenticated users can update their own preference row through RLS/PostgREST.
+-- Authenticated users can update only their own preference row through RLS/PostgREST.
 -- The database trigger must reject invalid time zones even when application validation is bypassed.
-GRANT UPDATE, INSERT ON TABLE public.background_reminder_preferences TO authenticated;
+SET request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 SET ROLE authenticated;
 
 DO $invalid_timezone_update$
@@ -122,6 +122,10 @@ BEGIN
 END
 $invalid_timezone_update$;
 
+RESET ROLE;
+SET request.jwt.claim.sub = '10000000-0000-4000-8000-000000000003';
+SET ROLE authenticated;
+
 DO $invalid_timezone_insert$
 DECLARE
   rejected boolean := false;
@@ -139,11 +143,16 @@ BEGIN
 END
 $invalid_timezone_insert$;
 
+RESET ROLE;
+SET request.jwt.claim.sub = '10000000-0000-4000-8000-000000000002';
+SET ROLE authenticated;
+
 UPDATE public.background_reminder_preferences
 SET timezone = 'America/New_York'
 WHERE user_id = '10000000-0000-4000-8000-000000000002';
 
 RESET ROLE;
+RESET request.jwt.claim.sub;
 
 DO $valid_timezone$
 BEGIN
