@@ -13,7 +13,7 @@ Updated: 2026-11-16T21:48:52.502Z (reconciled with exact-head PR #375 verificati
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `c33f44d9efed67cc28f92837d8e5f52e9650e0a7`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `a48bf2b4dc6a5cb3582db8ab40bb61892adebab8`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -66,13 +66,13 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 39
 - `REVIEWED_PARTIAL`: 69
-- `REVIEWED_PERMISSION_SCAN`: 91
+- `REVIEWED_PERMISSION_SCAN`: 90
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 66
-- `REVIEWED_SOURCE_ONLY`: 297
+- `REVIEWED_SOURCE_ONLY`: 300
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1278
+- `UNREVIEWED`: 1273
 
 High-priority unreviewed files: **435**. The matrix has 1959 file rows; 681 are not marked `UNREVIEWED`.
 
@@ -382,3 +382,10 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 
 - PR #375 exact head `de8b208fd05b2d407f1042c49926df0155640c99` remains fully green for GitHub Quality Gate and all CircleCI contexts. Supabase Preview is skipped. The automated Codex code review could not complete because the connected review account reached its usage limit (comments `6930220352` and `6930221109`); this is not a pass or a code finding. Human CODEOWNERS approval remains outstanding despite explicit owner notifications `6930245521` and `6930399909`.
 - No merge, production function/cron invocation, database mutation or Vercel deployment was performed.
+
+
+## Review batch — admin analytics and knowledge publishing — 2026-11-16
+
+- PR #377: the optional `/admin/analytics` traffic panel could fail the entire page if `getTrafficRevenueSnapshot()` throws during service-role client initialization. Exact head `aebf778509bbdd8daef1589ecbd6a111339f3029` passed canonical Quality Gate run `43965088015`, Android Debug APK `43965089158` and CircleCI config-guard. It now renders an accessible unavailable state rather than failing the page or fabricating zeroes; no GA4/YouTube request was run.
+- PR #378: new knowledge records previously defaulted to published; server actions did not enforce source/reference/grade on publication; scholar editor lacked a source field; companion/scholar slug edits could POST an existing ID and fail. Exact head `db567da1899ed9994cbc2bd1c773b878c3f62823` adds draft defaults, server publication policy, source metadata, PATCH-by-ID and tests; Quality Gate and Android Debug are in progress, CircleCI config-guard passed.
+- Read-only production counts: 12/17 published companions and 8/8 scholars lack metadata.source; all 2,964 published hadiths have both ref and grade. No records were updated. Legacy biography source remediation remains owner/editor work.
