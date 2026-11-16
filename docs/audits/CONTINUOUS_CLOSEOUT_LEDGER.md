@@ -2934,8 +2934,8 @@ No production SQL mutation, migration execution, data repair, content generation
 - Main source blob: YouTube integration `6ac67f8de465a82c446cef9b3116d7d5ebd235eb`; like route `ab8681830ca8946bc769773e3c301a8a52b7f214`; aggregate migration `b1d7d221b98c6274b99808493e77e3cb1d7207e8`; template config `a0b0dd0eb1b26b33cc12ea0b3cfc5849a4613b1e`; creative variation `50ce96af56a4f058e2b68d657a0ea9178ce5fc68`.
 - PR #358 exact head: `1cd16fff5d673e9af1b6aa09b96d78e93566fb2e` (all recorded required checks passed; owner review absent).
 - PR #380 exact head: `66dde1c4279b6513e395a57ab906b4117a8e82ad` (Quality Gate in progress; CircleCI config-guard passed; source-verify/application-build-docs pending at last poll).
-- Matrix blob: `5840db07c872cb1aa073cf0e0036690f4c8c25bf` — 1,258 UNREVIEWED (420 high priority), 701 non-UNREVIEWED.
-- Inventory blob: `a286dc8fa07664eb98c73fad661eaef0cbe9d713`.
+- Matrix blob: `d2a649e5eba0c31814fdc77752b15592682055b7` — 1,258 UNREVIEWED (420 high priority), 701 non-UNREVIEWED.
+- Inventory blob: `f2e8a3b48e2cb1f33e52597c01f824bbba4017ed`.
 - Project status blob: `1fc01e92864d541a0cb0044ef20bea2e3aac182c`.
 - Immutable manifest blob: `baace6d0c66ac299edb541c7caceba56eeae19be`.
 
@@ -2945,3 +2945,12 @@ No production SQL mutation, migration execution, data repair, content generation
 - PRs #358 and #380 remain unmerged. Human CODEOWNERS/owner approval is absent on the tracked audit PRs; green automated checks do not substitute for that approval.
 - The documentation branch update itself changes the exact head and requires fresh PR #344 Quality Gate and CircleCI checks. No previous-head result is reused.
 - Current main is not deployed; production Vercel remains recorded READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; current-main production smoke remains unverified.
+
+
+## Live Supabase and YouTube sync reconciliation — 2026-11-16
+
+- Remote migration history: 449 applied versions, latest `20261116045100`; local main snapshot: 449 migration files. Exact version-set comparison: 449 shared, 0 local-only, 0 remote-only, 0 duplicate IDs; one descriptive filename mismatch for shared version `20261106213918`. No pending migration apply is indicated by the version set.
+- Extended live contract ledger blob `2bd6469ec4b9fa680a4c138c46757ae535fc1f26` records the verified RPC signatures and ACLs: `save_default_prayer_location(text,text,numeric,numeric,text)`; `admin_update_user_role(uuid,text,uuid)`; `update_video_storage_retention(uuid,uuid,text,jsonb,boolean)`; `video_storage_retention_contract_ready()`; `plan_background_reminder_deliveries(timestamptz)`. Earlier “missing contract” entries used incorrect signatures and are superseded.
+- Live RLS/Storage: Kids stories are public only when published, active and explicitly age-approved; Kids questions have no anon SELECT grant and zero rows; Kids levels require a published parent game; Kids-marked videos require human approval and linked request. No direct Storage write policies for videos/site-audio/public-assets; videos and site-audio buckets are 50 MiB. No object or row changed.
+- Cron read-only snapshot: prayer push every minute, source-verified content agent daily 03:00 UTC, history cleanup daily 03:30 UTC; legacy social-sync cron inactive and still points to old project ID `ymxdswkaxafakugktsim`. No job/Edge Function was invoked.
+- PR #380 exact head `66dde1c4279b6513e395a57ab906b4117a8e82ad` passed Quality Gate `43969510424` and CircleCI config-guard/source-verify/application-build-docs; owner review remains required. The YouTube feed singleton claim/finalization now uses updated_at CAS; no YouTube provider request or production mutation was run.
