@@ -2688,3 +2688,30 @@ No production SQL mutation, migration execution, data repair, content generation
 - Matrix remains tied to main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, blob `6c1a3ed41fee37a1fbc2d11a0ad11a562c47ee96`: 1,959 tracked blobs, 1,364 still `UNREVIEWED` (482 high priority), 595 in reviewed/pending categories. The full manifest remains unchanged at blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
 - No PR was merged, no owner approval was inferred, no deployment was triggered, and no production smoke was run. Main remains one commit ahead of the latest READY production source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`.
 
+
+
+## 2026-11-16T21:15Z — public AI cost controls and search cache consistency
+
+### Public AI and request-boundary review
+
+- Read the full poetry-insight route, shared rate-limit service and policy identity, HMAC actor derivation, server-only poetry analysis service/system instruction, bounded JSON request reader, and the two regression suites.
+- The route authenticates before reading the body; caps streamed bytes at 64 KiB (not only Content-Length); validates poem/title lengths; consumes the shared per-user HMAC quota before any Gemini call; returns 429 on quota exhaustion and 503 if the limiter is unavailable. The poem/title are serialized as data and the separate system instruction explicitly treats them as untrusted text. No Gemini request was sent.
+- The bounded-body test covers exact byte limits, declared oversize rejection before reading, chunked/under-reported oversize cancellation, multibyte UTF-8 byte counting, invalid UTF-8, malformed JSON, missing body and invalid limits. The public AI cost guard verifies authentication/body/rate-limit/Gemini ordering, fail-closed limiter response, server-only system prompt, and health-check non-generation.
+- Both tests are in the canonical `pnpm test` chain. Main Quality Gate run `43833156580` passed full `pnpm verify` on exact main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`.
+
+### Rate-limit database contract
+
+- Read the full applied migration `20261008082029_20261008110000_restore_admin_rate_limit_contract.sql`; the RPC atomically increments the HMAC actor/bucket/window counter and only deletes expired rows for that actor/bucket.
+- Remote migration history confirms version `20261008082029` applied (449 total). Read-only catalog query confirms `consume_admin_rate_limit` is SECURITY DEFINER with `search_path=public`, EXECUTE denied to anon/authenticated and granted only to service_role; `admin_rate_limits` RLS enabled, client SELECT denied and service_role SELECT allowed.
+- No rate-limit RPC was invoked, so no counter was consumed and no cleanup DELETE was triggered.
+
+### Search API cache consistency
+
+- Read `src/app/api/search/route.ts`. Reproduced a cache-policy mismatch: cache misses returned `Cache-Control: public, max-age=60, stale-while-revalidate=300`, while cache hits returned no explicit policy.
+- PR #370 current exact head `31c6262005e8a91f6c73e418519d0dfdda84d542` now shares the header object between both paths and adds a regression assertion in `arabic-search:check`. The earlier head `f5596f7ad1b72e666c084923123814e5e001c0e1` passed full Quality Gate/CircleCI/Android debug; the cache-header commit is new and its exact-head checks are pending.
+- PR #369 remains green on exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`: Quality Gate `43953516859` full, CircleCI source/application/config and Android debug build `43953516793` passed. Owner review remains outstanding.
+
+### Inventory and safety
+
+- Matrix blob `b7c3a383fcc61e6cbf7450e9bb586b1de8567a4c` remains tied to main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`: 1,959 tracked blobs, 1,355 `UNREVIEWED` (479 high priority), 604 in reviewed/pending categories. Full manifest remains unchanged at `baace6d0c66ac299edb541c7caceba56eeae19be`.
+- No content generation, Gemini request, production mutation, social publishing, Storage/media deletion, release, merge, deployment or HTTP smoke was performed. Documentation PR #344 exact-head checks remain unavailable on its current docs-only head; owner review remains required.
