@@ -2809,5 +2809,7 @@ No production SQL mutation, migration execution, data repair, content generation
 ## Latest inventory reconciliation — 2026-11-16
 
 - Main snapshot remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; recursive manifest remains 2,459 entries (1,959 blobs + 500 directories), blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
-- Latest file-status matrix blob: `b1076ea6c61d237b85736824d753947f3646bfd9`; 1,959 file rows. Counts: 1301 UNREVIEWED (451 high priority), 286 REVIEWED_SOURCE_ONLY, 62 REVIEWED_PARTIAL, 62 REVIEWED_REGRESSION_COVERAGE, 1 FIX_PENDING_PR372, 4 FIX_PENDING_PR373, 1 FIX_PENDING_PR374, and 658 rows not marked UNREVIEWED.
+- Latest file-status matrix blob: `7df81b77b9067c5aaa42e8f23c76d7cc7055451f`; 1,959 file rows. Counts: 1301 UNREVIEWED (451 high priority), 286 REVIEWED_SOURCE_ONLY, 62 REVIEWED_PARTIAL, 62 REVIEWED_REGRESSION_COVERAGE, 1 FIX_PENDING_PR372, 4 FIX_PENDING_PR373, 1 FIX_PENDING_PR374, and 658 rows not marked UNREVIEWED.
 - The matrix had concurrent review-status updates during this run; the inventory and project-status summaries were re-read and synchronized to this exact matrix blob rather than overwriting those rows.
+
+- Latest reconciled inventory blob: `1b3d9d9aa7da29e9c7e0bef957ccfcebaeea9d1f`; project-status file blob: `027a85738c90fa9cc740a93b9aa7804b3e3afd6e`. These refer to the same main snapshot and matrix SHA `7df81b77b9067c5aaa42e8f23c76d7cc7055451f`.
