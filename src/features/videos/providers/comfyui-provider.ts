@@ -50,7 +50,8 @@ export class ComfyUIVideoProvider implements VideoProvider {
       signal: AbortSignal.timeout(10_000),
     });
     if (!queued.ok) return { ok: false, provider: this.name, error: `ComfyUI queue failed (HTTP ${queued.status}).` };
-    const payload = await queued.json() as { prompt_id?: string };
+    const queuedBytes = await readBoundedMediaResponse(queued, 64 * 1024);
+    const payload = JSON.parse(new TextDecoder().decode(queuedBytes)) as { prompt_id?: string };
     const providerJobId = payload.prompt_id;
     if (!providerJobId) return { ok: false, provider: this.name, error: "ComfyUI did not return a prompt id." };
 
@@ -58,7 +59,8 @@ export class ComfyUIVideoProvider implements VideoProvider {
     while (Date.now() < deadline) {
       const history = await fetch(`${this.baseUrl}/history/${encodeURIComponent(providerJobId)}`, { redirect: "error", signal: AbortSignal.timeout(10_000) });
       if (history.ok) {
-        const result = await history.json() as Record<string, { outputs?: Record<string, unknown> }>;
+        const historyBytes = await readBoundedMediaResponse(history, 2 * 1024 * 1024);
+        const result = JSON.parse(new TextDecoder().decode(historyBytes)) as Record<string, { outputs?: Record<string, unknown> }>;
         const outputs = result[providerJobId]?.outputs;
         if (outputs) {
           const media = findMediaOutput(outputs);
