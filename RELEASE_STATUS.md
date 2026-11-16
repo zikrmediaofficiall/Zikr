@@ -1,6 +1,6 @@
 # ZIKR Project Release & Build Status
 
-Last reconciled (Android release): 2026-11-10 05:12:05 UTC. Production deployment details below retain their 2026-11-07 inspection snapshot.
+Last reconciled: 2026-11-16 07:47 UTC. Android release records below remain historical and immutable; production web deployment details are current.
 Repository: https://github.com/zikrofficial-X/Zikr  
 Production URL: https://zikrmediaofficial.vercel.app
 
@@ -8,16 +8,16 @@ Production URL: https://zikrmediaofficial.vercel.app
 
 | Item | Verified state |
 |---|---|
-| Deployed source commit | `a712708004942b99fceab0993592cef6c5112afe` |
-| Current main commit (not yet deployed) | `1c9f44a6c55ad9f6d65b7552892fc44b6eed43c9` |
-| Vercel deployment | `dpl_9d8LhBw1xDjNfWWcnTkv46sfdV3C` |
+| Deployed source commit | `26ae58fdd2220897511544e9475eab28979f88f5` |
+| Current main commit | `26ae58fdd2220897511544e9475eab28979f88f5` |
+| Vercel deployment | `dpl_F8opnXTMke2VhfRSrMUcoLmQUwQw` |
 | Deployment state | READY (Production) |
 | Production alias | `zikrmediaofficial.vercel.app` |
-| Deployment URL | https://zikr-dwr37r69d-zikr3.vercel.app |
-| Deployment created | 2026-11-06 (UTC) |
-| Runtime logs | No error/fatal logs returned by the latest 30-minute query; older error clusters belong to older deployments |
+| Deployment URL | https://zikr-92iom525u-zikr3.vercel.app |
+| Deployment created | 2026-11-16 (UTC) |
+| Runtime verification | `/api/health` returns HTTP 200 and the exact deployed SHA; core page/API smoke checks return HTTP 200 |
 
-The inspected production deployment is READY and serves `zikrmediaofficial.vercel.app`, but it remains on the deployed source commit shown above. Current `main` is `1c9f44a6c55ad9f6d65b7552892fc44b6eed43c9`; PRs #232, #233 and #234 have merged after the deployed commit and are not live yet. The production release remains manual-only through `.github/workflows/release-finalization.yml` and requires explicit `RELEASE` confirmation.
+The inspected production deployment is READY and serves `zikrmediaofficial.vercel.app` from the exact current `main` commit. `vercel.json` keeps Git deployments disabled, so future production web releases remain controlled/manual; this review did not trigger a redundant deployment.
 
 ## Atomic Android release preparation
 
