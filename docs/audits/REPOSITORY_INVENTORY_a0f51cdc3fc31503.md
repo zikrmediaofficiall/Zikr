@@ -1,6 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
+Updated: 2026-11-16T17:08:16.220Z
 
 ## Exact snapshot
 
@@ -35,31 +36,34 @@ The manifest includes every recursive tree entry (files and directories). The st
 
 ## File-status matrix
 
-- `UNREVIEWED`: 1660
-- `REVIEWED_PERMISSION_SCAN`: 92
-- `REVIEWED_SOURCE_ONLY`: 109
-- `REVIEWED_REGRESSION_COVERAGE`: 18
-- `REVIEWED_PARTIAL`: 19
-- `REVIEWED_PRODUCTION_APPLIED`: 12
+- `DOCS_RECONCILIATION_PENDING`: 2
 - `FIX_PENDING_PR337`: 9
-- `FIX_PENDING_PR339`: 5
-- `SECURITY_FIX_PENDING_PR340`: 5
-- `FIX_PENDING_PR343`: 4
 - `FIX_PENDING_PR338`: 4
-- `REVIEWED_PRODUCTION_SMOKE_200`: 4
+- `FIX_PENDING_PR339`: 5
 - `FIX_PENDING_PR340`: 3
+- `FIX_PENDING_PR341`: 2
+- `FIX_PENDING_PR343`: 4
 - `FIX_PENDING_PR346`: 2
 - `FIX_PENDING_PR347`: 2
-- `DOCS_RECONCILIATION_PENDING`: 2
-- `REVIEWED_DATA_VALIDATED`: 2
-- `FIX_PENDING_PR341`: 2
-- `OWNER_SETTING_REQUIRED`: 1
+- `FIX_PENDING_PR349`: 5
+- `FIX_PENDING_PR350`: 3
+- `FIX_PENDING_PR351`: 2
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
-- `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
+- `OWNER_SETTING_REQUIRED`: 1
+- `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
+- `REVIEWED_DATA_VALIDATED`: 16
+- `REVIEWED_PARTIAL`: 37
+- `REVIEWED_PERMISSION_SCAN`: 92
+- `REVIEWED_PRODUCTION_APPLIED`: 12
+- `REVIEWED_PRODUCTION_SMOKE_200`: 4
+- `REVIEWED_REGRESSION_COVERAGE`: 18
+- `REVIEWED_SOURCE_ONLY`: 157
+- `SECURITY_FIX_PENDING_PR340`: 5
+- `UNREVIEWED`: 1570
 
-High-priority unreviewed files: **674**.
+High-priority unreviewed files: **600**.
 
 ## Review batch — 2026-11-16 14:44 UTC
 
@@ -76,6 +80,16 @@ High-priority unreviewed files: **674**.
 - A read-only Supabase comparison found **449 local / 449 remote migration versions**, exact version-set equality, zero local-only/remote-only, latest `20261116045100`. The older 447/418 snapshot in `supabase/REMOTE_MIGRATION_LEDGER.md` was stale; a superseding entry is appended with the exact read-only evidence. No migration repair or schema mutation was run.
 - The live reminder preference table has RLS enabled and authenticated owner-scoped SELECT/INSERT/UPDATE, but no database timezone constraint/trigger. It had one row and zero invalid timezone values. Direct authenticated PostgREST writes can bypass the API's `normalizeIanaTimeZone` validation; the worker/planner then fall back to UTC. Draft PR #349 adds a trigger and regression coverage; it is not applied to production.
 - Current matrix totals: 1,636 unreviewed (662 high priority), 126 source-only, 21 partial, and 5 files pending PR #349.
+
+## Review batch — 2026-11-16 17:08 UTC
+
+- Reconciled 67 status-matrix rows after reading actual Android/iOS native project files, build configuration, resource XML, CocoaPods/Xcode wiring, OAuth contracts, and binary asset metadata at main SHA `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`: 32 source-only, 16 partial, 14 data-validated, 3 pending PR #350, and 2 pending PR #351. The existing `package.json` `FIX_PENDING_PR343` state was preserved while adding the PR #350 test-registration evidence.
+- Main native build review: Android Gradle 8.13 / AGP 8.13.2 / Java 21 / SDK 36 wiring and Capacitor plugin paths align with the lockfile and Android workflow. FileProvider is non-exported and limited to app cache/files; cleartext networking is disabled. Android launcher densities are 48/72/96/144/192 px and the normal/round assets are ZIKR-branded. iOS Podfile and project deployment target both use iOS 15.0; browser/PKCE OAuth on iOS intentionally does not include the Android-only Capgo SocialLogin pod.
+- **Reproducible mobile defect:** all ten Android orientation/density splash PNGs and the iOS Splash imageset display the default Capacitor blue mark on white, despite the ZIKR-branded launcher icons and Android fallback XML. Android's configured resource name `splash` selects the orientation-qualified placeholder PNGs. Draft PR #350 (current head `dc96b16e586367924116fdfa8398d348429cb240`) switches Android to a dedicated ZIKR drawable, replaces the iOS imageset reference with a copy of the existing ZIKR app icon, uses the matching navy background, and adds a canonical regression test. Legacy placeholder files are retained and no files are deleted. Exact-head Quality Gate, CircleCI source/application and Android Debug APK checks are pending after the test-syntax correction.
+- **Signing-material hygiene:** CircleCI writes its temporary release keystore under `.circleci-signing/zikr-release.keystore`; root `.gitignore` did not ignore that directory even though the job has an always-run cleanup and `android/keystore.properties` is ignored. Draft PR #351 (head `8ae3016fe7a6c9c2a4568cf8c72cde33ef91c68e`) adds a root ignore rule and extends the existing `gitignore-secrets.test.mjs`; exact-head checks are pending.
+- **Reminder timezone repair:** PR #349 advanced to `b085fec9a4197f33ce354c63dba43f1728f04457`; the newline-tolerant SQL privilege contract assertion now passes. Quality Gate run `43912365514` reported `QUALITY_GATE=PASSED_FULL`, including PostgreSQL reminder integration, and all three CircleCI contexts passed. The migration remains unapplied to production pending review.
+- Additional review gaps recorded, not silently closed: Gradle 8.13 wrapper properties lack `distributionSha256Sum` and the wrapper JAR checksum is not verified; Dependabot only covers npm, not Gradle/GitHub Actions; iOS has no simulator/archive CI and lacks a configured Apple Development Team; the 4.7 MB `adhan.wav` could not be decoded through the repository binary endpoint, so its iOS notification duration/codec remains unverified. `salawat.wav` was verified as 13.24-second mono PCM 16-bit/22.05 kHz. No native device was used.
+- Current matrix: **1,570 UNREVIEWED** (600 high priority), 157 source-only, 37 partial, 16 data-validated, 5 pending PR #349, 3 pending PR #350, and 2 pending PR #351. Matrix blob `2657b23df7e337e5950cf9be6fa4e1102e7b34ba`; immutable main manifest remains `baace6d0c66ac299edb541c7caceba56eeae19be`.
 
 ## Verified repository and production state
 
@@ -103,6 +117,9 @@ High-priority unreviewed files: **674**.
 | 347 | Path-aware release preflight and guarded Android manual retry | `bf215540bd52df3877154f2e0703386d09d50a55` | Quality Gate `43886674997` passed; all three CircleCI contexts passed |
 
 | 348 | Prayer notification worker pre-send lease confirmation | `adddd660a3958cf1ade08f0c5a9533162b3bb105` | Quality Gate `43887164270` passed; all three CircleCI contexts passed |
+| 349 | Enforce background-reminder timezone invariant | `b085fec9a4197f33ce354c63dba43f1728f04457` | Quality Gate `43912365514` passed `QUALITY_GATE=PASSED_FULL`; all CircleCI contexts passed |
+| 350 | ZIKR-branded Android/iOS splash resources | `dc96b16e586367924116fdfa8398d348429cb240` | Quality Gate, CircleCI source/application, and Android Debug APK pending |
+| 351 | Ignore ephemeral CircleCI signing keystore path | `8ae3016fe7a6c9c2a4568cf8c72cde33ef91c68e` | Quality Gate and CircleCI source/application pending; config guard passed |
 
 All listed repair PRs remain unmerged pending independent CODEOWNERS review. PR344 is the documentation/inventory reconciliation PR. PR342 is a content-manifest snapshot, not a production database mutation.
 
