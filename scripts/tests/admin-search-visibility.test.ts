@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { getVisibleAdminSearchSourceKeys } from "../../src/features/admin/services/admin-search-visibility";
 
 test("admin search only queries sources covered by the effective role", () => {
@@ -37,4 +38,16 @@ test("admin search only queries sources covered by the effective role", () => {
   );
 
   assert.deepEqual(getVisibleAdminSearchSourceKeys("support"), []);
+});
+
+test("admin search applies the effective role before issuing service-role reads", () => {
+  const platformSource = readFileSync(
+    "src/features/admin/services/platform.ts",
+    "utf8",
+  );
+  const pageSource = readFileSync("src/app/admin/search/page.tsx", "utf8");
+
+  assert.match(platformSource, /searchAdminContent\(query: string, role: AdminRole\)/);
+  assert.match(platformSource, /getVisibleAdminSearchSourceKeys\(role\)\.map/);
+  assert.match(pageSource, /searchAdminContent\(query, profile\.role\)/);
 });
