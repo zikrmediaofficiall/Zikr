@@ -762,6 +762,8 @@ for (const [table, column] of [
   ["push_runtime_settings", "value"],
   ["quran_audio", "metadata"],
   ["video_automation_runs", "metadata"],
+  ["video_generation_requests", "content"],
+  ["social_publish_queue", "metadata"],
   ["content_translation_queue", "source_payload"],
   ["site_settings", "value"],
 ]) {
@@ -925,6 +927,8 @@ assert.deepEqual(
     contentAgentQueue: { body: `pending ${publicUrl}` },
     agentRun: { details: { outputUrl: publicUrl } },
     templateVersion: { config: { previewUrl: publicUrl } },
+    videoRequest: { content: { media: { sourceUrl: publicUrl } } },
+    socialQueue: { metadata: { originalVideoUrl: publicUrl } },
     achievement: { criteria: { illustration: publicUrl } },
   }, encodedReferenceCandidates, supabaseUrl)],
   [encodedReferencePath],
