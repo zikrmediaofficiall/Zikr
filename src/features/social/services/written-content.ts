@@ -427,7 +427,66 @@ export function isKidsWrittenPostCandidate(
   if (contentType !== "written_post") return false;
   const automationKey = typeof row.automation_key === "string" ? row.automation_key.trim().toLowerCase() : "";
   return isKidsWrittenSourceReservation(row.metadata) ||
-    automationKey.startsWith("written-social-v1:kids_story:");
+    automationKey.startsWith("written-social-v1:kids_story:") ||
+    automationKey.startsWith("written-v1:kids_story:");
+}
+
+const GENERAL_WRITTEN_SOURCE_TYPES = new Set([
+  "quran",
+  "hadith",
+  "dua",
+  "adhkar",
+  "story",
+  "prophets",
+  "companions",
+  "knowledge",
+]);
+
+/**
+ * Return only positively classified general-audience written posts to social
+ * managers who do not have Kids-management permission. Unknown legacy rows
+ * fail closed; a Kids-source ID lookup supplements queue metadata markers.
+ */
+export function isWrittenPostVisibleToSocialManager(
+  row: {
+    content_type?: unknown;
+    content_id?: unknown;
+    metadata?: unknown;
+    automation_key?: unknown;
+  },
+  kidsSourceIds: ReadonlySet<string> = new Set<string>(),
+): boolean {
+  const contentType = typeof row.content_type === "string" ? row.content_type.trim().toLowerCase() : "";
+  if (contentType !== "written_post" || isKidsWrittenPostCandidate(row)) return false;
+
+  const metadata = asWrittenRecord(row.metadata);
+  const source = asWrittenRecord(metadata.source);
+  const sourceType = typeof source.type === "string" ? source.type.trim().toLowerCase() : "";
+  const sourceId = typeof source.id === "string" ? source.id.trim() : "";
+  const contentId = typeof row.content_id === "string" ? row.content_id.trim() : "";
+  const audience = metadata.audience;
+  const rawPublicPath = typeof metadata.publicPath === "string"
+    ? metadata.publicPath
+    : typeof metadata.public_path === "string"
+      ? metadata.public_path
+      : "";
+  const publicPath = rawPublicPath.trim();
+
+  if (
+    !GENERAL_WRITTEN_SOURCE_TYPES.has(sourceType) ||
+    !sourceId ||
+    !publicPath.startsWith("/") ||
+    publicPath.startsWith("//") ||
+    isKidsPublicPath(publicPath) ||
+    (audience !== undefined && audience !== null &&
+      (typeof audience !== "string" || !["general", "all", "public"].includes(audience.trim().toLowerCase()))) ||
+    (contentId && kidsSourceIds.has(contentId)) ||
+    kidsSourceIds.has(sourceId)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 /**

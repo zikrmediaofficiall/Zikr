@@ -159,7 +159,7 @@ export default function WrittenStudioClient({ canManageKids }: { canManageKids: 
         <article className="rounded-2xl border border-brand-gold/10 bg-black/15 p-4">
           <p className="text-xs text-brand-cream/45">منشورات معروضة</p>
           <p className="mt-2 text-3xl font-bold text-brand-gold">{loading ? "—" : items.length}</p>
-          <p className="mt-1 text-xs text-brand-cream/35">آخر 100 منشور مكتوب</p>
+          <p className="mt-1 text-xs text-brand-cream/35">حتى 100 من أحدث المنشورات المتاحة حسب صلاحياتك</p>
         </article>
         <article className="rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-4">
           <p className="text-xs text-brand-cream/45">تم نشرها</p>

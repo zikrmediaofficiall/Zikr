@@ -403,6 +403,21 @@ assert.match(
 );
 assert.match(
   writtenSocialRoute,
+  /export async function GET\(\)[\s\S]*?requireAdminApi\("kids\.manage"\)[\s\S]*?isWrittenPostVisibleToSocialManager/,
+  "written queue reads must filter Kids and unknown legacy rows unless the same administrator has kids.manage",
+);
+assert.match(
+  writtenSocialRoute,
+  /kidsAuth\.profile\.id !== auth\.profile\.id/,
+  "written queue Kids visibility must bind permission checks to the same administrator session",
+);
+assert.match(
+  writtenSocialRoute,
+  /kids_content\?id=in\.\([\s\S]*?kidsSourceIds/,
+  "written queue reads must resolve source IDs against kids_content before returning general-only rows",
+);
+assert.match(
+  writtenSocialRoute,
   /requireAdminApi\("social\.manage"\)[\s\S]*?requireAdminStepUpApi\("social\.publish"/,
   "written-content generation must require separate management permission and publishing permission with MFA step-up",
 );

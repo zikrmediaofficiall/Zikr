@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsAudience,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,isUnclassifiedKidsSocialQueueItem,isSafeWrittenBackfillSource,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
+import {asWrittenRecord,buildPublicKidsWrittenPost,countUniqueWrittenContentReservations,parseWrittenGenerationRequest,buildWrittenArticleBackfillCreatedAtFilter,buildWrittenBackfillQueuePayload,buildWrittenPost,buildWrittenSocialQueuePayload,chooseWrittenSourceKind,shouldBackfillKidsWrittenPost,scheduleKidsBackfillWithinUtcDay,containsKidsPersonalDataSolicitation,createWrittenAutomationKey,createWrittenSocialAutomationKey,isEligibleKidsWrittenPostForPublishing,isKidsAudience,isKidsWrittenPostCandidate,isKidsWrittenSourceReservation,isWrittenPostVisibleToSocialManager,isUnclassifiedKidsSocialQueueItem,isSafeWrittenBackfillSource,normalizeWrittenCategory,validateWrittenPostDraft,type CurrentKidsStory,type KidsWrittenQueueRow,type WrittenContentSource,type WrittenPostDraft} from "../../src/features/social/services/written-content";
 assert.deepEqual(asWrittenRecord({ automationPublicationHold: true }), { automationPublicationHold: true }, "object metadata must be preserved for publication-hold checks");
 assert.deepEqual(asWrittenRecord(null), {}, "missing metadata must normalize to an empty record");
 assert.deepEqual(asWrittenRecord(["invalid"]), {}, "array metadata must not be treated as a metadata record");
@@ -729,5 +729,58 @@ assert.ok(worker.includes("systemInstruction:{parts:[{text:WRITTEN_CONTENT_SYSTE
 assert.ok(worker.includes('contents:[{role:"user",parts:[{text:userPayload}]}]'));
 assert.ok(worker.includes("sourceText:source.sourceText"));
 assert.ok(!worker.includes("النص المعتمد:"), "source text must not be concatenated into the instruction prompt");
+
+
+const generalQueueRow = {
+ content_type: "written_post",
+ content_id: "article-general-1",
+ automation_key: "written-social-v1:quran:ayah-1",
+ metadata: {
+  source: { type: "quran", id: "ayah-1" },
+  publicPath: "/quran/ash-sharh",
+ },
+};
+assert.equal(isWrittenPostVisibleToSocialManager(generalQueueRow), true,
+ "social managers must retain access to explicitly classified general written posts");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { ...generalQueueRow.metadata, audience: " KIDS " },
+}), false, "Kids audience markers must hide written queue content from social-only managers");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { source: { type: " KIDS_STORY ", id: "kids-1" }, publicPath: "/kids/story" },
+}), false, "normalized Kids source markers must hide written queue content");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { source: { type: "story", id: "story-1" }, publicPath: "/kids/story" },
+}), false, "Kids public paths must hide written queue content even when the source type looks general");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ content_id: "123e4567-e89b-12d3-a456-426614174000",
+}, new Set(["123e4567-e89b-12d3-a456-426614174000"])), false,
+ "a content ID resolved from kids_content must never be returned to a social-only manager");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { source: { type: "story", id: "123e4567-e89b-12d3-a456-426614174000" }, publicPath: "/stories/story-1" },
+}, new Set(["123e4567-e89b-12d3-a456-426614174000"])), false,
+ "a source ID resolved from kids_content must not be exposed through legacy queue metadata");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ automation_key: "written-v1:kids_story:legacy-kids-1",
+ metadata: { source: { type: "story", id: "story-1" }, publicPath: "/stories/story-1" },
+}), false, "legacy Kids automation keys must remain reserved even when other metadata conflicts");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ content_type: "written_post",
+ content_id: "legacy-1",
+ metadata: {},
+}), false, "unknown legacy written rows must fail closed instead of being assumed general");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { ...generalQueueRow.metadata, audience: "unknown" },
+}), false, "unknown audience values must fail closed");
+assert.equal(isWrittenPostVisibleToSocialManager({
+ ...generalQueueRow,
+ metadata: { source: { type: "quran", id: "ayah-1" }, publicPath: "/articles/%ZZ" },
+}), false, "malformed public paths must fail closed for social-only readers");
 
 console.log("Written-content source-lock, quality, idempotency, website scheduling, Facebook queue, and safe local automation defaults passed.");

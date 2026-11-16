@@ -99,7 +99,8 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/social/youtube/connect/route.ts GET": ["social.manage", "social.publish"],
   "src/app/api/admin/social/route.ts GET": ["social.manage"],
   "src/app/api/admin/social/route.ts POST": ["social.manage", "social.publish"],
-  "src/app/api/admin/social/written/route.ts GET": ["social.manage"],
+  // Kids queue rows require the same administrator to also hold kids.manage; unknown legacy rows fail closed.
+  "src/app/api/admin/social/written/route.ts GET": ["social.manage", "kids.manage"],
   // kids.manage is conditional: explicit Kids and auto source selection are checked before dispatch.
   "src/app/api/admin/social/written/route.ts POST": ["social.manage", "social.publish", "kids.manage"],
   "src/app/api/admin/video-purge/route.ts GET": ["video.delete"],
@@ -305,6 +306,16 @@ for (const file of routeFiles) {
     const match = handlers[i];
     const end = handlers[i + 1]?.index ?? source.length;
     const block = source.slice(match.index, end);
+    if (route === "src/app/api/admin/social/written/route.ts" && match[1] === "GET") {
+      if (
+        !block.includes('requireAdminApi("kids.manage")') ||
+        !block.includes("kidsAuth.profile.id !== auth.profile.id") ||
+        !block.includes("isWrittenPostVisibleToSocialManager") ||
+        !block.includes("kids_content?id=in.")
+      ) {
+        failures.push(route + " GET: Kids/unknown written posts must be hidden unless the same administrator has kids.manage and source IDs are checked against kids_content.");
+      }
+    }
     if (route === "src/app/api/admin/social/written/route.ts" && match[1] === "POST") {
       if (!/requireAdmin(?:StepUp)?Api\s*\(\s*(["'])social\.publish\1\s*(?:,|\))/.test(block)) {
         failures.push(route + " POST: auto-published written-content generation requires social.publish.");
