@@ -25,7 +25,7 @@
 | GET | `/api/admin/social` | `social.manage` — queue and connection management |
 | POST | `/api/admin/social` | `social.manage` + `social.publish` — step-up required for sensitive actions |
 | GET | `/api/admin/social/written` | `social.manage` — written queue read |
-| POST | `/api/admin/social/written` | `social.manage` + `social.publish` — MFA step-up before generation dispatch |
+| POST | `/api/admin/social/written` | `social.manage` + `social.publish` — MFA step-up before generation dispatch; `kids.manage` is conditional for explicit Kids or auto source selection |
 | POST | `/api/admin/video-generation/narration-upload` | `video.manage` |
 | GET | `/api/admin/video-purge` | `video.delete` — dry-run preview only |
 | POST | `/api/admin/video-purge` | `video.delete` — MFA step-up before destructive cleanup |

@@ -100,7 +100,8 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/social/route.ts GET": ["social.manage"],
   "src/app/api/admin/social/route.ts POST": ["social.manage", "social.publish"],
   "src/app/api/admin/social/written/route.ts GET": ["social.manage"],
-  "src/app/api/admin/social/written/route.ts POST": ["social.manage", "social.publish"],
+  // kids.manage is conditional: explicit Kids and auto source selection are checked before dispatch.
+  "src/app/api/admin/social/written/route.ts POST": ["social.manage", "social.publish", "kids.manage"],
   "src/app/api/admin/video-purge/route.ts GET": ["video.delete"],
   "src/app/api/admin/video-purge/route.ts POST": ["video.delete"],
   "src/app/api/admin/video-generation/narration-upload/route.ts POST": ["video.manage"],
@@ -304,12 +305,18 @@ for (const file of routeFiles) {
     const match = handlers[i];
     const end = handlers[i + 1]?.index ?? source.length;
     const block = source.slice(match.index, end);
-    if (
-      route === "src/app/api/admin/social/written/route.ts" &&
-      match[1] === "POST" &&
-      !/requireAdmin(?:StepUp)?Api\s*\(\s*(["'])social\.publish\1\s*(?:,|\))/.test(block)
-    ) {
-      failures.push(route + " POST: auto-published written-content generation requires social.publish.");
+    if (route === "src/app/api/admin/social/written/route.ts" && match[1] === "POST") {
+      if (!/requireAdmin(?:StepUp)?Api\s*\(\s*(["'])social\.publish\1\s*(?:,|\))/.test(block)) {
+        failures.push(route + " POST: auto-published written-content generation requires social.publish.");
+      }
+      if (
+        !block.includes('category === "auto" || category === "kids"') ||
+        !block.includes('requireAdminApi("kids.manage")') ||
+        !block.includes('category === "kids" && !kidsAuth.ok') ||
+        !block.includes("allowKids = kidsAuth.ok")
+      ) {
+        failures.push(route + " POST: Kids source generation must be conditionally gated by kids.manage, with auto restricted to general sources for social-only managers.");
+      }
     }
     const handlerKey = route + " " + match[1];
     const expectedPermissions = CANONICAL_API_GUARDS[handlerKey];
