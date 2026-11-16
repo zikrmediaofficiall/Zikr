@@ -12,6 +12,7 @@ import {
   zonedDateTime,
 } from "./time-zone.ts";
 import { fetchScheduleOrSkip, normalizePrayerTimings } from "./schedule-fetch.ts";
+import { getPrayerCalculationMethodId } from "./calculation-method.ts";
 import { isAllowedPushEndpoint } from "../../../src/features/notifications/services/push-endpoint.ts";
 import { createAsyncSerialQueue } from "../../../src/lib/async-serial-queue.ts";
 import { getDeliveryLeaseHeartbeatIntervalMs, startDeliveryLeaseHeartbeat } from "./delivery-lease.ts";
@@ -208,21 +209,7 @@ function inQuietHours(
 }
 
 function calculationMethodId(value: string | null): number {
-  const normalized = (value ?? "umm-al-qura").toLowerCase();
-  const map: Record<string, number> = {
-    "umm-al-qura": 4,
-    mwl: 3,
-    isna: 2,
-    egyptian: 5,
-    karachi: 1,
-    tehran: 7,
-    jafari: 0,
-    qatar: 10,
-    kuwait: 9,
-    dubai: 8,
-    turkey: 13,
-  };
-  return map[normalized] ?? 4;
+  return getPrayerCalculationMethodId(value);
 }
 
 function school(value: string | null): number {
