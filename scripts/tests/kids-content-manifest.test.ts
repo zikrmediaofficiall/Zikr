@@ -148,6 +148,13 @@ assert.ok(
   scenarios.every(question => approvedScenarioSources.has(question.sourceSlug)),
   "scenario prompts must remain traceable to the approved source set",
 );
+assert.ok(
+  scenarios.every(question => {
+    const source = contentBySlug.get(question.sourceSlug);
+    return source !== undefined && isKidsContentPubliclyVisible(source);
+  }),
+  "scenario game prompts must only use publicly visible, age-approved Kids sources",
+);
 const normalizedPrompts = scenarios.map(question => question.text.trim().replace(/\s+/g, " ").toLocaleLowerCase());
 assert.equal(new Set(normalizedPrompts).size, scenarios.length, "scenario prompts must not repeat after whitespace normalization");
 
