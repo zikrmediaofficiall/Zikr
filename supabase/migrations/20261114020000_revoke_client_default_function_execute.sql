@@ -6,6 +6,8 @@ BEGIN;
 -- server-side execution path after removing browser/PUBLIC inheritance.
 -- Existing function ACLs are intentionally unchanged; sensitive existing RPCs
 -- retain their individually reviewed GRANT/REVOKE contracts.
+-- Supabase Preview executors are not necessarily members of managed owner
+-- roles; their default ACLs are changed only when PostgreSQL authorizes it.
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
@@ -33,22 +35,25 @@ DO $supabase_admin_schema_acl$
 DECLARE
   schema_name text;
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin') THEN
-    ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin
-      REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin')
+  THEN
+    IF pg_has_role(current_user, 'supabase_admin', 'MEMBER') THEN
+      ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin
+        REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 
-    FOREACH schema_name IN ARRAY ARRAY['public', 'storage', 'graphql_public', 'graphql'] LOOP
-      IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = schema_name) THEN
-        EXECUTE format(
-          'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA %I REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated',
-          schema_name
-        );
-        EXECUTE format(
-          'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA %I GRANT EXECUTE ON FUNCTIONS TO service_role',
-          schema_name
-        );
-      END IF;
-    END LOOP;
+      FOREACH schema_name IN ARRAY ARRAY['public', 'storage', 'graphql_public', 'graphql'] LOOP
+        IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = schema_name) THEN
+          EXECUTE format(
+            'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA %I REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated',
+            schema_name
+          );
+          EXECUTE format(
+            'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA %I GRANT EXECUTE ON FUNCTIONS TO service_role',
+            schema_name
+          );
+        END IF;
+      END LOOP;
+    END IF;
   END IF;
 END
 $supabase_admin_schema_acl$;
@@ -59,10 +64,14 @@ $supabase_admin_schema_acl$;
 DO $supabase_storage_admin_acl$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_storage_admin')
-     AND EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'storage') THEN
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_storage_admin REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated';
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_storage_admin IN SCHEMA storage REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated';
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_storage_admin IN SCHEMA storage GRANT EXECUTE ON FUNCTIONS TO service_role';
+  THEN
+    IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'storage') THEN
+      IF pg_has_role(current_user, 'supabase_storage_admin', 'MEMBER') THEN
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_storage_admin REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated';
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_storage_admin IN SCHEMA storage REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated';
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_storage_admin IN SCHEMA storage GRANT EXECUTE ON FUNCTIONS TO service_role';
+      END IF;
+    END IF;
   END IF;
 END
 $supabase_storage_admin_acl$;
