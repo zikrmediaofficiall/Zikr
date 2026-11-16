@@ -642,3 +642,22 @@ The older `public.plan_background_reminder_deliveries(timestamptz)` function exi
 - CODEOWNERS requires `@Zikrmediaofficial`, but collaborator-permission lookup returned `permission: null`; review requests cannot register. Owner was asked in the PR conversation to add the account or update CODEOWNERS to an accessible team/account. Repository rulesets returned empty; reading `branches/main/protection` remains 403. PR mergeability is `clean`, but this is not proof of CODEOWNERS approval or protected-branch satisfaction. PRs #321–#325 still overlap.
 - No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
 
+
+
+## 2026-11-16T14:50Z — superseding read-only migration reconciliation
+
+This checkpoint supersedes the older 2026-11-16 snapshot above. It is a read-only comparison against production project `zqtssvlvmkzeeyqghqfk` and the exact main repository snapshot `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`.
+
+- Supabase project status: `ACTIVE_HEALTHY`.
+- Local migration files: **449**.
+- Remote `list_migrations` entries: **449**.
+- Version-set comparison: **exact match**; zero local-only versions and zero remote-only versions.
+- Latest local and remote version: `20261116045100` (`require_linked_request_for_public_kids_videos`).
+- The previous 447-local / 418-remote / 29-local-only figures remain historical evidence for their earlier checkpoint only; they are not the current production migration count.
+- No migration was applied, repaired, pushed, or rolled back during this verification.
+
+### Background reminder timezone contract — read-only
+
+The production `public.background_reminder_preferences` table has RLS enabled. The authenticated role has SELECT, INSERT and UPDATE privileges; anon SELECT is denied. The table contained one row and zero timezone values absent from `pg_catalog.pg_timezone_names` at the time of the query. However, the table had no timezone-specific CHECK constraint or trigger. The application route normalizes timezone values, but authenticated owner-scoped PostgREST writes can bypass that application path. The planner and Edge worker silently fall back to UTC when a stored timezone cannot be resolved, which can evaluate a user's quiet-hours window in the wrong timezone.
+
+Draft PR #349 adds a trigger-only database guard, a fail-closed preflight for existing rows, and PostgreSQL integration tests for invalid authenticated INSERT/UPDATE. Its proposed migration `20261116150000_enforce_background_reminder_timezone.sql` is **local to the PR branch and not applied to production**. Current invalid-row count is zero, so the migration preflight should pass if the data remains unchanged before owner-approved deployment.

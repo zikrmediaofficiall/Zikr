@@ -12,7 +12,7 @@ Generated: 2026-11-16T13:04:59.302Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `d31fa3f5f4701333f0a9079e1641b12e907597a8`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `8d24b2eedefc24f202a20e58713628d059edae5f`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -69,6 +69,13 @@ High-priority unreviewed files: **674**.
 - Migration-history reconciliation is manual-only in its workflow and runs strict schema parity before history-only repair. The controlled release caller is behind typed RELEASE, CODEOWNER, exact-main-SHA and production-environment gates. No migration or ledger repair was run.
 - Scheduled Kids written-content generation explicitly enables Kids source selection. The worker reads only published, active, `age_appropriate=true` Kids stories and checks generated copy for child personal-data solicitation; the publishing validator rechecks the live source and text. There is no separate human-review check for the generated written copy. This is an owner policy acceptance, not a confirmed defect under the current documented video-only human-review rule.
 - YouTube upload helper defaults to private, but `.github/workflows/publish-social.yml` explicitly sets `YOUTUBE_UPLOAD_PRIVACY=public`. This is a production policy override, not a default; owner acceptance is required before treating public upload visibility as intended.
+
+## Review batch — 2026-11-16 14:52 UTC
+
+- Read 14 additional database-contract files: 8 source-only, 1 partial and 5 marked `FIX_PENDING_PR349`. The table/RLS migrations, timezone migration, interval migration, function-privilege migration, anon-privilege migration, API route, server-only preference service, timezone normalizer, integration harness and focused test were read.
+- A read-only Supabase comparison found **449 local / 449 remote migration versions**, exact version-set equality, zero local-only/remote-only, latest `20261116045100`. The older 447/418 snapshot in `supabase/REMOTE_MIGRATION_LEDGER.md` was stale; a superseding entry is appended with the exact read-only evidence. No migration repair or schema mutation was run.
+- The live reminder preference table has RLS enabled and authenticated owner-scoped SELECT/INSERT/UPDATE, but no database timezone constraint/trigger. It had one row and zero invalid timezone values. Direct authenticated PostgREST writes can bypass the API's `normalizeIanaTimeZone` validation; the worker/planner then fall back to UTC. Draft PR #349 adds a trigger and regression coverage; it is not applied to production.
+- Current matrix totals: 1,636 unreviewed (662 high priority), 126 source-only, 21 partial, and 5 files pending PR #349.
 
 ## Verified repository and production state
 
