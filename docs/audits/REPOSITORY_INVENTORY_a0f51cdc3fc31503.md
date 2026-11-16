@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T18:45:00Z
+Updated: 2026-11-16T18:55:00Z
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16T18:45:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `588089e715e239112bc9efe918e0e18012fc3fe1`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `4563e5c21239f6d7ec882326e583e2b05c744fbc`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -61,9 +61,9 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_PRODUCTION_APPLIED`: 32
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 26
-- `REVIEWED_SOURCE_ONLY`: 197
+- `REVIEWED_SOURCE_ONLY`: 198
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1489
+- `UNREVIEWED`: 1488
 
 High-priority unreviewed files: **563**.
 
@@ -234,10 +234,10 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - **Open governance and acceptance:** PRs #352/#353 and this documentation PR remain drafts pending authorized CODEOWNERS review. `.github/CODEOWNERS` requires `@Zikrmediaofficial`, whose collaborator permission lookup returned null. Manual iOS simulator/device and Android device acceptance, Apple associated-domain configuration, and post-deploy smoke checks remain open.
 - No production DB mutation, migration application, content generation, Gemini request, social publishing, Storage deletion, Android release, merge, Vercel deployment, or production smoke test was performed.
 
-## Reconciled audit batch — 2026-11-16 18:45 UTC
+## Reconciled audit batch — 2026-11-16 18:55 UTC
 
 - Repository snapshot remains main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; this audit branch changes only audit documentation.
-- Authoritative matrix blob: 588089e715e239112bc9efe918e0e18012fc3fe1. Current inventory: 1,959 tracked blobs, 1,489 still unreviewed (561 high priority), 472 reviewed; the matrix is the per-file source of truth.
+- Authoritative matrix blob: 4563e5c21239f6d7ec882326e583e2b05c744fbc. Current inventory: 1,959 tracked blobs, 1,488 still unreviewed (561 high priority), 473 reviewed; the matrix is the per-file source of truth.
 - Main is five commits ahead of historical verification/deployment source 26ae58fdd2220897511544e9475eab28979f88f5. Full Quality Gate passed on PR #350/#351 heads based on main a0f51; CircleCI contexts on main pass. The production deployment last recorded READY is still associated with 26ae; not rechecked this run. vercel.json has Git deployment disabled, so deployment requires an authorized manual action after owner review.
 - Read-only Supabase verification of configured project zqtssvlvmkzeeyqghqfk (Zikrofficial): ACTIVE_HEALTHY, 449 applied migrations through 20261116045100, 103 tables including storage, zero RLS-disabled tables, nine buckets. Current Kids/video policies match the reviewed migrations. No migration, DDL, DML, function deployment or storage mutation was performed.
 - Current production automation: written-content generation is scheduled 15 7,13,19 UTC and uses Gemini; it creates unpublished article drafts and service-role content_publish_queue entries (+5 minutes), plus Kids social drafts from already published/active/age-appropriate stories. The AI video worker runs 17 3,9,15,21 UTC in free-only mode with BACKGROUND_JOB_TARGET=videos and VIDEO_AUTOMATION_DRY_RUN=false; this also drains all due site content queue tables (articles/stories/etc.) through CAS-guarded publication, but not external social. Social publishing is a separate 7,22,37,52 UTC workflow that can publish public YouTube/Facebook when provider credentials and database settings permit. CircleCI English-content sync runs daily at 04:17 UTC and uses Gemini plus Supabase service-role writes. Prayer dispatch is every minute; source verification is daily. None of these workflows/functions was dispatched by this audit.
@@ -256,3 +256,5 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Kids video RLS hardening: live public.videos RLS currently has a permissive metadata-based policy but no restrictive category_id guard. The canonical kids-stories category has 34 published rows and all currently have audience='kids'; no misclassified published row was observed. PR #340 adds the category-level restrictive guard and passed local PostgreSQL 17 integration; migration remains unapplied.
 
 - Content queue trust boundary: live content_publish_queue RLS has only a service_role ALL policy; anon has no SELECT and authenticated has SQL grants but no RLS policy, so client writes are blocked. Articles and stories public SELECT policies expose only published=true. The trusted site publisher validates story approval and Kids video human approval, uses exact updated_at compare-and-set and rolls back only its own write. The video worker's target=videos intentionally invokes this site publisher for all due queue rows; social publishing remains separate.
+
+- Admin/purge safety: `src/app/admin/system-actions.ts` gates settings changes with `settings.manage`, requires `social.manage` plus step-up for social settings, and blocks video automation toggles while `video_purge_in_progress` is set. The video-purge admin route requires `video.delete`, step-up and exact confirmation, but both files and memory scopes return 409 before any destructive branch; no purge was invoked.
