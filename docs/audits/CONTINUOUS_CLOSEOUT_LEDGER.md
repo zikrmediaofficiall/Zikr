@@ -2996,7 +2996,7 @@ No production SQL mutation, migration execution, data repair, content generation
 
 - Matrix blob: `e5e45d36a4957fb9fe17fad690886a645d396788` — 1,248 UNREVIEWED (414 high priority), 711 non-UNREVIEWED.
 - Inventory blob: `ca81f49e989efe950b9272c56d9608fa0d7828e4`.
-- Project status blob: `45579584fcd690adda1c08dc4f1eb457e770f6fd`.
+- Project status blob: `7669cf484c514a463b307198948599cdee91912b`.
 - Immutable manifest blob: `baace6d0c66ac299edb541c7caceba56eeae19be`.
 
 ### Safety and closeout gates
@@ -3014,5 +3014,5 @@ No production SQL mutation, migration execution, data repair, content generation
 - PR #378 exact head `dbfe0c440e317557a7e9eef0c8837d30da6527bd` passed Quality Gate `43972345412`, Android Debug APK `43972345453` and CircleCI config-guard after the follow-up Arabic-text validation correction. Existing legacy source gaps remain unchanged.
 - PR #380 exact head `66dde1c4279b6513e395a57ab906b4117a8e82ad` passed Quality Gate `43969510424` and all three CircleCI contexts; draft/open for owner review.
 - PR #381 corrected exact head `06103c8627c264d4cf497ed93c68859d09b0a958` remains pending its fresh exact-head checks; the first head failed at a stale verifier assertion and was corrected, not bypassed.
-- PR #344 current head `b39c897d8268714988f58cffcfd3330033d6cb39`: Quality Gate `43972775109` in progress; CircleCI config-guard passed; source-verify/application-build-docs pending. No merge/deploy.
-- Current artifacts: matrix `e5e45d36a4957fb9fe17fad690886a645d396788` (1,248 UNREVIEWED / 414 high priority / 711 other rows); inventory `ca81f49e989efe950b9272c56d9608fa0d7828e4`; project status `45579584fcd690adda1c08dc4f1eb457e770f6fd`; remote migration ledger `2bd6469ec4b9fa680a4c138c46757ae535fc1f26`; immutable main manifest `baace6d0c66ac299edb541c7caceba56eeae19be`.
+- PR #344 current head `f4bfbc76d41c00f71d0517dedaf290ae5534d7d9`: Quality Gate `43973499694` in progress; CircleCI config-guard passed; source-verify/application-build-docs pending. No merge/deploy.
+- Current artifacts: matrix `e5e45d36a4957fb9fe17fad690886a645d396788` (1,248 UNREVIEWED / 414 high priority / 711 other rows); inventory `ca81f49e989efe950b9272c56d9608fa0d7828e4`; project status `7669cf484c514a463b307198948599cdee91912b`; remote migration ledger `2bd6469ec4b9fa680a4c138c46757ae535fc1f26`; immutable main manifest `baace6d0c66ac299edb541c7caceba56eeae19be`.
