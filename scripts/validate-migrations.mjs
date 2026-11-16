@@ -36,6 +36,21 @@ const db = new PGlite({ extensions: { pg_trgm, uuid_ossp } });
 // ---- Supabase environment stubs (auth, storage, roles) ----
 const stubs = `
 CREATE SCHEMA IF NOT EXISTS auth;
+CREATE SCHEMA IF NOT EXISTS extensions;
+-- PGlite does not load pgcrypto. Keep the same deterministic, change-sensitive
+-- digest(text, text) test double used by the focused Kids RLS integration.
+-- Production uses pgcrypto's real SHA-256 implementation.
+CREATE OR REPLACE FUNCTION extensions.digest(data text, algorithm text)
+RETURNS bytea
+LANGUAGE sql
+IMMUTABLE
+STRICT
+AS $digest$
+  SELECT pg_catalog.decode(
+    pg_catalog.md5(data) || pg_catalog.md5('zikr-snapshot:' || data),
+    'hex'
+  );
+$digest$;
 CREATE TABLE IF NOT EXISTS auth.users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text,
@@ -215,6 +230,13 @@ GROUP BY to_char(now(), 'YYYY-MM');
 
 await db.exec(stubs);
 console.log('Supabase stubs installed');
+const digestStubProbe = await db.query(
+  "SELECT octet_length(extensions.digest('zikr-migration-replay', 'sha256')) AS digest_bytes",
+);
+if (Number(digestStubProbe.rows[0]?.digest_bytes ?? 0) !== 32) {
+  throw new Error("PGCRYPTO_DIGEST_STUB_FAILED: PGlite migration replay must expose a 32-byte digest test double.");
+}
+console.log("PGCRYPTO_DIGEST_STUB_PASSED");
 
 // Recreate the production non-DML ACL baseline before replaying migrations.
 // The live project currently has these browser-role grants on existing public
