@@ -35,6 +35,7 @@ psql=(docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U postgres -d zi
 "${psql[@]}" -f /workspace/scripts/tests/background-reminder-schedule.integration-setup.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261111010000_background_reminders_respect_quiet_hours_timezone.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261113000000_background_reminder_intervals_allow_disabled.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261116150000_enforce_background_reminder_timezone.sql
 "${psql[@]}" -f /workspace/scripts/tests/background-reminder-schedule.integration.sql
 
 echo "Background reminder interval and quiet-hours PostgreSQL integration passed."

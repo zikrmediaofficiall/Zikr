@@ -97,3 +97,63 @@ BEGIN
   END IF;
 END
 $disabled_intervals$;
+
+
+-- Authenticated users can update their own preference row through RLS/PostgREST.
+-- The database trigger must reject invalid time zones even when application validation is bypassed.
+GRANT UPDATE, INSERT ON TABLE public.background_reminder_preferences TO authenticated;
+SET ROLE authenticated;
+
+DO $invalid_timezone_update$
+DECLARE
+  rejected boolean := false;
+BEGIN
+  BEGIN
+    UPDATE public.background_reminder_preferences
+    SET timezone = 'Not/A_Real_Time_Zone'
+    WHERE user_id = '10000000-0000-4000-8000-000000000001';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    rejected := true;
+  END;
+
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Expected authenticated invalid timezone update to be rejected by the database trigger';
+  END IF;
+END
+$invalid_timezone_update$;
+
+DO $invalid_timezone_insert$
+DECLARE
+  rejected boolean := false;
+BEGIN
+  BEGIN
+    INSERT INTO public.background_reminder_preferences (user_id, timezone)
+    VALUES ('10000000-0000-4000-8000-000000000003', 'Not/A_Real_Time_Zone');
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    rejected := true;
+  END;
+
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Expected authenticated invalid timezone insert to be rejected by the database trigger';
+  END IF;
+END
+$invalid_timezone_insert$;
+
+UPDATE public.background_reminder_preferences
+SET timezone = 'America/New_York'
+WHERE user_id = '10000000-0000-4000-8000-000000000002';
+
+RESET ROLE;
+
+DO $valid_timezone$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.background_reminder_preferences
+    WHERE user_id = '10000000-0000-4000-8000-000000000002'
+      AND timezone = 'America/New_York'
+  ) THEN
+    RAISE EXCEPTION 'Expected valid IANA timezone update to persist';
+  END IF;
+END
+$valid_timezone$;

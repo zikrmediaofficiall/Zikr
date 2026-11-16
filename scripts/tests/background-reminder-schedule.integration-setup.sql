@@ -33,6 +33,9 @@ CREATE TABLE public.background_reminder_preferences (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT INSERT, UPDATE ON TABLE public.background_reminder_preferences TO authenticated;
+
 CREATE TABLE public.prayer_locations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
