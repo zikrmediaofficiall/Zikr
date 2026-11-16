@@ -2741,7 +2741,7 @@ No production SQL mutation, migration execution, data repair, content generation
 - Exhaustion returns HTTP 429 with `Retry-After: 60`; RPC/configuration failure returns HTTP 503 and prevents the upstream request.
 - Added assertions to `scripts/tests/prayer-times.test.ts`, already registered in the canonical `pnpm test` chain. They verify the shared RPC, HMAC actor, quota, fail-closed behavior and limiter-before-fetch ordering.
 - Exact base: `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. Exact PR head: `31a8ae1fac58d02709f054a0361ed902da1807c5`. Compare reports 3 commits ahead, 0 behind, 3 files changed.
-- At the last exact-head poll: CircleCI `config-guard` passed; `source-verify` and `application-build-docs` were pending; no GitHub Quality Gate run had appeared. PR #372 remains draft/open and requires exact-head full verification plus authorized CODEOWNERS review.
+- Exact-head GitHub Quality Gate run `43957292407` completed success with `QUALITY_GATE=PASSED_FULL`; its log confirms the canonical `pnpm verify` path and prayer-times regression suite. CircleCI `source-verify`, `application-build-docs`, and `config-guard` all completed success. PR #372 remains draft/open pending authorized CODEOWNERS review; the owner collaborator permission lookup returned null and the review request did not register.
 
 ### Related exact-head evidence
 
@@ -2751,7 +2751,7 @@ No production SQL mutation, migration execution, data repair, content generation
 
 - Main source snapshot and manifest remain unchanged: main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
 - Matrix now classifies `src/app/api/prayer-times/route.ts` as `FIX_PENDING_PR372` and `scripts/tests/prayer-times.test.ts` as `REVIEWED_PARTIAL`. The new PR-only rate-limit service is not inserted into the main snapshot manifest or file matrix.
-- Counts: 1,344 UNREVIEWED files (479 high priority), 53 REVIEWED_PARTIAL, and 615 files in reviewed/pending categories.
+- Counts after both prayer repair batches: 1,344 UNREVIEWED files (479 high priority), 51 REVIEWED_PARTIAL, 53 REVIEWED_REGRESSION_COVERAGE, 3 files pending PR #372/#373, and 615 files not marked UNREVIEWED.
 - The remote Supabase migration ledger is unchanged: PR #372 uses an existing RPC and adds no migration.
 - No production rate-limit RPC, Aladhan/Nominatim request, worker invocation, notification delivery, migration, database mutation, content generation, Gemini request, social publishing, storage change/deletion, release, merge, deployment or production smoke was performed.
 
