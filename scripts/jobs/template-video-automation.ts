@@ -45,6 +45,7 @@ import { evaluateArabicNarrationText } from "../../src/features/videos/services/
 import { resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene } from "../../src/features/videos/services/video-creative-variation";
 import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
 import { resolveRenderDuration } from "../../src/features/videos/services/render-duration";
+import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 
 const execFileAsync = promisify(execFile);
@@ -1246,9 +1247,7 @@ async function assertNarrationQuality(pathname: string, text: string, category: 
 }
 
 function requestedVideoShape(request: GeneratedRequest) {
-  const resolution = request.content?.resolution;
-  if (typeof resolution === "string" && /^\d+x\d+$/.test(resolution)) return resolution;
-  return request.content?.videoFormat === "horizontal" ? "1920x1080" : "1080x1920";
+  return resolveVideoResolution(request.content?.resolution, request.content?.videoFormat);
 }
 
 async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
@@ -1613,6 +1612,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     return {
       videoUrl: uploadedMedia.secureUrl,
       scene,
+      durationSeconds: duration,
       renderDurationMs,
       composition: composition.key,
       sourceHash: sourceHashValue,
@@ -1813,6 +1813,7 @@ async function registerGeneratedVideoOnSite(
   rendered: {
     videoUrl: string;
     scene: string;
+    durationSeconds: number;
     renderDurationMs: number;
     sourceHash: string;
     contentHash: string;
@@ -1907,6 +1908,7 @@ async function registerGeneratedVideoOnSite(
     templateVersion: rendered.templateVersion,
     sourceHash: rendered.sourceHash,
     contentHash: rendered.contentHash,
+    renderDurationSeconds: rendered.durationSeconds,
     renderDurationMs: rendered.renderDurationMs,
     scene: rendered.scene,
     audience: request.content.audience === "kids" ? "kids" : "general",
@@ -1944,7 +1946,7 @@ async function registerGeneratedVideoOnSite(
     description: request.description ?? null,
     youtube_id: null,
     thumbnail_url: resolveCloudinaryVideoPoster(rendered.videoUrl),
-    duration: Math.max(1, Number(request.content.durationSeconds ?? request.duration ?? TARGET_VIDEO_SECONDS) || TARGET_VIDEO_SECONDS),
+    duration: resolveVideoCatalogDuration(rendered.durationSeconds),
     views: 0,
     published: false,
     category_id: categoryRows?.[0]?.id ?? null,
