@@ -5,6 +5,8 @@ import path from "node:path";
 
 import { isSupabaseConfigured, supabaseServerAnonRequest } from "@/lib/supabase/server";
 import { resolveCanonicalPublished } from "@/lib/data/content-merge";
+import { getDatabasePublicationState } from "@/lib/data/publication-visibility";
+import { shouldSuppressOfflineFallback } from "@/lib/data/publication-visibility-contract";
 import { COMPANIONS } from "@/features/companions/data/fallback";
 import { uniqueCompanionSummaries } from "@/features/companions/utils/companions";
 import { normalizeArabicSearchText } from "@/lib/search/arabic-normalization";
@@ -197,6 +199,7 @@ export async function searchPublishedCompanions(query: string): Promise<Companio
   const normalizedQuery = normalizeArabicSearchText(query).slice(0, 100);
   if (!normalizedQuery) return [];
 
+  let databaseLookupFailed = false;
   if (isSupabaseConfigured()) {
     try {
       const rows = await supabaseServerAnonRequest<Record<string, unknown>[]>(
@@ -271,8 +274,15 @@ export async function getCompanionBySlug(
       };
       }
     } catch (error) {
+      databaseLookupFailed = true;
       console.error("[companions] Failed to load companion detail:", error);
     }
+  }
+
+  const hasLocalFallback = Boolean(local || fallbackBySlug(cleanSlug));
+  if (isSupabaseConfigured() && !databaseLookupFailed && hasLocalFallback) {
+    const publicationState = await getDatabasePublicationState("companions", cleanSlug);
+    if (shouldSuppressOfflineFallback(publicationState)) return null;
   }
 
   if (local) {
