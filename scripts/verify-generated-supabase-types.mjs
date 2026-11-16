@@ -34,6 +34,7 @@ const functions = new Set(
 const requiredFunctions = [
   "admin_set_primary_site_audio_asset",
   "admin_update_user_role",
+  "consume_min_interval_rate_limit",
 ];
 
 const retiredTables = [
