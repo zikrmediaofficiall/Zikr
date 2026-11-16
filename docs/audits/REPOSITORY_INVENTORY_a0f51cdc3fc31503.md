@@ -13,7 +13,7 @@ Updated: 2026-11-16 (subsequent read-only audit updates; exact UTC time not capt
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `950cd6b4f3786ec407a43f372f39f863a88b869d`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `36f298f60faabdf55d87bd5955c469883b84aec0`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -54,17 +54,18 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR369`: 1
 - `FIX_PENDING_PR370`: 4
 - `FIX_PENDING_PR372`: 1
+- `FIX_PENDING_PR373`: 2
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 39
-- `REVIEWED_PARTIAL`: 52
+- `REVIEWED_PARTIAL`: 51
 - `REVIEWED_PERMISSION_SCAN`: 94
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 54
+- `REVIEWED_REGRESSION_COVERAGE`: 53
 - `REVIEWED_SOURCE_ONLY`: 265
 - `SECURITY_FIX_PENDING_PR340`: 4
 - `UNREVIEWED`: 1344
@@ -314,3 +315,14 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - The background worker fetches Aladhan directly only when its DB schedule cache misses and processes the bounded batch sequentially. A provider-wide quota for that separate trusted worker path remains a distinct open risk; this PR does not claim to solve it.
 - PR #356 Nominatim repair exact head `1c7cf83f44e8b10670098ca15aa34b2d536b8f8d` passed full Quality Gate run `43934145528`, CircleCI source/application/config and Android Debug APK run `43934145480`; it remains draft/unmerged pending owner review.
 - Matrix counts are now 1,344 UNREVIEWED (479 high priority), 53 REVIEWED_PARTIAL, and 615 rows in reviewed/pending categories. The manifest is unchanged. No migration, production RPC, provider request, notification delivery, content generation, Gemini, social publishing, storage operation, release, deployment or production smoke was performed.
+
+
+## Prayer worker authentication preflight review — 2026-11-16
+
+- Read the complete 1,062-line `supabase/functions/prayer-notification-worker/index.ts` in contiguous chunks and its direct imports: pagination, eligibility, time-zone conversion, schedule normalization, push endpoint allowlist, async serial queue and delivery lease heartbeat. Traced the DB schedule-cache reads/upserts, scheduler-secret RPC, delivery planner RPC, claim/finalize CAS, fresh preference/subscription reads, endpoint validation and push-send boundary.
+- Reproduced a small but concrete public Edge Function request-cost gap: `verify_jwt=false` is intentional, but missing/malformed Authorization headers reached the service-role `get_push_scheduler_secret` RPC before returning 401. The source-verified content agent already rejects an empty bearer before its equivalent RPC.
+- PR #373 adds strict non-empty `Bearer <token>` preflight before the secret RPC, rejects empty secret state, preserves constant-time comparison for valid-looking bearer tokens, and adds an assertion to the existing canonical worker regression test.
+- PR #373 exact head `ef440389dbbbb65d954ccd213e54b1c00c455441`, base main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, 2 commits ahead / 0 behind, 2 files changed. GitHub Quality Gate run `43957999023` was queued; CircleCI config-guard passed, source-verify and application-build-docs were pending at last poll. Owner/CODEOWNERS review remains required.
+- Worker/test matrix rows are now `FIX_PENDING_PR373`; no source file was added to the immutable main manifest. The manifest remains unchanged at blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
+- Counts after reconciliation: 1344 UNREVIEWED (479 high priority), 51 REVIEWED_PARTIAL, 53 REVIEWED_REGRESSION_COVERAGE, 2 FIX_PENDING_PR373, and 615 rows not marked UNREVIEWED.
+- No Edge Function invocation, scheduler-secret RPC, notification delivery, schedule planning, production database mutation, migration, content generation, Gemini request, social publishing, Storage operation, release, merge, deployment or production smoke was performed.
