@@ -25,6 +25,7 @@ import {
 } from "../../src/features/notifications/services/push-subscription-request";
 import { getPrayerNotificationIdsToCancel } from "../../src/features/prayer/services/prayer-notification-schedule";
 import { getPrayerCalculationMethodId } from "../../supabase/functions/prayer-notification-worker/calculation-method";
+import { parseSchedulerBearerToken } from "../../supabase/functions/prayer-notification-worker/scheduler-auth";
 
 assert.equal(getPrayerCalculationMethodId("dubai"), 16, "Aladhan Dubai must use method ID 16, not Gulf Region ID 8");
 assert.equal(getPrayerCalculationMethodId("gulf"), 8, "Gulf Region must use Aladhan method ID 8");
@@ -32,6 +33,22 @@ assert.equal(getPrayerCalculationMethodId("gulf-region"), 8);
 assert.equal(getPrayerCalculationMethodId("umm-al-qura"), 4);
 assert.equal(getPrayerCalculationMethodId(null), 4);
 assert.equal(getPrayerCalculationMethodId("unknown-legacy-method"), 4, "unknown legacy values must retain the safe default");
+assert.equal(parseSchedulerBearerToken("Bearer scheduler-secret"), "scheduler-secret");
+assert.equal(parseSchedulerBearerToken("bearer scheduler.secret_~+/=="), "scheduler.secret_~+/==");
+assert.equal(parseSchedulerBearerToken("Bearer " + "a".repeat(256)), "a".repeat(256));
+for (const malformed of [
+  null,
+  "",
+  "scheduler-secret",
+  "Basic scheduler-secret",
+  "Bearer",
+  "Bearer ",
+  "Bearer scheduler-secret extra",
+  "Bearer " + "a".repeat(257),
+  "Bearer " + "a".repeat(300),
+]) {
+  assert.equal(parseSchedulerBearerToken(malformed), null, "malformed or oversized scheduler credentials must fail preflight");
+}
 
 const requiredPrayerNames = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
 const validProviderTimings = {
@@ -1003,9 +1020,9 @@ assert.match(pushWorkerSource, /isAllowedPushEndpoint/, "the worker must validat
 
 const workerAuthStart = worker.indexOf("Deno.serve");
 const workerAuthSource = worker.slice(workerAuthStart);
-const bearerPreflightIndex = workerAuthSource.indexOf("const bearerMatch");
+const bearerPreflightIndex = workerAuthSource.indexOf("parseSchedulerBearerToken");
 const malformedBearerReturnIndex = workerAuthSource.indexOf(
-  'if (!bearerMatch) return json({ error: "Unauthorized" }, 401);',
+  'if (!supplied) return json({ error: "Unauthorized" }, 401);',
 );
 const schedulerSecretRpcIndex = workerAuthSource.indexOf(
   'supabase.rpc("get_push_scheduler_secret")',

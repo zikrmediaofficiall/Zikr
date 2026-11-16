@@ -13,6 +13,7 @@ import {
 } from "./time-zone.ts";
 import { fetchScheduleOrSkip, normalizePrayerTimings } from "./schedule-fetch.ts";
 import { getPrayerCalculationMethodId } from "./calculation-method.ts";
+import { parseSchedulerBearerToken } from "./scheduler-auth.ts";
 import { isAllowedPushEndpoint } from "../../../src/features/notifications/services/push-endpoint.ts";
 import { createAsyncSerialQueue } from "../../../src/lib/async-serial-queue.ts";
 import { getDeliveryLeaseHeartbeatIntervalMs, startDeliveryLeaseHeartbeat } from "./delivery-lease.ts";
@@ -1024,10 +1025,8 @@ Deno.serve(async request => {
     return json({ error: "Method not allowed" }, 405);
 
   try {
-    const authorization = request.headers.get("authorization") ?? "";
-    const bearerMatch = /^Bearer\\s+(\\S+)$/i.exec(authorization.trim());
-    if (!bearerMatch) return json({ error: "Unauthorized" }, 401);
-    const supplied = bearerMatch[1];
+    const supplied = parseSchedulerBearerToken(request.headers.get("authorization"));
+    if (!supplied) return json({ error: "Unauthorized" }, 401);
 
     const expected = await supabase.rpc("get_push_scheduler_secret");
     if (expected.error || typeof expected.data !== "string" || !expected.data) {
