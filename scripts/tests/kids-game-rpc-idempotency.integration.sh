@@ -57,7 +57,7 @@ BEGIN
 END;
 \$\$;"
 
-query="SET ROLE service_role; SELECT duplicate FROM public.kids_record_game_result_internal('11111111-1111-4111-8111-111111111111', 'zikr-runner', 'concurrent-submission-0001', 1200, 4, 250, 'normal', 3, 2, true, '{}'::jsonb); RESET ROLE;"
+query="SET ROLE service_role; SELECT duplicate FROM public.kids_record_game_result_internal('11111111-1111-4111-8111-111111111111', 'zikr-runner', 'concurrent-submission-0001', 1200, 4, 250, 'normal', 3::smallint, 2, true, '{}'::jsonb); RESET ROLE;"
 pids=()
 for index in $(seq 1 12); do
   "${psql[@]}" -c "$query" > "$TMP_DIR/result-$index.txt" 2>&1 &
