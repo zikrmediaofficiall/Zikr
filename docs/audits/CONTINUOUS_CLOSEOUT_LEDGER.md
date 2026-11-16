@@ -2592,3 +2592,45 @@ The matrix has 1,959 tracked-file rows. Current counts: 1,533 UNREVIEWED (584 hi
 - Residual API hardening: geocode and prayer-times unique external lookups lack shared rate limiting; content stats uses cookie-aware client with public CDN cache (no current unpublished hadith rows); stories fallback and video-like throttling merit further regression coverage.
 
 - Auth/OAuth review: profiles RLS is self/admin scoped, sensitive-field trigger prevents user role/email changes, profile trigger functions are not browser-executable, and admin-role resolution uses empty search_path/fail-closed assignment lookup. Google OAuth uses PKCE/canonical origin/safe next; native callback exact-origin; social OAuth HMAC state is provider/admin/redirect bound and expires in 10 minutes; Facebook scopes/tasks and YouTube upload/read/analytics scopes are validated; tokens are Vault-backed. No auth exchange or profile mutation occurred.
+
+
+## 2026-11-16T20:50Z — queue-alert retry, public search contract and purge safety continuation
+
+### Exact source and inventory state
+
+- Source baseline remains main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`. The full manifest is unchanged at blob `baace6d0c66ac299edb541c7caceba56eeae19be` because no main-tree file changed.
+- Recursive inventory remains 2,459 entries: 1,959 tracked blobs and 500 directories.
+- The full per-file matrix was reconciled after reading 12 additional tracked files and tracing their direct consumers. New matrix blob: `afdea518e9cd3b8d171c83378aaba23cd41cfbbd`. Current totals: 1,392 `UNREVIEWED` (506 high priority), 257 source-only, 95 permission-scan, 49 partial, 41 regression-coverage, 16 data-validated, 4 production-smoke, 1 data-editorial and 44 production-applied (567 non-unreviewed). PR-pending statuses are counted separately.
+
+### Reproducible repairs opened
+
+**PR #369 — admin queue-alert per-channel retry**
+
+- Main source file `scripts/jobs/admin-queue-alerts.ts` and its `run-background-jobs.ts` caller, delivery migration `20261027212803`, and environment contract were read.
+- Reproduced defect: the worker set `delivered_at` when either webhook OR email succeeded. A configured channel that failed was then skipped forever; the per-channel flags were not used as the retry source of truth. The admin-setting and existing-delivery reads also swallowed errors as empty arrays, which could send while the setting/state was unknown and could duplicate a prior successful notification.
+- Draft PR #369 branch `audit/zikr-admin-queue-alert-retry-20261116`, exact head `5b2ad8514fa7bd0d4de08c18111539ee03adfed3`. It tracks configured channels independently, persists successful channel flags, retries only the failed channel, recovers legacy partial rows marked delivered by the old rule, fails closed on unreadable state/settings, and adds focused regression coverage to `pnpm test`.
+- Exact-head Quality Gate/CircleCI checks were pending at this ledger timestamp. No alert was sent and no queue/delivery row was changed.
+
+**PR #370 — approved content-library search results**
+
+- Read the full applied search RPC migration, search service, public content-library service, `/content/[slug]` route, `/search` page, contract test and canonical verifier.
+- Reproduced defect: the SQL RPC returns approved `content_library` rows as `type='content'`, but the TypeScript union/runtime allow-list omitted `content` and filtered every row out. The legacy fallback also omitted the approved content library.
+- Draft PR #370 branch `audit/zikr-search-content-results-20261116`, exact head `537ed4102f630af80612a9b40e2d338ead2a292c`. It adds a shared result-type contract, keeps approved content-library matches in both indexed and fallback search, validates the displayed RPC fields, and registers regression coverage in `arabic-search:check` (included in both canonical verification commands).
+- Exact-head Quality Gate/CircleCI checks were pending at this ledger timestamp. No search RPC, production content, index or migration was invoked or changed.
+
+### Destructive-operation safety review
+
+- Read the full `PurgeGeneratedVideosControl`, `/api/admin/video-purge` GET/POST route and `video-purge-contract.test.mjs`.
+- GET requires `video.delete`; POST requires `video.delete` step-up plus the exact confirmation phrase. Every valid scope (files, memory, both) returns HTTP 409 before purge-lock acquisition, inventory or any destructive operation. The UI disables every scope option. The destructive branch is intentionally unreachable until complete cross-table reference inventories are proven.
+- The contract test is part of `pnpm test`; main Quality Gate run `43833156580` passed full `pnpm verify` on exact main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. No purge request was sent and no media, storage object or database row was deleted.
+
+### Production read-only state and gates
+
+- Supabase migration history rechecked read-only: 449 applied versions through `20261116045100`; versions `20261027212803` and `20261030090000` are present. No DDL/DML, migration apply, function invocation/deployment or storage operation occurred.
+- Vercel deployment inventory rechecked read-only: latest production deployment `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` is READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`. Main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is one commit ahead and is not deployed. No HTTP smoke was run in this batch; no deploy was triggered.
+- PR #344 documentation branch's previously checked head `55ae98fe17a0a93d9a238d53fc0c7ef919eb18f0` had successful Quality Gate/CircleCI evidence, but this batch changes its matrix, inventory summary, project status and ledger; the resulting documentation head must receive fresh exact-head checks.
+- CODEOWNERS still requires `@Zikrmediaofficial`; collaborator permission lookup is null and no independent authorized review is recorded. PRs #369 and #370 are drafts and unmerged. No approval gate, branch rule or owner review was bypassed.
+
+### Safety declaration
+
+No content generation, Gemini request, social publishing, production database mutation, Storage/media deletion, index/secret change, Android/iOS release, merge, Vercel deployment, production smoke, or scheduled workflow dispatch was performed. Repository-wide audit remains OPEN; the remaining 1,392 tracked blobs are still explicitly UNREVIEWED, and exact-head CI, owner review and device acceptance remain outstanding.
