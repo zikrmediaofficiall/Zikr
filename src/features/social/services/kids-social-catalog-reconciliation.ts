@@ -1,5 +1,5 @@
 import { isVideoContentType } from "../../videos/services/video-publish-approval";
-import { normalizeSocialPlatformResults, type SocialPlatform } from "./platform-availability";
+import { getManualReconciliationPlatforms, normalizeSocialPlatformResults, type SocialPlatform } from "./platform-availability";
 import { resolveKidsVideoSocialPublication } from "./kids-video-social-visibility";
 import { validateStoredSocialTargetPlatforms } from "./social-queue-selection";
 
@@ -97,11 +97,13 @@ export function resolveKidsSocialCatalogPublicationSnapshot(
   if (item.status === "published" && missingPlatforms.length > 0) {
     const results = normalizeSocialPlatformResults(item.metadata?.platformResults);
     const deletions = asRecord(item.metadata?.platformDeletions);
+    const manualReconciliationPlatforms = getManualReconciliationPlatforms(item.metadata);
     const everyMissingPlatformWasDeleted = missingPlatforms.every((platform) => {
       const result = asRecord(results[platform]);
       const deletion = asRecord(deletions[platform]);
       const remoteId = typeof result.remoteId === "string" ? result.remoteId.trim() : "";
-      return deletion.status === "deleted" &&
+      return !manualReconciliationPlatforms.includes(platform) &&
+        deletion.status === "deleted" &&
         remoteId.length > 0 &&
         typeof deletion.remoteId === "string" &&
         deletion.remoteId.trim() === remoteId;
@@ -139,6 +141,8 @@ export function buildKidsCatalogDeletionSyncPatch(
   ) {
     return {};
   }
+
+  if (getManualReconciliationPlatforms(metadata).length > 0) return {};
 
   const currentStatus = metadata.kidsCatalogSyncStatus;
   if (

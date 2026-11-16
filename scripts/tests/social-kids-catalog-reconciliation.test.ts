@@ -193,6 +193,19 @@ assert.deepEqual(
   "a deletion marker for an older remote ID must not hide the current provider publication",
 );
 
+const manuallyHeldDeletionQueueItem = {
+  ...deletedFacebookQueueItem,
+  metadata: {
+    ...deletedFacebookQueueItem.metadata,
+    manualReconciliationPlatforms: ["facebook"],
+  },
+};
+assert.equal(
+  resolveKidsSocialCatalogPublicationSnapshot(manuallyHeldDeletionQueueItem),
+  null,
+  "manual provider reconciliation must take precedence over an automatic catalog deletion snapshot",
+);
+
 const deletionSyncPatch = buildKidsCatalogDeletionSyncPatch(
   "kids_story_video",
   { audience: "kids", kidsCatalogSyncStatus: "synced", kidsCatalogSyncAttempts: 7 },
@@ -214,6 +227,19 @@ assert.deepEqual(
   ),
   {},
   "manual catalog reconciliation holds must not be cleared by an automatic delete event",
+);
+assert.deepEqual(
+  buildKidsCatalogDeletionSyncPatch(
+    "kids_story_video",
+    {
+      audience: "kids",
+      kidsCatalogSyncStatus: "synced",
+      manualReconciliationPlatforms: ["facebook"],
+    },
+    { status: "deleted", remoteId: "facebook-post-123" },
+  ),
+  {},
+  "a provider-level manual reconciliation hold must not be cleared by catalog retry metadata",
 );
 assert.deepEqual(
   buildKidsCatalogDeletionSyncPatch(
