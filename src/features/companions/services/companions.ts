@@ -171,6 +171,7 @@ async function getDatabaseCompanions(): Promise<CompanionSummary[] | null> {
   try {
     const rows = await supabaseServerAnonRequest<CompanionSummary[]>(
       "/rest/v1/companions?select=id,name_ar,name_en,title_ar,bio_ar,slug,category,birth_place_ar,death_place_ar,death_year&published=eq.true&order=name_ar.asc",
+      { cache: "no-store", timeoutMs: 8000, retries: 1 },
     );
     return Array.isArray(rows)
       ? uniqueCompanionSummaries(rows.filter((row) => row.slug && row.name_ar))
@@ -256,6 +257,7 @@ export async function getCompanionBySlug(
     try {
       const rows = await supabaseServerAnonRequest<Record<string, unknown>[]>(
       `/rest/v1/companions?select=id,name_ar,name_en,title_ar,bio_ar,slug,category,birth_place_ar,death_place_ar,death_year,metadata&slug=eq.${encodeURIComponent(cleanSlug)}&published=eq.true&limit=1`,
+        { cache: "no-store", timeoutMs: 8000, retries: 1 },
     );
 
     const row = rows[0];
@@ -277,6 +279,7 @@ export async function getCompanionBySlug(
       try {
         const storyRows = await supabaseServerAnonRequest<Record<string, unknown>[]>(
           `/rest/v1/companion_stories?select=id,companion_id,title_ar,title_en,content_ar,content_en,story_type,order_num&companion_id=eq.${encodeURIComponent(String(row.id))}&order=order_num.asc&limit=100`,
+          { cache: "no-store", timeoutMs: 8000, retries: 1 },
         );
         dbStories = storyRows.map(mapStoryRow);
       } catch (error) {
