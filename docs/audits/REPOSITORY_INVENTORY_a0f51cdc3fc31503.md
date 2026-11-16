@@ -13,7 +13,7 @@ Updated: 2026-11-16T17:44:00Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `270c6def326bd57f635fd0566b18c99c7356a88e`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `a96162ebb2d8ee2a74b9f90f8569975688df39ef`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -56,14 +56,14 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 16
-- `REVIEWED_PARTIAL`: 43
+- `REVIEWED_PARTIAL`: 41
 - `REVIEWED_PERMISSION_SCAN`: 92
 - `REVIEWED_PRODUCTION_APPLIED`: 32
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 26
-- `REVIEWED_SOURCE_ONLY`: 187
+- `REVIEWED_SOURCE_ONLY`: 193
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1495
+- `UNREVIEWED`: 1491
 
 High-priority unreviewed files: **563**.
 
@@ -237,7 +237,7 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 ## Reconciled audit batch — 2026-11-16 17:44 UTC
 
 - Repository snapshot remains main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; this audit branch changes only audit documentation.
-- Authoritative matrix blob: 270c6def326bd57f635fd0566b18c99c7356a88e. Current inventory: 1,959 tracked blobs, 1,495 still unreviewed (563 high priority), 464 reviewed; the matrix is the per-file source of truth.
+- Authoritative matrix blob: a96162ebb2d8ee2a74b9f90f8569975688df39ef. Current inventory: 1,959 tracked blobs, 1,491 still unreviewed (563 high priority), 468 reviewed; the matrix is the per-file source of truth.
 - Main is five commits ahead of historical verification/deployment source 26ae58fdd2220897511544e9475eab28979f88f5. Full Quality Gate passed on PR #350/#351 heads based on main a0f51; CircleCI contexts on main pass. The production deployment last recorded READY is still associated with 26ae; not rechecked this run. vercel.json has Git deployment disabled, so deployment requires an authorized manual action after owner review.
 - Read-only Supabase verification of configured project zqtssvlvmkzeeyqghqfk (Zikrofficial): ACTIVE_HEALTHY, 449 applied migrations through 20261116045100, 103 tables including storage, zero RLS-disabled tables, nine buckets. Current Kids/video policies match the reviewed migrations. No migration, DDL, DML, function deployment or storage mutation was performed.
 - Current production automation: written-content generation is scheduled 15 7,13,19 UTC and uses Gemini; AI video generation is scheduled 17 3,9,15,21 UTC in free-only mode; social publishing is scheduled 7,22,37,52 UTC each hour and can publish public YouTube/Facebook when provider credentials and database settings permit. CircleCI English-content sync runs daily at 04:17 UTC and uses Gemini plus Supabase service-role writes. Prayer dispatch is every minute; source verification is daily. None of these workflows/functions was dispatched by this audit.
