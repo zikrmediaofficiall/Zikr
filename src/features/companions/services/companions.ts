@@ -199,7 +199,6 @@ export async function searchPublishedCompanions(query: string): Promise<Companio
   const normalizedQuery = normalizeArabicSearchText(query).slice(0, 100);
   if (!normalizedQuery) return [];
 
-  let databaseLookupFailed = false;
   if (isSupabaseConfigured()) {
     try {
       const rows = await supabaseServerAnonRequest<Record<string, unknown>[]>(
@@ -239,6 +238,7 @@ export async function getCompanionBySlug(
     console.error("[companions] Offline detail unavailable:", error);
   }
 
+  let databaseLookupFailed = false;
   if (isSupabaseConfigured()) {
     try {
       const rows = await supabaseServerAnonRequest<Record<string, unknown>[]>(
