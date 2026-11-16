@@ -2783,7 +2783,7 @@ No production SQL mutation, migration execution, data repair, content generation
 
 - Live official `https://api.aladhan.com/v1/methods` response confirms `GULF.id = 8` and `DUBAI.id = 16`. Main's worker mapped `dubai` to 8; background notifications for any stored Dubai preference would therefore use Gulf Region timings. The exported client method-label map also assigned incorrect labels to multiple IDs.
 - PR #373 was expanded on the same dedicated audit branch. It now extracts a pure resolver, maps `dubai -> 16`, `gulf/gulf-region -> 8`, preserves the Umm al-Qura fallback, aligns the client label map to official IDs 0–23 and 99, and adds focused tests in both prayer test suites.
-- Current exact PR head: `c603ee90a07f86ff07f17c23e4a65ca9f130cc2b`; 7 commits ahead, 0 behind, 5 files changed. The previous auth-only head `ef440389dbbbb65d954ccd213e54b1c00c455441` passed full Quality Gate and all CircleCI checks; that does not certify the expanded head. Fresh exact-head CI is pending.
+- Current exact PR head: `c603ee90a07f86ff07f17c23e4a65ca9f130cc2b`; 7 commits ahead, 0 behind, 5 files changed. The previous auth-only head `ef440389dbbbb65d954ccd213e54b1c00c455441` passed full Quality Gate and all CircleCI checks. The expanded exact head `c603ee90a07f86ff07f17c23e4a65ca9f130cc2b` also passed Quality Gate run `43958916618` with `QUALITY_GATE=PASSED_FULL` and all CircleCI contexts; the log confirms both prayer regression suites and Deno type-check.
 - No production preference rows, prayer-time endpoint, Edge Function, scheduler-secret RPC, notification, or database write was used.
 
 
@@ -2797,3 +2797,10 @@ No production SQL mutation, migration execution, data repair, content generation
 - RLS inspection: `prayer_locations`, `prayer_preferences`, `prayer_schedule_cache`, `prayer_notification_deliveries`, and `push_subscriptions` all have RLS enabled. Owner-scoped policies protect locations/preferences/deliveries; schedule cache has a false public policy; push subscriptions has no client policies or table grants. Anon SELECT grants on locations/cache do not bypass RLS.
 - Deployed prayer worker v80 was read-only retrieved. It still has the pre-fix auth ordering and `dubai: 8`; PR #373 corrects these in source, but deployment remains owner-gated. No worker, RPC, provider prayer-time endpoint or notification was invoked.
 - No production migration, DDL/DML, RLS change, RPC mutation, Edge Function deployment, Storage mutation or production data change occurred.
+
+
+## Governance and deployment gate — 2026-11-16
+
+- `.github/CODEOWNERS` assigns `* @Zikrmediaofficial` and explicitly covers API, Supabase, Android/iOS, workflows, CircleCI and Vercel paths. The owner collaborator-permission lookup returned `null`; review requests for PRs #372 and #373 did not register.
+- GitHub rulesets query returned an empty list; reading `branches/main/protection` returned 403 for the connected GitHub integration. This is not proof that no branch protection exists.
+- PRs #372 and #373 remain draft/open with exact-head full CI green. Neither has owner approval. No merge, deployment, production smoke, Supabase migration, or Edge Function deploy is permitted until the owner/CODEOWNERS gate is satisfied.
