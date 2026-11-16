@@ -13,7 +13,7 @@ const fallbackPublicationStates = new Map([
   ["missing", "missing"],
   ["unknown", "unknown"],
 ] as const);
-const fallbackItems = ["published", "unpublished", "missing", "unknown"];
+const fallbackItems = ["published", "unpublished", "missing", "unknown"] as const;
 assert.deepEqual(
   fallbackItems.filter((slug) =>
     !shouldSuppressOfflineFallback(fallbackPublicationStates.get(slug) ?? "unknown"),
