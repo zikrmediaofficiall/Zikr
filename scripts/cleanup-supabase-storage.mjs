@@ -669,6 +669,7 @@ export function getReferenceOrderColumn(table) {
 }
 
 const MAX_REFERENCE_ROWS_PER_PATTERN = 5000;
+// The canonical quran_audio table currently has 19,608 rows; scan all metadata with bounded headroom.
 const MAX_QURAN_AUDIO_METADATA_REFERENCE_ROWS = 25000;
 const REFERENCE_SCAN_PAGE_SIZE = 1000;
 
