@@ -13,7 +13,7 @@ Updated: 2026-11-16 (subsequent read-only audit updates; exact UTC time not capt
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `8694ba42365f003a6a6cb8c635ce53384630313f`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `950cd6b4f3786ec407a43f372f39f863a88b869d`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -53,22 +53,23 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR362`: 3
 - `FIX_PENDING_PR369`: 1
 - `FIX_PENDING_PR370`: 4
+- `FIX_PENDING_PR372`: 1
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 39
-- `REVIEWED_PARTIAL`: 52
+- `REVIEWED_PARTIAL`: 53
 - `REVIEWED_PERMISSION_SCAN`: 94
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 43
 - `REVIEWED_SOURCE_ONLY`: 265
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1345
+- `UNREVIEWED`: 1344
 
-High-priority unreviewed files: **479**. The matrix has 1,959 file rows; 604 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **479**. The matrix has 1,959 file rows; 615 are not marked `UNREVIEWED`.
 
 ## Review batch — 2026-11-16 21:15 UTC
 
@@ -301,3 +302,15 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 
 - SEO/public route review: `robots.ts` allows crawling of public noindex pages while disallowing only admin/api/auth. `sitemap.ts`, sitemap index and shard routes use canonical origin, bounded shards, XML escaping and the shared noindex filter. `/kids` and `/kids/adventures` layouts use `pageMetadata` without noindex and are intentionally indexable; approved age-appropriate Kids story details are included separately. PR #371 was closed without merge after the proposed noindex change was disproved by actual layout metadata; no code change was merged.
 - AASA/Android association: the iOS Apple App Site Association route returns 503 until the owner configures the real Apple Team ID plus `.com.zikr.app` in Vercel Production and redeploys. Android assetlinks route has a release fingerprint fallback and environment override; Play App Signing fingerprint acceptance remains owner/device verification.
+
+
+## Prayer-times provider request-boundary review — 2026-11-16
+
+- Main snapshot remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; recursive manifest remains 2,459 entries / 1,959 blobs / 500 directories and is unchanged (blob `baace6d0c66ac299edb541c7caceba56eeae19be`).
+- Read the complete public `/api/prayer-times` route, prayer-times client service and regression test, shared contact HMAC identity helper, trusted proxy-address helper, existing service-role rate-limit service and RPC migration, and the direct Aladhan caller in the prayer notification Edge Function.
+- Reproduced a cache-bypass exposure on main: the API validates inputs and caches identical Aladhan URLs for one hour, but unique coordinates/cities/addresses create distinct upstream requests without a shared caller quota. The client-side cache is per process and does not protect the serverless route across users or instances.
+- PR #372 adds `src/features/prayer/services/rate-limit.ts`, enforces 30 requests/client/60 seconds with the existing atomic `consume_admin_rate_limit` RPC and HMAC-derived UUID, returns 429 with Retry-After, and fails closed with 503 before upstream fetch. The new file is PR-only and is not added to the immutable main manifest.
+- PR #372 exact head: `31a8ae1fac58d02709f054a0361ed902da1807c5`; base `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; 3 commits ahead, 0 behind, 3 files changed. Exact-head GitHub Quality Gate has not appeared yet; CircleCI config-guard passed while source-verify and application-build-docs were pending at the last poll. Owner/CODEOWNERS review remains outstanding.
+- The background worker fetches Aladhan directly only when its DB schedule cache misses and processes the bounded batch sequentially. A provider-wide quota for that separate trusted worker path remains a distinct open risk; this PR does not claim to solve it.
+- PR #356 Nominatim repair exact head `1c7cf83f44e8b10670098ca15aa34b2d536b8f8d` passed full Quality Gate run `43934145528`, CircleCI source/application/config and Android Debug APK run `43934145480`; it remains draft/unmerged pending owner review.
+- Matrix counts are now 1,344 UNREVIEWED (479 high priority), 53 REVIEWED_PARTIAL, and 615 rows in reviewed/pending categories. The manifest is unchanged. No migration, production RPC, provider request, notification delivery, content generation, Gemini, social publishing, storage operation, release, deployment or production smoke was performed.
