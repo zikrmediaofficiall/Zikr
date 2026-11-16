@@ -613,8 +613,14 @@ assert.match(
 );
 assert.ok(
   clientPrivilegeHardeningMigration.includes("rolname = 'supabase_admin'") &&
+    clientPrivilegeHardeningMigration.includes("pg_has_role(current_user, 'supabase_admin', 'MEMBER')") &&
     clientPrivilegeHardeningMigration.includes("ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated"),
-  "future supabase_admin-owned public tables must also lose browser DDL privileges",
+  "future supabase_admin-owned public tables must lose browser DDL privileges only when the migration role may alter its defaults",
+);
+assert.ok(
+  defaultFunctionExecuteMigration.includes("pg_has_role(current_user, 'supabase_admin', 'MEMBER')") &&
+    defaultFunctionExecuteMigration.includes("pg_has_role(current_user, 'supabase_storage_admin', 'MEMBER')"),
+  "default function ACL changes for managed roles must be skipped unless the migration executor is a member",
 );
 assert.doesNotMatch(
   clientPrivilegeHardeningMigration,

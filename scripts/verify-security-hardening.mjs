@@ -134,9 +134,18 @@ for (const token of [
   "FROM PUBLIC, anon, authenticated;",
   "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public",
   "ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public",
+  "pg_has_role(current_user, 'supabase_admin', 'MEMBER')",
 ]) {
   if (!clientNonDmlMigration.includes(token)) {
     failures.push(`${clientNonDmlMigrationPath} missing client non-DML privilege hardening: ${token}`);
+  }
+}
+const defaultFunctionAclMigration = read(
+  "supabase/migrations/20261114020000_revoke_client_default_function_execute.sql",
+);
+for (const roleName of ["supabase_admin", "supabase_storage_admin"]) {
+  if (!defaultFunctionAclMigration.includes(`pg_has_role(current_user, '${roleName}', 'MEMBER')`)) {
+    failures.push(`default function ACL migration must check membership before altering ${roleName} defaults`);
   }
 }
 if (

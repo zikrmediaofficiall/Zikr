@@ -7,7 +7,8 @@ REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN
   FROM PUBLIC, anon, authenticated;
 
 -- Supabase migrations create public tables as postgres. Supabase-managed
--- migrations may also create them as supabase_admin, so harden both defaults.
+-- migrations may also create them as supabase_admin, so harden that default
+-- only when the migration executor is allowed to alter that role's defaults.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLES
   FROM PUBLIC, anon, authenticated;
@@ -15,7 +16,9 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 DO $default_acl$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin') THEN
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated';
+    IF pg_has_role(current_user, 'supabase_admin', 'MEMBER') THEN
+      EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated';
+    END IF;
   END IF;
 END
 $default_acl$;
