@@ -1,6 +1,6 @@
 # ZIKR Environment Variables
 
-Last reconciled: **2026-11-11**
+Last reconciled: **2026-11-16**
 
 This document describes the current environment contract for the web application, GitHub Actions/background workers, CircleCI recovery jobs, and Supabase Edge Functions.
 
@@ -74,7 +74,7 @@ The canonical Meta variable name is `FACEBOOK_GRAPH_API_VERSION`. `META_GRAPH_AP
 
 Manual written-content generation uses `WRITTEN_CONTENT_ALLOW_KIDS` (default `false`). The scheduled generator explicitly enables Kids source selection; admin-triggered `auto` or `kids` requests pass `true` only when the caller has `kids.manage`. A social-only manager's automatic selection and legacy backfill remain general-audience only.
 
-When `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED=true`, the scheduled social worker may retry catalog metadata synchronization for already-published Kids queue rows. It revalidates the linked generation request and current human-approval fingerprint before writing; blocked rows are held for owner review. The flag does not itself enable external delivery or call providers. The current runner evaluates it only after the Admin auto-publish setting and `SOCIAL_PUBLISH_ENABLED=true` admit the social worker, so reconciliation pauses whenever either publishing gate is off.
+When `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED=true`, the scheduled social worker may retry catalog metadata synchronization for Kids queue rows in `published` or `partial` state. It revalidates the linked generation request and current human-approval fingerprint before writing. If a later provider retry changes a previously synced partial snapshot, the queue marker is reopened to `pending` so a failed live catalog update remains retryable; manual `held` states remain owner-controlled. Blocked rows are held for owner review. The flag does not itself enable external delivery or call providers. The current runner evaluates it only after the Admin auto-publish setting and `SOCIAL_PUBLISH_ENABLED=true` admit the social worker, so reconciliation pauses whenever either publishing gate is off.
 
 ## 4. Video worker contract
 
