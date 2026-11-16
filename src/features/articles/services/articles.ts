@@ -272,10 +272,20 @@ export async function searchArticles(query: string, locale: Locale = "ar"): Prom
         .map((row) => mapRow(row, locale))
         .filter((article) => article.title && normalizedText(article.content).length >= MIN_PUBLIC_ARTICLE_CHARS);
       if (matches.length) {
-        return withLongformArticles(matches, locale)
+        const matchedSlugs = new Set(matches.map((article) => article.slug));
+        const candidates = withLongformArticles(matches, locale).filter((article) =>
+          [article.title, article.summary ?? "", article.content ?? "", ...(article.tags ?? [])]
+            .some((value) => normalizeArabicSearchText(value).includes(normalizedQuery)),
+        );
+        const longformFallbacks = candidates.filter((article) => !matchedSlugs.has(article.slug));
+        const publicationStates = await getDatabasePublicationStates(
+          "articles",
+          longformFallbacks.map((article) => article.slug),
+        );
+        return candidates
           .filter((article) =>
-            [article.title, article.summary ?? "", article.content ?? "", ...(article.tags ?? [])]
-              .some((value) => normalizeArabicSearchText(value).includes(normalizedQuery)),
+            matchedSlugs.has(article.slug) ||
+            !shouldSuppressOfflineFallback(publicationStates.get(article.slug) ?? "unknown"),
           )
           .slice(0, 6);
       }
