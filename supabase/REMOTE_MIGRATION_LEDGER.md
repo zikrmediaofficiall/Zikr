@@ -662,11 +662,12 @@ The production `public.background_reminder_preferences` table has RLS enabled. T
 
 Draft PR #349 adds a trigger-only database guard, a fail-closed preflight for existing rows, and PostgreSQL integration tests for invalid authenticated INSERT/UPDATE. Its proposed migration `20261116150000_enforce_background_reminder_timezone.sql` is **local to the PR branch and not applied to production**. Current invalid-row count is zero, so the migration preflight should pass if the data remains unchanged before owner-approved deployment.
 
+
 ## 2026-11-16 — read-only Kids and cleanup contract verification
 
 **Repository baseline:** `main@a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`.
 
-**Live migration history:** Supabase `list_migrations` returned 0 applied versions; latest version is `undefined`. The main-branch migration ledger remains 449 local / 449 remote with exact version-set equality. No migration was applied during this checkpoint.
+**Live migration history:** Supabase `list_migrations` returned 449 applied versions; latest version is `20261116045100`. The main-branch migration ledger remains 449 local / 449 remote with exact version-set equality. No migration was applied during this checkpoint.
 
 **Live Kids game-result privileges (read-only catalog query):**
 
