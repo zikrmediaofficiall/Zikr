@@ -4,7 +4,6 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { isSupabaseConfigured, supabaseServerAnonRequest } from "@/lib/supabase/server";
-import { resolveCanonicalPublished } from "@/lib/data/content-merge";
 import { getDatabasePublicationState } from "@/lib/data/publication-visibility";
 import { shouldSuppressOfflineFallback } from "@/lib/data/publication-visibility-contract";
 import { COMPANIONS } from "@/features/companions/data/fallback";
@@ -167,18 +166,31 @@ function fallbackBySlug(slug: string): CompanionSummary | null {
   );
 }
 
-async function getDatabaseCompanions(): Promise<CompanionSummary[]> {
+async function getDatabaseCompanions(): Promise<CompanionSummary[] | null> {
   try {
     const rows = await supabaseServerAnonRequest<CompanionSummary[]>(
       "/rest/v1/companions?select=id,name_ar,name_en,title_ar,bio_ar,slug,category,birth_place_ar,death_place_ar,death_year&published=eq.true&order=name_ar.asc",
     );
     return Array.isArray(rows)
       ? uniqueCompanionSummaries(rows.filter((row) => row.slug && row.name_ar))
-      : [];
+      : null;
   } catch (error) {
     console.error("[companions] Failed to load published content:", error);
-    return [];
+    return null;
   }
+}
+
+async function filterOfflineCompanionsByPublicationState(
+  candidates: CompanionSummary[],
+): Promise<CompanionSummary[]> {
+  if (!isSupabaseConfigured() || candidates.length === 0) return candidates;
+
+  const visible = await Promise.all(candidates.map(async (candidate) => {
+    const state = await getDatabasePublicationState("companions", candidate.slug);
+    return shouldSuppressOfflineFallback(state) ? null : candidate;
+  }));
+
+  return visible.filter((candidate): candidate is CompanionSummary => candidate !== null);
 }
 
 export async function getPublishedCompanions(): Promise<CompanionSummary[]> {
@@ -189,10 +201,11 @@ export async function getPublishedCompanions(): Promise<CompanionSummary[]> {
     console.error("[companions] Offline catalogue unavailable:", error);
   }
 
-  const database = isSupabaseConfigured() ? await getDatabaseCompanions() : [];
-  if (database.length) return resolveCanonicalPublished(database, offline);
+  const database = isSupabaseConfigured() ? await getDatabaseCompanions() : null;
+  if (database?.length) return database;
 
-  return offline.length ? offline : FALLBACK_COMPANIONS;
+  const fallback = offline.length ? offline : FALLBACK_COMPANIONS;
+  return filterOfflineCompanionsByPublicationState(fallback);
 }
 
 export async function searchPublishedCompanions(query: string): Promise<CompanionSummary[]> {
@@ -238,7 +251,6 @@ export async function getCompanionBySlug(
     console.error("[companions] Offline detail unavailable:", error);
   }
 
-  let databaseLookupFailed = false;
   if (isSupabaseConfigured()) {
     try {
       const rows = await supabaseServerAnonRequest<Record<string, unknown>[]>(
@@ -274,13 +286,12 @@ export async function getCompanionBySlug(
       };
       }
     } catch (error) {
-      databaseLookupFailed = true;
       console.error("[companions] Failed to load companion detail:", error);
     }
   }
 
   const hasLocalFallback = Boolean(local || fallbackBySlug(cleanSlug));
-  if (isSupabaseConfigured() && !databaseLookupFailed && hasLocalFallback) {
+  if (isSupabaseConfigured() && hasLocalFallback) {
     const publicationState = await getDatabasePublicationState("companions", cleanSlug);
     if (shouldSuppressOfflineFallback(publicationState)) return null;
   }
