@@ -2338,3 +2338,9 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 - Read-only production query of `video_categories.slug='kids-stories'`: 34 published videos, 0 with null metadata, 0 without `audience=kids`, and 0 marked general. The category-based RLS defect in PR #340 is preventative for legacy/future rows; no current exposed row was observed.
 - PR #344 (`127f44e41c85b8d7ca7d00716dccc000b13b5d04`) is the inventory/ledger documentation PR; its Quality Gate and CircleCI source/application jobs remain in progress, config guard passed.
 - Updated file-status matrix blob: `a7aaff211f349220d1bb9b1a5f3bf9c3c956b0a3`; the base snapshot remains main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, with 1,894 files still unreviewed.
+
+
+## 2026-11-16 13:10 UTC — manifest delta detail
+
+- The 13 entries absent from the prior PR320 manifest include the old manifest file itself (self-excluded in its original snapshot). The remaining 12 entries are 3 directories and 9 blobs, including the newly added OAuth-origin tests, Kids social catalog reconciliation service/test, safe-relative-path helper, and linked-request Kids RLS migration. No prior manifest path is missing from the current tree.
+- Main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` has now passed GitHub Quality Gate and all CircleCI statuses, including the Android release-draft verification job. No release was created.
