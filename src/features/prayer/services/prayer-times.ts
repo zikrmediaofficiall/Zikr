@@ -84,6 +84,94 @@ export interface PrayerTimesResponse {
   };
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function isValidPrayerTimeZone(value: unknown): value is string {
+  if (typeof value !== "string" || !value.trim()) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date(0));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate the provider payload before exposing it to UI/countdown/native
+ * scheduling consumers. A 200 response with an empty or partial data object
+ * is not a usable prayer-time result.
+ */
+function isValidPrayerTimesResponse(value: unknown): value is PrayerTimesResponse {
+  const response = asRecord(value);
+  const data = asRecord(response?.data);
+  const timings = asRecord(data?.timings);
+  const date = asRecord(data?.date);
+  const hijri = asRecord(date?.hijri);
+  const hijriMonth = asRecord(hijri?.month);
+  const meta = asRecord(data?.meta);
+  const method = asRecord(meta?.method);
+
+  if (
+    response?.code !== 200 ||
+    typeof response.status !== "string" ||
+    response.status.toUpperCase() !== "OK" ||
+    !timings ||
+    !date ||
+    !hijri ||
+    !hijriMonth ||
+    !meta ||
+    !method
+  ) {
+    return false;
+  }
+
+  const requiredPrayerTimes = [
+    "Fajr",
+    "Sunrise",
+    "Dhuhr",
+    "Asr",
+    "Sunset",
+    "Maghrib",
+    "Isha",
+    "Imsak",
+    "Midnight",
+  ];
+  if (!requiredPrayerTimes.every((key) =>
+    typeof timings[key] === "string" &&
+    parsePrayerTimeMinutes(timings[key] as string) !== null
+  )) {
+    return false;
+  }
+
+  const latitude = meta.latitude;
+  const longitude = meta.longitude;
+  return (
+    typeof latitude === "number" &&
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    typeof longitude === "number" &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180 &&
+    isValidPrayerTimeZone(meta.timezone) &&
+    typeof method.name === "string" &&
+    Boolean(method.name.trim()) &&
+    typeof meta.school === "string" &&
+    Boolean(meta.school.trim()) &&
+    typeof hijri.day === "string" &&
+    /^\\d{1,2}$/.test(hijri.day) &&
+    typeof hijri.year === "string" &&
+    /^\\d{3,4}$/.test(hijri.year) &&
+    typeof hijriMonth.ar === "string" &&
+    Boolean(hijriMonth.ar.trim())
+  );
+}
+
 export interface CityCoordinates {
   city: string;
   country: string;
@@ -115,8 +203,8 @@ async function fetchPrayerTimesUncached(
 
   if (date) params.append('date', date);
 
-  const { data } = await safeApiFetch<PrayerTimesResponse>(`${API_BASE}?${params.toString()}`);
-  return data || null;
+  const { data } = await safeApiFetch<unknown>(`${API_BASE}?${params.toString()}`);
+  return isValidPrayerTimesResponse(data) ? data : null;
 }
 
 /**
@@ -225,8 +313,8 @@ export async function getPrayerTimesByCity(
         params.append('address', cleanCity);
       }
 
-      const { data } = await safeApiFetch<PrayerTimesResponse>(`${API_BASE}?${params.toString()}`);
-      const result = data || null;
+      const { data } = await safeApiFetch<unknown>(`${API_BASE}?${params.toString()}`);
+      const result = isValidPrayerTimesResponse(data) ? data : null;
       prunePrayerTimesCache(Date.now());
       prayerTimesCache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
       return result;

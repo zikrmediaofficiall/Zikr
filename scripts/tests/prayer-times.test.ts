@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { getCurrentPrayer, getNextPrayer, getPrayerTimes, parsePrayerTimeMinutes, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
+import { getCurrentPrayer, getNextPrayer, getPrayerTimes, getPrayerTimesByCity, parsePrayerTimeMinutes, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
 import { normalizeSavedPrayerLocation } from "../../src/features/prayer/services/saved-prayer-location";
 import { readFileSync } from "node:fs";
 import { parsePrayerCoordinate } from "../../src/features/prayer/services/prayer-location-validation";
@@ -253,9 +253,31 @@ for (const invalidLocation of [
 
 const originalFetch = globalThis.fetch;
 let prayerFetchCalls = 0;
+const validPrayerResponse = {
+  code: 200,
+  status: "OK",
+  data: {
+    timings,
+    date: {
+      hijri: {
+        day: "15",
+        year: "1448",
+        month: { ar: "جمادى الآخرة" },
+      },
+    },
+    meta: {
+      latitude: 1,
+      longitude: 1,
+      timezone: "UTC",
+      method: { id: 4, name: "Umm Al-Qura", params: {} },
+      school: "Shafi",
+    },
+  },
+};
+let mockPrayerResponse: unknown = validPrayerResponse;
 globalThis.fetch = async () => {
   prayerFetchCalls += 1;
-  return new Response(JSON.stringify({ code: 200, status: "OK", data: {} }), {
+  return new Response(JSON.stringify(mockPrayerResponse), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
@@ -281,6 +303,28 @@ try {
     "impossible calendar dates must be rejected before network access");
   assert.equal(await getPrayerTimes(1, 1, "2026-06-15", 100), null,
     "unsupported calculation method identifiers must be rejected before network access");
+
+  mockPrayerResponse = { code: 200, status: "OK", data: {} };
+  assert.equal(await getPrayerTimes(2, 2, "2026-06-15", 4), null,
+    "a successful HTTP response with a missing prayer-time contract must fail closed");
+  mockPrayerResponse = {
+    ...validPrayerResponse,
+    data: {
+      ...validPrayerResponse.data,
+      timings: { ...validPrayerResponse.data.timings, Fajr: "05:07malformed" },
+    },
+  };
+  assert.equal(await getPrayerTimes(3, 3, "2026-06-15", 4), null,
+    "all required prayer times must parse before the response is cached or returned");
+  mockPrayerResponse = {
+    ...validPrayerResponse,
+    data: {
+      ...validPrayerResponse.data,
+      meta: { ...validPrayerResponse.data.meta, timezone: "Invalid/Timezone" },
+    },
+  };
+  assert.equal(await getPrayerTimesByCity("Malformed City"), null,
+    "city lookups must reject provider responses with an invalid IANA timezone");
 } finally {
   globalThis.fetch = originalFetch;
 }

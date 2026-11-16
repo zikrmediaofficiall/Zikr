@@ -92,12 +92,18 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
     try {
       return normalizeNativeNotificationPermission(await native.requestNotificationPermission()) ?? "unsupported";
     } catch {
-      return "denied";
+      // A bridge failure is not a user denial. Keep the opt-in retryable.
+      return "unsupported";
     }
   }
 
   if (!("Notification" in window)) return "unsupported";
-  return Notification.requestPermission() as Promise<NotificationPermission>;
+  try {
+    return await Notification.requestPermission() as NotificationPermission;
+  } catch {
+    // Browser permission APIs can reject in restricted WebViews; do not report a denial.
+    return "unsupported";
+  }
 }
 
 /**
