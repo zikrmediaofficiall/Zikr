@@ -12,7 +12,7 @@ Generated: 2026-11-16T13:04:59.302Z
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `15165507ea533b0afdc44cd05664f60d0ade84a5`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — blob SHA `650732ab1206d94311dc2ba59888a38829b7cca9`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -146,3 +146,11 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Scanned all **66** `src/app/admin/**/page.tsx` files against their actual source. Every page either calls `requireAdminPermission`/`requireAdminStepUp` or is an alias redirect to a destination page with its own permission guard. The shared layout calls `requireAdmin` and filters navigation by role, but it is not treated as a substitute for per-page authorization.
 - Sensitive pages apply specific permissions (e.g. `kids.manage`, `video.manage`, `social.manage`, `analytics.read`, `users.read`, `security.manage`, `release.manage`, `system.manage`). Queue and dashboard pages conditionally expose sections by permission. Redirect-only legacy paths route to guarded canonical pages.
 - This closes only the page permission-gate scan. Full data fetching, server actions, client mutations, and every nested component still require file-by-file review.
+
+## Social OAuth credential security review — 2026-11-16T13:38:37.169Z
+
+- Facebook and YouTube OAuth callbacks require admin permission, AAL2 step-up, canonical-origin handling, and HMAC-signed state bound to the initiating admin profile and provider. State expires after 10 minutes and is carried in a Secure, HttpOnly, SameSite=Lax callback cookie. Facebook verifies required page publishing scopes and resolves the configured Page across pagination; YouTube verifies channel identity and requires least-privilege upload/read/analytics scopes while rejecting full-management, force-SSL, and partner/delete-capable scopes.
+- Facebook stores only the selected Page access token; YouTube stores a refresh token with granted scopes and channel ID. Both credential tables have RLS enabled, explicit anon/authenticated deny policies, revoked anon/authenticated table privileges, and service_role-only grants. Live grants/policies confirm no direct anon/authenticated token read path.
+- **Security hardening observation:** token fields are plaintext at the application/database column level; no envelope/application-layer encryption was found. Supabase-managed at-rest encryption plus service_role-only access are the current protections. This is not a reproduced anon/auth privilege bypass; owner/security policy must decide whether envelope encryption and key rotation are required. Do not retrofit encryption without an owner-approved key-management and rotation plan.
+- Migrations `20261028112823` and `20261028112833` are byte-for-byte duplicates (same blob SHA `4b047934470e1b23f08a0fe44548cc4c5f4700ef`) and both are applied. This is harmless migration-history duplication; do not delete or rewrite either applied migration.
+- Existing tests cover Facebook scope/page pagination, credential CAS and malformed recovery, cross-platform isolation, OAuth state profile/provider binding and expiry, YouTube channel identity, least-privilege scopes, and absence of token logging. Main Quality Gate is green. No OAuth flow or social publish was triggered.
