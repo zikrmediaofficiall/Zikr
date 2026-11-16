@@ -8,8 +8,9 @@ import path from "node:path";
 import { getServerEnv } from "@/lib/env";
 import { safeApiFetch } from "@/lib/services/http";
 import { supabaseServerAnonRequest } from "@/lib/supabase/server";
-import { hasHadithPageRows, type Hadith, type HadithBook, type HadithResponse } from "@/features/hadith/types/hadith";
+import { type Hadith, type HadithBook, type HadithResponse } from "@/features/hadith/types/hadith";
 import { createOfflineHadithBooksLoader, type OfflineHadithBookRow } from "@/features/hadith/services/offline-books-loader";
+import { shouldFallbackToExternalHadith } from "@/features/hadith/services/database-fallback-policy";
 import type { Locale } from "@/lib/i18n";
 import type { PaginationMeta } from "@/lib/types/common";
 
@@ -252,7 +253,7 @@ export async function getHadithBook(
       totalPages: Math.max(1, Math.ceil(total / limit)),
     };
 
-    if (hasHadithPageRows(dbHadiths)) {
+    if (!shouldFallbackToExternalHadith(dbHadiths)) {
       const mappedData = dbHadiths.map(mapDbHadith);
       let remoteByNumber = new Map<number, Hadith>();
       if (locale === "en" && mappedData.some((hadith) => !hadith.english?.trim())) {
@@ -296,7 +297,8 @@ export async function getHadithByNumber(
     const dbHadiths = await readSupabase<DbHadith[]>(
       `/rest/v1/hadiths?select=hadith_number,text_ar,text_en,ref&book_id=eq.${dbBooks[0].id}&hadith_number=eq.${number}&published=eq.true&limit=1`,
     );
-    if (dbHadiths?.[0]) {
+    if (!shouldFallbackToExternalHadith(dbHadiths)) {
+      if (!dbHadiths[0]) return null;
       const mapped = mapDbHadith(dbHadiths[0]);
       if (locale === "en" && !mapped.english?.trim()) {
         const remote = await getUmmahHadithByNumber(book, number, "en");
@@ -320,9 +322,9 @@ export async function searchHadith(query: string, locale: Locale = "ar"): Promis
   const dbHadiths = await readSupabase<DbHadith[]>(
     `/rest/v1/hadiths?select=hadith_number,text_ar,text_en,ref&published=eq.true&searchable_normalized=plfts(simple).${encodeURIComponent(safeQuery)}&order=hadith_number.asc&limit=50`,
   );
-  if (hasHadithPageRows(dbHadiths)) {
-    // Preserve Arabic originals when an English translation is missing; the
-    // display layer labels that fallback instead of silently dropping results.
+  if (!shouldFallbackToExternalHadith(dbHadiths)) {
+    // A successful empty DB result is authoritative: do not query the external
+    // catalogue, which could re-expose hadiths intentionally unpublished here.
     return dbHadiths.map(mapDbHadith);
   }
 
