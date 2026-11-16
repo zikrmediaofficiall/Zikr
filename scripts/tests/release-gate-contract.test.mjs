@@ -6,6 +6,7 @@ import { ANDROID_DEBUG_PATH_FILTERS, CIRCLECI_VALIDATION_PATH_FILTERS, getRequir
 const workflow = readFileSync(".github/workflows/release-vercel.yml", "utf8");
 const releaseWorkflow = readFileSync(".github/workflows/release-finalization.yml", "utf8");
 const androidReleaseWorkflow = readFileSync(".github/workflows/publish-android-release-assets.yml", "utf8");
+const androidRecoveryDispatchWorkflow = readFileSync(".github/workflows/dispatch-android-release-recovery.yml", "utf8");
 const gate = readFileSync("scripts/verify-release-gates.mjs", "utf8");
 
 const androidWorkflowPaths = readFileSync(".github/workflows/android-native-login-test.yml", "utf8");
@@ -235,3 +236,40 @@ assert.ok(
   releaseWorkflow.includes("VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}"),
   "Vercel build and deployment must carry the approved commit SHA",
 );
+
+
+assert.match(
+  androidReleaseWorkflow,
+  /\(github\.event_name == 'push' && github\.ref_type == 'tag'\)/,
+  "automatic tag publication must remain available only to tag-push events",
+);
+assert.match(
+  androidReleaseWorkflow,
+  /github\.event_name == 'workflow_dispatch' &&[\s\S]*?inputs\.retry == true[\s\S]*?github\.ref_type == 'tag'/,
+  "manual tag dispatch must require the explicit retry input",
+);
+assert.doesNotMatch(
+  androidReleaseWorkflow,
+  /if:\s*>-\s*\n\s*github\.ref_type == 'tag'\s*\|\|/,
+  "a tag ref alone must not authorize manual publisher dispatch",
+);
+const manualRecoveryGuardIndex = androidReleaseWorkflow.indexOf("Verify explicit recovery guard for manual dispatch");
+const androidCodeOwnerPreflightIndex = androidReleaseWorkflow.indexOf("Verify current PR CODEOWNER approval before publishing Android assets");
+assert.ok(manualRecoveryGuardIndex >= 0 && manualRecoveryGuardIndex < androidCodeOwnerPreflightIndex,
+  "manual recovery authorization must run before the CODEOWNER preflight and every release mutation");
+for (const required of [
+  "docs/finalization/RELEASE_RETRY.flag",
+  '"RETRY"',
+  "docs/releases/${version}.md",
+  "TAG_TARGET_SHA",
+  "GITHUB_SHA",
+  "ci/circleci: android-rebuild",
+]) {
+  assert.ok(androidReleaseWorkflow.includes(required), "manual publisher retry must enforce " + required);
+}
+assert.ok(androidRecoveryDispatchWorkflow.includes("docs/finalization/RELEASE_RETRY.flag"),
+  "the recovery dispatcher must retain the repository retry flag");
+assert.ok(androidRecoveryDispatchWorkflow.includes('context.ref === "refs/tags/" + tag'),
+  "the recovery dispatcher must retain exact tag-dispatch handling");
+assert.ok(androidRecoveryDispatchWorkflow.includes('item.context === "ci/circleci: android-rebuild"'),
+  "the recovery dispatcher must retain the signed-build status gate");
