@@ -31,15 +31,20 @@ const sitemapCandidates = [
   { url: noindexBase + "/auth/callback" },
   { url: noindexBase + "/kids/puzzle" },
   { url: noindexBase + "/kids/games/level-1" },
+  { url: noindexBase + "/kids" },
   { url: noindexBase + "/kids/adventures" },
+  { url: noindexBase + "/kids/approved-story" },
   { url: noindexBase + "/stories/approved" },
   { url: "https://external.invalid/untrusted" },
 ];
 assert.deepEqual(
   filterIndexableSitemapRoutes(sitemapCandidates, siteConfig.url, isNoindexPath).map((entry) => entry.url),
-  [noindexBase + "/kids/adventures", noindexBase + "/stories/approved"],
+  [noindexBase + "/kids/approved-story", noindexBase + "/stories/approved"],
   "sitemap filtering must apply the shared noindex policy to static and dynamic routes and reject external origins",
 );
+assert.equal(isNoindexPath("/kids"), true, "Kids hub is explicitly noindex");
+assert.equal(isNoindexPath("/kids/adventures"), true, "Kids adventures landing page is explicitly noindex");
+assert.equal(isNoindexPath("/kids/approved-story"), false, "approved age-appropriate story detail pages remain indexable");
 
 
 const sitemapSource = readFileSync("src/app/sitemap.ts", "utf8");
