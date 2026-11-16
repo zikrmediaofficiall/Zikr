@@ -10,6 +10,6 @@ assert.equal(resolveYouTubeUploadPrivacy(" public "), "public");
 assert.equal(resolveYouTubeUploadPrivacy("UNLISTED"), "unlisted");
 assert.equal(resolveYouTubeUploadPrivacy("private"), "private");
 const envExample = readFileSync(".env.example", "utf8");
-assert.match(envExample, /# Visibility for automatic YouTube uploads: public, unlisted, or private \\(default: private\\)\\r?\\nYOUTUBE_UPLOAD_PRIVACY=private/m, "environment documentation must match the fail-safe private runtime default");
+assert.match(envExample, /# Visibility for automatic YouTube uploads: public, unlisted, or private \(default: private\)\r?\nYOUTUBE_UPLOAD_PRIVACY=private/m, "environment documentation must match the fail-safe private runtime default");
 
 console.log("YouTube upload privacy passed: public visibility requires an explicit valid configuration.");
