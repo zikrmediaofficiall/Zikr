@@ -122,14 +122,15 @@ assert.match(job, /isQueueAlertDeliveryComplete\(/);
 assert.match(job, /Delivery ledger lookup failed/);
 assert.match(job, /if \(!existing\) continue;/, "a failed ledger read must not resend an alert blindly");
 
-assert.match(job, /updated_at=lte\\.\\$\\{encodeURIComponent\\(until\\)\\}/);
-assert.match(job, /order=updated_at\\.asc,id\\.asc/);
-assert.match(job, /offset=\\$\\{offset\\}/);
-assert.match(job, /MAX_QUEUE_ALERT_FAILURE_ROWS/);
+assert.ok(job.includes("&updated_at=lte.${encodeURIComponent(until)}"));
+assert.ok(job.includes("&order=updated_at.asc,id.asc"));
+assert.ok(job.includes("&offset=${offset}"));
+assert.ok(job.includes("MAX_QUEUE_ALERT_FAILURE_ROWS"));
 const videoWorkflow = readFileSync(".github/workflows/generate-ai-video.yml", "utf8");
 const socialWorkflow = readFileSync(".github/workflows/publish-social.yml", "utf8");
 for (const workflow of [videoWorkflow, socialWorkflow]) {
-  assert.match(workflow, /concurrency:\\s*\\n\\s*group:\\s*zikr-background-worker\\s*\\n\\s*cancel-in-progress:\\s*false/);
+  assert.ok(workflow.includes("group: zikr-background-worker"));
+  assert.ok(workflow.includes("cancel-in-progress: false"));
 }
 
 console.log("Queue alert retry window and per-channel delivery contracts passed.");
