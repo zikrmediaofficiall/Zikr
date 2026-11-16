@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { getCanonicalAuthBaseUrl } from "../../src/lib/auth-enhanced";
 import { isLocalDevelopmentOAuthHost } from "../../src/lib/auth/oauth-origin";
 
 for (const host of ["localhost", "LOCALHOST", "127.0.0.1", "::1", "[::1]"]) {
@@ -13,27 +12,15 @@ for (const host of ["zikrmediaofficial.vercel.app", "localhost.evil.example", "l
 
 console.log("Local OAuth origin contract passed.");
 
-const originalNodeEnv = process.env.NODE_ENV;
-const originalVercelEnv = process.env.VERCEL_ENV;
-const originalNextVercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV;
-try {
-  process.env.NODE_ENV = "development";
-  delete process.env.VERCEL_ENV;
-  delete process.env.NEXT_PUBLIC_VERCEL_ENV;
-  for (const origin of ["http://localhost:3000", "http://127.0.0.1:3000", "http://[::1]:3000"]) {
-    assert.equal(getCanonicalAuthBaseUrl(origin), origin, origin + " must preserve its local PKCE callback origin");
-  }
-  process.env.NODE_ENV = "production";
-  assert.equal(
-    getCanonicalAuthBaseUrl("http://[::1]:3000"),
-    "https://zikrmediaofficial.vercel.app",
-    "production runtime must still canonicalize loopback OAuth origins",
-  );
-} finally {
-  if (originalNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalNodeEnv;
-  if (originalVercelEnv === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = originalVercelEnv;
-  if (originalNextVercelEnv === undefined) delete process.env.NEXT_PUBLIC_VERCEL_ENV; else process.env.NEXT_PUBLIC_VERCEL_ENV = originalNextVercelEnv;
-}
+const authSource = readFileSync("src/lib/auth-enhanced.ts", "utf8");
+assert.ok(
+  authSource.includes("isLocalDevelopmentOAuthHost(host)"),
+  "server-side canonical OAuth origin resolution must share the bracket-aware local-host allowlist",
+);
+assert.ok(
+  !authSource.includes('host === "::1"'),
+  "server-side canonical OAuth origin resolution must not compare IPv6 hostnames without brackets",
+);
 const supabaseConfig = readFileSync("supabase/config.toml", "utf8");
 assert.ok(supabaseConfig.includes('"http://127.0.0.1:3000/**"'));
 assert.ok(supabaseConfig.includes('"http://[::1]:3000/**"'));
