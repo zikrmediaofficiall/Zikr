@@ -2812,7 +2812,7 @@ No production SQL mutation, migration execution, data repair, content generation
 - Latest file-status matrix blob: `7df81b77b9067c5aaa42e8f23c76d7cc7055451f`; 1,959 file rows. Counts: 1301 UNREVIEWED (451 high priority), 286 REVIEWED_SOURCE_ONLY, 62 REVIEWED_PARTIAL, 62 REVIEWED_REGRESSION_COVERAGE, 1 FIX_PENDING_PR372, 4 FIX_PENDING_PR373, 1 FIX_PENDING_PR374, and 658 rows not marked UNREVIEWED.
 - The matrix had concurrent review-status updates during this run; the inventory and project-status summaries were re-read and synchronized to this exact matrix blob rather than overwriting those rows.
 
-- Latest reconciled inventory blob: `e196a8d73b75b5efa59b87ce6d45fcb1a1eb5cbc`; project-status file blob: `3819729c4656e278f3fc17bc193b29f8cfbbfd22`. These refer to the same main snapshot and matrix SHA `7df81b77b9067c5aaa42e8f23c76d7cc7055451f`.
+- Latest reconciled inventory blob: `61a84d6498294f2929957730fa83105e84e266b3`; project-status file blob: `d714b53bb68008333107912c00c7cda7b60005c1`. These refer to the same main snapshot and matrix SHA `7df81b77b9067c5aaa42e8f23c76d7cc7055451f`.
 
 
 ## Deployed prayer worker source parity — 2026-11-16
@@ -2837,3 +2837,5 @@ No production SQL mutation, migration execution, data repair, content generation
 - Queue claims use exact row-version CAS, leases renew serially and abort on lease loss, pause/purge settings fail closed, quota reserves retry/failure slots, QA gates catalog and social handoff. Storage retention is dry-run by schedule and destructive apply requires paused reference writers plus typed confirmation; legacy QA backfill is manual apply-only. Neither was run.
 - PR #374 exact head `32894db0fdf7e7abbb456879e45669ada9964335` filters service-role story reads by `is_approved=true` and `user_id IS NULL`, aligning with the public story service. The live table has 21 published/approved rows and no user-owned rows. The new test is registered in `pnpm test`; exact-head Quality Gate (`pnpm verify:pr`), Android Debug APK and CircleCI config-guard passed. PR remains open/unmerged for CODEOWNERS/owner review.
 - Free API provider remains disabled in the production workflow; its returned video URL lacks a dedicated host/redirect allowlist if later enabled. HF output downloader restricts to trusted Hugging Face origins, 256 MiB and MP4 signature. No provider was called.
+
+- Latest reconciled inventory blob: `61a84d6498294f2929957730fa83105e84e266b3`; project-status blob: `d714b53bb68008333107912c00c7cda7b60005c1`; current main-to-production distance: four commits.
