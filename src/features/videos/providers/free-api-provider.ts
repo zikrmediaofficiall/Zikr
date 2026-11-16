@@ -24,7 +24,7 @@ function parseFreeVideoProviderEndpoint(value: string): URL | null {
       url.password ||
       url.port ||
       url.hash ||
-      !isPublicHostname(url.hostname)
+      !url.hostname
     ) return null;
     return url;
   } catch {
@@ -49,8 +49,7 @@ export function resolveFreeVideoProviderDownloadUrl(
       url.password ||
       url.port ||
       url.hash ||
-      url.pathname === "/" ||
-      !isPublicHostname(url.hostname)
+      url.pathname === "/"
     ) return null;
 
     const allowedHosts = new Set([endpointUrl.hostname.toLowerCase()]);
