@@ -105,7 +105,9 @@ assert.match(templateGetHandler, /status: 500[\s\S]*?Cache-Control[\s\S]*?no-sto
 for (const action of ["create-version", "approve-version", "activate-version", "preview-version"]) {
   assert.ok(api.includes(action), `template API action ${action} missing`);
 }
-assert.equal(api.split('requireAdminApi("kids.manage")').length - 1, 4, "Every Kids template mutation and preview must require kids.manage");
+assert.match(templateGetHandler, /requireAdminApi\("kids\.manage"\)/, "Kids templates and previews must be hidden from general-only video managers");
+const templatePostHandler = api.slice(api.indexOf("export async function POST"));
+assert.equal(templatePostHandler.split('requireAdminApi("kids.manage")').length - 1, 4, "Every Kids template mutation and preview must require kids.manage");
 for (const [action, nextAction] of [
   ["create-version", "approve-version"],
   ["approve-version", "activate-version"],
