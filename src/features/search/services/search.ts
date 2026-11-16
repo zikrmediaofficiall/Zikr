@@ -10,15 +10,8 @@ import { searchLocalQuran } from "@/features/quran/services/quran-server";
 import { searchScholars } from "@/features/scholars/services/scholars";
 import { isSupabaseConfigured, supabaseServerAnonRequest } from "@/lib/supabase/server";
 import { normalizeArabicSearchText } from "@/lib/search/arabic-normalization";
-
-export type PublicSearchResult = {
-  id: string;
-  type: "surah" | "hadith" | "dua" | "story" | "article" | "prophet" | "companion" | "scholar";
-  labelAr: string;
-  title: string;
-  subtitle: string;
-  href: string;
-};
+import { getPublicContentLibrary } from "@/features/content-library/services/content-library";
+import { mapPublicSearchRows, type PublicSearchResult } from "@/features/search/public-search-results";
 
 const MAX_RESULTS_PER_TYPE = 6;
 
@@ -26,7 +19,7 @@ async function legacyGlobalSearch(query: string): Promise<PublicSearchResult[]> 
   const q = normalizeArabicSearchText(query);
   if (q.length < 2) return [];
 
-  const [quran, hadith, duas, prophets, companions, stories, articles, scholars] =
+  const [quran, hadith, duas, prophets, companions, stories, articles, scholars, contentLibrary] =
     await Promise.all([
       searchLocalQuran(query, "ar"),
       searchHadith(query),
@@ -36,6 +29,7 @@ async function legacyGlobalSearch(query: string): Promise<PublicSearchResult[]> 
       getStories(),
       getArticles(undefined, 100),
       searchScholars(query),
+      getPublicContentLibrary(100, "ar"),
     ]);
 
   const results: PublicSearchResult[] = [];
@@ -141,6 +135,28 @@ async function legacyGlobalSearch(query: string): Promise<PublicSearchResult[]> 
     }
   }
 
+  for (const item of contentLibrary) {
+    if (
+      contains(item.title_ar) ||
+      contains(item.title_en ?? undefined) ||
+      contains(item.summary_ar ?? undefined) ||
+      contains(item.summary_en ?? undefined) ||
+      contains(item.body_ar ?? undefined) ||
+      contains(item.body_en ?? undefined) ||
+      (item.tags ?? []).some(contains)
+    ) {
+      results.push({
+        id: item.id,
+        type: "content",
+        labelAr: "مادة",
+        title: item.title,
+        subtitle: item.summary || item.category || "مادة منشورة من مكتبة ذِكر",
+        href: "/content/" + item.slug,
+      });
+      if (results.filter((result) => result.type === "content").length >= MAX_RESULTS_PER_TYPE) break;
+    }
+  }
+
   for (const item of scholars.slice(0, MAX_RESULTS_PER_TYPE)) {
     results.push({
       id: item.id,
@@ -156,20 +172,11 @@ async function legacyGlobalSearch(query: string): Promise<PublicSearchResult[]> 
 }
 
 
-type SearchRpcRow = {
-  id: string;
-  type: PublicSearchResult["type"];
-  label_ar: string;
-  title: string;
-  subtitle: string;
-  href: string;
-};
-
 async function searchIndexedContent(query: string): Promise<PublicSearchResult[] | null> {
   if (!isSupabaseConfigured()) return null;
 
   try {
-    const rows = await supabaseServerAnonRequest<SearchRpcRow[]>(
+    const rows = await supabaseServerAnonRequest<unknown[]>(
       "/rest/v1/rpc/search_public_content",
       {
         method: "POST",
@@ -182,22 +189,7 @@ async function searchIndexedContent(query: string): Promise<PublicSearchResult[]
 
     if (!Array.isArray(rows)) throw new Error("Search RPC returned an unexpected payload.");
 
-    return rows
-      .filter((row) =>
-        typeof row.id === "string" &&
-        typeof row.title === "string" &&
-        typeof row.href === "string" &&
-        row.href.startsWith("/") &&
-        ["surah", "hadith", "dua", "story", "article", "prophet", "companion", "scholar"].includes(row.type),
-      )
-      .map((row) => ({
-        id: row.id,
-        type: row.type,
-        labelAr: row.label_ar,
-        title: row.title,
-        subtitle: row.subtitle,
-        href: row.href,
-      }));
+    return mapPublicSearchRows(rows);
   } catch (error) {
     console.error("[search] Indexed Supabase search failed; using bounded fallback:", error);
     return null;
