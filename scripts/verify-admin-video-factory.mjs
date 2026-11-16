@@ -20,7 +20,7 @@ if (!createRoute.includes('requireAdminStepUpApi("video.manage"')) failures.push
 if (!createRoute.includes("SOURCE_LOCKED_CATEGORIES")) failures.push("video create API must enforce source-locked categories");
 if (!createRoute.includes("resolveVideoSource")) failures.push("video create API must resolve the canonical source");
 if (!createRoute.includes("sourceVerifiedAtRequest: true")) failures.push("video create API must stamp source verification");
-if (!createRoute.includes("ownCloudinaryAudioUrl")) failures.push("human narration must be restricted to ZIKR-owned Cloudinary uploads");
+if (!createRoute.includes("parseAdminNarrationAssetUrl") || !createRoute.includes("isReadyAdminNarrationAsset") || !createRoute.includes("humanAudioAssetId")) failures.push("human narration must be restricted to the current admin's tracked, audit-ready Cloudinary media asset");
 const createAudienceGuardIndex = createRoute.indexOf("const requestedAudience = normalizeVideoAudience(content.audience);");
 const createTemplateBranchIndex = createRoute.indexOf('if (typeof content.templateVersionId === "string"');
 const createRequestIndex = createRoute.indexOf("const result = await createVideoGenerationRequest({");
