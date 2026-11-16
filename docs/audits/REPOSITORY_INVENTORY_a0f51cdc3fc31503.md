@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16 (reconciled against the latest exact matrix blob; exact UTC time not captured)
+Updated: 2026-11-16T21:46:04.909Z (reconciled against the exact matrix and current audit checkpoint)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-16 (reconciled against the latest exact matrix blob; exact UTC 
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `8f2c56e3dbe38055ec762a8c4f58123541d73812`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `0f99c9eb18d5f3d0ac1100c329a3bc62fd476f18`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -44,7 +44,6 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR341`: 1
 - `FIX_PENDING_PR343`: 2
 - `FIX_PENDING_PR343_AND_PR376`: 1
-- `FIX_PENDING_PR376`: 2
 - `FIX_PENDING_PR346`: 1
 - `FIX_PENDING_PR347`: 2
 - `FIX_PENDING_PR349`: 5
@@ -58,22 +57,24 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR372`: 1
 - `FIX_PENDING_PR373`: 4
 - `FIX_PENDING_PR374`: 1
+- `FIX_PENDING_PR375`: 2
+- `FIX_PENDING_PR376`: 2
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 39
-- `REVIEWED_PARTIAL`: 70
-- `REVIEWED_PERMISSION_SCAN`: 93
+- `REVIEWED_PARTIAL`: 69
+- `REVIEWED_PERMISSION_SCAN`: 91
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 66
-- `REVIEWED_SOURCE_ONLY`: 290
+- `REVIEWED_SOURCE_ONLY`: 297
 - `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1284
+- `UNREVIEWED`: 1278
 
-High-priority unreviewed files: **438**. The matrix has 1,959 file rows; 675 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **435**. The matrix has 1959 file rows; 681 are not marked `UNREVIEWED`.
 
 ## Review batch — 2026-11-16 21:15 UTC
 
@@ -359,3 +360,13 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Content schedule cancellation was verified against its worker lease CAS, DST and stale-version tests; no schedule was created or cancelled. Site-audio storage was not uploaded or deleted.
 - PR #374 video story-source approval filters passed exact-head Quality Gate (`pnpm verify:pr`), Android Debug APK and CircleCI config-guard on `32894db0fdf7e7abbb456879e45669ada9964335`; owner/CODEOWNERS review remains pending.
 - No content generation, Gemini, TTS smoke, provider call, social publishing, admin mutation, production DB write, upload, storage cleanup, media deletion, native release, merge or deployment was triggered.
+
+
+## Review batch — 2026-11-16T21:46:04.909Z
+
+- Read actual Supabase Edge Function sources `_shared/cors.ts`, `_shared/islamic-ai.ts`, `health/index.ts`, `spiritual-ai/index.ts`, `source-verified-content-agent/index.ts`, and `source-verified-content-agent/parse-items.ts`, plus `supabase/config.toml`, the source-agent parser test, and the scheduler migration defining the private database-backed secret. CORS and Islamic-AI fallback consumers were traced; the parser is intentionally skip-only until provider-specific parsers are reviewed.
+- Reproduced a source-agent auth preflight defect: malformed non-empty Authorization values such as `Basic …`, a raw token, or extra token text reached the service-role `get_push_scheduler_secret()` RPC before rejection. PR #375 adds a bounded strict Bearer parser, lazy secret-reader invocation, fail-closed handling and regression assertions in the existing `pnpm test` suite. Exact PR head: `de8b208fd05b2d407f1042c49926df0155640c99`; helper blob `84f57306b4acfe91eeaee22859e4ca8933278216`; changed entrypoint blob `23fcd2260d55b013775587b8588931fa019a858b`; changed test blob `ee059f7cda4a62b73088973c06d8f1e07686b2cb`.
+- PR #375 exact-head CircleCI `config-guard`, `source-verify`, and `application-build-docs` all passed. GitHub Quality Gate run `43962517196` remains in progress; Supabase Preview is skipped (not a pass). Owner review notification comment `6930245521` is posted; no approval is present.
+- Read admin health/dashboard permission and count paths; source layout filters navigation by effective role, page/API guards remain in place, and queue availability is rendered as unavailable rather than zero. The global admin-search service-role permission leak found in the concurrent review remains tracked separately as PR #376, exact head `56360bdb48d39b44f6a13c4b50b8f52070d32f12`; this pass did not overwrite it.
+- Main snapshot and immutable manifest remain anchored to `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; PR-only helper is not inserted into the main manifest until merge. Current status: 1278 UNREVIEWED files (435 high priority); 681 other file rows have a non-UNREVIEWED status.
+- No production function, database, cron job, content source, provider, social publisher, storage object, Android release, merge or deployment was touched.
