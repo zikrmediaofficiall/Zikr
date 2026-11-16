@@ -132,4 +132,41 @@ assert.ok(migration.includes("interval '1 minute'"));
 assert.ok(migration.includes("SELECT count(*) FROM jsonb_object_keys(NEW.metadata)"));
 assert.ok(migration.includes("'level', 'combo', 'completed'"), "database metadata validation must allow server-generated result fields");
 assert.ok(migration.includes("'letter-lab'"));
+const idempotencyMigration = readFileSync(
+  "supabase/migrations/20261116180000_serialize_kids_game_result_idempotency.sql",
+  "utf8"
+);
+const internalRpcStart = idempotencyMigration.indexOf(
+  "CREATE OR REPLACE FUNCTION public.kids_record_game_result_internal("
+);
+const internalRpcEnd = idempotencyMigration.indexOf(
+  "REVOKE ALL ON FUNCTION public.kids_record_game_result_internal",
+  internalRpcStart
+);
+assert.ok(
+  internalRpcStart >= 0 && internalRpcEnd > internalRpcStart,
+  "the additive idempotency migration must replace the internal result RPC"
+);
+const internalRpc = idempotencyMigration.slice(internalRpcStart, internalRpcEnd);
+const idempotencyLockIndex = internalRpc.indexOf(
+  "pg_advisory_xact_lock(\n    hashtext(p_user_id::text),\n    hashtext(p_client_submission_id)\n  )"
+);
+const duplicateLookupIndex = internalRpc.indexOf(
+  "SELECT * INTO v_result\n  FROM public.kids_game_results"
+);
+assert.ok(
+  idempotencyLockIndex >= 0 && duplicateLookupIndex > idempotencyLockIndex,
+  "the RPC must serialize a user/submission key before its duplicate lookup"
+);
+assert.match(
+  idempotencyMigration,
+  /REVOKE ALL ON FUNCTION public\\.kids_record_game_result_internal\\([\\s\\S]*?FROM public, anon, authenticated/,
+  "the replacement RPC must remain unavailable to application roles"
+);
+assert.match(
+  idempotencyMigration,
+  /GRANT EXECUTE ON FUNCTION public\\.kids_record_game_result_internal\\([\\s\\S]*?TO service_role/,
+  "the replacement RPC must remain service-role-only"
+);
+
 console.log("Kids game result validation passed: bounded metadata, registered score limits, stable idempotency, and database insert guard.");
