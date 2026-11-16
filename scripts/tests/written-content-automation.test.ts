@@ -675,7 +675,7 @@ const writtenApprovalGateStart = socialPublishing.indexOf("async function checkW
 const writtenApprovalGate = socialPublishing.slice(writtenApprovalGateStart, socialPublishing.indexOf("\n}", writtenApprovalGateStart));
 assert.ok(
  writtenApprovalGate.indexOf("isVideoContentType(contentType)") < writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") &&
- writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") < writtenApprovalGate.indexOf('item.content_type !== "written_post"'),
+ writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") < writtenApprovalGate.indexOf('contentType !== "written_post"'),
  "unsupported non-video Kids-marked queue rows must be blocked before the not-applicable fallback",
 );
 assert.match(socialPublishing, /\/rest\/v1\/articles\?id=eq\./, "general written-post delivery must verify that its source article still exists");
