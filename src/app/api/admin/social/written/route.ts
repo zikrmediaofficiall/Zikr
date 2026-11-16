@@ -75,10 +75,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     const { category, batchSize: requestedBatchSize } = parsedRequest.value;
+    let allowKids = false;
+    if (category === "auto" || category === "kids") {
+      const kidsAuth = await requireAdminApi("kids.manage");
+      if (category === "kids" && !kidsAuth.ok) {
+        return NextResponse.json({ error: "Kids management permission is required for this category." }, { status: 403 });
+      }
+      allowKids = kidsAuth.ok;
+    }
 
     const dispatch = await dispatchGitHubWorkflow("generate-written-content.yml", {
       category,
       batch_size: String(requestedBatchSize),
+      allow_kids: String(allowKids),
     });
 
     try {
@@ -89,6 +98,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           category,
           batchSize: requestedBatchSize,
+          allowKids,
           workflowFile: dispatch.workflowFile,
           repository: dispatch.repository,
         },

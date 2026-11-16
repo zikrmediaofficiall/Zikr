@@ -90,6 +90,14 @@ const writtenSocialRoute = readFileSync(
   resolve(process.cwd(), "src/app/api/admin/social/written/route.ts"),
   "utf8",
 );
+const writtenStudioPage = readFileSync(
+  resolve(process.cwd(), "src/app/admin/social/written-studio/page.tsx"),
+  "utf8",
+);
+const writtenStudioClient = readFileSync(
+  resolve(process.cwd(), "src/app/admin/social/written-studio/written-studio-client.tsx"),
+  "utf8",
+);
 const videoRoute = readFileSync(
   resolve(process.cwd(), "src/app/api/admin/videos/[id]/route.ts"),
   "utf8",
@@ -639,5 +647,12 @@ assert.ok(
 
 assert.ok(videoRequestsRoute.includes("requireAdminApi('video.manage')"), "video queue must require video.manage");
 assert.ok(videoRequestsRoute.includes("'Cache-Control': 'no-store'"), "private video queue responses must be no-store");
+
+
+assert.ok(writtenSocialRoute.includes('requireAdminApi("kids.manage")'), "written Kids generation must require the dedicated Kids permission");
+assert.ok(writtenSocialRoute.includes('allow_kids: String(allowKids)'), "the admin API must pass its server-derived Kids authorization to GitHub Actions");
+assert.ok(writtenSocialRoute.includes('category === "kids" && !kidsAuth.ok'), "explicit Kids generation must be denied without kids.manage");
+assert.ok(writtenStudioPage.includes('hasAdminPermission(profile.role, "kids.manage")'), "the written studio must derive Kids controls from the effective delegated role");
+assert.ok(writtenStudioClient.includes('CATEGORY_OPTIONS.filter((option) => option.value !== "kids")'), "the written studio must hide the Kids category from social-only managers");
 
 console.log("Admin RBAC/RLS migration contract passed.");

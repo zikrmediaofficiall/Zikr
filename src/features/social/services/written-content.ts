@@ -45,14 +45,18 @@ export function chooseWrittenSourceKind(
  category: WrittenCategory,
  hasKidsPostToday: boolean,
  randomIndex: number,
+ allowKids = true,
 ): WrittenSourceKind | null {
- if (availableKinds.length === 0) return null;
- if (category === "auto" && !hasKidsPostToday && availableKinds.includes("kids_story")) {
+ const allowedKinds = allowKids
+  ? availableKinds
+  : availableKinds.filter((kind) => kind !== "kids_story");
+ if (allowedKinds.length === 0) return null;
+ if (allowKids && category === "auto" && !hasKidsPostToday && allowedKinds.includes("kids_story")) {
   return "kids_story";
  }
- const eligibleKinds = (category === "auto" || category === "kids") && hasKidsPostToday
-  ? availableKinds.filter((kind) => kind !== "kids_story")
-  : availableKinds;
+ const eligibleKinds = allowKids && (category === "auto" || category === "kids") && hasKidsPostToday
+  ? allowedKinds.filter((kind) => kind !== "kids_story")
+  : allowedKinds;
  if (eligibleKinds.length === 0) return null;
  const index = Number.isFinite(randomIndex)
   ? Math.max(0, Math.min(eligibleKinds.length - 1, Math.floor(randomIndex)))
@@ -60,9 +64,13 @@ export function chooseWrittenSourceKind(
  return eligibleKinds[index] ?? null;
 }
 
-export function shouldBackfillKidsWrittenPost(sourceType: string, hasKidsPostToday: boolean): boolean {
+export function shouldBackfillKidsWrittenPost(
+ sourceType: string,
+ hasKidsPostToday: boolean,
+ allowKids = true,
+): boolean {
  const normalizedSourceType = typeof sourceType === "string" ? sourceType.trim().toLowerCase() : "";
- return normalizedSourceType !== "kids_story" || !hasKidsPostToday;
+ return normalizedSourceType !== "kids_story" || (allowKids && !hasKidsPostToday);
 }
 
 export function scheduleKidsBackfillWithinUtcDay(now: Date): string | null {

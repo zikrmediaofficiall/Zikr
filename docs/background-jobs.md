@@ -36,6 +36,8 @@ The generator has a bounded daily target and per-run batch size. It stores sourc
 
 Published Adhkar source records are currently unavailable in the production content tables; the category remains supported in code but is disabled in the Admin selector until reviewed, published source material is seeded. The generator does not invent or reconstruct devotional formulas.
 
+The scheduled generator explicitly enables Kids source selection for its owner-managed daily automation. Manual workflow dispatch defaults `allow_kids` to false; the admin API only enables it for callers with `kids.manage`, and social-only automatic requests remain general-audience only. Explicit Kids-category requests without that permission are rejected before dispatch.
+
 The workflow expects a GitHub Actions secret `GEMINI_API_KEY` in the production environment. Vercel environment variables do not automatically become GitHub Actions secrets. Configure the GitHub secret separately before expecting scheduled written content generation to run. The worker does not require or store generated video files.
 
 ## Current schedules and bounded work

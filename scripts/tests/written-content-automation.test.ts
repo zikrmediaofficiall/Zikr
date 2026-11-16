@@ -91,10 +91,14 @@ assert.equal(chooseWrittenSourceKind(["quran","kids_story"],"auto",true,1),"qura
 assert.equal(chooseWrittenSourceKind(["kids_story"],"auto",true,0),null,"auto generation must stop rather than create a second Kids post when no general source remains");
 assert.equal(chooseWrittenSourceKind(["kids_story"],"kids",false,0),"kids_story","manual Kids category must keep selecting Kids sources");
 assert.equal(chooseWrittenSourceKind(["kids_story"],"kids",true,0),null,"manual Kids generation must stop when the UTC-day Kids slot is already reserved");
+assert.equal(chooseWrittenSourceKind(["quran","kids_story"],"auto",false,0,false),"quran","social-only automatic generation must exclude Kids sources even when no Kids post exists today");
+assert.equal(chooseWrittenSourceKind(["kids_story"],"auto",false,0,false),null,"a social-only automatic run must never select a Kids source");
 assert.equal(chooseWrittenSourceKind([],"auto",false,0),null,"empty source kinds must stop cleanly");
 assert.equal(shouldBackfillKidsWrittenPost("kids_story",false),true,"the first Kids backfill may reserve today's slot");
 assert.equal(shouldBackfillKidsWrittenPost("kids_story",true),false,"a second Kids backfill must wait until another UTC day");
 assert.equal(shouldBackfillKidsWrittenPost("quran",true),true,"general written-post backfill must remain unaffected by the Kids daily slot");
+assert.equal(shouldBackfillKidsWrittenPost("kids_story",false,false),false,"social-only runs must not backfill Kids stories");
+assert.equal(shouldBackfillKidsWrittenPost("quran",false,false),true,"social-only runs may still backfill general sources");
 assert.equal(shouldBackfillKidsWrittenPost(" KIDS_STORY ",true),false,"case- and whitespace-variant Kids source types must still respect the daily Kids reservation");
 assert.equal(shouldBackfillKidsWrittenPost(" KIDS_STORY ",false),true,"a normalized Kids source may reserve the first daily slot");
 assert.equal(countUniqueWrittenContentReservations(
@@ -704,6 +708,7 @@ assert.match(worker, /published:\s*false/);
 assert.match(worker, /content_table:\s*"articles"/);
 const envExample = readFileSync(".env.example", "utf8");
 assert.match(envExample, /^WRITTEN_CONTENT_ENABLED=false$/m, "local .env.example must not enable Gemini content generation by default");
+assert.match(envExample, /^WRITTEN_CONTENT_ALLOW_KIDS=false$/m, "local runs must not select or backfill Kids sources without an explicit permission gate");
 assert.match(envExample, /^AUTO_VIDEO_ENABLED=false$/m, "local .env.example must not enable video generation by default");
 assert.match(envExample, /^AUTO_VIDEO_PUBLISH_ENABLED=false$/m, "local .env.example must not enable video publishing by default");
 assert.match(envExample, /^SOCIAL_PUBLISH_ENABLED=false$/m, "local .env.example must not enable social publishing by default");
@@ -715,6 +720,10 @@ assert.match(worker, /const sourceType=str\(source\.type\)\.toLowerCase\(\)/,
  "the backfill caller must canonicalize legacy source types before quota and automation-key checks");
 assert.ok(worker.includes('WRITTEN_CONTENT_ENABLED?.trim().toLowerCase()!=="true"'), "Gemini generation must remain disabled unless explicitly enabled");
 assert.ok(writtenWorkflow.includes('WRITTEN_CONTENT_ENABLED: "true"'), "the scheduled workflow must explicitly opt in to content generation");
+assert.ok(worker.includes("enqueueExistingWrittenArticlesForFacebook(100,allowKids)"), "legacy backfill must receive the same Kids authorization decision as generation");
+assert.ok(worker.includes("loadSources(allowKids)"), "unauthorized runs must not load Kids source records into the generation pool");
+assert.ok(worker.includes("WRITTEN_CONTENT_ALLOW_KIDS"), "the worker must consume the explicit Kids source-selection gate");
+assert.ok(writtenWorkflow.includes("WRITTEN_CONTENT_ALLOW_KIDS:") && writtenWorkflow.includes("inputs.allow_kids"), "scheduled runs may opt in, while manual workflow dispatch defaults Kids selection off");
 assert.ok(worker.includes("WRITTEN_CONTENT_SYSTEM_INSTRUCTION"));
 assert.ok(worker.includes("systemInstruction:{parts:[{text:WRITTEN_CONTENT_SYSTEM_INSTRUCTION}]}"));
 assert.ok(worker.includes('contents:[{role:"user",parts:[{text:userPayload}]}]'));

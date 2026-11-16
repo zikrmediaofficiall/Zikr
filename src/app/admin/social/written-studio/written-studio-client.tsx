@@ -81,7 +81,7 @@ function countStatus(items: WrittenPost[], status: string): number {
   return items.filter((item) => item.status === status).length;
 }
 
-export default function WrittenStudioClient() {
+export default function WrittenStudioClient({ canManageKids }: { canManageKids: boolean }) {
   const [category, setCategory] = useState("auto");
   const [batch, setBatch] = useState("1");
   const [items, setItems] = useState<WrittenPost[]>([]);
@@ -132,6 +132,7 @@ export default function WrittenStudioClient() {
     }
   }
 
+  const visibleCategoryOptions = canManageKids ? CATEGORY_OPTIONS : CATEGORY_OPTIONS.filter((option) => option.value !== "kids");
   const publishedCount = countStatus(items, "published");
   const queuedCount = countStatus(items, "queued") + countStatus(items, "processing");
   const failedCount = countStatus(items, "failed") + countStatus(items, "partial");
@@ -146,6 +147,7 @@ export default function WrittenStudioClient() {
             <p className="mt-2 max-w-3xl text-sm leading-7 text-brand-cream/60">
               إنشاء منشورات مستقلة عن الفيديوهات من مصادر منشورة ومعتمدة، ثم إضافتها إلى طابور ناشر Facebook الحالي.
             </p>
+            {!canManageKids ? <p className="mt-2 text-xs leading-6 text-brand-cream/45">التنوع التلقائي يقتصر على المصادر العامة؛ إنشاء محتوى الأطفال يتطلب صلاحية إدارة الأطفال.</p> : null}
           </div>
           <span className="rounded-full border border-brand-gold/20 bg-black/20 px-3 py-1.5 text-xs text-brand-gold">
             منشورات نصية فقط
@@ -187,7 +189,7 @@ export default function WrittenStudioClient() {
               onChange={(event) => setCategory(event.target.value)}
               disabled={sending}
             >
-              {CATEGORY_OPTIONS.map((option) => (
+              {visibleCategoryOptions.map((option) => (
                 <option key={option.value} value={option.value} disabled={"disabled" in option && option.disabled}>
                   {option.label}
                 </option>

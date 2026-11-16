@@ -70,6 +70,8 @@ Native social:
 
 The canonical Meta variable name is `FACEBOOK_GRAPH_API_VERSION`. `META_GRAPH_API_VERSION` is retired.
 
+Manual written-content generation uses `WRITTEN_CONTENT_ALLOW_KIDS` (default `false`). The scheduled generator explicitly enables Kids source selection; admin-triggered `auto` or `kids` requests pass `true` only when the caller has `kids.manage`. A social-only manager's automatic selection and legacy backfill remain general-audience only.
+
 When `SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED=true`, the scheduled social worker may retry catalog metadata synchronization for already-published Kids queue rows. It revalidates the linked generation request and current human-approval fingerprint before writing; blocked rows are held for owner review. The flag does not itself enable external delivery or call providers. The current runner evaluates it only after the Admin auto-publish setting and `SOCIAL_PUBLISH_ENABLED=true` admit the social worker, so reconciliation pauses whenever either publishing gate is off.
 
 ## 4. Video worker contract
