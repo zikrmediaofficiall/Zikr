@@ -5,6 +5,8 @@ import path from "node:path";
 
 import { isSupabaseConfigured, supabaseServerAnonRequest } from "@/lib/supabase/server";
 import { resolveCanonicalPublished } from "@/lib/data/content-merge";
+import { getDatabasePublicationState } from "@/lib/data/publication-visibility";
+import { shouldSuppressOfflineFallback } from "@/lib/data/publication-visibility-contract";
 import { COMPANIONS } from "@/features/companions/data/fallback";
 import { uniqueCompanionSummaries } from "@/features/companions/utils/companions";
 import { normalizeArabicSearchText } from "@/lib/search/arabic-normalization";
@@ -275,6 +277,14 @@ export async function getCompanionBySlug(
     }
   }
 
+  const fallback = fallbackBySlug(cleanSlug);
+  if (!local && !fallback) return null;
+
+  if (isSupabaseConfigured()) {
+    const publicationState = await getDatabasePublicationState("companions", cleanSlug);
+    if (shouldSuppressOfflineFallback(publicationState)) return null;
+  }
+
   if (local) {
     return {
       ...local,
@@ -286,7 +296,6 @@ export async function getCompanionBySlug(
     };
   }
 
-  const fallback = fallbackBySlug(cleanSlug);
   return fallback
     ? {
         ...fallback,
