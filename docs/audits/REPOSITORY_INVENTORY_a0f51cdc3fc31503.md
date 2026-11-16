@@ -74,7 +74,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `SECURITY_FIX_PENDING_PR340`: 4
 - `UNREVIEWED`: 1273
 
-High-priority unreviewed files: **435**. The matrix has 1959 file rows; 681 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **431**. The matrix has 1959 file rows; 681 are not marked `UNREVIEWED`.
 
 ## Review batch — 2026-11-16 21:15 UTC
 
