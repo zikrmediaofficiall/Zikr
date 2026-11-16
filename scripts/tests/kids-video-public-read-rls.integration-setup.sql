@@ -144,6 +144,8 @@ VALUES
   ('general-kids-ai-mode', true, '{"audience":"general","aiMode":"original_kids_story"}'::jsonb),
   ('general-kids-type', true, '{"audience":"general","type":"kids_story"}'::jsonb),
   ('general-kids-content-type', true, '{"audience":"general","contentType":"kids_video"}'::jsonb),
+  ('general-kids-content-format', true, '{"audience":"general","contentFormat":"series_episode"}'::jsonb),
+  ('general-kids-age-group', true, '{"audience":"general","ageGroup":"6-8"}'::jsonb),
   ('general-kids-generation-mode', true, '{"audience":"general","generationMode":"free_deterministic_story_factory"}'::jsonb),
   ('general-kids-source-id', true, '{"audience":"general","sourceId":"kids-series:little-good-steps:s1:e1"}'::jsonb),
   ('general-kids-curated-source-id', true, '{"audience":"general","curatedSourceId":"kids-series:little-good-steps:s1:e1"}'::jsonb),
