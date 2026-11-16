@@ -181,6 +181,8 @@ if (!freeProvider.includes("resolveFreeVideoProviderDownloadUrl") ||
 }
 const comfyProvider = read("src/features/videos/providers/comfyui-provider.ts");
 if (!comfyProvider.includes("readBoundedMediaResponse") ||
+    !comfyProvider.includes("readBoundedMediaResponse(queued, 64 * 1024)") ||
+    !comfyProvider.includes("readBoundedMediaResponse(history, 2 * 1024 * 1024)") ||
     !comfyProvider.includes('redirect: "error"')) {
   failures.push("ComfyUI output downloads must be bounded and non-redirecting");
 }
