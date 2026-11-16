@@ -25,7 +25,19 @@ CREATE SCHEMA private;
 GRANT USAGE ON SCHEMA private TO anon, authenticated, service_role;
 
 CREATE SCHEMA IF NOT EXISTS extensions;
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+-- PGlite does not load pgcrypto. This deterministic, change-sensitive test double
+-- preserves the digest(text, text) interface; production uses pgcrypto's real SHA-256.
+CREATE OR REPLACE FUNCTION extensions.digest(data text, algorithm text)
+RETURNS bytea
+LANGUAGE sql
+IMMUTABLE
+STRICT
+AS $digest$
+  SELECT pg_catalog.decode(
+    pg_catalog.md5(data) || pg_catalog.md5('zikr-snapshot:' || data),
+    'hex'
+  );
+$digest$;
 
 CREATE TABLE public.videos (
   id text PRIMARY KEY,
