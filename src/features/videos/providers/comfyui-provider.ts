@@ -1,7 +1,8 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { VideoGenerationInput, VideoGenerationResult, VideoProvider } from "./types";
+import { MAX_PROVIDER_VIDEO_BYTES, readBoundedMediaResponse } from "./media-response";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 
@@ -19,7 +20,7 @@ export class ComfyUIVideoProvider implements VideoProvider {
 
   async isAvailable() {
     try {
-      const response = await fetch(`${this.baseUrl}/system_stats`, { signal: AbortSignal.timeout(5_000) });
+      const response = await fetch(`${this.baseUrl}/system_stats`, { redirect: "error", signal: AbortSignal.timeout(5_000) });
       return response.ok;
     } catch {
       return false;
@@ -45,6 +46,7 @@ export class ComfyUIVideoProvider implements VideoProvider {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ prompt, client_id: input.requestId }),
+      redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
     if (!queued.ok) return { ok: false, provider: this.name, error: `ComfyUI queue failed (HTTP ${queued.status}).` };
@@ -54,24 +56,31 @@ export class ComfyUIVideoProvider implements VideoProvider {
 
     const deadline = Date.now() + this.timeoutMs;
     while (Date.now() < deadline) {
-      const history = await fetch(`${this.baseUrl}/history/${encodeURIComponent(providerJobId)}`, { signal: AbortSignal.timeout(10_000) });
+      const history = await fetch(`${this.baseUrl}/history/${encodeURIComponent(providerJobId)}`, { redirect: "error", signal: AbortSignal.timeout(10_000) });
       if (history.ok) {
         const result = await history.json() as Record<string, { outputs?: Record<string, unknown> }>;
         const outputs = result[providerJobId]?.outputs;
         if (outputs) {
           const media = findMediaOutput(outputs);
           if (!media) return { ok: false, provider: this.name, providerJobId, error: "ComfyUI completed without a video output." };
-          const response = await fetch(`${this.baseUrl}/view?filename=${encodeURIComponent(media.filename)}&subfolder=${encodeURIComponent(media.subfolder)}&type=${encodeURIComponent(media.type)}`, { signal: AbortSignal.timeout(30_000) });
+          const response = await fetch(`${this.baseUrl}/view?filename=${encodeURIComponent(media.filename)}&subfolder=${encodeURIComponent(media.subfolder)}&type=${encodeURIComponent(media.type)}`, { redirect: "error", signal: AbortSignal.timeout(30_000) });
           if (!response.ok) return { ok: false, provider: this.name, providerJobId, error: `ComfyUI output download failed (HTTP ${response.status}).` };
+          const bytes = await readBoundedMediaResponse(response, MAX_PROVIDER_VIDEO_BYTES);
+          if (bytes.byteLength < 1024) return { ok: false, provider: this.name, providerJobId, error: "ComfyUI output is empty or suspiciously small." };
           const dir = await mkdtemp(path.join(tmpdir(), "zikr-comfyui-"));
           const localPath = path.join(dir, `${input.requestId}.mp4`);
-          await writeFile(localPath, new Uint8Array(await response.arrayBuffer()));
-          return { ok: true, provider: this.name, providerJobId, localPath, audioPresent: false };
+          try {
+            await writeFile(localPath, bytes);
+            return { ok: true, provider: this.name, providerJobId, localPath, audioPresent: false };
+          } catch (error) {
+            await rm(dir, { recursive: true, force: true });
+            throw error;
+          }
         }
       }
       await new Promise((resolve) => setTimeout(resolve, 2_000));
     }
-    try { await fetch(`${this.baseUrl}/interrupt`, { method: "POST", signal: AbortSignal.timeout(5_000) }); } catch { /* best effort cancellation */ }
+    try { await fetch(`${this.baseUrl}/interrupt`, { method: "POST", redirect: "error", signal: AbortSignal.timeout(5_000) }); } catch { /* best effort cancellation */ }
     return { ok: false, provider: this.name, providerJobId, error: "ComfyUI generation timed out." };
   }
 }
