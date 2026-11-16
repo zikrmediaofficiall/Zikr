@@ -2954,3 +2954,54 @@ No production SQL mutation, migration execution, data repair, content generation
 - Live RLS/Storage: Kids stories are public only when published, active and explicitly age-approved; Kids questions have no anon SELECT grant and zero rows; Kids levels require a published parent game; Kids-marked videos require human approval and linked request. No direct Storage write policies for videos/site-audio/public-assets; videos and site-audio buckets are 50 MiB. No object or row changed.
 - Cron read-only snapshot: prayer push every minute, source-verified content agent daily 03:00 UTC, history cleanup daily 03:30 UTC; legacy social-sync cron inactive and still points to old project ID `ymxdswkaxafakugktsim`. No job/Edge Function was invoked.
 - PR #380 exact head `66dde1c4279b6513e395a57ab906b4117a8e82ad` passed Quality Gate `43969510424` and CircleCI config-guard/source-verify/application-build-docs; owner review remains required. The YouTube feed singleton claim/finalization now uses updated_at CAS; no YouTube provider request or production mutation was run.
+
+
+## 2026-11-16/17 — narration provenance, SSRF prevention, and media lifecycle
+
+**Review timestamp:** 2026-11-16T22:43:05.769Z  
+**Main snapshot:** a0f51cdc3fc31503f12ddddba76e37d9e07a15f7  
+**PR #381 branch:** audit/zikr-narration-upload-ownership-20261117  
+**Corrected exact head:** 06103c8627c264d4cf497ed93c68859d09b0a958  
+**First failed head:** 739e21736c3274b056e6a1afaad166c6cf2d5ed7
+
+### Reproducible defect
+
+- Read the admin video studio upload/create path, narration-upload API, media-assets registration/audit helpers, recovery-reference helper, admin create route and worker audio-fetch path.
+- The admin create route copied the caller-controlled generic content object without removing audioUrl/audioSource. The worker's contentAudioUrl accepted any HTTPS URL and fetched it server-side. An authenticated video manager could therefore submit an arbitrary HTTPS endpoint in content.audioUrl and cause a server-side request. The worker also downloaded the response with unbounded arrayBuffer.
+- The separate humanAudioUrl validation only checked a Cloudinary-looking URL/prefix; it did not require a matching media_assets row, current-uploader ownership, upload_state=ready, audit_recorded=true, private state or bounded asset size.
+- The studio client continued after assetTrackingStatus=reconciliation_pending and sent only the URL, so an asset whose tracking finalization was incomplete could still be attached.
+
+### Repair in PR #381
+
+- New shared contract module: `src/features/media/services/video-audio-source.ts` (PR-only; not inserted into the immutable main manifest/matrix).
+- Strip client-supplied audioUrl, audioSource, audioMediaAssetId and audioMediaAssetOwnerId from generic content before resolving trusted sources.
+- Require the exact humanAudioAssetId and Cloudinary URL/public ID to match one media_assets row created by the current admin. Require audio media/asset type, Cloudinary provider, purpose video_generation_narration, audit_recorded=true, upload_state=ready, unpublished state, allowed MIME type and <=15 MiB.
+- The studio client now requires the returned mediaAssetId, stops if tracking is not ready, sends the ID with the URL and clears it after request creation.
+- The worker accepts only the canonical Quran ayah URL or a tracked Cloudinary human narration. It re-queries and verifies the media_assets row, rejects redirects, and streams at most 15 MiB rather than allocating an unbounded response body.
+- Focused regression tests cover Cloudinary URL parsing, canonical Quran URL matching, arbitrary HTTPS rejection, media ownership, audit/ready/private state, MIME compatibility, size bounds, pending reconciliation, redirect rejection and bounded streaming. The canonical admin video factory verifier was updated.
+
+### Exact-head verification
+
+- First head `739e21736c3274b056e6a1afaad166c6cf2d5ed7` reached the GitHub Quality Gate but failed at `admin-video-retry-step-up.test.mjs`: the verifier still expected the removed `ownCloudinaryAudioUrl` helper. The preceding PostgreSQL 17 contract jobs passed.
+- Corrected head `06103c8627c264d4cf497ed93c68859d09b0a958`: GitHub Quality Gate run `43972226700` was in progress at the last poll, with all 20 preceding setup/type/database-contract steps successful and the canonical source/architecture gate in progress. CircleCI config-guard passed; source-verify and application-build-docs were pending. No result is claimed for the pending gate.
+- The first failed check was not bypassed; the stale assertion was corrected and a fresh exact-head run is underway.
+
+### Other reviewed media paths
+
+- The narration-upload route validates signatures and size before Cloudinary upload, creates a private audio media_assets row, records post-commit audit, marks the row ready only after audit success, and returns a recovery reference when tracking is ambiguous.
+- The media-assets registration/finalization helpers and narration-upload-recovery helper were read. Ambiguous uploads are retained for reconciliation; no object deletion or cleanup was attempted.
+- The worker and studio client remain only partially reviewed outside the audio path; the worker is a 3,019-line file with many other queue/provider/render branches still outstanding.
+
+### Current audit artifacts
+
+- Matrix blob: `e09ee8b61942891ce1ed858c44beb5034d3a5faf` — 1,248 UNREVIEWED (414 high priority), 711 non-UNREVIEWED.
+- Inventory blob: `4a90a86d5098856a361a37821c12ec02f266e636`.
+- Project status blob: `1e8494b6d01b3e92e14e800a21446192f506b985`.
+- Immutable manifest blob: `baace6d0c66ac299edb541c7caceba56eeae19be`.
+
+### Safety and closeout gates
+
+- No content generation, TTS/Gemini request, Cloudinary upload/delete, social publishing, production DB mutation, storage cleanup, secret/index change, Android/iOS release, merge or Vercel deployment was performed.
+- PR #381 is open; corrected exact-head checks are not yet complete. Owner/CODEOWNERS review is not recorded.
+- PR #380 YouTube CAS exact head `66dde1c4279b6513e395a57ab906b4117a8e82ad` subsequently passed Quality Gate `43969510424` and all three CircleCI contexts; owner review remains absent.
+- Current main remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; production Vercel remains recorded READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`. Current-main production smoke is unverified.
