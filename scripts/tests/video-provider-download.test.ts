@@ -104,6 +104,8 @@ assert.match(worker, /resolveFreeVideoProviderDownloadUrl/);
 assert.match(worker, /readBoundedMediaResponse/);
 assert.match(worker, /redirect: "error"/);
 assert.match(comfy, /readBoundedMediaResponse/);
+assert.match(comfy, /readBoundedMediaResponse\(queued, 64 \* 1024\)/);
+assert.match(comfy, /readBoundedMediaResponse\(history, 2 \* 1024 \* 1024\)/);
 assert.match(comfy, /redirect: "error"/);
 assert.match(freeApi, /FREE_VIDEO_PROVIDER_ALLOWED_HOSTS/);
 assert.match(hfWorker, /MAX_VIDEO_BYTES = 50 \* 1024 \* 1024/);
