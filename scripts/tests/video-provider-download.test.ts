@@ -99,6 +99,8 @@ await assert.rejects(
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 const comfy = readFileSync("src/features/videos/providers/comfyui-provider.ts", "utf8");
 const freeApi = readFileSync("src/features/videos/providers/free-api-provider.ts", "utf8");
+const videoFactoryVerifier = readFileSync("scripts/verify-video-factory.mjs", "utf8");
+assert.match(videoFactoryVerifier, /if \(!template\.includes\("readBoundedMediaResponse"\)/);
 const hfWorker = readFileSync("scripts/jobs/hf-space-video.py", "utf8");
 assert.match(worker, /resolveFreeVideoProviderDownloadUrl/);
 assert.match(worker, /readBoundedMediaResponse/);
