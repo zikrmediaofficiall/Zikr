@@ -59,8 +59,8 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 38 THEN
-    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 38 fixtures; found %', visible_rows;
+  IF visible_rows <> 40 THEN
+    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 40 fixtures; found %', visible_rows;
   END IF;
 END
 $service_role_read$;
@@ -132,8 +132,9 @@ BEGIN
       OR policy_qual NOT ILIKE '%sourceId%'
       OR policy_qual NOT ILIKE '%curatedSourceId%'
       OR policy_qual NOT ILIKE '%publicPath%'
-      OR policy_qual NOT ILIKE '%public_path%' THEN
-    RAISE EXCEPTION 'video public-read policy must enforce canonical metadata, Kids QA and matching human approval';
+      OR policy_qual NOT ILIKE '%public_path%'
+     OR policy_qual NOT ILIKE '%video_catalog_has_current_human_kids_approval%' THEN
+    RAISE EXCEPTION 'video public-read policy must enforce canonical metadata, Kids QA, matching human approval, and a current linked request';
   END IF;
   IF policy_roles NOT ILIKE '%anon%'
      OR policy_roles NOT ILIKE '%authenticated%'

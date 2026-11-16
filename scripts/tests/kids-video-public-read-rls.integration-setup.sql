@@ -21,11 +21,29 @@ $roles$;
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
+CREATE SCHEMA private;
+GRANT USAGE ON SCHEMA private TO anon, authenticated, service_role;
+
 CREATE TABLE public.videos (
   id text PRIMARY KEY,
   published boolean NOT NULL DEFAULT false,
   metadata jsonb
 );
+
+CREATE TABLE public.video_generation_requests (
+  id uuid PRIMARY KEY,
+  status text NOT NULL,
+  category text NOT NULL,
+  video_url text,
+  source_hash text,
+  content_hash text,
+  template_version text,
+  content jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.video_generation_requests ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.video_generation_requests TO service_role;
 
 ALTER TABLE public.videos ENABLE ROW LEVEL SECURITY;
 
@@ -104,6 +122,51 @@ VALUES
   ('malformed-array-metadata', true, '["kids"]'::jsonb),
   ('json-null-metadata', true, 'null'::jsonb),
   ('unpublished-general', false, '{"audience":"general"}'::jsonb);
+
+-- These catalog rows have complete-looking human approval metadata but must
+-- remain private unless the linked generation request exists and matches.
+INSERT INTO public.videos (id, published, metadata)
+SELECT 'kids-orphan-human-approved', published,
+       metadata || jsonb_build_object('videoGenerationRequestId', '10000000-0000-4000-8000-000000000002')
+FROM public.videos WHERE id = 'kids-approved';
+
+INSERT INTO public.videos (id, published, metadata)
+SELECT 'kids-request-mismatched-approval', published,
+       metadata || jsonb_build_object('videoGenerationRequestId', '10000000-0000-4000-8000-000000000003')
+FROM public.videos WHERE id = 'kids-approved';
+
+INSERT INTO public.video_generation_requests (
+  id, status, category, video_url, source_hash, content_hash, template_version, content
+)
+SELECT
+  (metadata->>'videoGenerationRequestId')::uuid,
+  'completed',
+  'story',
+  metadata->>'generatedVideoUrl',
+  metadata->>'sourceHash',
+  metadata->>'contentHash',
+  metadata->>'templateVersion',
+  metadata
+FROM public.videos
+WHERE id = 'kids-approved';
+
+INSERT INTO public.video_generation_requests (
+  id, status, category, video_url, source_hash, content_hash, template_version, content
+)
+SELECT
+  '10000000-0000-4000-8000-000000000003'::uuid,
+  'completed',
+  'story',
+  metadata->>'generatedVideoUrl',
+  metadata->>'sourceHash',
+  metadata->>'contentHash',
+  metadata->>'templateVersion',
+  metadata || jsonb_build_object(
+    'videoGenerationRequestId', '10000000-0000-4000-8000-000000000003',
+    'approvalSnapshotHash', repeat('b', 64)
+  )
+FROM public.videos
+WHERE id = 'kids-approved';
 
 -- These four rows otherwise copy the fully approved fixture. They must remain
 -- private because request/reviewer IDs with a non-RFC version or variant are
