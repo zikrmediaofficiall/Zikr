@@ -946,7 +946,7 @@ assert.ok(
 );
 assert.doesNotMatch(
   kidsContentServiceSource,
-  /age_appropriate:\\s*true/,
+  /age_appropriate:\s*true/,
   "static fallback preparation must never manufacture an age-approval flag",
 );
 assert.ok(kidsContentServiceSource.includes("FALLBACK_KIDS_CONTENT.find"), "fallback detail lookup must use the same age-approved curated list");
