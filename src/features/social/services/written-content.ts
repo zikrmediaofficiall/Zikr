@@ -415,8 +415,9 @@ export function isSafeWrittenBackfillSource(sourceType: string, metadata: unknow
 export function isKidsWrittenPostCandidate(
   row: { content_type?: unknown; metadata?: unknown; automation_key?: unknown },
 ): boolean {
-  if (row.content_type !== "written_post") return false;
-  const automationKey = typeof row.automation_key === "string" ? row.automation_key : "";
+  const contentType = typeof row.content_type === "string" ? row.content_type.trim().toLowerCase() : "";
+  if (contentType !== "written_post") return false;
+  const automationKey = typeof row.automation_key === "string" ? row.automation_key.trim().toLowerCase() : "";
   return isKidsWrittenSourceReservation(row.metadata) ||
     automationKey.startsWith("written-social-v1:kids_story:");
 }
@@ -430,9 +431,9 @@ export function isKidsWrittenPostCandidate(
 export function isUnclassifiedKidsSocialQueueItem(
   row: { content_type?: unknown; metadata?: unknown; automation_key?: unknown },
 ): boolean {
-  const contentType = typeof row.content_type === "string" ? row.content_type.trim() : "";
+  const contentType = typeof row.content_type === "string" ? row.content_type.trim().toLowerCase() : "";
   if (contentType === "written_post" || contentType.endsWith("_video")) return false;
-  const automationKey = typeof row.automation_key === "string" ? row.automation_key : "";
+  const automationKey = typeof row.automation_key === "string" ? row.automation_key.trim().toLowerCase() : "";
   return isKidsWrittenSourceReservation(row.metadata) ||
     automationKey.startsWith("written-social-v1:kids_story:");
 }

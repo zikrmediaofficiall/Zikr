@@ -88,6 +88,8 @@ assert.equal(parseStorageKey("avatars/user-123/%252e%252e/victim.png"), null,
   "storage keys must reject double-encoded path segments");
 assert.equal(parseStorageKey("avatars/user-123\\\\victim.png"), null,
   "storage keys must reject backslash path separators");
+assert.equal(parseStorageKey("avatars/user-123\\victim.png"), null,
+  "storage keys must reject a single backslash path separator");
 assert.equal(sanitizeStorageSegment(".."), "",
   "sanitized owner segments must never remain a dot path segment");
 assert.equal(buildStoragePath("..", "avatar.png").startsWith("anonymous/"), true,

@@ -222,9 +222,10 @@ function isKidsWrittenQueueItem(item: SocialPublishQueueItem): boolean {
 async function checkWrittenPostSourceApproval(
   item: SocialPublishQueueItem,
 ): Promise<WrittenPostSourceApproval> {
-  if (isVideoContentType(item.content_type)) return "not_applicable";
+  const contentType = typeof item.content_type === "string" ? item.content_type.trim().toLowerCase() : "";
+  if (isVideoContentType(contentType)) return "not_applicable";
   if (isUnclassifiedKidsSocialQueueItem(item)) return "blocked";
-  if (item.content_type !== "written_post") return "not_applicable";
+  if (contentType !== "written_post") return "not_applicable";
 
   const metadata = item.metadata ?? {};
   const sourceId = item.content_id;

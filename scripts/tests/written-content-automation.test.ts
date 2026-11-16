@@ -64,6 +64,12 @@ assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", metada
  "encoded Kids paths must hold unsupported non-video queue types");
 assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "article", automation_key: "written-social-v1:kids_story:kids-1" }), true,
  "legacy Kids automation keys must hold unsupported non-video queue types");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: " ARTICLE ", automation_key: " WRITTEN-SOCIAL-V1:KIDS_STORY:kids-1 " }), true,
+ "legacy Kids automation keys must be normalized before unsupported queue classification");
+assert.equal(isKidsWrittenPostCandidate({ content_type: " WRITTEN_POST ", automation_key: " WRITTEN-SOCIAL-V1:KIDS_STORY:kids-1 " }), true,
+ "legacy Kids written-post candidates must be normalized before live source approval");
+assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: " OTHER_VIDEO ", metadata: { audience: "kids" } }), false,
+ "case and whitespace variants of recognized video types must stay on the video approval path");
 assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "other_video", metadata: { audience: "kids" } }), false,
  "Kids videos must remain on the dedicated video approval path");
 assert.equal(isUnclassifiedKidsSocialQueueItem({ content_type: "written_post", metadata: { audience: "kids" } }), false,
@@ -668,7 +674,7 @@ assert.match(socialPublishing, /checkWrittenPostSourceApproval\(item\)/, "social
 const writtenApprovalGateStart = socialPublishing.indexOf("async function checkWrittenPostSourceApproval(");
 const writtenApprovalGate = socialPublishing.slice(writtenApprovalGateStart, socialPublishing.indexOf("\n}", writtenApprovalGateStart));
 assert.ok(
- writtenApprovalGate.indexOf("isVideoContentType(item.content_type)") < writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") &&
+ writtenApprovalGate.indexOf("isVideoContentType(contentType)") < writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") &&
  writtenApprovalGate.indexOf("isUnclassifiedKidsSocialQueueItem(item)") < writtenApprovalGate.indexOf('item.content_type !== "written_post"'),
  "unsupported non-video Kids-marked queue rows must be blocked before the not-applicable fallback",
 );
