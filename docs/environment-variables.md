@@ -119,6 +119,7 @@ Worker/runtime configuration includes:
 - `COMFYUI_LTX_WORKFLOW_JSON`
 - `FREE_VIDEO_PROVIDER_ENABLED`
 - `FREE_VIDEO_PROVIDER_URL`
+- `FREE_VIDEO_PROVIDER_ALLOWED_HOSTS` (comma-separated HTTPS hostnames for provider media CDNs; the API endpoint host is trusted by default)
 - `FREE_VIDEO_PROVIDER_TOKEN`
 - `VIDEO_MAX_RETRIES`
 - `SOCIAL_MAX_RETRIES` (optional; capped at 8, default 5)
