@@ -1959,3 +1959,10 @@ The audit is not closed; continue the remaining review-required and pending-trac
 - The separate social workflow validates provider OAuth scopes and queue approval, sets YouTube privacy public, and Kids external publishing remains human-approved. Storage retention scheduled workflow is dry-run only; destructive apply requires reference writers paused plus typed confirmation. Legacy QA backfill is dry-run on main changes and manual apply-only; neither was run.
 - PR #374 (`audit/video-story-approval-filter-20261116`) exact head `32894db0fdf7e7abbb456879e45669ada9964335` adds `is_approved=true` and `user_id IS NULL` to all four service-role story queries used by video source resolution/listing, matching the public story service contract. Live table has 21 published/approved stories and zero user-owned rows. The focused regression test is registered in `pnpm test`; exact-head Quality Gate (`pnpm verify:pr`), Android Native Login Debug APK and CircleCI config-guard passed. PR remains open/unmerged pending CODEOWNERS/owner review.
 - Free API provider is disabled in the production workflow, but if enabled its returned `videoUrl` is fetched without a dedicated host/redirect allowlist; retain as a security hardening item before enabling. HF provider downloads are restricted to trusted Hugging Face origins, capped at 256 MiB and MP4-signature checked. No provider was called.
+
+
+## Current CODEOWNERS notification — 2026-11-16
+
+- `.github/CODEOWNERS` assigns all paths to `@Zikrmediaofficial`. The formal reviewer request did not register because collaborator permission lookup returned `null`.
+- A top-level `@Zikrmediaofficial` review request was posted on PR #372 (comment `6929983552`) and PR #373 (comment `6929984360`). No owner review/approval had been received at the final check.
+- PRs #372 and #373 remain draft/open; their exact-head full Quality Gate and CircleCI checks pass. No merge/deployment or review-gate bypass was performed.
