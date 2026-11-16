@@ -42,6 +42,7 @@ import { AI_VISUAL_POLICY_VERSION, aiVisualPolicyPromptLine } from "../../src/fe
 import { createVideoProviderRouter } from "../../src/features/videos/providers/provider-router";
 import { getDefaultVideoVoiceProfile, getVideoVoiceProfile } from "../../src/features/videos/services/voice-profiles";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
+import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
 import { resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene } from "../../src/features/videos/services/video-creative-variation";
 import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
 import { resolveRenderDuration } from "../../src/features/videos/services/render-duration";
@@ -56,6 +57,7 @@ const QURAN_AYAH_AUDIO_BASE_URL =
 const VIDEO_TEMPLATE_VERSION = CURRENT_VIDEO_RENDERER_VERSION;
 const VIDEO_OUTPUT_CRF = Math.min(23, Math.max(16, Number(process.env.VIDEO_OUTPUT_CRF ?? 18) || 18));
 const VIDEO_AUDIO_BITRATE = process.env.VIDEO_AUDIO_BITRATE?.trim() || "192k";
+const MAX_VIDEO_AUDIO_BYTES = 15 * 1024 * 1024;
 const engineConfig = () => getVideoEngineConfig();
 
 function throwIfVideoLeaseAborted(signal?: AbortSignal): void {
@@ -1088,9 +1090,53 @@ export function assertKidsStoryContract(request: GeneratedRequest) {
   }
 }
 
-function contentAudioUrl(request: GeneratedRequest) {
-  const value = request.content?.audioUrl;
-  return typeof value === "string" && /^https:\/\//i.test(value.trim()) ? value.trim() : "";
+async function contentAudioUrl(request: GeneratedRequest): Promise<string> {
+  const source = resolveVideoAudioSource({
+    category: request.category,
+    audioUrl: request.content?.audioUrl,
+    audioSource: request.content?.audioSource,
+    audioMediaAssetId: request.content?.audioMediaAssetId,
+    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME?.trim(),
+    quranAudioBaseUrl: QURAN_AYAH_AUDIO_BASE_URL,
+    surahId: request.content?.surahId,
+    ayahNumber: request.content?.ayahNumber,
+  });
+  if (!source) {
+    if (request.content?.audioSource === "human_recording") {
+      throw new Error("Human narration must reference a canonical, tracked Cloudinary media asset.");
+    }
+    return "";
+  }
+  if (source.kind === "quran") return source.url;
+
+  const ownerId = typeof request.content?.audioMediaAssetOwnerId === "string"
+    ? request.content.audioMediaAssetOwnerId.trim()
+    : "";
+  const filters = [
+    `url=eq.${encodeURIComponent(source.url)}`,
+    `storage_path=eq.${encodeURIComponent(source.publicId)}`,
+    "limit=2",
+  ];
+  if (source.mediaAssetId) filters.push(`id=eq.${encodeURIComponent(source.mediaAssetId)}`);
+  if (ownerId) filters.push(`created_by=eq.${encodeURIComponent(ownerId)}`);
+  const rows = await supabaseServerAdminRequest<Array<{
+    id: string; url: string; storage_path: string; mime_type: string | null;
+    media_type: string | null; asset_type: string | null; size_bytes: number | string | null;
+    created_by: string | null; published: boolean; metadata: unknown;
+  }>>(
+    `/rest/v1/media_assets?select=id,url,storage_path,mime_type,media_type,asset_type,size_bytes,created_by,published,metadata&${filters.join("&")}`,
+  );
+  const asset = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+  const uploaderId = typeof asset?.created_by === "string" ? asset.created_by : "";
+  if (!asset || !isReadyAdminNarrationAsset(asset, {
+    assetId: source.mediaAssetId || asset.id,
+    url: source.url,
+    publicId: source.publicId,
+    uploaderId,
+  }) || (ownerId && uploaderId !== ownerId)) {
+    throw new Error("Human narration media asset is missing, untracked, not audit-ready, or owned by another uploader.");
+  }
+  return source.url;
 }
 function contentAudioKind(request: GeneratedRequest, audioUrl: string) {
   if (request.content?.audioSource === "human_recording") return "user_supplied_human_recording";
@@ -1349,7 +1395,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       throw new Error("Narration content QA failed: " + narrationTextQuality.errors.join(" | "));
     }
 
-    let audioUrl = contentAudioUrl(request);
+    let audioUrl = await contentAudioUrl(request);
     if (request.category === "quran" && !audioUrl) {
       const verifiedAyahAudio = await getVerifiedQuranAyahAudioUrl(
         Number(request.content?.surahId),
@@ -1449,8 +1495,14 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     if (audioUrl) {
       const response = await fetch(audioUrl, { headers: { Accept: "audio/*" }, signal: videoOperationSignal(signal, 60_000) });
       if (!response.ok) throw new Error("Audio download failed (HTTP " + response.status + ").");
+      const declaredAudioBytes = Number(response.headers.get("content-length") ?? 0);
+      if (Number.isFinite(declaredAudioBytes) && declaredAudioBytes > MAX_VIDEO_AUDIO_BYTES) {
+        throw new Error("Audio download exceeded the 15 MiB narration limit.");
+      }
       const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.length < 1024) throw new Error("Audio download was empty or invalid.");
+      if (bytes.length < 1024 || bytes.length > MAX_VIDEO_AUDIO_BYTES) {
+        throw new Error("Audio download was empty, invalid, or exceeded the 15 MiB narration limit.");
+      }
       await writeFile(audioPath, bytes);
     } else {
       if (narrationProfile.mode !== "tts" || !narrationProfile.voice) {
