@@ -3029,3 +3029,15 @@ No production SQL mutation, migration execution, data repair, content generation
 - No production mutation, migration apply, cron/Edge Function invocation, generation, Gemini, social publishing, Storage operation, release, merge or deployment was performed.
 
 - Current PR #381 head `5582c7ac437d8b50aaf4cd04c83b43f8cd853423` has Quality Gate `43974458910` in progress, CircleCI config-guard passed, source-verify/application-build-docs pending. No bypass; the prior source-verify failure was superseded by a verifier correction.
+
+
+## Current exact-head checkpoint — 2026-11-16 23:10 UTC
+
+- Matrix blob `493b600c7406ffc2765de8c06f78ced85f3df156`: 1,248 UNREVIEWED (414 high priority), 711 other rows. Inventory blob `39341121607964205f2be101fdfd6863c2c6b7e3`; project status blob `e7f2dc185f15d3498ca8c351aa7d9bad433d18e7`; remote migration ledger blob `2bd6469ec4b9fa680a4c138c46757ae535fc1f26`; immutable main manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be`.
+- PR #378 current head `dbfe0c440e317557a7e9eef0c8837d30da6527bd` passed Quality Gate `43972345412`, Android Debug APK `43972345453` and CircleCI config-guard. PR #379 and #380 exact-head checks passed as previously recorded.
+- PR #381 current head `9786fb84f61df4674cda883b472ea7df1d9c1b21`: Quality Gate `43976532247` pending; Android Debug APK `43976532354` in progress; CircleCI config-guard passed; source-verify/application-build-docs pending. Previous head `5eb658f...` had source-verify failure; the current head includes bounded ComfyUI prompt/history/video responses and redirect rejection, but is not yet verified.
+- PR #344 current head `08752d2ef19018946d990717ac668c8b4a3479a4`: GitHub Quality Gate `43977085571` in progress; CircleCI config-guard passed; source-verify/application-build-docs pending. No merge/deploy; owner/CODEOWNERS approval remains required.
+- PR #381 media safety review includes server-owned narration provenance, exact Cloudinary public-ID validation, canonical Quran audio, 15 MiB narration cap, provider host allowlisting, bounded Free API/ComfyUI JSON, 50 MiB provider video caps and redirect rejection. No generation, provider request, TTS/Gemini, upload, social publish or cleanup was run.
+- Supabase read-only reconciliation remains 449 local migration files to 449 remote version IDs, exact set match; no migration applied. Kids RLS and Storage controls are documented in remote ledger.
+- Production Vercel remains READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; current main has not been deployed and formal current-main smoke is unverified.
+- No production mutation, cron/Edge Function invocation, release, merge or deployment was performed.
