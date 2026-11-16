@@ -13,7 +13,7 @@ Updated: 2026-11-16T21:48:52.502Z (reconciled with exact-head PR #375 verificati
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `a48bf2b4dc6a5cb3582db8ab40bb61892adebab8`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `f5aa8de66b1342e1842f1c733b1313bd9f002ba5`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -387,5 +387,5 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 ## Review batch — admin analytics and knowledge publishing — 2026-11-16
 
 - PR #377: the optional `/admin/analytics` traffic panel could fail the entire page if `getTrafficRevenueSnapshot()` throws during service-role client initialization. Exact head `aebf778509bbdd8daef1589ecbd6a111339f3029` passed canonical Quality Gate run `43965088015`, Android Debug APK `43965089158` and CircleCI config-guard. It now renders an accessible unavailable state rather than failing the page or fabricating zeroes; no GA4/YouTube request was run.
-- PR #378: new knowledge records previously defaulted to published; server actions did not enforce source/reference/grade on publication; scholar editor lacked a source field; companion/scholar slug edits could POST an existing ID and fail. Exact head `db567da1899ed9994cbc2bd1c773b878c3f62823` adds draft defaults, server publication policy, source metadata, PATCH-by-ID and tests; Quality Gate and Android Debug are in progress, CircleCI config-guard passed.
+- PR #378: new knowledge records previously defaulted to published; server actions did not enforce source/reference/grade on publication; scholar editor lacked a source field; companion/scholar slug edits could POST an existing ID and fail. Exact head `db567da1899ed9994cbc2bd1c773b878c3f62823` adds draft defaults, server publication policy, source metadata, PATCH-by-ID and tests; Quality Gate run 43966305899 and Android Debug APK run 43966303793 passed; CircleCI config-guard passed. Owner/CODEOWNERS review remains pending.
 - Read-only production counts: 12/17 published companions and 8/8 scholars lack metadata.source; all 2,964 published hadiths have both ref and grade. No records were updated. Legacy biography source remediation remains owner/editor work.
