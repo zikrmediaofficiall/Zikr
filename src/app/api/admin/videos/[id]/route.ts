@@ -7,18 +7,26 @@ import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit'
 import { supabaseServerAdminRequest } from '@/lib/supabase/server';
 import type { VideoGenerationRequest } from '@/lib/types/video';
 import { updateVideoRequestStatus } from '@/features/videos/services/video-automation';
-import { resolveVideoRequestAudience } from '@/features/videos/services/video-audience-visibility';
+import { canViewVideoRequestContent, resolveVideoRequestAudience } from '@/features/videos/services/video-audience-visibility';
+
+const VIDEO_REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const auth = await requireAdminApi('video.manage');
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
     const { id } = await context.params;
+    if (!VIDEO_REQUEST_ID_PATTERN.test(id)) return NextResponse.json({ error: 'Video request not found' }, { status: 404 });
     const result = await supabaseServerAdminRequest<VideoGenerationRequest[]>(
       `/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(id)}&limit=1`,
     );
     const item = result?.[0];
     if (!item) return NextResponse.json({ error: 'Video request not found' }, { status: 404 });
+    const kidsAuth = await requireAdminApi('kids.manage');
+    const canManageKids = kidsAuth.ok && kidsAuth.profile.id === auth.profile.id;
+    if (!canViewVideoRequestContent(item.content, canManageKids)) {
+      return NextResponse.json({ error: 'Video request not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    }
     return NextResponse.json(item, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[api/admin/videos/[id]] GET:', error);

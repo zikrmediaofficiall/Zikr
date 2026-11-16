@@ -29,20 +29,20 @@
 | POST | `/api/admin/video-generation/narration-upload` | `video.manage` |
 | GET | `/api/admin/video-purge` | `video.delete` — dry-run preview only |
 | POST | `/api/admin/video-purge` | `video.delete` — MFA step-up before destructive cleanup |
-| GET | `/api/admin/video-generation` | `video.manage` |
+| GET | `/api/admin/video-generation` | `video.manage`; `kids.manage` for Kids rows |
 | DELETE | `/api/admin/video-generation` | `video.delete` |
 | PATCH | `/api/admin/video-generation` | `video.manage`; `kids.manage` for Kids approval only — external publish retry returns HTTP 410 |
-| GET | `/api/admin/video-generation/sources` | `video.manage` |
+| GET | `/api/admin/video-generation/sources` | `video.manage`; `kids.manage` for Kids sources |
 | GET | `/api/admin/social/youtube/connect` | `social.manage` + `social.publish` MFA step-up — publishing-capable OAuth |
 | GET | `/api/admin/social/youtube/callback` | `social.manage`, `social.publish` (MFA step-up) — validates upload/read scopes and stores the publishing refresh token |
-| GET | `/api/admin/video/templates` | `video.manage` |
+| GET | `/api/admin/video/templates` | `video.manage`; `kids.manage` for Kids templates/previews |
 | POST | `/api/admin/video/templates` | `video.manage`, `kids.manage` (Kids templates only) |
 | POST | `/api/admin/videos/[id]/retry` | `video.manage`; `kids.manage` for Kids audience only |
-| GET | `/api/admin/videos/[id]` | `video.manage` |
+| GET | `/api/admin/videos/[id]` | `video.manage`; `kids.manage` for Kids audience |
 | PATCH | `/api/admin/videos/[id]` | `video.manage`; `kids.manage` for Kids audience only |
 | DELETE | `/api/admin/videos/[id]` | `video.delete` |
 | POST | `/api/admin/videos/create` | `video.manage`, `kids.manage` (Kids audience only) |
-| GET | `/api/admin/videos` | `video.manage` |
+| GET | `/api/admin/videos` | `video.manage`; `kids.manage` for Kids rows |
 | POST | `/api/admin/videos/upload` | `video.manage` |
 | GET | `/api/admin/videos/upload` | رفض صريح 405 دون صلاحية أو أثر جانبي |
 | POST | `/api/admin/youtube-facebook/register-media` | `media.manage` — retired, HTTP 410 |

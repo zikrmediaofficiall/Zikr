@@ -133,3 +133,30 @@ export function resolveVideoRequestAudience(value: unknown): VideoRequestAudienc
   }
   return { ok: true, audience };
 }
+
+
+/** General video managers must not read child-directed request content. */
+export function canViewVideoRequestContent(value: unknown, canManageKids: boolean): boolean {
+  if (canManageKids) return true;
+  const resolution = resolveVideoRequestAudience(value);
+  return resolution.ok && resolution.audience === "general";
+}
+
+/** Template audience is a required trust-boundary marker; unknown values fail closed. */
+export function canViewVideoTemplateAudience(value: unknown, canManageKids: boolean): boolean {
+  if (canManageKids) return true;
+  return normalizeVideoAudience(value, false) === "general";
+}
+
+/** Curated source lists include child-directed episodes that need a separate permission. */
+export function isKidsVideoSource(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const audience = normalizeVideoAudience(record.audience, false);
+  const seriesId = typeof record.seriesId === "string" ? record.seriesId.trim() : "";
+  const sourceIds = [record.id, record.sourceId, record.curatedSourceId].map(normalizeVideoMarker);
+  return audience === "kids" ||
+    Boolean(seriesId) ||
+    sourceIds.some((id) => id.startsWith("kids-series:")) ||
+    hasExplicitKidsVideoIntentMarker(record);
+}

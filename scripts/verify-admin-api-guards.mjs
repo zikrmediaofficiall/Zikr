@@ -104,20 +104,20 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/video-purge/route.ts GET": ["video.delete"],
   "src/app/api/admin/video-purge/route.ts POST": ["video.delete"],
   "src/app/api/admin/video-generation/narration-upload/route.ts POST": ["video.manage"],
-  "src/app/api/admin/video-generation/route.ts GET": ["video.manage"],
+  "src/app/api/admin/video-generation/route.ts GET": ["video.manage", "kids.manage"],
   "src/app/api/admin/video-generation/route.ts DELETE": ["video.delete"],
   "src/app/api/admin/video-generation/route.ts PATCH": ["video.manage", "kids.manage"],
-  "src/app/api/admin/video-generation/sources/route.ts GET": ["video.manage"],
-  "src/app/api/admin/video/templates/route.ts GET": ["video.manage"],
+  "src/app/api/admin/video-generation/sources/route.ts GET": ["video.manage", "kids.manage"],
+  "src/app/api/admin/video/templates/route.ts GET": ["video.manage", "kids.manage"],
   "src/app/api/admin/video/templates/route.ts POST": ["video.manage", "kids.manage"],
   // Both guards must be present: video.manage is the unconditional step-up
   // permission; kids.manage is enforced only when the stored request is Kids.
   "src/app/api/admin/videos/[id]/retry/route.ts POST": ["video.manage", "kids.manage"],
-  "src/app/api/admin/videos/[id]/route.ts GET": ["video.manage"],
+  "src/app/api/admin/videos/[id]/route.ts GET": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/[id]/route.ts PATCH": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/[id]/route.ts DELETE": ["video.delete"],
   "src/app/api/admin/videos/create/route.ts POST": ["video.manage", "kids.manage"],
-  "src/app/api/admin/videos/route.ts GET": ["video.manage"],
+  "src/app/api/admin/videos/route.ts GET": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/upload/route.ts POST": ["video.manage"],
   "src/app/api/admin/videos/upload/route.ts GET": [],
   "src/app/api/admin/youtube-facebook/register-media/route.ts POST": ["media.manage"],
@@ -205,6 +205,22 @@ if (
   failures.push("video retry POST must conditionally require kids.manage for Kids requests and bind both guards to the same administrator");
 }
 const legacyVideoRetrySource = readFileSync(join(apiRoot, "videos/[id]/route.ts"), "utf8");
+const videoReadRoutes = [
+  ["video-generation/route.ts", "canViewVideoRequestContent(row.content, canManageKids)"],
+  ["videos/route.ts", "canViewVideoRequestContent(request.content, canManageKids)"],
+  ["videos/[id]/route.ts", "canViewVideoRequestContent(item.content, canManageKids)"],
+  ["video/templates/route.ts", "canViewVideoTemplateAudience(template.audience, canManageKids)"],
+  ["video-generation/sources/route.ts", "!isKidsVideoSource(source)"],
+];
+for (const [relativePath, requiredFilter] of videoReadRoutes) {
+  const source = readFileSync(join(apiRoot, relativePath), "utf8");
+  if (!/requireAdminApi\s*\(\s*['"]kids\.manage['"]\s*\)/.test(source)) {
+    failures.push(relativePath + ": Kids-sensitive read endpoint must resolve kids.manage for the same admin session.");
+  }
+  if (!source.includes(requiredFilter)) {
+    failures.push(relativePath + ": Kids-sensitive read endpoint must filter child-directed records before returning data.");
+  }
+}
 if (
   !legacyVideoRetrySource.includes("resolveVideoRequestAudience(current.content)") ||
   !/requireAdminApi\s*\(\s*['"]kids\.manage['"]\s*\)/.test(legacyVideoRetrySource) ||

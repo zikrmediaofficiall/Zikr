@@ -12,6 +12,7 @@ import {
 } from "@/features/videos/services/template-config";
 import { versionedTemplateLabel } from "@/features/videos/services/video-template-version";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
+import { canViewVideoRequestContent, canViewVideoTemplateAudience } from "@/features/videos/services/video-audience-visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,9 @@ export async function GET() {
   const auth = await requireAdminApi("video.manage");
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status, headers: { "Cache-Control": "no-store" } });
 
+  const kidsAuth = await requireAdminApi("kids.manage");
+  const canManageKids = kidsAuth.ok && kidsAuth.profile.id === auth.profile.id;
+
   try {
     const [templates, versions] = await Promise.all([
       supabaseServerAdminRequest<TemplateRow[]>(
@@ -93,8 +97,18 @@ export async function GET() {
     } catch (error) {
       console.warn("[admin/video/templates] preview history unavailable", error instanceof Error ? error.message : String(error));
     }
+    const visibleTemplates = (templates ?? []).filter((template) =>
+      canViewVideoTemplateAudience(template.audience, canManageKids),
+    );
+    const visibleTemplateIds = new Set(visibleTemplates.map((template) => template.id));
+    const visibleVersions = (versions ?? []).filter((version) => visibleTemplateIds.has(version.template_id));
+    const visiblePreviews = previews.filter((preview) => {
+      const content = object(preview.content);
+      const templateId = typeof content?.templateId === "string" ? content.templateId : "";
+      return visibleTemplateIds.has(templateId) && canViewVideoRequestContent(content, canManageKids);
+    });
     return NextResponse.json(
-      { templates: templates ?? [], versions: versions ?? [], previews },
+      { templates: visibleTemplates, versions: visibleVersions, previews: visiblePreviews },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

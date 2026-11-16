@@ -413,6 +413,20 @@ assert.match(
   /recordAdminAuditEvent\([\s\S]*?video_generation\.update/,
   "video request updates must append audit events",
 );
+const videoDetailReadRoute = videoRoute;
+const videoGenerationReadRoute = videoGenerationRoute;
+const videoTemplateReadRoute = readFileSync(resolve(process.cwd(), "src/app/api/admin/video/templates/route.ts"), "utf8");
+const videoSourceReadRoute = readFileSync(resolve(process.cwd(), "src/app/api/admin/video-generation/sources/route.ts"), "utf8");
+for (const [name, source, filter] of [
+  ["video list", videoRequestsRoute, "canViewVideoRequestContent(request.content, canManageKids)"],
+  ["video detail", videoDetailReadRoute, "canViewVideoRequestContent(item.content, canManageKids)"],
+  ["video generation list", videoGenerationReadRoute, "canViewVideoRequestContent(row.content, canManageKids)"],
+  ["video templates", videoTemplateReadRoute, "canViewVideoTemplateAudience(template.audience, canManageKids)"],
+  ["video sources", videoSourceReadRoute, "!isKidsVideoSource(source)"],
+]) {
+  assert.match(source, /requireAdminApi\(['"]kids\.manage['"]\)/, name + " must resolve the separate Kids permission");
+  assert.ok(source.includes(filter), name + " must filter Kids-only data before returning it");
+}
 const legacyVideoDelete = videoRoute.match(/export async function DELETE\(\)[\s\S]*$/)?.[0] ?? "";
 assert.match(legacyVideoDelete, /VIDEO_REQUEST_DELETE_REQUIRES_REFERENCE_AUDIT/);
 assert.match(legacyVideoDelete, /status: 410/);

@@ -4,7 +4,12 @@ import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/feature
 import { isVideoAiPlanningEnabled } from "../../src/features/videos/providers/types";
 import { CURRENT_VIDEO_RENDERER_VERSION } from "../../src/features/videos/services/video-template-version";
 import { filterGeneralStorySources, resolveKidsVideoPublicDisclosure, resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
-import { resolveVideoRequestAudience } from "../../src/features/videos/services/video-audience-visibility";
+import {
+  canViewVideoRequestContent,
+  canViewVideoTemplateAudience,
+  isKidsVideoSource,
+  resolveVideoRequestAudience,
+} from "../../src/features/videos/services/video-audience-visibility";
 
 assert.deepEqual(resolveVideoRequestAudience({ audience: "general", type: "quran" }), { ok: true, audience: "general" });
 assert.deepEqual(resolveVideoRequestAudience({ audience: "kids", type: "kids_story" }), { ok: true, audience: "kids" });
@@ -16,6 +21,20 @@ assert.deepEqual(resolveVideoRequestAudience({ audience: null, sourceType: "stor
 assert.deepEqual(resolveVideoRequestAudience({ audience: "general", sourceType: "original_kids_fiction" }), { ok: false, reason: "audience_marker_conflict" });
 assert.deepEqual(resolveVideoRequestAudience({ audience: "unknown" }), { ok: false, reason: "unknown_audience" });
 assert.deepEqual(resolveVideoRequestAudience(null), { ok: false, reason: "invalid_content" });
+
+assert.equal(canViewVideoRequestContent({ audience: "general" }, false), true);
+assert.equal(canViewVideoRequestContent({ audience: "kids" }, false), false);
+assert.equal(canViewVideoRequestContent({ sourceType: "story", type: "story" }, false), false);
+assert.equal(canViewVideoRequestContent({ audience: "unknown" }, false), false);
+assert.equal(canViewVideoRequestContent({ audience: "kids" }, true), true);
+assert.equal(canViewVideoTemplateAudience("general", false), true);
+assert.equal(canViewVideoTemplateAudience("kids", false), false);
+assert.equal(canViewVideoTemplateAudience("unknown", false), false);
+assert.equal(canViewVideoTemplateAudience("kids", true), true);
+assert.equal(isKidsVideoSource({ audience: "kids" }), true);
+assert.equal(isKidsVideoSource({ seriesId: "kids-prophets" }), true);
+assert.equal(isKidsVideoSource({ id: "kids-series:prophets" }), true);
+assert.equal(isKidsVideoSource({ id: "general-story", category: "story" }), false);
 
 // Contract: TypeScript video status/category unions must match the latest DB check constraints.
 const migrations = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
