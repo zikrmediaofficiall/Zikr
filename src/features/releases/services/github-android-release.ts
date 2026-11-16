@@ -153,7 +153,10 @@ export async function getStableReleaseByTag(
       cache: "no-store",
     }
   );
-  if (!response.ok) return null;
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error("GitHub Android release lookup failed: HTTP " + response.status);
+  }
 
   const release = (await response.json()) as GitHubRelease;
   if (release.draft || release.prerelease || !hasApk(release) || !hasAab(release)) return null;
