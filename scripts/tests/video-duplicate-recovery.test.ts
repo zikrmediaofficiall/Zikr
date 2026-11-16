@@ -181,10 +181,11 @@ assert.deepEqual(
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 const videoAutomationService = readFileSync("src/features/videos/services/video-automation.ts", "utf8");
 const videoRetryRoute = readFileSync("src/app/api/admin/videos/[id]/retry/route.ts", "utf8");
-assert.match(videoRetryRoute, /currentRows\[0\]\.status !== 'failed'/, "only failed video requests may be retried");
-assert.match(videoRetryRoute, /updateVideoRequestStatus\(id, 'pending', undefined, 'failed'\)/, "retry must use a failed-state compare-and-set");
+assert.match(videoRetryRoute, /current\.status !== 'failed'/, "only failed video requests may be retried");
+assert.match(videoRetryRoute, /updateVideoRequestStatus\(id, 'pending', undefined, 'failed', current\.updated_at\)/, "retry must use a failed-state compare-and-set against the audience-authorized revision");
 assert.match(videoAutomationService, /status=eq\.\$\{encodeURIComponent\(expectedStatus\)\}/);
-assert.match(videoAutomationService, /updated_at=eq\.\$\{encodeURIComponent\(expectedUpdatedAt\)\}/, "retry compare-and-set must include the exact updated_at revision");
+assert.match(videoAutomationService, /updated_at=eq\.\$\{encodeURIComponent\(expectedRowUpdatedAt\)\}/, "retry compare-and-set must include the exact updated_at revision");
+assert.match(videoAutomationService, /expectedUpdatedAt && existingRow\.updated_at !== expectedUpdatedAt/, "retry must reject a row whose audience changed after authorization");
 const updateStatusStart = videoAutomationService.indexOf("export async function updateVideoRequestStatus");
 const metadataStart = videoAutomationService.indexOf("export function generateYoutubeMetadata", updateStatusStart);
 const updateStatus = videoAutomationService.slice(updateStatusStart, metadataStart);
