@@ -337,3 +337,10 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - The previous auth-only head passed `QUALITY_GATE=PASSED_FULL` and all CircleCI checks, but the expanded exact head requires a fresh run. Owner/CODEOWNERS review remains outstanding.
 - Additional prayer client files were reviewed at source level; statuses are partial where imported UI/audio/notification or route dependencies remain open.
 - Counts after this pass: 1307 UNREVIEWED (451 high priority), 62 REVIEWED_PARTIAL, 287 REVIEWED_SOURCE_ONLY, 4 FIX_PENDING_PR373, 652 rows not marked UNREVIEWED. The immutable main manifest is unchanged.
+
+
+## Live Supabase reconciliation — 2026-11-16
+
+- Supabase project `zqtssvlvmkzeeyqghqfk` is ACTIVE_HEALTHY, PostgreSQL 17.11.0.018. Read-only `list_migrations` returned 449 applied versions through `20261116045100`; the main manifest has 449 migration files. Exact version comparison: 449 shared, zero local-only, zero remote-only, zero duplicate IDs; one descriptive-name mismatch on shared version `20261106213918` only.
+- `save_default_prayer_location` is present in production from migration `20261114040000`; prior “missing deployed contract” notes are historical and superseded. Its SECURITY INVOKER/empty-search_path ACL is authenticated + service_role, not anon.
+- Prayer-related RLS and RPC ACLs were checked read-only; no production DDL/DML or function invocation occurred. Deployed prayer worker v80 still contains the two PR #373 defects; no deployment was performed.
