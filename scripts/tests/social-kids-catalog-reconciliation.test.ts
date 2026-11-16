@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  buildKidsCatalogDeletionSyncPatch,
   buildKidsCatalogSyncFailureState,
   buildKidsSocialCatalogReconciliationQuery,
   isKidsCatalogReconciliationEnabled,
@@ -38,6 +39,11 @@ assert.match(query, /^status=in\.\(published,partial\)&/);
 assert.ok(query.includes("metadata->>audience=eq.kids"));
 assert.ok(query.includes("metadata->>kidsContentQaStatus=eq.passed"));
 assert.ok(query.includes("metadata->>kidsCatalogSyncStatus.is.null"));
+assert.throws(
+  () => buildKidsSocialCatalogReconciliationQuery("2026-11-01T00:00:00.000Z", 99, 25),
+  /bounded scan/,
+  "the final page must not read past the configured 100-row reconciliation ceiling",
+);
 assert.ok(query.includes("metadata->>kidsCatalogSyncStatus.eq.pending"));
 assert.ok(query.includes("created_at=gte.2026-11-01T00%3A00%3A00.000Z"));
 assert.ok(query.includes("order=created_at.asc,id.asc&limit=25&offset=25"));
@@ -150,6 +156,84 @@ assert.equal(
   "duplicate provider targets must not be treated as a complete publication",
 );
 
+const deletedFacebookQueueItem = {
+  ...queueItem,
+  metadata: {
+    ...queueItem.metadata,
+    platformDeletions: {
+      facebook: {
+        status: "deleted",
+        remoteId: "facebook-post-123",
+        deletedAt: "2026-11-15T10:30:00.000Z",
+      },
+    },
+  },
+};
+assert.deepEqual(
+  resolveKidsSocialCatalogPublicationSnapshot(deletedFacebookQueueItem),
+  { status: "partial", platforms: ["youtube"] },
+  "catalog reconciliation must exclude a provider post whose exact remote ID was confirmed deleted",
+);
+const staleFacebookDeletionQueueItem = {
+  ...queueItem,
+  metadata: {
+    ...queueItem.metadata,
+    platformDeletions: {
+      facebook: {
+        status: "deleted",
+        remoteId: "facebook-post-from-an-older-publication",
+        deletedAt: "2026-11-15T10:30:00.000Z",
+      },
+    },
+  },
+};
+assert.deepEqual(
+  resolveKidsSocialCatalogPublicationSnapshot(staleFacebookDeletionQueueItem),
+  { status: "published", platforms: ["facebook", "youtube"] },
+  "a deletion marker for an older remote ID must not hide the current provider publication",
+);
+
+const deletionSyncPatch = buildKidsCatalogDeletionSyncPatch(
+  "kids_story_video",
+  { audience: "kids", kidsCatalogSyncStatus: "synced", kidsCatalogSyncAttempts: 7 },
+  { status: "deleted", remoteId: "facebook-post-123" },
+);
+assert.deepEqual(deletionSyncPatch, {
+  kidsCatalogSyncStatus: "pending",
+  kidsCatalogSyncAttempts: 0,
+  kidsCatalogSyncLastAttemptAt: null,
+  kidsCatalogSyncLastError: null,
+  kidsCatalogSyncSyncedAt: null,
+  kidsCatalogSyncManualReconciliationRequired: false,
+});
+assert.deepEqual(
+  buildKidsCatalogDeletionSyncPatch(
+    "kids_story_video",
+    { audience: "kids", kidsCatalogSyncStatus: "held" },
+    { status: "deleted", remoteId: "facebook-post-123" },
+  ),
+  {},
+  "manual catalog reconciliation holds must not be cleared by an automatic delete event",
+);
+assert.deepEqual(
+  buildKidsCatalogDeletionSyncPatch(
+    "kids_story_video",
+    { audience: "kids", kidsCatalogSyncStatus: "synced" },
+    { status: "failed", remoteId: "facebook-post-123" },
+  ),
+  {},
+  "failed remote deletions must not reopen catalog synchronization",
+);
+assert.deepEqual(
+  buildKidsCatalogDeletionSyncPatch(
+    "general_video",
+    { audience: "general", kidsCatalogSyncStatus: "synced" },
+    { status: "deleted", remoteId: "facebook-post-123" },
+  ),
+  {},
+  "general-audience video deletions must not enter the Kids catalog reconciliation path",
+);
+
 const matchingMetadata = {
   socialPublication: {
     status: "published",
@@ -198,6 +282,12 @@ assert.ok(reconciler.includes("syncKidsSocialPublicationToCatalog(item, item.met
 assert.ok(reconciler.includes("markKidsCatalogSyncState"));
 assert.ok(reconciler.includes("hasEnoughCandidates: () => false"), "the bounded inventory must be read before row writes");
 assert.doesNotMatch(reconciler, /publishFacebook|publishToFacebook|publishToYoutube/, "catalog reconciliation must not call external providers");
+
+const socialRoute = readFileSync("src/app/api/admin/social/route.ts", "utf8");
+assert.ok(
+  socialRoute.includes("buildKidsCatalogDeletionSyncPatch(item.content_type, item.metadata, existingDeletions[platform])"),
+  "a confirmed remote deletion must reopen the Kids catalog mirror for reconciliation",
+);
 
 const workflow = readFileSync(".github/workflows/publish-social.yml", "utf8");
 assert.match(
