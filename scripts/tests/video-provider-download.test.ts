@@ -38,6 +38,11 @@ for (const url of [
   );
 }
 assert.equal(
+  resolveFreeVideoProviderDownloadUrl("https://media.internal.local/files/clip.mp4", "https://media.internal.local/generate"),
+  "https://media.internal.local/files/clip.mp4",
+  "the explicitly configured provider origin remains usable for private deployments",
+);
+assert.equal(
   resolveFreeVideoProviderDownloadUrl("https://cdn.video.example/clip.mp4", "http://api.video.example/generate", "cdn.video.example"),
   null,
   "the provider endpoint itself must be HTTPS",
