@@ -186,9 +186,9 @@ if (!comfyProvider.includes("readBoundedMediaResponse") ||
     !comfyProvider.includes('redirect: "error"')) {
   failures.push("ComfyUI output downloads must be bounded and non-redirecting");
 }
-if (!worker.includes("readBoundedMediaResponse") ||
-    !worker.includes("resolveFreeVideoProviderDownloadUrl") ||
-    !worker.includes("await stat(outputPath)")) {
+if (!template.includes("readBoundedMediaResponse") ||
+    !template.includes("resolveFreeVideoProviderDownloadUrl") ||
+    !template.includes("await stat(outputPath)")) {
   failures.push("worker media downloads and final MP4 reads must enforce the configured size/origin contract");
 }
 const hfVideoWorker = read("scripts/jobs/hf-space-video.py");
