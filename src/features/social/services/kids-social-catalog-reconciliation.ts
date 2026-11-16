@@ -30,7 +30,7 @@ export function isKidsCatalogReconciliationEnabled(
   return env.SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED?.trim().toLowerCase() === "true";
 }
 
-/** Read only published Kids rows whose catalog synchronization is absent or pending. */
+/** Read only published or partially published Kids rows whose catalog synchronization is absent or pending. */
 export function buildKidsSocialCatalogReconciliationQuery(
   cutoff: string,
   offset: number,
@@ -47,7 +47,7 @@ export function buildKidsSocialCatalogReconciliationQuery(
   }
   const select = "id,content_type,content_id,title,body,image_url,video_url,target_platforms,status,scheduled_at,published_at,error_message,metadata,created_at,updated_at";
   return [
-    "status=eq.published",
+    "status=in.(published,partial)",
     "metadata->>audience=eq.kids",
     "metadata->>kidsContentQaStatus=eq.passed",
     "or=(metadata->>kidsCatalogSyncStatus.is.null,metadata->>kidsCatalogSyncStatus.eq.pending)",
