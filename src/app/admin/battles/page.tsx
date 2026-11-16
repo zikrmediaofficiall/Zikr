@@ -14,6 +14,15 @@ import {
 import { parseYouTubeVideoId } from '@/features/admin/services/youtube';
 import { revalidatePath } from 'next/cache';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
+import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
+
+type AdminAuditEvent = Parameters<typeof recordAdminAuditEvent>[0];
+async function recordAdminAuditEventSafely(event: AdminAuditEvent) {
+  return runPostCommitAudit(
+    () => recordAdminAuditEvent(event),
+    (error) => console.error("[admin/battles] audit event failed after committed mutation:", error),
+  );
+}
 
 // ── Server Actions ────────────────────────────────────────────────────────────
 
@@ -28,7 +37,7 @@ async function saveBattleVideoAction(formData: FormData) {
   if (rawUrl && !videoId) throw new Error("رابط YouTube غير صالح. أدخل رابطًا صحيحًا أو اترك الحقل فارغًا لإزالة الربط.");
   const ok = await saveAdminBattleVideo(id, videoId);
   if (!ok) throw new Error("تعذر حفظ فيديو الغزوة. راجع صلاحيات قاعدة البيانات وسجل الأخطاء.");
-  await recordAdminAuditEvent({
+  await recordAdminAuditEventSafely({
     action: "battles.youtube_video.update",
     permission: "battles.manage",
     resourceType: "battles",
