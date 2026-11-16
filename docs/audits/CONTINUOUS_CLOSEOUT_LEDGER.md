@@ -2387,3 +2387,13 @@ The earlier 04:48 review described a detail page reading stored `metadata.social
 - Sensitive page gates were checked for Kids, video, social, analytics, users, audit, security, release, settings, system, audio, media, knowledge, notifications, and sources. Redirect-only legacy routes were traced to guarded destinations. No missing page permission gate was found in this scan.
 - This is permission-gate coverage only; full page data flow, server actions, client mutations, and nested component review remain open.
 - Matrix blob `15165507ea533b0afdc44cd05664f60d0ade84a5`; 1746 tracked blobs remain unreviewed (704 high priority).
+
+
+## 2026-11-16 13:38 UTC — social OAuth credential security review
+
+- OAuth callbacks are admin permission + AAL2 protected; HMAC state binds provider and initiating admin profile, expires after 10 minutes, and is carried in Secure/HttpOnly/SameSite=Lax cookies. Facebook validates page publishing scopes and paginated Page selection; YouTube validates configured channel identity and rejects full-management, force-SSL, and partner/delete-capable scopes.
+- `social_platform_credentials` and `youtube_oauth_credentials` both have RLS enabled, explicit anon/authenticated deny policies, revoked anon/authenticated table privileges, and service_role-only grants. No direct public token-read path was found.
+- **Owner hardening decision:** Facebook Page access tokens and YouTube refresh tokens are stored as plaintext DB fields; no app-layer envelope encryption was found. Supabase-managed at-rest encryption and service_role-only access are current controls. This is not a reproduced anon/auth privilege bypass. Add envelope encryption only with an approved secret-management, rotation, rollback and reauthorization plan.
+- Migrations `20261028112823` and `20261028112833` have identical content/blob SHA `4b047934470e1b23f08a0fe44548cc4c5f4700ef` and both are applied. Preserve both immutable migration records; no deletion or rewrite.
+- Existing regression tests cover provider scope checks, paginated channel/Page selection, OAuth state tampering/expiry, credential identity, cross-platform isolation, malformed queue recovery, and token-log exclusion. No OAuth or social publish operation was triggered.
+- Matrix blob `650732ab1206d94311dc2ba59888a38829b7cca9`; 1722 files remain unreviewed.
