@@ -190,6 +190,23 @@ const androidWorkflow = read(".github/workflows/android-native-login-test.yml");
 assert.match(androidWorkflow, /pull_request:\s*[\s\S]*?paths:/, "native Android OAuth changes must trigger a PR debug build");
 assert.ok(androidWorkflow.includes('"android/**"'), "Android source changes must trigger the debug build");
 assert.ok(androidWorkflow.includes('"src/features/auth/**"'), "native OAuth source changes must trigger the debug build");
+const requiredNativeOAuthWorkflowPaths = [
+  '"src/app/auth/**"',
+  '"src/app/api/auth/**"',
+  '"src/features/profile/services/profile.ts"',
+  '"src/features/profile/services/profile-sync.ts"',
+  '"src/lib/auth-enhanced.ts"',
+  '"src/lib/auth/**"',
+  '"src/lib/safe-redirect.ts"',
+  '"src/lib/safe-relative-path.ts"',
+  '"src/lib/site.ts"',
+  '"src/lib/supabase/client.ts"',
+  '"src/lib/supabase/server.ts"',
+  '"src/proxy.ts"',
+];
+for (const path of requiredNativeOAuthWorkflowPaths) {
+  assert.ok(androidWorkflow.includes(path), `native OAuth dependency ${path} must trigger the Android debug workflow`);
+}
 assert.ok(androidWorkflow.includes(":app:assembleDebug"), "the PR workflow must build a debug APK");
 assert.ok(
   !androidWorkflow.includes(":app:assembleRelease") && !androidWorkflow.includes(":app:bundleRelease"),
