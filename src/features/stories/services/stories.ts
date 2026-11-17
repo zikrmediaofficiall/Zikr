@@ -5,6 +5,7 @@ import { ServiceError } from "@/lib/types/common";
 import type { Story, StoryCategory } from "@/features/stories/types/stories";
 import { PRIMARY_STORY_SOURCES, FALLBACK_STORIES } from "@/features/stories/data/fallback";
 import { normalizeArabicSearchText } from "@/lib/search/arabic-normalization";
+import { isPublicStoryRecord } from "@/features/stories/services/story-public-visibility";
 
 interface StoryRow {
   id: string;
@@ -15,8 +16,8 @@ interface StoryRow {
   category: string;
   mood?: string;
   published?: boolean;
-  is_approved?: boolean;
-  user_id?: string | null;
+  is_approved: boolean;
+  user_id: string | null;
   metadata?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
@@ -41,7 +42,7 @@ function mapStoryRow(row: StoryRow): Story {
 function isStoryRow(item: unknown): item is StoryRow {
   if (!item || typeof item !== "object") return false;
   const row = item as Partial<StoryRow>;
-  return Boolean(row.id && row.slug && row.title && row.category);
+  return Boolean(row.id && row.slug && row.title && row.category) && isPublicStoryRecord(row);
 }
 
 function hasSupabaseConfig() {
@@ -83,7 +84,7 @@ export async function getStories(limit = 100): Promise<Story[]> {
     } catch (summaryError) {
       console.warn("[stories] Summary column may not exist, trying without it", summaryError);
       response = await supabaseServerAnonRequest<StoryRow[]>(
-        `/rest/v1/stories?select=id,slug,title,category,published,created_at,updated_at&published=eq.true&is_approved=eq.true&user_id=is.null&limit=${safeLimit}&order=created_at.desc`,
+        `/rest/v1/stories?select=id,slug,title,category,published,is_approved,user_id,created_at,updated_at&published=eq.true&is_approved=eq.true&user_id=is.null&limit=${safeLimit}&order=created_at.desc`,
         { cache: "force-cache", next: { revalidate: 60, tags: ["public-stories"] } }
       );
     }
