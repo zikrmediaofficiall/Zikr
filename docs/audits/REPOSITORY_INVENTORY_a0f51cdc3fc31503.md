@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T04:25:04.368Z (reconciled with current audit checkpoint)
+Updated: 2026-11-17T04:27:05.396Z (reconciled with PR #393 exact-head verification)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T04:25:04.368Z (reconciled with current audit checkpoint)
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `64bf9965fb6c68a40954f53d4eb253d96cb21ba5`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `6933991a336775742498820103fc942798d93448`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -102,7 +102,7 @@ The matrix has 1959 file rows; 765 are not marked `UNREVIEWED`. A non-`UNREVIEWE
 ## Review batch — 2026-11-17 (scheduler guard and social deletion identity)
 
 - Read the complete prayer project-ref reconciliation migration, its PostgreSQL 17 setup/assertion files, the scheduler worker/auth consumers, and the integration runner. The applied reconciliation migration schedules `net.http_post` without a `pg_net` availability check. PR #389 adds a forward guard that matches the exact dispatcher name, worker endpoint and scheduler-secret command, preserves unrelated same-name jobs, and fails if `cron.unschedule(bigint)` is unavailable. Its migration was renumbered to `20261117050000` to avoid the stories policy migration `20261117030000` in PR #388 and secret rotation `20261117040000` in PR #392. Exact head: `b788f56d03caf22085b0e87c059665fa81c12957`; Quality Gate/Android/CircleCI were still running at this checkpoint; Supabase Preview was skipped. No production migration or cron was run.
-- Read the complete social queue metadata helper and the admin remote-deletion route path. Found that object-keyed `platformResults` trusted the map key but ignored an explicit conflicting `candidate.platform`; this could let a malformed cross-platform remote ID pass the deletion-claim/CAS precondition. PR #393 exact head `b386dd58de04cf49a6330d582409e8c1f1b6dad2` rejects explicit platform mismatches and adds zero-PATCH regression cases. Quality Gate and CircleCI were running; Supabase Preview was skipped. No provider API call, remote deletion or database mutation occurred.
+- Read the complete social queue metadata helper and the admin remote-deletion route path. Found that object-keyed `platformResults` trusted the map key but ignored an explicit conflicting `candidate.platform`; this could let a malformed cross-platform remote ID pass the deletion-claim/CAS precondition. PR #393 exact head `b386dd58de04cf49a6330d582409e8c1f1b6dad2` rejects explicit platform mismatches and adds zero-PATCH regression cases. GitHub Quality Gate `44016422205` passed with `QUALITY_GATE=PASSED_FULL`; CircleCI config-guard, source-verify and application-build-docs all passed. Supabase Preview was skipped. No provider API call, remote deletion or database mutation occurred.
 - Read the video catalog publication policy and its full regression test; read the published-video cleanup helper and its full test; read the social deletion provider helper and visibility helper. The cleanup worker only marks the 48-hour staging-retention deadline; it does not delete Cloudinary masters or Supabase Storage objects. Actual cleanup remains separately gated. No media was deleted.
 - PR #392 exact head `92964e296997b41de8e5bb0f2bef05cb7daba44e` passed Quality Gate `44009265330`, Android Debug `44009265370`, and all three CircleCI contexts; the weak live scheduler-secret format remains until owner review, merge and approved migration apply. Secret value was not read.
 - PR #384 exact head `f1d3cd43762ee47e7f0fbf19c4c9bb98ec99c868` passed Quality Gate `44002881276` and all three CircleCI contexts; it is stacked on PR #376 head `f4f37ab05f1e6b8f4fd529f1aaeb7bdcb5c69813`. PR #391 exact head `e7e2df894f69b678d17b82211d5a12f9de17f52e` passed Quality Gate `44006861723`, Android Debug `44006861706`, and all three CircleCI contexts.
