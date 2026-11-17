@@ -13,7 +13,7 @@ Updated: 2026-11-17T00:10:23.000Z (reconciled with admin video/template review, 
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `0c53cb076f40a8287be77c96a2724617eee339fa`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `fcbcfcbf253800caa173a4591889774a63a6ef7b`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -74,14 +74,15 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_DATA_VALIDATED`: 49
 - `REVIEWED_PARTIAL`: 66
 - `REVIEWED_PERMISSION_SCAN`: 88
-- `REVIEWED_PRODUCTION_APPLIED`: 47
+- `REVIEWED_PRODUCTION_APPLIED`: 63
+- `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 2
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 71
-- `REVIEWED_SOURCE_ONLY`: 301
+- `REVIEWED_SOURCE_ONLY`: 302
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1238
+- `UNREVIEWED`: 1219
 
-High-priority unreviewed files: **406**. The matrix has 1959 file rows; 721 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **387**. The matrix has 1959 file rows; 740 are not marked `UNREVIEWED`.
 
 ## Review batch — 2026-11-17 (narration provenance and worker SSRF guard)
 
@@ -452,4 +453,14 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Read template registry migrations 20261106010000, 20261106020000, 20261106061131 and 20261106090800. Remote migration history contains all versions. Read-only live checks confirm service_role-only RPC execution, SECURITY INVOKER/empty search_path, required service_role table privileges, the three template actor-FK indexes, and service-only social_post_insights RLS/ACL/index. The conditional youtube_sync_state redaction target row id=1 is absent; no claim is made that the update changed a row.
 - Read prayer worker deno.json and entrypoint. Direct dependencies are pinned; no deno.lock exists in the function directory. Worker auth and Aladhan Dubai method fixes are tracked in PR #373 exact head f7897608e4d67d988fb7151c1d70dff1636faac9; Quality Gate 43964591529 and all three CircleCI contexts passed. No Edge Function was invoked or deployed.
 - Read applied Kids read-policy migration 20261114210000 and inspected live RLS. The database currently has only permissive videos_public_read and no category-based restrictive guard. Kids category has 49 rows / 35 published; all 35 published rows carry audience='kids'. PR #340 exact head 86b166410669b47f2984854fc3c4f364f8370c9b adds the missing restrictive category guard; Quality Gate 43868893060 and all three CircleCI contexts passed. Owner/CODEOWNERS review is absent and migration remains unapplied.
-- Current matrix blob: `0c53cb076f40a8287be77c96a2724617eee339fa`; main manifest remains immutable at `baace6d0c66ac299edb541c7caceba56eeae19be`. Matrix now records 1238 UNREVIEWED files (406 high priority), 721 non-UNREVIEWED rows and 719 reviewed/non-historical blobs.
+- Current matrix blob: `0c53cb076f40a8287be77c96a2724617eee339fa`; main manifest remains immutable at `baace6d0c66ac299edb541c7caceba56eeae19be`. Matrix now records 1219 UNREVIEWED files (387 high priority), 740 non-UNREVIEWED rows and 738 reviewed/non-historical blobs.
+
+
+## Review batch — 2026-11-17 (initial Supabase migration chain and project lineage)
+
+- Read 19 high-priority SQL files from their actual contents: archived 2024/2025 markers, the initial 2026 schema/content/RLS/video migrations, inactive Kids legacy SQL, Kids game modernization, and coordinated legacy retirement. The active migration path and current production remote ledger match exactly: 449 local files / 449 remote versions, zero missing versions; one descriptive-name mismatch only for version `20261106213918` (local `video_likes`, remote name `20261106214000_video_likes`).
+- Current production Supabase project is `zqtssvlvmkzeeyqghqfk` (created 2026-11-06, ACTIVE_HEALTHY, PostgreSQL 17.11); Vercel production `SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_URL` both point to this same project.
+- Live RLS review confirmed: old broad authenticated video/category write policies are absent; Kids content and prophet sections have publication/age gates; profile role/email changes are blocked by the live guard trigger; public `site_settings` currently has no secret-like field names; Quran audio is served through a server-only service-role path. The remaining Kids category-derived video read guard is PR #340.
+- Current project counts: 1 auth user/profile, 13 kids_games, 65 kids_content, 1,170 kids_game_levels, 11 kids_achievements, 0 kids_game_questions, 0 progress rows and 0 result rows. Historical Phase 3/15/18 documents refer to different Supabase project IDs; do not treat their counts as current or as proof of transfer.
+- Two applied migrations contain historical `DROP TABLE ... CASCADE` resets without row-copy logic: `20260530000200` and `20260929070000`. They are marked `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED` for owner confirmation of old-project data retention/transfer; no restore, replay or reversal was attempted. The inactive legacy `game_scenarios` SQL has malformed `DO $` delimiters and no active runtime consumer; it was not applied.
+- Current matrix blob: `fcbcfcbf253800caa173a4591889774a63a6ef7b`; current Supabase ledger blob: `91cedccc9edcc4f75b956e3e93faaa0688298b4a`; main manifest remains `baace6d0c66ac299edb541c7caceba56eeae19be`. Counts: 1219 UNREVIEWED (387 high priority), 740 non-UNREVIEWED rows, 738 reviewed/non-historical blobs.
