@@ -1,6 +1,7 @@
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 import { getServerEnv } from "@/lib/env";
 import { PRIMARY_STORY_SOURCES } from "@/features/stories/data/fallback";
+import { isPublicStoryRecord } from "@/features/stories/services/story-public-visibility";
 
 export type VideoSourceCategory =
   "quran" | "hadith" | "story" | "dua" | "adhkar";
@@ -74,6 +75,8 @@ type StoryRow = {
   summary: string | null;
   content: string | null;
   published: boolean;
+  is_approved: boolean;
+  user_id: string | null;
 };
 
 const QURAN_BASE = "https://quran.com";
@@ -208,17 +211,17 @@ async function storySource(slug: string): Promise<VideoSource | null> {
   let rows: StoryRow[] | null = null;
   try {
     rows = await supabaseServerAdminRequest<StoryRow[]>(
-      `/rest/v1/stories?slug=eq.${encodeURIComponent(slug)}&published=eq.true&select=id,slug,title,summary,content,published&limit=1`
+      `/rest/v1/stories?slug=eq.${encodeURIComponent(slug)}&published=eq.true&is_approved=eq.true&user_id=is.null&select=id,slug,title,summary,content,published,is_approved,user_id&limit=1`
     );
   } catch {
     rows = await supabaseServerAdminRequest<StoryRow[]>(
-      `/rest/v1/stories?slug=eq.${encodeURIComponent(slug)}&published=eq.true&select=id,slug,title,content,published&limit=1`
+      `/rest/v1/stories?slug=eq.${encodeURIComponent(slug)}&published=eq.true&is_approved=eq.true&user_id=is.null&select=id,slug,title,content,published,is_approved,user_id&limit=1`
     );
   }
   const story = rows?.[0];
   const text = clean(story?.summary || story?.content);
   const primary = sources[0];
-  if (!story || !text || text.length > 360 || !primary?.url || !primary.label)
+  if (!story || !isPublicStoryRecord(story) || !text || text.length > 360 || !primary?.url || !primary.label)
     return null;
   return {
     id: `story:${story.slug}`,
@@ -320,17 +323,17 @@ export async function listVideoSources(
     let stories: StoryRow[] | null = null;
     try {
       stories = await supabaseServerAdminRequest<StoryRow[]>(
-        "/rest/v1/stories?published=eq.true&select=id,slug,title,summary,content,published&order=created_at.desc&limit=100"
+        "/rest/v1/stories?published=eq.true&is_approved=eq.true&user_id=is.null&select=id,slug,title,summary,content,published,is_approved,user_id&order=created_at.desc&limit=100"
       );
     } catch {
       stories = await supabaseServerAdminRequest<StoryRow[]>(
-        "/rest/v1/stories?published=eq.true&select=id,slug,title,content,published&order=created_at.desc&limit=100"
+        "/rest/v1/stories?published=eq.true&is_approved=eq.true&user_id=is.null&select=id,slug,title,content,published,is_approved,user_id&order=created_at.desc&limit=100"
       );
     }
     return stories
       ?.filter(
         story =>
-          story.published &&
+          isPublicStoryRecord(story) &&
           (story.summary || story.content) &&
           PRIMARY_STORY_SOURCES[story.slug]?.length
       )
