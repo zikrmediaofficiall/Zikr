@@ -13,7 +13,7 @@ Updated: 2026-11-17T06:29:29.000Z (RLS initplan migrations and Kids policy consu
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `2e2196cd4149724881ea4ec77ba8940a6c6ec245`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `11e0cbd2351c24f225b840681e89c541df7521be`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -41,6 +41,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - Non-`UNREVIEWED` file rows: **793**
 - High-priority `UNREVIEWED`: **358**
 
+- Read-only production RLS catalog check: all three historical migration versions are present; 46 public policies contain `auth.uid()`, zero raw UID calls remain after removing SELECT-initplan wrappers, and zero public policies contain `auth.jwt()`. The forward PR #394 migration is expected to be a no-op on the current production catalog.
 - Additional source trace: read `20261002042816_optimize_rls_auth_initplans_20261002.sql` and confirmed its legacy-table guards plus canonical Kids owner-policy definitions; its RLS consumer evidence is recorded in the matrix.
 
 - `REVIEWED_PARTIAL`: 95
