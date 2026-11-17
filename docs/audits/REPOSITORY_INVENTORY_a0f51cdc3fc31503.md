@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T04:28:38.357Z (reconciled with PR #389 full verification)
+Updated: 2026-11-17T04:34:36.981Z (reconciled with RLS/contact review batch)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T04:28:38.357Z (reconciled with PR #389 full verification)
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `09f1f4e3631e4a578228a1a77aada84f864e1da9`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `78e1c23e6bc97cd4fa171da7063bd4c65e9c5aaa`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -37,9 +37,9 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - Total tracked file rows: **1959**
-- `UNREVIEWED`: **1194**
-- Non-`UNREVIEWED` file rows: **765**
-- High-priority `UNREVIEWED`: **377**
+- `UNREVIEWED`: **1185**
+- Non-`UNREVIEWED` file rows: **774**
+- High-priority `UNREVIEWED`: **368**
 
 - `DOCS_RECONCILIATION_PENDING`: 4
 - `FIX_PENDING_PR337`: 5
@@ -88,16 +88,24 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 49
-- `REVIEWED_PARTIAL`: 84
+- `REVIEWED_PARTIAL`: 98
 - `REVIEWED_PERMISSION_SCAN`: 84
 - `REVIEWED_PRODUCTION_APPLIED`: 62
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 70
-- `REVIEWED_SOURCE_ONLY`: 297
+- `REVIEWED_SOURCE_ONLY`: 292
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1194
+- `UNREVIEWED`: 1185
 
-The matrix has 1959 file rows; 765 are not marked `UNREVIEWED`. A non-`UNREVIEWED` status may still be fix-pending or owner-pending; it is not equivalent to project closure.
+The matrix has 1959 file rows; 774 are not marked `UNREVIEWED`. A non-`UNREVIEWED` status may still be fix-pending or owner-pending; it is not equivalent to project closure.
+
+## Review batch — 2026-11-17 (RLS history and contact submission)
+
+- Read the complete August 7 security/search/index migration, explicit EXECUTE revoke migration, and runtime-table/RLS migration; read the August 14 private admin-predicate and authenticated-role migrations; read the August 15 permissive-policy cleanup and video-category overlap removal; read the October 15 secure-contact migration. Traced the later migration that supersedes the historical `contacts_public_insert WITH CHECK (true)` policy.
+- Read-only production catalog queries found `contacts` has only `contacts_admin_read`, authenticated SELECT, and no anon/authenticated INSERT privilege. `20261015050000_secure_contact_submission.sql` drops the historical public INSERT policy and revokes direct INSERT; the contact API route performs bounded validation, HMAC actor derivation, and a fail-closed 5-per-600-second service-role rate limit before insertion. No contact row was read or changed.
+- Read-only production policy inspection confirmed current public-read policies for videos/articles/stories/Kids/Quran/Hadith and explicit false policies for `prayer_schedule_cache` and `push_runtime_settings`. The 33 tables named by the August 15 permissive-policy cleanup all exist in the current production schema; the migration's unguarded table-existence assumption remains documented for partial-preview review.
+- Read the trusted-client-address helper. Vercel's official request-header documentation says it overwrites `X-Forwarded-For` to prevent spoofing and `x-real-ip` is identical; this is suitable for the current direct Vercel path, while a future external proxy would require a verified proxy contract: https://vercel.com/docs/headers/request-headers
+- No production rows, policies, grants, migrations, or contact submissions were changed. No customer content or personal contact data was queried.
 
 ## Review batch — 2026-11-17 (scheduler guard and social deletion identity)
 
