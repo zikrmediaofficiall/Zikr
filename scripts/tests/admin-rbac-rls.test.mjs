@@ -470,7 +470,7 @@ assert.match(safeVideoDelete, /admin_delete_unreferenced_video_generation_reques
 assert.match(safeVideoDelete, /runPostCommitAudit[\s\S]*recordAdminAuditEvent/);
 assert.match(safeVideoDelete, /VIDEO_REQUEST_DELETE_\(\?:CONFLICT\|NOT_TERMINAL\|HAS_MEDIA\|REFERENCED_BY_/);
 const safeVideoDeleteMigration = readFileSync(resolve(process.cwd(), "supabase/migrations/20261116090000_admin_delete_unreferenced_video_generation_request.sql"), "utf8");
-for (const token of ["FOR UPDATE", "request_row.status NOT IN ('failed', 'cancelled')", "request_row.video_url", "request_row.provider_job_id", "video.metadata ->> 'videoGenerationRequestId'", "queue_item.content_id = p_request_id::text", "GRANT EXECUTE ON FUNCTION public.admin_delete_unreferenced_video_generation_request", "TO service_role;"]) {
+for (const token of ["FOR UPDATE", "request_row.status NOT IN ('failed', 'cancelled')", "request_row.video_url", "request_row.thumbnail_url", "request_row.content ->> 'audioUrl'", "request_row.content ->> 'audioMediaAssetId'", "request_row.content ->> 'audioSource' = 'human_recording'", "request_row.provider_job_id", "video.metadata ->> 'videoGenerationRequestId'", "queue_item.content_id = p_request_id::text", "GRANT EXECUTE ON FUNCTION public.admin_delete_unreferenced_video_generation_request", "TO service_role;"]) {
   assert.ok(safeVideoDeleteMigration.includes(token), `safe video-request deletion contract is missing ${token}`);
 }
 const legacyVideoPatch = videoRoute.match(/export async function PATCH\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
