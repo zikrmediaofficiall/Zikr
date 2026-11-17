@@ -5,7 +5,7 @@ import { ServiceError } from "@/lib/types/common";
 import type { Story, StoryCategory } from "@/features/stories/types/stories";
 import { PRIMARY_STORY_SOURCES, FALLBACK_STORIES } from "@/features/stories/data/fallback";
 import { normalizeArabicSearchText } from "@/lib/search/arabic-normalization";
-import { isPublicStoryRecord } from "@/features/stories/services/story-public-visibility";
+import { filterPublicStoryRecords, isPublicStoryRecord } from "@/features/stories/services/story-public-visibility";
 
 interface StoryRow {
   id: string;
@@ -89,22 +89,13 @@ export async function getStories(limit = 100): Promise<Story[]> {
       );
     }
 
-    if (!Array.isArray(response)) {
-      console.warn("[stories] Invalid response type from Supabase, got:", typeof response);
+    const publicRows = filterPublicStoryRecords<StoryRow>(response);
+    if (publicRows === null) {
+      console.warn("[stories] Invalid response type from Supabase; using curated fallback");
       return fallback();
     }
 
-    if (response.length === 0) {
-      console.info("[stories] Supabase returned no published stories; using curated fallback");
-      return fallback();
-    }
-
-    if (!response.every(isStoryRow)) {
-      console.error("[stories] Response validation failed; using curated fallback");
-      return fallback();
-    }
-
-    const mapped = response.map(mapStoryRow);
+    const mapped = publicRows.filter(isStoryRow).map(mapStoryRow);
     cachedStories.set(safeLimit, { data: mapped, timestamp: Date.now() });
     return mapped;
   } catch (error) {
@@ -164,4 +155,3 @@ export async function getStoriesByIds(ids: string[]): Promise<Story[]> {
   const stories = await getStories();
   return stories.filter((s) => ids.includes(s.id));
 }
-
