@@ -74,10 +74,39 @@ BEGIN;
 SET LOCAL request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
 SET LOCAL request.jwt.claim.role = 'authenticated';
 SET LOCAL ROLE authenticated;
-UPDATE public.profiles
-SET display_name = 'Updated Display Name',
-    updated_at = '2000-01-01 00:00:00+00'
-WHERE id = '22222222-2222-4222-8222-222222222222';
+DO $updated_at_write$
+DECLARE
+  v_before timestamptz;
+  v_after timestamptz;
+  v_rows integer;
+BEGIN
+  SELECT updated_at INTO v_before
+  FROM public.profiles
+  WHERE id = '22222222-2222-4222-8222-222222222222';
+
+  IF v_before IS NULL THEN
+    RAISE EXCEPTION 'Authenticated user cannot read their own profile row';
+  END IF;
+
+  UPDATE public.profiles
+  SET display_name = 'Updated Display Name',
+      updated_at = '2000-01-01 00:00:00+00'
+  WHERE id = '22222222-2222-4222-8222-222222222222';
+
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  IF v_rows <> 1 THEN
+    RAISE EXCEPTION 'Expected own-profile update to affect exactly one row, found %', v_rows;
+  END IF;
+
+  SELECT updated_at INTO v_after
+  FROM public.profiles
+  WHERE id = '22222222-2222-4222-8222-222222222222';
+
+  IF v_after IS NULL OR v_after <= v_before THEN
+    RAISE EXCEPTION 'Authenticated profile update did not advance server-managed updated_at: before %, after %', v_before, v_after;
+  END IF;
+END
+$updated_at_write$;
 COMMIT;
 
 DO $$
