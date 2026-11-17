@@ -175,7 +175,7 @@ for (const dataset of ['surahs','ayahs','tafsir','hadith_books','hadith','prophe
   if (!exporter.includes(`['${dataset}',`)) failures.push(`Offline exporter missing dataset: ${dataset}`);
 }
 if (!exporter.includes('SUPABASE_SERVICE_ROLE_KEY') || !exporter.includes('assertCanonicalSupabaseProjectUrl(rawSupabaseUrl)') || !exporter.includes('NEXT_PUBLIC_SUPABASE_ANON_KEY') || !exporter.includes("params.set('limit'") || !exporter.includes('const minimumRecords = {') || !exporter.includes('select=id,slug,title,content,mood,category,created_at,updated_at,published,metadata,summary,is_approved')) failures.push('Offline exporter must use the canonical Supabase project, paginated reads, minimum safety floors, and explicit public story fields');
-const storiesExportDefinition = exporter.split(/\\r?\\n/).find((line) => line.trim().startsWith("['stories',"));
+const storiesExportDefinition = exporter.split(/\r?\n/).find((line) => line.trim().startsWith("['stories',"));
 if (!storiesExportDefinition?.includes("'user_id=is.null'")) {
   failures.push('Offline Stories export must exclude user-owned rows, matching public story visibility.');
 }
