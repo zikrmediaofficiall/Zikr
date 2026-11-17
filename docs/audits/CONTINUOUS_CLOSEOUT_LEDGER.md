@@ -1,3 +1,16 @@
+## 2026-11-17T05:15:00.000Z — Kids share-counter review and shared rate-limit repair
+
+**State: OPEN / NOT MERGE-READY.** This is a bounded source review plus an unverified repair PR; repository-wide review, owner approval and production acceptance remain open.
+
+- Immutable main snapshot remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`. Manifest blob remains `baace6d0c66ac299edb541c7caceba56eeae19be` (2,459 recursive entries: 1,959 files and 500 directories). No main source or production resource was changed.
+- Reconciled artifacts on PR #344's documentation branch from parent `751d48dccf5944b6613374d9cb9c7187e87aed79`: matrix blob `490e0c5fa3191ddb531d63b327896c73c38984ad`; inventory blob `f8acd78161be6a95356245e37c06c2bb62088b73`; Project Status blob `6bfe3f32e572a4f6ab94c20351b45e73840a5cfc`. Matrix has exactly 1,959 file rows, 1178 UNREVIEWED (361 high priority), 781 non-UNREVIEWED, and 754 REVIEWED_* rows. The two Kids share-counter migration rows are REVIEWED_SOURCE_ONLY; the immutable manifest is unchanged.
+- Read the full Kids share-counter migrations `20260814120000_0033_atomic_kids_share_counter.sql` and `20260814121000_0034_lock_down_kids_share_rpc.sql`, then traced the RPC through `src/app/api/kids/track-share/route.ts`, `src/features/kids/services/share-rate-limit.ts`, `src/features/kids/components/kids-share.tsx`, the trusted client-address helper, bounded JSON reader and later active-state migration `20261110212000_kids_content_public_read_respects_active_state.sql`. The current override is SECURITY INVOKER with empty search_path, active/published and age-approval predicates, and service_role-only EXECUTE. Existing integration-test source was inspected; no share event or production RPC was invoked.
+- Read `20261008082029_20261008110000_restore_admin_rate_limit_contract.sql` and all application consumers of `consume_admin_rate_limit`. Reproduced by SQL semantics: NULL `p_limit` is not rejected by `p_limit < 1`, so it can consume a row and return NULL; NULL `p_window_seconds` passes the comparison and causes the rate-window INSERT to fail on its NOT NULL key. This function is service-role-only, but its invalid-argument contract was not fail-closed.
+- PR #396 exact head `a8aa7b151ab5156a441633792cc1b23802032152` adds explicit NULL checks before mutation, empty search_path, and PostgreSQL 17 integration coverage for invalid arguments, no-mutation behavior, valid atomic quotas and role ACLs. Exact-head GitHub Quality Gate is queued; CircleCI config-guard/source-verify/application-build-docs are pending; Supabase Preview is skipped, not passed. PR remains draft/open; no CODEOWNERS approval is recorded. Migration not applied.
+- No production SQL/DDL/DML, migration apply, cron/Edge Function invocation, rate-limit RPC call, content generation, Gemini request, social provider call, Storage/media mutation, release, merge, Vercel deployment or production smoke test was performed.
+
+---
+
 ## 2026-11-17T04:52:39.155Z — exact repository-audit artifact checkpoint
 
 **State: OPEN / NOT MERGE-READY.**

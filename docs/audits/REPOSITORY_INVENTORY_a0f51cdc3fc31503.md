@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T04:51:57.453Z (social deletion file-status evidence refreshed on exact passing PR head)
+Updated: 2026-11-17T05:15:00.000Z (Kids share-counter migration source review and shared rate-limit null-argument repair recorded)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T04:51:57.453Z (social deletion file-status evidence refreshe
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `2ee161c9f2458afb06360e04374229912e105040`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `490e0c5fa3191ddb531d63b327896c73c38984ad`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -37,67 +37,67 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - Total tracked file rows: **1959**
-- `UNREVIEWED`: **1180**
-- Non-`UNREVIEWED` file rows: **779**
-- High-priority `UNREVIEWED`: **363**
+- `UNREVIEWED`: **1178**
+- Non-`UNREVIEWED` file rows: **781**
+- High-priority `UNREVIEWED`: **361**
 
-- `DOCS_RECONCILIATION_PENDING`: 4
-- `FIX_PENDING_PR337`: 5
-- `FIX_PENDING_PR338`: 3
-- `FIX_PENDING_PR339`: 2
-- `FIX_PENDING_PR340`: 3
-- `FIX_PENDING_PR341`: 1
-- `FIX_PENDING_PR343`: 2
-- `FIX_PENDING_PR343_PR376_PR377_PR378_PR379_PR380_PR381_PR386_PR387_PR388`: 1
+- `REVIEWED_PARTIAL`: 98
 - `FIX_PENDING_PR346`: 1
-- `FIX_PENDING_PR347`: 2
-- `FIX_PENDING_PR349`: 5
-- `FIX_PENDING_PR350`: 2
-- `FIX_PENDING_PR351`: 2
-- `FIX_PENDING_PR352`: 3
-- `FIX_PENDING_PR353`: 4
-- `FIX_PENDING_PR358`: 2
-- `FIX_PENDING_PR362`: 3
-- `FIX_PENDING_PR369`: 1
-- `FIX_PENDING_PR370`: 4
-- `FIX_PENDING_PR372`: 1
-- `FIX_PENDING_PR373`: 4
-- `FIX_PENDING_PR374`: 1
-- `FIX_PENDING_PR375`: 2
-- `FIX_PENDING_PR376`: 4
-- `FIX_PENDING_PR376_PR384`: 1
-- `FIX_PENDING_PR377`: 1
-- `FIX_PENDING_PR378`: 3
-- `FIX_PENDING_PR379`: 4
-- `FIX_PENDING_PR380`: 2
-- `FIX_PENDING_PR381`: 9
-- `FIX_PENDING_PR381_PARTIAL_REVIEW`: 3
+- `REVIEWED_SOURCE_ONLY`: 296
+- `UNREVIEWED`: 1178
 - `FIX_PENDING_PR382`: 7
-- `FIX_PENDING_PR382_PR383`: 1
-- `FIX_PENDING_PR387`: 2
-- `FIX_PENDING_PR387_PR388`: 1
-- `FIX_PENDING_PR389`: 2
-- `FIX_PENDING_PR390`: 1
-- `FIX_PENDING_PR391`: 1
-- `FIX_PENDING_PR392`: 1
-- `FIX_PENDING_PR393`: 2
-- `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 5
+- `OWNER_SETTING_REQUIRED`: 1
+- `FIX_PENDING_PR351`: 2
+- `DOCS_RECONCILIATION_PENDING`: 4
+- `REVIEWED_DATA_VALIDATED`: 49
+- `FIX_PENDING_PR381`: 9
+- `FIX_PENDING_PR337`: 5
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
-- `OWNER_CONFIG_REQUIRED_PR343`: 1
-- `OWNER_SETTING_REQUIRED`: 1
+- `FIX_PENDING_PR350`: 2
+- `FIX_PENDING_PR343_PR376_PR377_PR378_PR379_PR380_PR381_PR386_PR387_PR388`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
-- `REVIEWED_DATA_VALIDATED`: 49
-- `REVIEWED_PARTIAL`: 98
-- `REVIEWED_PERMISSION_SCAN`: 84
-- `REVIEWED_PRODUCTION_APPLIED`: 62
-- `REVIEWED_PRODUCTION_SMOKE_200`: 4
+- `FIX_PENDING_PR387_PR388`: 1
+- `FIX_PENDING_PR369`: 1
+- `FIX_PENDING_PR381_PARTIAL_REVIEW`: 3
 - `REVIEWED_REGRESSION_COVERAGE`: 70
-- `REVIEWED_SOURCE_ONLY`: 294
+- `FIX_PENDING_PR343`: 2
+- `FIX_PENDING_PR349`: 5
+- `FIX_PENDING_PR352`: 3
+- `FIX_PENDING_PR353`: 4
+- `FIX_PENDING_PR340`: 3
+- `FIX_PENDING_PR373`: 4
+- `FIX_PENDING_PR389`: 2
+- `FIX_PENDING_PR362`: 3
+- `FIX_PENDING_PR347`: 2
+- `FIX_PENDING_PR370`: 4
+- `FIX_PENDING_PR393`: 2
+- `FIX_PENDING_PR375`: 2
+- `FIX_PENDING_PR341`: 1
+- `FIX_PENDING_PR338`: 3
+- `FIX_PENDING_PR339`: 2
+- `FIX_PENDING_PR380`: 2
+- `FIX_PENDING_PR391`: 1
+- `FIX_PENDING_PR376`: 4
+- `OWNER_CONFIG_REQUIRED_PR343`: 1
+- `REVIEWED_PRODUCTION_SMOKE_200`: 4
+- `REVIEWED_PERMISSION_SCAN`: 84
+- `FIX_PENDING_PR379`: 4
+- `FIX_PENDING_PR378`: 3
+- `FIX_PENDING_PR382_PR383`: 1
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1185
+- `FIX_PENDING_PR372`: 1
+- `FIX_PENDING_PR387`: 2
+- `FIX_PENDING_PR358`: 2
+- `FIX_PENDING_PR377`: 1
+- `FIX_PENDING_PR376_PR384`: 1
+- `FIX_PENDING_PR390`: 1
+- `FIX_PENDING_PR374`: 1
+- `REVIEWED_PRODUCTION_APPLIED`: 62
+- `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 5
+- `FIX_PENDING_PR392`: 1
 
-The matrix has 1959 file rows; 774 are not marked `UNREVIEWED`. A non-`UNREVIEWED` status may still be fix-pending or owner-pending; it is not equivalent to project closure.
+The matrix has 1959 file rows; 781 are not marked `UNREVIEWED`. A non-`UNREVIEWED` status may still be fix-pending or owner-pending; it is not equivalent to project closure.
 
 ## Review batch — 2026-11-17 (billing cancellation and legacy table retirement lineage)
 
@@ -574,3 +574,12 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - The live scheduler secret row has length 32 and does not match the 64-hex hardening contract; the secret value was not retrieved. The active pg_cron dispatcher targets the canonical project and reads the secret dynamically. PR #392 exact head `92964e296997b41de8e5bb0f2bef05cb7daba44e` contains the corrected comment-insensitive test; Android Debug and CircleCI passed, Quality Gate remains in progress. No production migration was applied.
 - Vercel's latest production deployment `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` is READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`, four commits behind current main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. No new deployment or production smoke test was run.
 - Owner acceptance remains blocked: CODEOWNERS assigns `@Zikrmediaofficial`, but the connected GitHub identity has no collaborator permission for that owner and the relevant PR review lists are empty. No branch, review or approval gate was bypassed. No production mutation, Edge Function/Cron invocation, content generation, Gemini request, social publishing, Storage operation or release was performed.
+
+
+## Review batch — 2026-11-17 (Kids share counter and shared rate-limit contract)
+
+- Read the complete `20260814120000_0033_atomic_kids_share_counter.sql` and `20260814121000_0034_lock_down_kids_share_rpc.sql` migrations. Traced `increment_kids_content_shares` through the Kids share API route, the server-only rate-limit helper, the KidsShare client component and the shared rate-limit RPC. The later applied `20261110212000_kids_content_public_read_respects_active_state.sql` replaces the original function with SECURITY INVOKER, an empty search_path, published/active/age-approved story predicates and service_role-only EXECUTE. The two original migration rows are marked REVIEWED_SOURCE_ONLY; no production call was made.
+- Reviewed `20261008082029_20261008110000_restore_admin_rate_limit_contract.sql` and its current server consumers. Found a reproducible SQL NULL-validation defect: NULL `p_limit` passes the existing less-than check, consumes a counter row and returns NULL; NULL `p_window_seconds` reaches a NOT NULL insert failure. The RPC is service-role-only, but invalid arguments should return FALSE before any mutation.
+- PR #396 exact head `a8aa7b151ab5156a441633792cc1b23802032152` adds explicit NULL checks, pins the SECURITY DEFINER function to an empty search_path, and adds PostgreSQL 17 integration coverage for NULL/blank/zero arguments, no-mutation behavior, valid atomic limits and role grants. GitHub Quality Gate is queued; CircleCI config-guard/source-verify/application-build-docs are pending; Supabase Preview is skipped. The migration has not been applied.
+- Current row totals: 1959 file rows; 1178 UNREVIEWED (361 high priority); 781 non-UNREVIEWED. Main snapshot and immutable manifest remain unchanged. PR-only files are not added to the main manifest or matrix before merge.
+- No production SQL/DDL/DML, migration apply, rate-limit RPC invocation, content generation, Gemini request, social publishing, Storage/media mutation, release, merge or deployment was performed.
