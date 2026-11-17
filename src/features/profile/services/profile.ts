@@ -288,7 +288,6 @@ export async function updateCurrentProfile(
     updated_at: string;
   } = {
     id: session.user.id,
-    updated_at: new Date().toISOString(),
   };
 
   if (Object.hasOwn(parsed, "display_name")) {
@@ -403,8 +402,7 @@ export async function updateCurrentProfileAvatar(
       {
         id: session.user.id,
         avatar_url: url,
-        updated_at: new Date().toISOString(),
-      },
+        },
       { onConflict: "id" },
     );
 

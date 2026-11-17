@@ -113,6 +113,11 @@ jobs:
         run: bash scripts/tests/kids-game-levels-rls.integration.sh
         timeout-minutes: 5
 
+      - name: Verify profile auth timestamps and sensitive-field guard against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/profile-auth-timestamps.integration.sh
+        timeout-minutes: 5
+
       - name: Verify Kids content active-state public-read policy against PostgreSQL 17
         shell: bash
         run: bash scripts/tests/kids-content-active-rls.integration.sh
