@@ -1,5 +1,21 @@
 # Continuous closeout ledger — ZIKR
 
+## 2026-11-17T06:29:29.000Z — RLS initplan token-aware repair and artifact reconciliation
+
+**State: OPEN / NOT MERGE-READY.** This entry records a bounded migration review and a repair still awaiting exact-head checks and owner approval.
+
+- Immutable main snapshot: commit `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`. Immutable manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be` remains unchanged (2,459 recursive entries; 1,959 files; 500 directories).
+- Reconciled artifacts: matrix blob `b1b0084beb1ec7941228231b5d347267ef1c36cc`; inventory blob `babbb592b5f2e718b201a88666b6e11084f84d6a`; Project Status blob `8a2d581b83a64cce203b6dee9425db959b233e1b`. Matrix totals: 1,959 file rows, 1,166 UNREVIEWED, 358 high-priority UNREVIEWED, 793 non-UNREVIEWED, and 669 reviewed blobs. Two historical migration rows are FIX_PENDING_PR394. The audit artifact regression test now expects 1,166 / 358.
+- Read the full source of `supabase/migrations/20260814143804_optimize_rls_auth_initplans.sql` (blob `64212e7ec5b6a67df8474b7b7704c1e28f540fab`) and `supabase/migrations/20260814143905_optimize_rls_jwt_initplans.sql` (blob `a23aa9ff98fd04d9cdd79a05c066a79433e860df`). The over-escaped patterns do not reliably match raw auth function calls with PostgreSQL's default `standard_conforming_strings=on`.
+- Audited PR #394's initial forward-only correction and found its plain regexp could also rewrite `auth.uid()` / `auth.jwt()` text inside SQL string literals or quoted identifiers. Updated PR #394 on its existing audit branch to use a token-aware scanner that preserves single-quoted strings (including doubled quotes and E-string escapes) and double-quoted identifiers; only actual function-call tokens are wrapped. The PostgreSQL 17 fixture now covers raw calls, mixed and already-wrapped calls, literal text, and quoted identifiers.
+- PR #394 exact head: `0707df17c33554046f64e3a9e48c6fee03932b06`. GitHub Quality Gate run `44031958531` is in progress. CircleCI `config-guard` succeeded; `source-verify` and `application-build-docs` are pending. No earlier-head check is reused. PR is draft/open and has no submitted owner review.
+- No historical migration was edited or replayed. No production migration, SQL/DDL/DML, Edge Function/Cron invocation, policy mutation, content generation, Gemini request, social publishing, Storage/media operation, Android/iOS release, merge, Vercel deployment or production smoke test occurred.
+- Governance blockers remain: CODEOWNERS approval is absent, the connected collaborator-permission lookup for `@Zikrmediaofficial` returned null, and branch-protection details remain inaccessible (403). Manual/device acceptance remains Android/iOS physical devices, Apple Team ID/Associated Domains/AASA, Play signing fingerprints, production OAuth callbacks, push delivery and owner-controlled leaked-password protection.
+
+---
+
+# Continuous closeout ledger — ZIKR
+
 ## 2026-11-17T06:02:00.000Z — native loader trace, site-audio FK index and artifact reconciliation
 
 **State: OPEN / NOT MERGE-READY.** The entries below are bounded findings; no project-wide closure is claimed.
