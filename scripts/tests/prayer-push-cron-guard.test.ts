@@ -12,10 +12,19 @@ const projectRefReconciliation = readFileSync(
 
 const pgNetGuardIndex = guard.indexOf("FROM pg_extension WHERE extname = 'pg_net'");
 const cronJobReadIndex = guard.indexOf("FROM cron.job");
-const unscheduleIndex = guard.indexOf("cron.unschedule");
+const unscheduleCapabilityIndex = guard.indexOf(
+  "to_regprocedure('cron.unschedule(bigint)')",
+);
+const unscheduleCallIndex = guard.indexOf("PERFORM cron.unschedule(");
+
 assert.ok(pgNetGuardIndex >= 0, "the migration must inspect pg_net availability");
-assert.ok(pgNetGuardIndex < cronJobReadIndex && cronJobReadIndex < unscheduleIndex,
-  "the pg_net availability guard must run before reading or changing cron jobs");
+assert.ok(
+  pgNetGuardIndex < unscheduleCapabilityIndex &&
+    unscheduleCapabilityIndex < cronJobReadIndex &&
+    cronJobReadIndex < unscheduleCallIndex,
+  "the migration must check pg_net and unschedule capability before reading the exact cron job, then unschedule only after matching it",
+);
+assert.ok(unscheduleCallIndex >= 0, "the migration must use the guarded unschedule call");
 assert.match(guard, /jobname = 'zikr-prayer-push-dispatch'/,
   "only the named ZIKR prayer dispatcher may be considered");
 assert.match(guard, /functions\/v1\/prayer-notification-worker/,
