@@ -117,6 +117,31 @@ assert.match(
   "missing or malformed idempotency keys must preserve the service HTTP 400 response",
 );
 
+
+const gameService = readFileSync(
+  "src/features/kids/services/games.ts",
+  "utf8",
+);
+const duplicateGuard = gameService.indexOf("if (row.duplicate)");
+const duplicateLookup = gameService.indexOf('.from("kids_game_results")', duplicateGuard);
+assert.ok(duplicateGuard >= 0, "duplicate RPC responses must be handled explicitly");
+assert.ok(
+  duplicateLookup > duplicateGuard,
+  "duplicate retries must load the persisted result instead of echoing the retry payload",
+);
+for (const token of [
+  '.eq("id", row.result_id)',
+  '.eq("user_id", userId)',
+  "gameId: storedResult.game_id",
+  "score: storedResult.score",
+  "collectibles: storedResult.collectibles",
+  "distance: storedResult.distance",
+  "difficulty: storedResult.difficulty",
+  "result: persistedResult",
+]) {
+  assert.ok(gameService.includes(token), `duplicate response is missing canonical persisted field: ${token}`);
+}
+
 const migration = readFileSync(
   "supabase/migrations/20261101090000_harden_kids_game_result_insert_contract.sql",
   "utf8"
