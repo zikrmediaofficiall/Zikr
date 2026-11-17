@@ -151,6 +151,14 @@ const nativeBridgeSource = readFileSync("src/components/layout/native-capacitor-
 assert.ok(nativeBridgeSource.includes("isAllowedQuranAudioUrl(url)"));
 assert.ok(nativeBridgeSource.includes("isSafeQuranAudioDownloadPath(path)"));
 assert.ok(nativeBridgeSource.includes("stat?."));
+const publicWriteFileStart = nativeBridgeSource.indexOf("async writeFile(path, data)");
+const publicWriteFileEnd = nativeBridgeSource.indexOf("async downloadFile(url, path)", publicWriteFileStart);
+assert.ok(publicWriteFileStart >= 0 && publicWriteFileEnd > publicWriteFileStart);
+assert.match(
+  nativeBridgeSource.slice(publicWriteFileStart, publicWriteFileEnd),
+  /isSafeQuranAudioDownloadPath\\(path\\)/,
+  "the public native file-write facade must reject paths outside the Quran audio allowlist",
+);
 
 const offlineAudioSource = readFileSync("src/features/quran/services/offline-audio.ts", "utf8");
 assert.ok(offlineAudioSource.includes("isAllowedQuranAudioUrl(sourceUrl)"));
