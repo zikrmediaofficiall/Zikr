@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T06:29:29.000Z (RLS initplan migrations and Kids policy consumer trace; PR #394 forward repair pending)
+Updated: 2026-11-17T06:29:29.000Z (RLS initplan and FK-index migration review; PR #394 forward repair pending)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T06:29:29.000Z (RLS initplan migrations and Kids policy consu
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `11e0cbd2351c24f225b840681e89c541df7521be`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `8e905fbcb3b4342a8fce6e635c88763f2b0546ab`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -37,17 +37,18 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - Total tracked file rows: **1959**
-- `UNREVIEWED`: **1166**
-- Non-`UNREVIEWED` file rows: **793**
-- High-priority `UNREVIEWED`: **358**
+- `UNREVIEWED`: **1165**
+- Non-`UNREVIEWED` file rows: **794**
+- High-priority `UNREVIEWED`: **357**
 
+- Foreign-key index migration review: `20260814143626_add_missing_foreign_key_indexes.sql` is production-applied. Six optional target tables are absent and four present FK columns have valid leading indexes; current indexes use equivalent `idx_*` names.
 - Read-only production RLS catalog check: all three historical migration versions are present; 46 public policies contain `auth.uid()`, zero raw UID calls remain after removing SELECT-initplan wrappers, and zero public policies contain `auth.jwt()`. The forward PR #394 migration is expected to be a no-op on the current production catalog.
 - Additional source trace: read `20261002042816_optimize_rls_auth_initplans_20261002.sql` and confirmed its legacy-table guards plus canonical Kids owner-policy definitions; its RLS consumer evidence is recorded in the matrix.
 
 - `REVIEWED_PARTIAL`: 95
 - `FIX_PENDING_PR346`: 1
 - `REVIEWED_SOURCE_ONLY`: 304
-- `UNREVIEWED`: 1166
+- `UNREVIEWED`: 1165
 - `FIX_PENDING_PR382_PR394_PR395_PR396`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `FIX_PENDING_PR351`: 2
@@ -100,12 +101,12 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR395`: 1
 - `FIX_PENDING_PR390`: 1
 - `FIX_PENDING_PR374`: 1
-- `REVIEWED_PRODUCTION_APPLIED`: 61
+- `REVIEWED_PRODUCTION_APPLIED`: 62
 - `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 5
 - `FIX_PENDING_PR392`: 1
 - `FIX_PENDING_PR394`: 2
 
-The matrix has 1959 file rows; 793 are not marked `UNREVIEWED`. Fix-pending, owner-pending, historical-exception and source-only statuses are not equivalent to merged or production-verified closure.
+The matrix has 1959 file rows; 794 are not marked `UNREVIEWED`. Fix-pending, owner-pending, historical-exception and source-only statuses are not equivalent to merged or production-verified closure.
 
 ## Review batch — 2026-11-17 (billing cancellation and legacy table retirement lineage)
 
