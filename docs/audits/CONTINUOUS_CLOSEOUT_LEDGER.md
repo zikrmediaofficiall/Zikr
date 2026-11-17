@@ -1,3 +1,16 @@
+## 2026-11-17T04:50:47.527Z — exact-head social deletion CI completion and artifact reconciliation
+
+**State: OPEN / NOT MERGE-READY.** The social deletion repair is verified on its exact head; repository-wide review and owner acceptance remain open.
+
+- PR #393 exact head 497562bb13092037dcaa841559f75a24ce133ba4: GitHub Quality Gate run 44019233186 completed SUCCESS. The job passed Deno Edge Function type-check, PostgreSQL 17 integration contracts (Kids result trigger, atomic Admin role update, video approval, reminder scheduling, prayer-location defaults, prophet/Kids publication policies, client privilege hardening, video retention RPC, admin write permissions, source-agent/prayer cron reconciliation, active queue uniqueness, site-audio upload-intent retention and social-publish platform contract), plus canonical source/architecture gate. package.json blob a52110598fcd327d898a552d40e8d6069588d05d includes scripts/tests/social-deletion.test.ts in pnpm test. CircleCI config-guard, source-verify and application-build-docs all passed on this exact SHA. Supabase Preview was skipped, not passed.
+- The PR #393 fix rejects malformed/duplicate array-shaped platformResults before either deletion claim or metadata-CAS. Regression tests assert stale/false and zero PATCH calls. No remote provider delete was invoked.
+- PR #344 documentation branch parent checkpoint 8aea93c1787c5c2d9ee7e9c15811be8be3f9d3da was open/draft with no submitted reviews or requested reviewers. Its matrix/inventory/status/ledger artifacts at that checkpoint were matrix 5993d39c42682ca3ad20b733464fa9ddc68c7c45, inventory 21f57abab22fa66c801a60837b0f4f9cd44f9c71, project status f0c3722895c8f8ff34c165c28775026333936f0e, and ledger f337d35622c9f10de62a45421b212369ea804608. This commit refreshes the matrix timestamp, inventory evidence, project status and ledger; the exact resulting branch head is recorded in the PR and final run report.
+- Main remains a0f51cdc3fc31503f12ddddba76e37d9e07a15f7 with immutable manifest blob baace6d0c66ac299edb541c7caceba56eeae19be. Matrix remains 1,959 rows, 1,180 UNREVIEWED (363 high-priority), 779 non-UNREVIEWED. Five historical destructive migrations remain owner-review exceptions.
+- PR #344 remains open/draft; CODEOWNERS owner approval, branch-protection verification, remaining 1,180 file reviews, historical data-retention confirmation, device acceptance, merge, Vercel deployment and production smoke checks are still outstanding.
+- No production SQL write, migration apply, cron/Edge Function invocation, social provider call, content generation, Gemini request, storage/media mutation, release, merge or deployment was performed.
+
+---
+
 ## 2026-11-17T04:48:48.273Z — billing migration lineage and historical-retention exception
 
 **State: OPEN / NOT MERGE-READY.** This is a bounded migration-lineage review; no production data was modified.
