@@ -10,7 +10,7 @@ const MAX_ADDRESS_LENGTH = 240;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600;
+export const revalidate = 0;
 
 function isValidCoordinate(value: string | null, min: number, max: number): value is string {
   if (typeof value !== 'string' || !value.trim()) return false;
@@ -118,10 +118,13 @@ export async function GET(request: NextRequest) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
   try {
+    const upstreamFetchOptions = upstreamDate
+      ? { next: { revalidate: 3600 } }
+      : { cache: 'no-store' as const };
     const upstream = await fetch(`${ALADHAN_API_BASE}/${endpointPath}?${params.toString()}`, {
       headers: { 'User-Agent': 'Zikr-App/1.0 (Prayer Times)' },
       signal: controller.signal,
-      next: { revalidate: 3600 },
+      ...upstreamFetchOptions,
     });
 
     if (!upstream.ok) {
@@ -142,12 +145,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
-        'CDN-Cache-Control': 'max-age=3600',
-      },
-    });
+    const responseCacheHeaders = upstreamDate
+      ? {
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+          'CDN-Cache-Control': 'max-age=3600',
+        }
+      : {
+          'Cache-Control': 'no-store',
+          'CDN-Cache-Control': 'no-store',
+        };
+    return NextResponse.json(data, { headers: responseCacheHeaders });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       return NextResponse.json(
