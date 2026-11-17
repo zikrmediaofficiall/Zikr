@@ -65,7 +65,7 @@ SQL
 # remove only the exact prayer dispatcher, not a same-name unrelated command.
 "${psql[@]}" -c "INSERT INTO cron.job (jobname, schedule, command, active)
 VALUES ('zikr-prayer-push-dispatch', '*/5 * * * *', 'SELECT 1', true);"
-"${psql[@]}" -f /workspace/supabase/migrations/20261117030000_guard_prayer_push_cron_without_pg_net.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261117050000_guard_prayer_push_cron_without_pg_net.sql
 "${psql[@]}" <<'SQL'
 DO $contract$
 DECLARE
@@ -97,7 +97,7 @@ SQL
 VALUES ('zikr-prayer-push-dispatch', '* * * * *', 'SELECT net.http_post(''https://zqtssvlvmkzeeyqghqfk.supabase.co/functions/v1/prayer-notification-worker''); SELECT public.get_push_scheduler_secret();', true);"
 "${psql[@]}" -c "DROP FUNCTION cron.unschedule(bigint);"
 guard_failure_log="$(mktemp)"
-if "${psql[@]}" -f /workspace/supabase/migrations/20261117030000_guard_prayer_push_cron_without_pg_net.sql >"$guard_failure_log" 2>&1; then
+if "${psql[@]}" -f /workspace/supabase/migrations/20261117050000_guard_prayer_push_cron_without_pg_net.sql >"$guard_failure_log" 2>&1; then
   cat "$guard_failure_log"
   rm -f "$guard_failure_log"
   echo "Expected the pg_net guard to fail when cron.unschedule(bigint) is unavailable." >&2
