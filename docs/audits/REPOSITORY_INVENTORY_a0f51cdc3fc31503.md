@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T04:45:34.757Z (matrix snapshot header reconciled with all file rows; exact-head checks refreshed)
+Updated: 2026-11-17T04:48:48.273Z (billing-retirement lineage and matrix row statuses reconciled)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T04:45:34.757Z (matrix snapshot header reconciled with all fi
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `8a9a931cd80e76037ac6dcf6f56d09c32e160262`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `5993d39c42682ca3ad20b733464fa9ddc68c7c45`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -37,9 +37,9 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - Total tracked file rows: **1959**
-- `UNREVIEWED`: **1185**
-- Non-`UNREVIEWED` file rows: **774**
-- High-priority `UNREVIEWED`: **368**
+- `UNREVIEWED`: **1180**
+- Non-`UNREVIEWED` file rows: **779**
+- High-priority `UNREVIEWED`: **363**
 
 - `DOCS_RECONCILIATION_PENDING`: 4
 - `FIX_PENDING_PR337`: 5
@@ -81,7 +81,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR391`: 1
 - `FIX_PENDING_PR392`: 1
 - `FIX_PENDING_PR393`: 2
-- `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 2
+- `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 5
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
@@ -93,11 +93,22 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_PRODUCTION_APPLIED`: 62
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 70
-- `REVIEWED_SOURCE_ONLY`: 292
+- `REVIEWED_SOURCE_ONLY`: 294
 - `SECURITY_FIX_PENDING_PR340`: 5
 - `UNREVIEWED`: 1185
 
 The matrix has 1959 file rows; 774 are not marked `UNREVIEWED`. A non-`UNREVIEWED` status may still be fix-pending or owner-pending; it is not equivalent to project closure.
+
+## Review batch — 2026-11-17 (billing cancellation and legacy table retirement lineage)
+
+- Read the full 20260807002000 global billing cancellation migration and the five 20260919 retirement/reconciliation files. The live Supabase migration ledger contains versions 20260807002000, 20260919021452, 20260919044739, 20260919045742 and 20260919060000.
+- The billing migration inserts a cancel_billing_globally audit row, sets every non-free user_subscriptions plan to free and changes every pending payment to rejected. The later 20261002130000 migration copies legacy admin_actions_audit rows into admin_audit_events before dropping the legacy audit table. A read-only production query confirms exactly one admin_audit_events row with action cancel_billing_globally. No billing rows or user identifiers were queried.
+- Current production catalog has no public.user_subscriptions, public.payments or public.subscriptions table. The two 20260919045742 / 20260919060000 migrations drop these and other legacy tables without row-copy logic. Their comments and Phase 17/18 documents say the legacy tables were audited empty, but those documents identify the older project ymxdswkaxafakugktsim; the active project zqtssvlvmkzeeyqghqfk was created 2026-11-06. No current-project pre-drop row-count or backup proof was found. These three destructive migrations are now HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED pending owner confirmation; no restore/recreate/replay was attempted.
+- The 20260919021452 and 20260919044739 files are SELECT 1 reconciliation markers only and are marked REVIEWED_SOURCE_ONLY.
+- Current row-level matrix: 1,959 file rows; 1,180 UNREVIEWED (363 high priority); 779 non-UNREVIEWED. Historical destructive review required now covers five rows. The immutable main manifest remains unchanged.
+- No production SQL write, migration apply, billing change, restore, cron, Edge Function, content generation, Gemini request, social provider call, storage operation, release, merge or deployment was performed.
+
+---
 
 ## Review batch — 2026-11-17 (social deletion ambiguity and matrix metadata reconciliation)
 

@@ -1,3 +1,16 @@
+## 2026-11-17T04:48:48.273Z — billing migration lineage and historical-retention exception
+
+**State: OPEN / NOT MERGE-READY.** This is a bounded migration-lineage review; no production data was modified.
+
+- Read the complete 20260807002000 cancellation migration and 20260919021452, 20260919044739, 20260919045742 and 20260919060000 retirement/reconciliation migrations. The live Supabase ledger contains all five versions.
+- 20260807002000 globally changes non-free subscriptions to free and pending payments to rejected, and inserts a cancel_billing_globally audit row. Current production has no public.user_subscriptions, payments or subscriptions table. Read-only SELECT confirms exactly one cancel_billing_globally event remains in public.admin_audit_events; migration 20261002130000 copied legacy admin_actions_audit rows before dropping that table.
+- 20260919045742 and 20260919060000 drop generated_research, research_requests, payments, user_subscriptions, subscriptions, saved_stories and episodes without row-copy logic. Their comments say the tables were audited empty, and Phase 17/18 documents record empty-table evidence for older project ymxdswkaxafakugktsim. The active project zqtssvlvmkzeeyqghqfk was created 2026-11-06; no pre-drop row-count/backup proof for this current project was found. Marked the billing cancellation and both retirement migrations HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED. The two reconciliation markers contain only SELECT 1 and are REVIEWED_SOURCE_ONLY.
+- Matrix row totals now reconcile to 1,959: 1,180 UNREVIEWED, 363 high-priority UNREVIEWED, 779 non-UNREVIEWED, and five historical destructive review exceptions. Inventory and Project Status point to the refreshed matrix/inventory blobs; main manifest remains unchanged.
+- Owner action: confirm whether any legacy billing/payment/subscription data was expected to transfer from the older project and whether the global cancellation was intended. Do not restore/recreate retired tables or reverse statuses without an approved data-recovery procedure and provider reconciliation.
+- No production SQL write, migration apply, billing change, restore, cron, Edge Function, provider call, content generation, Gemini request, storage/media operation, release, merge or deployment was performed.
+
+---
+
 ## 2026-11-17T04:45:34.757Z — social deletion ambiguity fix, matrix reconciliation and exact-head CI refresh
 
 **State: OPEN / NOT MERGE-READY.** This is a bounded source review and metadata reconciliation, not a repository-wide closure.
