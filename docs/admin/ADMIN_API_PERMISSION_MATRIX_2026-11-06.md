@@ -40,7 +40,7 @@
 | POST | `/api/admin/videos/[id]/retry` | `video.manage`; `kids.manage` for Kids audience only |
 | GET | `/api/admin/videos/[id]` | `video.manage`; `kids.manage` for Kids audience |
 | PATCH | `/api/admin/videos/[id]` | `video.manage`; `kids.manage` for Kids audience only |
-| DELETE | `/api/admin/videos/[id]` | `video.delete` |
+| DELETE | `/api/admin/videos/[id]` | `video.delete`؛ و`kids.manage` إضافية لطلبات الأطفال |
 | POST | `/api/admin/videos/create` | `video.manage`, `kids.manage` (Kids audience only) |
 | GET | `/api/admin/videos` | `video.manage`; `kids.manage` for Kids rows |
 | POST | `/api/admin/videos/upload` | `video.manage` |
@@ -59,7 +59,7 @@
 - إنشاء فيديو موجّه للأطفال عبر POST `/api/admin/videos/create` يتطلب `video.manage` مع MFA step-up و`kids.manage`؛ إنشاء الفيديو العام يظل تحت `video.manage` فقط.
 - نشر الفيديو داخل موقع ZIKR يستخدم `content_publish_queue` و`video.manage`، ولا يحتاج صلاحيات النشر الاجتماعي.
 - إعادة محاولة النشر الخارجي للفيديو متوقفة وتعيد HTTP 410.
-- حذف طلب فيديو أو سجل فيديو يحتاج `video.delete`، وليس `video.manage` وحدها.
+- حذف طلب فيديو أو سجل فيديو يحتاج `video.delete`، وليس `video.manage` وحدها؛ وحذف طلب أطفال يحتاج `kids.manage` أيضًا من المدير نفسه.
 - رفع الوسائط أو طلب رابط رفع يحتاج صلاحية مجال الوسائط أو الفيديو بحسب نوع الأصل.
 - جميع عمليات التعديل والإرسال الحساسة تسجل Audit وفق عقود الخدمة؛ استثناءات القراءة و405 لا تنشئ أحداثًا وهمية.
 - فاحص `scripts/verify-admin-api-guards.mjs` يتحقق من وجود الحارس قبل العمل المحمي، ويقارن قائمة الصلاحيات الفعلية بالمصفوفة أعلاه لكل معالج. أي مسار جديد يحتاج إضافة واعتماد سجل صريح قبل اجتياز Quality Gate.

@@ -12,7 +12,8 @@ import { PurgeGeneratedVideosControl } from "@/features/admin/components/purge-g
 import { redirectToAdminStepUp } from "@/features/admin/utils/step-up-client";
 import type { VideoGenerationRequest } from "@/features/videos/services/video-automation";
 
-type Status = "pending" | "processing" | "retry_wait" | "completed" | "failed";
+type Status = "pending" | "processing" | "retry_wait" | "completed" | "failed" | "cancelled";
+type QueueFilter = "all" | "review" | Status;
 type ApprovalCheckKey = "sourceVerified" | "audioReviewed" | "visualsReviewed" | "captionsReviewed" | "rightsReviewed";
 const APPROVAL_CHECKS: ReadonlyArray<{ key: ApprovalCheckKey; label: string }> = [
   { key: "sourceVerified", label: "راجعت المصدر الأصلي وتطابق النص معه." },
@@ -41,6 +42,7 @@ const STATUS_LABELS: Record<Status, string> = {
   completed: "مكتمل",
   retry_wait: "إعادة المحاولة لاحقًا",
   failed: "فشل",
+  cancelled: "ملغى",
 };
 
 const STATUS_CLASSES: Record<Status, string> = {
@@ -49,13 +51,14 @@ const STATUS_CLASSES: Record<Status, string> = {
   completed: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300",
   retry_wait: "border-violet-500/25 bg-violet-500/10 text-violet-300",
   failed: "border-red-500/25 bg-red-500/10 text-red-300",
+  cancelled: "border-slate-500/25 bg-slate-500/10 text-slate-300",
 };
 
-type AdminVideoRequestsClientProps = { canManageKids: boolean };
+type AdminVideoRequestsClientProps = { canManageKids: boolean; canDelete?: boolean; reviewOnly?: boolean };
 
-export default function AdminVideoRequestsClient({ canManageKids }: AdminVideoRequestsClientProps) {
+export default function AdminVideoRequestsClient({ canManageKids, canDelete = false, reviewOnly = false }: AdminVideoRequestsClientProps) {
   const [requests, setRequests] = useState<VideoGenerationRequest[]>([]);
-  const [filter, setFilter] = useState<"all" | Status>("all");
+  const [filter, setFilter] = useState<QueueFilter>(reviewOnly ? "review" : "all");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -93,13 +96,43 @@ export default function AdminVideoRequestsClient({ canManageKids }: AdminVideoRe
       completed: requests.filter((r) => r.status === "completed").length,
       retry_wait: requests.filter((r) => r.status === "retry_wait").length,
       failed: requests.filter((r) => r.status === "failed").length,
+      cancelled: requests.filter((r) => r.status === "cancelled").length,
+      review: requests.filter((r) => r.stale_processing || (r.status === "completed" && Boolean(r.video_url) && !isContentApproved(r.content)) || r.status === "failed" || r.status === "cancelled").length,
     }),
     [requests],
   );
 
   const visible = filter === "all"
     ? requests
-    : requests.filter((request) => request.status === filter);
+    : filter === "review"
+      ? requests.filter((request) => request.stale_processing || (request.status === "completed" && Boolean(request.video_url) && !isContentApproved(request.content)) || request.status === "failed" || request.status === "cancelled")
+      : requests.filter((request) => request.status === filter);
+
+  function isSafelyDeletable(request: VideoGenerationRequest): boolean {
+    const audience = resolveVideoRequestAudience(request.content);
+    return audience.ok && (audience.audience !== "kids" || canManageKids) &&
+      (request.status === "failed" || request.status === "cancelled") &&
+      !request.video_url && !request.youtube_id && !request.facebook_id &&
+      !request.heygen_video_id && !request.provider_job_id;
+  }
+
+  async function deleteRequest(request: VideoGenerationRequest) {
+    if (!canDelete || !isSafelyDeletable(request) || !window.confirm(`تأكيد حذف طلب الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`)) return;
+    setBusyId(request.id); setError(""); setMessage("");
+    try {
+      const response = await fetch(`/api/admin/videos/${encodeURIComponent(request.id)}`, {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmed: true, expectedUpdatedAt: request.updated_at }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
+      if (!response.ok) throw new Error(data.error || "تعذر حذف طلب الفيديو.");
+      setMessage("حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "تعذر حذف طلب الفيديو.");
+    } finally { setBusyId(null); }
+  }
 
   async function retry(id: string) {
     setBusyId(id);
@@ -164,14 +197,15 @@ export default function AdminVideoRequestsClient({ canManageKids }: AdminVideoRe
           <a href="#voices" className="rounded-xl border border-brand-gold/10 px-4 py-2 text-sm text-brand-cream/65 hover:border-brand-gold/25 hover:text-brand-gold">الأصوات</a>
           <span className="mx-1 h-6 w-px bg-brand-gold/10" aria-hidden="true" />
           <Link href="/admin/video/studio" className="rounded-xl border border-brand-gold/20 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">استوديو الإنشاء</Link>
+          <Link href="/admin/video/review" className="rounded-xl border border-brand-gold/20 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">مراجعة الفيديوهات المتوقفة</Link>
           <Link href="/admin/social" className="rounded-xl border border-brand-gold/10 px-4 py-2 text-sm text-brand-cream/65 hover:border-brand-gold/25 hover:text-brand-gold">النشر الاجتماعي</Link>
           <Link href="/admin/automation" className="rounded-xl border border-brand-gold/10 px-4 py-2 text-sm text-brand-cream/65 hover:border-brand-gold/25 hover:text-brand-gold">التشغيل الآلي</Link>
         </div>
       </nav>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs tracking-[0.2em] text-brand-cream/30">طابور الفيديو</p>
-          <h1 className="mt-2 text-3xl font-bold text-brand-gold">طابور توليد الفيديو</h1>
+          <p className="text-xs tracking-[0.2em] text-brand-cream/30">{reviewOnly ? "مراجعة الفيديو" : "طابور الفيديو"}</p>
+          <h1 className="mt-2 text-3xl font-bold text-brand-gold">{reviewOnly ? "مراجعة الفيديوهات المتوقفة والجاهزة للنشر" : "طابور توليد الفيديو"}</h1>
           <p className="mt-2 text-sm leading-7 text-brand-cream/50">هذه الصفحة للمراقبة وإعادة المحاولة والتفاصيل فقط. إنشاء الطلبات موجود في استوديو الفيديو حتى لا تتكرر أدوات الإنشاء.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -186,7 +220,11 @@ export default function AdminVideoRequestsClient({ canManageKids }: AdminVideoRe
       {message && <div role="status" className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm text-emerald-200">{message}</div>}
 
       <section id="queue" className="grid grid-cols-2 gap-3 md:grid-cols-6 scroll-mt-24">
-        {(["all", "pending", "processing", "retry_wait", "completed", "failed"] as const).map((status) => (
+        <button type="button" onClick={() => setFilter("review")} className={`rounded-2xl border p-4 text-right transition ${filter === "review" ? "border-brand-gold/40 bg-brand-gold/10" : "border-brand-gold/10 bg-black/15"}`}>
+          <span className="text-xs text-brand-cream/45">مراجعة المتوقفة</span>
+          <span className="mt-1 block text-2xl font-bold text-brand-gold">{counts.review}</span>
+        </button>
+        {(["all", "pending", "processing", "retry_wait", "completed", "failed", "cancelled"] as const).map((status) => (
           <button
             key={status}
             type="button"
@@ -224,6 +262,7 @@ export default function AdminVideoRequestsClient({ canManageKids }: AdminVideoRe
                   <div className="mt-2 flex flex-wrap gap-3 text-xs text-brand-cream/35">
                     <span>الفئة: {request.category}</span>
                     <span>{new Date(request.created_at).toLocaleString("ar-EG-u-nu-latn")}</span>
+                    {request.stale_processing && <span className="text-amber-300">متوقف: تجاوز مهلة العامل</span>}
                     {request.video_url && <a href={request.video_url} target="_blank" rel="noopener noreferrer" className="text-brand-gold hover:underline">فتح الفيديو</a>}
                   </div>
                 </div>
@@ -234,6 +273,7 @@ export default function AdminVideoRequestsClient({ canManageKids }: AdminVideoRe
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
                     return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
                   })()}
+                  {canDelete && isSafelyDeletable(request) && <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>حذف سجل الطلب</Button>}
                 </div>
               </div>
               {request.error_message && (

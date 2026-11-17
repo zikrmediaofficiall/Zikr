@@ -12,7 +12,7 @@ export default async function AdminVideoRequestsPage() {
   return (
     <Container className="py-8">
       <AdminBreadcrumbs current="طلبات الفيديو" />
-      <AdminVideoRequestsClient canManageKids={canManageKids} />
+      <AdminVideoRequestsClient canManageKids={canManageKids} canDelete={hasAdminPermission(admin.role, "video.delete")} />
     </Container>
   );
 }

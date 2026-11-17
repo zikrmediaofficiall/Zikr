@@ -4645,6 +4645,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      admin_delete_unreferenced_video_generation_request: {
+        Args: { p_expected_updated_at: string; p_request_id: string }
+        Returns: { deleted_id: string }[]
+      }
       ensure_push_vapid_bundle: { Args: { candidate: Json }; Returns: Json }
       get_push_scheduler_secret: { Args: never; Returns: string }
       get_push_vapid_bundle: { Args: never; Returns: Json }

@@ -184,6 +184,9 @@
       "path": "/admin/video/requests"
     },
     {
+      "path": "/admin/video/review"
+    },
+    {
       "path": "/admin/video/scripts"
     },
     {

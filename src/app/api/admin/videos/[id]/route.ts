@@ -109,7 +109,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminStepUpApi('video.delete', '/admin/video/requests');
   if (!auth.ok) {
     return NextResponse.json(
@@ -118,14 +118,49 @@ export async function DELETE() {
     );
   }
 
-  return NextResponse.json(
-    {
-      error: 'حذف سجلات طلبات التوليد معطل حتى اكتمال مراجعة مراجع الوسائط والطابور.',
-      code: 'VIDEO_REQUEST_DELETE_REQUIRES_REFERENCE_AUDIT',
-      deletionStarted: false,
-      recordsDeleted: 0,
-      message: 'No rows were changed.',
-    },
-    { status: 410, headers: { 'Cache-Control': 'no-store' } },
-  );
+  try {
+    const { id } = await context.params;
+    if (!VIDEO_REQUEST_ID_PATTERN.test(id)) {
+      return NextResponse.json({ error: 'معرّف طلب الفيديو غير صالح.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+    }
+    const parsed = await readBoundedJsonBody(request);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status, headers: { 'Cache-Control': 'no-store' } });
+    const body = parsed.value && typeof parsed.value === 'object' && !Array.isArray(parsed.value) ? parsed.value as Record<string, unknown> : {};
+    if (body.confirmed !== true || typeof body.expectedUpdatedAt !== 'string' || !Number.isFinite(Date.parse(body.expectedUpdatedAt))) {
+      return NextResponse.json({ error: 'يلزم تأكيد الحذف وإرسال نسخة الطلب الحالية.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+    }
+    const currentRows = await supabaseServerAdminRequest<Array<VideoGenerationRequest>>(`/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(id)}&limit=1`);
+    const current = currentRows?.[0];
+    if (!current) return NextResponse.json({ error: 'طلب الفيديو غير موجود.' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    const audience = resolveVideoRequestAudience(current.content);
+    if (!audience.ok) return NextResponse.json({ error: 'بيانات جمهور الطلب غير صالحة؛ تم منع الحذف.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
+    if (audience.audience === 'kids') {
+      const kidsAuth = await requireAdminApi('kids.manage');
+      if (!kidsAuth.ok || kidsAuth.profile.id !== auth.profile.id) {
+        return NextResponse.json({ error: kidsAuth.ok ? 'Unauthorized' : kidsAuth.error }, { status: kidsAuth.ok ? 401 : kidsAuth.status, headers: { 'Cache-Control': 'no-store' } });
+      }
+    }
+    if (current.updated_at !== body.expectedUpdatedAt) return NextResponse.json({ error: 'تغير الطلب بعد تحميله؛ حدّث القائمة قبل الحذف.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
+    const deletedRows = await supabaseServerAdminRequest<Array<{ deleted_id: string }>>('/rest/v1/rpc/admin_delete_unreferenced_video_generation_request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      body: JSON.stringify({ p_request_id: id, p_expected_updated_at: body.expectedUpdatedAt }),
+    });
+    if (deletedRows?.length !== 1 || deletedRows[0]?.deleted_id !== id) return NextResponse.json({ error: 'لم يُحذف الطلب؛ حدّث القائمة وتحقق من مراجع الوسائط.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
+    const auditRecorded = await runPostCommitAudit(
+      () => recordAdminAuditEvent({
+        action: 'video_generation.delete_unreferenced', permission: 'video.delete', resourceType: 'video_generation_requests', resourceId: id,
+        metadata: { previousStatus: current.status, audience: audience.audience, mediaAndReferencesVerifiedAbsent: true },
+      }),
+      error => console.error('[api/admin/videos/[id]] delete audit failed after committed deletion:', error),
+    );
+    return NextResponse.json({ ok: true, deletedId: id, auditRecorded }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/VIDEO_REQUEST_DELETE_(?:CONFLICT|NOT_TERMINAL|HAS_MEDIA|REFERENCED_BY_)/.test(message)) {
+      return NextResponse.json({ error: 'تعذر حذف الطلب: حالته تغيرت أو ما زال مرتبطًا بوسيط أو سجل في المكتبة أو طابور النشر. لم يُحذف أي شيء.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
+    }
+    console.error('[api/admin/videos/[id]] DELETE:', error);
+    return NextResponse.json({ error: 'تعذر حذف طلب الفيديو.' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+  }
 }

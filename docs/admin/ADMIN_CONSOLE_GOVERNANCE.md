@@ -4,7 +4,7 @@
 **مصدر الحقيقة للتنقل:** `src/features/admin/config/navigation.ts`  
 **مصدر الحقيقة للصلاحيات:** `src/features/admin/services/permissions.ts`
 
-تعتمد اللوحة على 10 مناطق تنقل تشغيلية تضم 47 رابطًا إداريًا ظاهرًا. مصدر الحقيقة للمسارات هو `src/features/admin/config/navigation.ts`، بينما يربط `src/features/admin/config/modules.ts` كل مجال بمالكه وصلاحياته وجداوله دون إعادة تعريف المسارات. ملف التنقل هو المصدر المنفرد لترتيب الصفحات والأيقونات، بينما يرشّح `src/app/admin/layout.tsx` الروابط بحسب دور المستخدم. لا تُضاف روابط إلى قائمة الإدارة قبل وجود صفحة فعلية وفحص صلاحية خادمي.
+تعتمد اللوحة على 10 مناطق تنقل تشغيلية تضم 48 رابطًا إداريًا ظاهرًا. مصدر الحقيقة للمسارات هو `src/features/admin/config/navigation.ts`، بينما يربط `src/features/admin/config/modules.ts` كل مجال بمالكه وصلاحياته وجداوله دون إعادة تعريف المسارات. ملف التنقل هو المصدر المنفرد لترتيب الصفحات والأيقونات، بينما يرشّح `src/app/admin/layout.tsx` الروابط بحسب دور المستخدم. لا تُضاف روابط إلى قائمة الإدارة قبل وجود صفحة فعلية وفحص صلاحية خادمي.
 
 ### المسارات الرسمية المضافة في مركز التشغيل
 
@@ -13,6 +13,7 @@
 - مركز الطوابير: `/admin/queues` بصلاحية `dashboard.view`.
 - مركز الفيديو والإنتاج: `/admin/video` بصلاحية `video.manage`.
 - طلبات الفيديو والطابور: `/admin/video/requests` بصلاحية `video.manage`.
+- مراجعة الفيديوهات المتوقفة: `/admin/video/review` بصلاحية `video.manage`؛ الحذف يتطلب `video.delete` وتحققًا خادميًا من عدم وجود مراجع.
 - استوديو الفيديو: `/admin/video/studio` بصلاحية `video.manage`.
 - مكتبة المحتوى الموثق: `/admin/video/studio/curated` بصلاحية `video.manage`.
 - مصادر الفيديو: `/admin/video/sources` بصلاحية `video.manage`.
@@ -66,6 +67,7 @@
 |---|---|---|
 | `/admin/video` | مركز الفيديو والإنتاج | `video.manage` |
 | `/admin/video/requests` | طلبات الفيديو والطابور | `video.manage` |
+| `/admin/video/review` | مراجعة الفيديوهات المتوقفة | `video.manage`؛ حذف السجل المنتهي يتطلب `video.delete` وغياب المراجع |
 | `/admin/video/studio` | استوديو الفيديو | `video.manage` |
 | `/admin/video/studio/curated` | المحتوى الموثق للفيديو | `video.manage` |
 | `/admin/video/sources` | مصادر الفيديو | `video.manage` |
@@ -154,7 +156,7 @@
 | الحسابات والصلاحيات | `/admin/users`, `/admin/security` | `profiles`, `admin_role_assignments` | تغيير الأدوار عبر Server Actions المحمية، مع MFA للعمليات الحساسة وسجل تدقيق. |
 | التدقيق والإعدادات | `/admin/audit`, `/admin/settings` | `admin_audit_events`, `admin_settings`, `admin_rate_limits` | أحداث الإدارة تضاف عبر خدمة التدقيق؛ لا تسجل الرموز أو كلمات المرور أو مفاتيح السر. |
 | المحتوى والمعرفة | `/admin/content`, `/admin/library`, `/admin/editorial`, `/admin/knowledge` | `content_library`, `content_revisions`, `articles`, `stories`, `hadiths`, `duas`, `prophets`, `companions`, `scholars` | تُراجع صلاحية القراءة/التعديل/النشر مستقلة، ولا يكفي إخفاء الرابط من القائمة. |
-| الفيديو والوسائط | `/admin/video`, `/admin/video/requests`, `/admin/video/studio`, `/admin/video/sources`, `/admin/video/scripts`, `/admin/video/voices`, `/admin/video/visuals`, `/admin/video/templates`, `/admin/video/qa`, `/admin/media` | `videos`, `video_generation_requests`, `media_assets` وموارد التخزين | لا يُعلن عن تنفيذ فوري إذا كانت العملية قد دخلت طابور عامل مجدول. |
+| الفيديو والوسائط | `/admin/video`, `/admin/video/requests`, `/admin/video/review`, `/admin/video/studio`, `/admin/video/sources`, `/admin/video/scripts`, `/admin/video/voices`, `/admin/video/visuals`, `/admin/video/templates`, `/admin/video/qa`, `/admin/media` | `videos`, `video_generation_requests`, `media_assets` وموارد التخزين | لا يُعلن عن تنفيذ فوري إذا كانت العملية قد دخلت طابور عامل مجدول. |
 | سجل المنصات التاريخي | غير ظاهر في التنقل | `social_publish_queue`, `social_sync_jobs`, `social_platform_credentials` | سجلات للقراءة والتدقيق فقط؛ لا مهام نشر جديدة ولا سياسات قراءة عامة لبيانات OAuth. |
 | الأطفال والألعاب | `/admin/kids` وما يتفرع عنها | `kids_content`, `kids_games`, `kids_game_levels`, `kids_game_questions`, `kids_game_results` وجداول التقدم والنتائج | تعديلات اللعب ونتائج الأطفال تُفحص بعقود الاختبار وسياسات RLS الخاصة بالمجال. |
 | الصوت | `/admin/audio`, `/admin/site-audio` | `site_audio_assets` ومصادر الصوت | تُختبر روابط الأصول وحالات فشل التحميل؛ لا تُعرض حالة نجاح وهمية عند فشل القراءة. |
