@@ -228,6 +228,50 @@ export async function recordKidsGameResultForUser(
     newly_unlocked: string[] | null;
   };
 
+  // A duplicate submission must return the persisted result, not the retry
+  // payload. Clients may resend the same key after a timeout with stale or
+  // altered local state; the idempotency key makes the first stored result canonical.
+  let persistedResult = {
+    id: row.result_id,
+    gameId: payload.gameId,
+    score: payload.score,
+    collectibles: payload.collectibles,
+    distance: payload.distance,
+    xpAwarded: row.xp_awarded,
+    difficulty: payload.difficulty,
+  };
+
+  if (row.duplicate) {
+    const { data: storedResult, error: storedResultError } = await admin
+      .from("kids_game_results")
+      .select("id,game_id,score,collectibles,distance,xp_awarded,difficulty")
+      .eq("id", row.result_id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (storedResultError || !storedResult) {
+      console.error(
+        "[kids-games] duplicate result lookup failed",
+        storedResultError?.code ?? "missing_result",
+      );
+      return {
+        success: false,
+        status: 500,
+        error: "Could not load saved game result",
+      };
+    }
+
+    persistedResult = {
+      id: storedResult.id,
+      gameId: storedResult.game_id,
+      score: storedResult.score,
+      collectibles: storedResult.collectibles,
+      distance: storedResult.distance,
+      xpAwarded: storedResult.xp_awarded,
+      difficulty: storedResult.difficulty,
+    };
+  }
+
   return {
     success: true,
     duplicate: Boolean(row.duplicate),
@@ -236,15 +280,7 @@ export async function recordKidsGameResultForUser(
       level: row.player_level,
     },
     achievements: row.newly_unlocked ?? [],
-    result: {
-      id: row.result_id,
-      gameId: payload.gameId,
-      score: payload.score,
-      collectibles: payload.collectibles,
-      distance: payload.distance,
-      xpAwarded: row.xp_awarded,
-      difficulty: payload.difficulty,
-    },
+    result: persistedResult,
   };
 }
 
