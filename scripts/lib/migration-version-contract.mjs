@@ -9,7 +9,7 @@ export function findDuplicateMigrationVersions(files) {
 
   for (const file of files) {
     const name = String(file).split(/[\\/]/).pop() ?? String(file);
-    const match = /^(\\d+)_/.exec(name);
+    const match = /^(\d+)_/.exec(name);
     if (!match) continue;
 
     const version = match[1];
