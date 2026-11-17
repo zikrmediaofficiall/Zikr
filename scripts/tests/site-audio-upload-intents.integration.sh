@@ -34,6 +34,7 @@ fi
 psql=(docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U postgres -d zikr_site_audio_upload_intents_test)
 "${psql[@]}" -f /workspace/scripts/tests/site-audio-upload-intents.integration-setup.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261114000000_site_audio_upload_intents.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261117090000_site_audio_upload_intents_asset_id_index.sql
 "${psql[@]}" -f /workspace/scripts/tests/site-audio-upload-intents.integration.sql
 
 echo "Site-audio upload-intent integration passed."

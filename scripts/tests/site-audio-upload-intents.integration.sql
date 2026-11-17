@@ -59,6 +59,22 @@ BEGIN
     RAISE EXCEPTION 'the cleanup index must cover deleting and detached registered intents';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    JOIN pg_class index_row ON index_row.oid = i.indexrelid
+    JOIN pg_attribute column_row
+      ON column_row.attrelid = i.indrelid
+     AND column_row.attnum = ANY(i.indkey)
+    WHERE i.indrelid = 'public.site_audio_upload_intents'::regclass
+      AND index_row.relname = 'site_audio_upload_intents_asset_id_idx'
+      AND column_row.attname = 'asset_id'
+      AND i.indisvalid
+      AND i.indisready
+  ) THEN
+    RAISE EXCEPTION 'the asset_id foreign key must have a valid supporting index';
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
