@@ -1,3 +1,18 @@
+## 2026-11-17T04:45:34.757Z — social deletion ambiguity fix, matrix reconciliation and exact-head CI refresh
+
+**State: OPEN / NOT MERGE-READY.** This is a bounded source review and metadata reconciliation, not a repository-wide closure.
+
+- Main remains a0f51cdc3fc31503f12ddddba76e37d9e07a15f7, tree 7a73fa9af3ae0de67275dd33c4a1f8f18038d909. The immutable recursive manifest remains blob baace6d0c66ac299edb541c7caceba56eeae19be (1,959 files / 500 directories); no main source or manifest entry changed.
+- Matrix row audit: 1,959 file rows, 1,185 UNREVIEWED, 368 high-priority UNREVIEWED, 774 non-UNREVIEWED. The matrix first-line snapshot had stale counts (1,205 / 377 and stale per-status totals) even though the file rows were current. Recomputed the first-line status_counts, unreviewed_count, high_priority_unreviewed_count, updated_at and latest_note from the rows. Inventory and Project Status references now point to the refreshed matrix/inventory blob SHAs; the manifest remains immutable.
+- PR #393 social deletion guard: read the complete admin delete_published route, queue metadata helper, provider deletion adapter, visibility helper, platform-result parser and test suite. Found duplicate legacy array entries for one provider could pass the first-match remote-ID lookup despite hasMalformedSocialPlatformResults treating the ledger as ambiguous. Added a shared malformed-ledger preflight so both claim and metadata-CAS paths fail closed; regression tests assert no PATCH for duplicate provider entries. Exact head 497562bb13092037dcaa841559f75a24ce133ba4. Quality Gate was queued/in progress at this checkpoint; no exact-head pass is claimed. Supabase Preview skipped. Previous head b386dd58de04cf49a6330d582409e8c1f1b6dad2 passed its own Quality Gate and all three CircleCI contexts; not reused for the new head.
+- PR #389 optional pg_net cron guard: exact head b788f56d03caf22085b0e87c059665fa81c12957; GitHub Quality Gate 44016678846 passed, Android Debug APK 44016678960 passed, and CircleCI config-guard/source-verify/application-build-docs passed. Supabase Preview skipped. The migration was source-reviewed and integration-tested in PostgreSQL 17 CI but was not applied to production; no cron ran.
+- PR #387 Quran audio public-column boundary remains open/unmerged; exact head 3135b5216fb82111f2072e38da97e45da59128ac has Quality Gate, Android Debug and all three CircleCI contexts passed; Supabase Preview skipped. Its migration was not applied.
+- PR #375 current head remains e4b42e6d331ed9ee3d91207b9ecbd96ea3611291; Quality Gate and CircleCI config-guard/source-verify/application-build-docs passed; Supabase Preview skipped. PR #376 remains open at f4f37ab05f1e6b8f4fd529f1aaeb7bdcb5c69813; no submitted reviews are recorded for #375, #376, #387, #389 or #393.
+- PR #344 documentation branch remains open/draft at its pre-update head; no submitted reviews or requested reviewers are recorded. CODEOWNERS/owner approval remains a hard gate. Branch-protection settings remain unreadable to this connection.
+- No provider API call, remote post deletion, production SQL/DDL/DML, migration apply, cron/Edge Function invocation, content generation, Gemini request, storage/media operation, Android/iOS release, merge, Vercel deployment or production smoke action was performed.
+
+---
+
 # ZIKR Continuous Closeout Ledger
 
 ## 2026-11-17T02:17Z — admin video deletion, Kids search, Quran ACL and stories RLS follow-up

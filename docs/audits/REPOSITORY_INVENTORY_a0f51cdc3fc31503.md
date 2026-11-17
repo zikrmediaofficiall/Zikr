@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T04:34:36.981Z (reconciled with RLS/contact review batch)
+Updated: 2026-11-17T04:45:34.757Z (matrix snapshot header reconciled with all file rows; exact-head checks refreshed)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T04:34:36.981Z (reconciled with RLS/contact review batch)
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `78e1c23e6bc97cd4fa171da7063bd4c65e9c5aaa`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `8a9a931cd80e76037ac6dcf6f56d09c32e160262`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -98,6 +98,17 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `UNREVIEWED`: 1185
 
 The matrix has 1959 file rows; 774 are not marked `UNREVIEWED`. A non-`UNREVIEWED` status may still be fix-pending or owner-pending; it is not equivalent to project closure.
+
+## Review batch — 2026-11-17 (social deletion ambiguity and matrix metadata reconciliation)
+
+- Read the complete social admin POST route delete_published path, queue metadata helper, provider deletion adapter, deletion visibility helper, platform-result parser and focused deletion regression suite on PR #393.
+- Found a second fail-open case beyond the explicit cross-platform-key mismatch: legacy array-shaped platformResults with duplicate entries for the same provider could be accepted by the first-match lookup in successfulPlatformRemoteId. The route also selects the first matching result, then calls the claim helper; without a malformed-ledger guard, the claim could persist and permit a remote provider delete against an ambiguous record.
+- PR #393 adds hasMalformedSocialPlatformResults preflight to the shared remote-ID resolver. Both the deletion-claim and metadata-CAS paths now reject duplicate/invalid ledgers before PATCH. Regression tests assert stale / false and zero PATCH calls for duplicate YouTube entries. New exact head: 497562bb13092037dcaa841559f75a24ce133ba4; GitHub Quality Gate was queued/in progress at this checkpoint, so no result is claimed yet. Supabase Preview was skipped. Prior head b386dd58de04cf49a6330d582409e8c1f1b6dad2 passed its own Quality Gate and all three CircleCI contexts; those results do not cover the new head.
+- PR #389 exact head b788f56d03caf22085b0e87c059665fa81c12957: Quality Gate run 44016678846 passed, Android Debug APK run 44016678960 passed, and CircleCI config-guard/source-verify/application-build-docs all passed. Supabase Preview was skipped. The new forward migration is not applied; no cron was executed.
+- The matrix row-level statuses total exactly 1,959 and contain 1,185 UNREVIEWED rows (368 high-priority). Its snapshot header still reported 1,205 / 377 and stale per-status counts; the header is now recomputed from the row data. The immutable main manifest remains unchanged at blob baace6d0c66ac299edb541c7caceba56eeae19be; PR-only source files are not inserted into the main manifest.
+- No social provider call/deletion, production SQL/DDL/DML, migration apply, cron/Edge Function invocation, content generation, Gemini request, storage/media operation, release, merge or deployment was performed.
+
+---
 
 ## Review batch — 2026-11-17 (RLS history and contact submission)
 
