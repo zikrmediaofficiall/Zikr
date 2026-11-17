@@ -3115,9 +3115,9 @@ No production SQL mutation, migration execution, data repair, content generation
 - Main snapshot commit: `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`; manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be`; 1,959 tracked blobs / 500 directories.
 - File-status matrix blob: `a770d973af13c64c8ebfa683ad5555ea0e6ecd32`; 1,215 UNREVIEWED (387 high priority), 744 other statuses, 742 reviewed blobs by matrix counter, 740 reviewed/non-historical excluding two historical destructive-review rows.
 - Inventory blob: `f5cce8ccbf92c8886f42486564c1b309768a49d8`.
-- Project status blob: `70d2e595b995e5b3f1befc5e3e0520d5cdfee074`.
+- Project status blob: `f09c3cef6227daf240cfbd3da08a4694a9d9a457`.
 - Supabase remote migration ledger blob: `10477aea61b3d94c4008dca13d640a7a1059c50b`.
-- Current documentation PR #344 exact head: `804de210f2518ca62252cbf1e5dcd0202ae33df5`; Quality Gate run `44006594158` pending and all three CircleCI contexts pending. This head is not verified/merge-ready.
+- Documentation PR #344 head immediately before this final ledger update: `49ffb17fe8d75449214979f822206756fc3ddaa4`; Quality Gate run `44006594158` and all three CircleCI contexts were pending at the last poll. The ledger update itself creates the final head recorded in the final response; this new head must be rechecked before merge.
 
 ### New code findings and repairs
 - Stories: the public list/detail/search path consumes `getStories`; the active search RPC is SECURITY INVOKER and filters approved/global stories, but `getStories` previously served `FALLBACK_STORIES` on a successful empty response and on a mixed response containing any non-public row. PR #390 exact head `c31659453b3fec443444266e9c14d905fbb9a930` filters public rows and preserves a successful empty response as empty. Quality Gate `44005956230` is in progress; CircleCI config-guard/application-build-docs passed, source-verify pending. No production content row changed.
