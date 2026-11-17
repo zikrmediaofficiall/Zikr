@@ -13,7 +13,7 @@ import { normalizeArabicSearchText } from "@/lib/search/arabic-normalization";
 
 export type PublicSearchResult = {
   id: string;
-  type: "surah" | "hadith" | "dua" | "story" | "article" | "prophet" | "companion" | "scholar";
+  type: "surah" | "ayah" | "hadith" | "dua" | "story" | "article" | "prophet" | "companion" | "scholar";
   labelAr: string;
   title: string;
   subtitle: string;
@@ -40,14 +40,15 @@ async function legacyGlobalSearch(query: string): Promise<PublicSearchResult[]> 
 
   const results: PublicSearchResult[] = [];
 
-  for (const surah of quran.slice(0, MAX_RESULTS_PER_TYPE)) {
+  for (const ayah of quran.slice(0, MAX_RESULTS_PER_TYPE)) {
+    if (!ayah.surahNumber) continue;
     results.push({
-      id: `quran-${surah.number}`,
-      type: "surah",
+      id: `quran-${ayah.surahNumber}-${ayah.numberInSurah}`,
+      type: "ayah",
       labelAr: "آية",
-      title: surah.text.slice(0, 90),
-      subtitle: `القرآن الكريم — آية ${surah.numberInSurah}`,
-      href: "/quran",
+      title: ayah.text.slice(0, 90),
+      subtitle: `القرآن الكريم — سورة ${ayah.surahNumber} — آية ${ayah.numberInSurah}`,
+      href: `/quran/${ayah.surahNumber}/${ayah.numberInSurah}`,
     });
   }
 
@@ -188,7 +189,7 @@ async function searchIndexedContent(query: string): Promise<PublicSearchResult[]
         typeof row.title === "string" &&
         typeof row.href === "string" &&
         row.href.startsWith("/") &&
-        ["surah", "hadith", "dua", "story", "article", "prophet", "companion", "scholar"].includes(row.type),
+        ["surah", "ayah", "hadith", "dua", "story", "article", "prophet", "companion", "scholar"].includes(row.type),
       )
       .map((row) => ({
         id: row.id,

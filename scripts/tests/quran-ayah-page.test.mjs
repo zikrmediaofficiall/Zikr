@@ -9,6 +9,11 @@ const shareButton = read("src/components/ui/share-button.tsx");
 const quranPage = read("src/app/quran/[surah]/[ayah]/page.tsx");
 const hadithPage = read("src/app/hadith/[book]/[id]/page.tsx");
 const routeParams = read("src/lib/route-params.ts");
+const searchService = read("src/features/search/services/search.ts");
+const quranTypes = read("src/features/quran/types/quran.ts");
+const quranService = read("src/features/quran/services/quran.ts");
+const siteShell = read("src/components/layout/site-shell.tsx");
+const hadithFallback = read("src/features/hadith/data/fallback.ts");
 
 assert.match(shareButton, /Capacitor\.isNativePlatform\(\)/, "native pages must use the Capacitor Share plugin");
 assert.match(shareButton, /navigator\.share/, "web pages must use the Web Share API when available");
@@ -42,4 +47,17 @@ assert.doesNotMatch(hadithPage, /Share2/, "Hadith detail page must not retain an
 assert.match(hadithPage, /parsePositiveIntegerRouteSegment\(hadithNumber\)/, "Hadith route IDs must use the shared decimal parser");
 assert.doesNotMatch(hadithPage, /Number\(hadithNumber\)|parseInt\(hadithNumber/, "Hadith route must not coerce hexadecimal, exponent, or trailing non-numeric path characters");
 
-console.log("Quran/Hadith detail route validation, share controls, and tafsir empty-state contracts passed.");
+assert.match(quranTypes, /surahNumber\?: number/, "Quran search results must retain their canonical surah number");
+assert.match(quranService, /surahNumber: ayah\.surah_id/, "database Quran rows must preserve surah_id when mapped");
+assert.match(searchService, /type: "ayah"/, "Quran search results must use the ayah result type");
+assert.match(searchService, /href: `\/quran\/\$\{ayah\.surahNumber\}\/\$\{ayah\.numberInSurah\}`/, "Quran search results must link to the exact surah and ayah");
+assert.doesNotMatch(searchService, /href: "\/quran"/, "Quran ayah fallback results must not all point to the generic Quran route");
+assert.match(siteShell, /href="#main-content"/, "the site shell must provide a skip-to-content link");
+assert.match(siteShell, /initialLocale === 'ar'/, "the skip-link label must follow the selected site language");
+assert.match(siteShell, /Skip to content/, "English pages must receive an English skip-link label");
+assert.match(siteShell, /<main id="main-content" tabIndex=\{-1\}>/, "the skip-link target must be focusable");
+for (const verifiedRef of ["muslim:2699a", "bukhari:5027", "muslim:55a"]) {
+  assert.ok(hadithFallback.includes(`ref:'${verifiedRef}'`), `Hadith fallback must cite verified reference ${verifiedRef}`);
+}
+
+console.log("Quran/Hadith routes, exact verse search links, skip navigation, verified references, share controls, and tafsir empty-state contracts passed.");
