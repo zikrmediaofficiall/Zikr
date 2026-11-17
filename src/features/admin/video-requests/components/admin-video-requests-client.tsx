@@ -4,7 +4,7 @@ import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video
 import { isKidsVideoContentMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Container } from "@/components/ui/container";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,14 @@ function isKidsVideoContent(content: unknown): boolean {
   return isKidsVideoContentMarker(content);
 }
 
+function isSafelyDeletable(request: VideoGenerationRequest, canManageKids: boolean): boolean {
+  const audience = resolveVideoRequestAudience(request.content);
+  return audience.ok && (audience.audience !== "kids" || canManageKids) &&
+    (request.status === "failed" || request.status === "cancelled") &&
+    !request.video_url && !request.youtube_id && !request.facebook_id &&
+    !request.heygen_video_id && !request.provider_job_id;
+}
+
 const STATUS_LABELS: Record<Status, string> = {
   pending: "قيد الانتظار",
   processing: "قيد المعالجة",
@@ -59,6 +67,8 @@ type AdminVideoRequestsClientProps = { canManageKids: boolean; canDelete?: boole
 export default function AdminVideoRequestsClient({ canManageKids, canDelete = false, reviewOnly = false }: AdminVideoRequestsClientProps) {
   const [requests, setRequests] = useState<VideoGenerationRequest[]>([]);
   const [filter, setFilter] = useState<QueueFilter>(reviewOnly ? "review" : "all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const selectAllRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -70,6 +80,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
 
   const load = useCallback(async () => {
     setLoading(true);
+    setSelectedIds(new Set());
     setError("");
     try {
       const response = await fetch("/api/admin/videos", { cache: "no-store" });
@@ -77,10 +88,12 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       if (!response.ok) {
         throw new Error(data.error || "تعذر تحميل طابور الفيديو.");
       }
-      setRequests(Array.isArray(data) ? data : []);
+      const nextRequests: VideoGenerationRequest[] = Array.isArray(data) ? data : [];
+      setRequests(nextRequests);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر تحميل طابور الفيديو.");
       setRequests([]);
+      setSelectedIds(new Set());
     } finally {
       setLoading(false);
     }
@@ -107,17 +120,56 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     : filter === "review"
       ? requests.filter((request) => request.stale_processing || (request.status === "completed" && Boolean(request.video_url) && !isContentApproved(request.content)) || request.status === "failed" || request.status === "cancelled")
       : requests.filter((request) => request.status === filter);
+  const eligibleVisible = canDelete ? visible.filter((request) => isSafelyDeletable(request, canManageKids)) : [];
+  const selectedVisibleCount = eligibleVisible.filter((request) => selectedIds.has(request.id)).length;
 
-  function isSafelyDeletable(request: VideoGenerationRequest): boolean {
-    const audience = resolveVideoRequestAudience(request.content);
-    return audience.ok && (audience.audience !== "kids" || canManageKids) &&
-      (request.status === "failed" || request.status === "cancelled") &&
-      !request.video_url && !request.youtube_id && !request.facebook_id &&
-      !request.heygen_video_id && !request.provider_job_id;
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < eligibleVisible.length;
+  }, [eligibleVisible.length, selectedVisibleCount]);
+
+  function applyFilter(nextFilter: QueueFilter) {
+    setFilter(nextFilter);
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  }
+
+  async function deleteSelected() {
+    const selected = eligibleVisible.filter((request) => selectedIds.has(request.id));
+    if (!selected.length || busyId || !window.confirm(`سيتم حذف ${selected.length} سجل طلب منتهٍ فقط. ستُرفض ذريًا أي حالة تغيّرت أو لها وسيط/مرجع. متابعة؟`)) return;
+    setError(""); setMessage("");
+    const deleted: string[] = [];
+    const failures: string[] = [];
+    for (const request of selected) {
+      setBusyId(request.id);
+      try {
+        const response = await fetch(`/api/admin/videos/${encodeURIComponent(request.id)}`, {
+          method: "DELETE", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirmed: true, expectedUpdatedAt: request.updated_at }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
+        if (!response.ok) throw new Error(data.error || "فشل الحذف");
+        deleted.push(request.id);
+      } catch (cause) {
+        failures.push(`${request.title}: ${cause instanceof Error ? cause.message : "فشل الحذف"}`);
+      }
+    }
+    setBusyId(null);
+    setSelectedIds(new Set());
+    setMessage(`تم حذف ${deleted.length} من ${selected.length} سجل طلب بعد فحص كل سجل ذريًا.${failures.length ? ` تعذر حذف ${failures.length}; راجع الأخطاء أدناه.` : ""}`);
+    if (failures.length) setError(failures.join("\n"));
+    await load();
   }
 
   async function deleteRequest(request: VideoGenerationRequest) {
-    if (!canDelete || !isSafelyDeletable(request) || !window.confirm(`تأكيد حذف طلب الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`)) return;
+    if (!canDelete || !isSafelyDeletable(request, canManageKids) || !window.confirm(`تأكيد حذف طلب الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`)) return;
     setBusyId(request.id); setError(""); setMessage("");
     try {
       const response = await fetch(`/api/admin/videos/${encodeURIComponent(request.id)}`, {
@@ -216,11 +268,11 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
 
       <PurgeGeneratedVideosControl onCompleted={load} />
 
-      {error && <div role="alert" className="rounded-xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>}
+      {error && <div role="alert" className="whitespace-pre-wrap break-words rounded-xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>}
       {message && <div role="status" className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm text-emerald-200">{message}</div>}
 
       <section id="queue" className="grid grid-cols-2 gap-3 md:grid-cols-6 scroll-mt-24">
-        <button type="button" onClick={() => setFilter("review")} className={`rounded-2xl border p-4 text-right transition ${filter === "review" ? "border-brand-gold/40 bg-brand-gold/10" : "border-brand-gold/10 bg-black/15"}`}>
+        <button type="button" onClick={() => applyFilter("review")} className={`rounded-2xl border p-4 text-right transition ${filter === "review" ? "border-brand-gold/40 bg-brand-gold/10" : "border-brand-gold/10 bg-black/15"}`}>
           <span className="text-xs text-brand-cream/45">مراجعة المتوقفة</span>
           <span className="mt-1 block text-2xl font-bold text-brand-gold">{counts.review}</span>
         </button>
@@ -228,7 +280,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
           <button
             key={status}
             type="button"
-            onClick={() => setFilter(status)}
+            onClick={() => applyFilter(status)}
             className={`rounded-2xl border p-4 text-right transition ${filter === status ? "border-brand-gold/40 bg-brand-gold/10" : "border-brand-gold/10 bg-black/15"}`}
           >
             <span className="text-xs text-brand-cream/45">{status === "all" ? "إجمالي" : STATUS_LABELS[status]}</span>
@@ -238,6 +290,35 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       </section>
 
       <section className="space-y-3">
+        {canDelete && eligibleVisible.length > 0 && (
+          <Card className="flex flex-wrap items-center justify-between gap-3 border-brand-gold/15 p-4">
+            <label className="flex items-center gap-3 text-sm text-brand-cream/75">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                checked={eligibleVisible.length > 0 && eligibleVisible.every((request) => selectedIds.has(request.id))}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  const visibleIds = new Set(eligibleVisible.map((request) => request.id));
+                  setSelectedIds((current) => {
+                    const next = new Set(current);
+                    for (const id of visibleIds) {
+                      if (checked) next.add(id);
+                      else next.delete(id);
+                    }
+                    return next;
+                  });
+                }}
+                className="h-4 w-4 accent-amber-300"
+                aria-label="تحديد كل سجلات الطلبات المنتهية الآمنة الظاهرة"
+              />
+              تحديد السجلات المنتهية الآمنة ({eligibleVisible.length})
+            </label>
+            <Button variant="outline" disabled={busyId !== null || !selectedVisibleCount} onClick={() => void deleteSelected()}>
+              حذف المحدد ({selectedVisibleCount})
+            </Button>
+          </Card>
+        )}
         {loading && <Card className="p-8 text-center text-sm text-brand-cream/45">جاري تحميل الطابور…</Card>}
         {!loading && visible.length === 0 && (
           <Card className="p-10 text-center">
@@ -253,6 +334,16 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
+                    {canDelete && isSafelyDeletable(request, canManageKids) && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(request.id)}
+                        onChange={(event) => toggleSelected(request.id, event.target.checked)}
+                        disabled={busyId !== null}
+                        className="h-4 w-4 accent-amber-300"
+                        aria-label={`تحديد طلب الفيديو ${request.title} للحذف الآمن`}
+                      />
+                    )}
                     <h2 className="font-bold text-brand-gold">{request.title}</h2>
                     <span className={`rounded-full border px-2.5 py-1 text-xs ${STATUS_CLASSES[status] ?? STATUS_CLASSES.failed}`}>
                       {STATUS_LABELS[status] ?? request.status}
@@ -273,7 +364,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
                     return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
                   })()}
-                  {canDelete && isSafelyDeletable(request) && <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>حذف سجل الطلب</Button>}
+                  {canDelete && isSafelyDeletable(request, canManageKids) && <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>حذف سجل الطلب</Button>}
                 </div>
               </div>
               {request.error_message && (
