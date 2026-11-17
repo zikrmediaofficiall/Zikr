@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T06:42:28.204Z (RLS initplan, FK-index, prayer-cache and CI gate trace; PR #394 full checks passed)
+Updated: 2026-11-17T06:47:33.928Z (RLS, FK-index, prayer-cache and service-worker freshness review; PR #401 pending)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T06:42:28.204Z (RLS initplan, FK-index, prayer-cache and CI g
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `a881c47a93e08cf30b96da7ad0cc417e7c32874c`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `c9782e8cca06b2060bafafbafcdb788ce9cd4c67`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -37,10 +37,11 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - Total tracked file rows: **1959**
-- `UNREVIEWED`: **1163**
-- Non-`UNREVIEWED` file rows: **796**
+- `UNREVIEWED`: **1161**
+- Non-`UNREVIEWED` file rows: **798**
 - High-priority `UNREVIEWED`: **355**
 
+- Service-worker prayer-time cache review: date-less `/api/prayer-times` requests were cached persistently without checking the provider-local date; PR #401 adds a timezone-aware freshness guard and stale-entry deletion, with exact-head checks pending.
 - Legacy prayer-cache RLS migrations `20260815104409` and `20260815104455` are production-applied but safely no-op because `public.prayer_times_cache` is absent; runtime `prayerTimesCache` is an in-memory Map and no DB consumer was found.
 - The Quality Gate workflow selects `pnpm verify` for `audit/zikr-*` branches and reports `QUALITY_GATE=PASSED_FULL` only after the full suite/build. CircleCI `source-verify` and `application-build-docs` use `pnpm verify:pr`; signing/release contexts remain separate.
 - PR #394 exact head `0707df17c33554046f64e3a9e48c6fee03932b06` passed GitHub Quality Gate run `44031958531` and CircleCI `config-guard`, `source-verify`, and `application-build-docs`; the PostgreSQL 17 literal/identifier regression step and canonical source/architecture gate passed.
@@ -51,7 +52,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `REVIEWED_PARTIAL`: 95
 - `FIX_PENDING_PR346`: 1
 - `REVIEWED_SOURCE_ONLY`: 304
-- `UNREVIEWED`: 1163
+- `UNREVIEWED`: 1161
 - `FIX_PENDING_PR382_PR394_PR395_PR396`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `FIX_PENDING_PR351`: 2
@@ -108,8 +109,9 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 5
 - `FIX_PENDING_PR392`: 1
 - `FIX_PENDING_PR394`: 2
+- `FIX_PENDING_PR401`: 2
 
-The matrix has 1959 file rows; 796 are not marked `UNREVIEWED`. Fix-pending, owner-pending, historical-exception and source-only statuses are not equivalent to merged or production-verified closure.
+The matrix has 1959 file rows; 798 are not marked `UNREVIEWED`. Fix-pending, owner-pending, historical-exception and source-only statuses are not equivalent to merged or production-verified closure.
 
 ## Review batch — 2026-11-17 (billing cancellation and legacy table retirement lineage)
 
