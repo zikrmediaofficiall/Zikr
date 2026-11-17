@@ -27,7 +27,12 @@ function successfulPlatformRemoteId(
     : isRecord(values)
       ? values[platform]
       : null;
-  if (!isRecord(candidate) || candidate.ok !== true || typeof candidate.remoteId !== "string") {
+  if (
+    !isRecord(candidate) ||
+    (candidate.platform !== undefined && candidate.platform !== platform) ||
+    candidate.ok !== true ||
+    typeof candidate.remoteId !== "string"
+  ) {
     return null;
   }
   const remoteId = candidate.remoteId.trim();
