@@ -154,9 +154,8 @@ assert.ok(nativeBridgeSource.includes("stat?."));
 const publicWriteFileStart = nativeBridgeSource.indexOf("async writeFile(path, data)");
 const publicWriteFileEnd = nativeBridgeSource.indexOf("async downloadFile(url, path)", publicWriteFileStart);
 assert.ok(publicWriteFileStart >= 0 && publicWriteFileEnd > publicWriteFileStart);
-assert.match(
-  nativeBridgeSource.slice(publicWriteFileStart, publicWriteFileEnd),
-  "isSafeQuranAudioDownloadPath(path)",
+assert.ok(
+  nativeBridgeSource.slice(publicWriteFileStart, publicWriteFileEnd).includes("isSafeQuranAudioDownloadPath(path)"),
   "the public native file-write facade must reject paths outside the Quran audio allowlist",
 );
 
