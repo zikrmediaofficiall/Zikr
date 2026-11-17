@@ -614,6 +614,100 @@ if (failed === 0) {
 
 
 if (failed === 0) {
+  const quranAudioColumnPrivileges = await db.query(`
+    SELECT role_name, column_name, should_allow,
+           has_column_privilege(role_name, 'public.quran_audio', column_name, 'SELECT') AS allowed
+    FROM (VALUES
+      ('anon', 'id', true),
+      ('anon', 'surah_id', true),
+      ('anon', 'reciter_id', true),
+      ('anon', 'audio_url', true),
+      ('anon', 'source_url', true),
+      ('anon', 'retrieved_at', true),
+      ('authenticated', 'id', true),
+      ('authenticated', 'surah_id', true),
+      ('authenticated', 'reciter_id', true),
+      ('authenticated', 'audio_url', true),
+      ('authenticated', 'source_url', true),
+      ('authenticated', 'retrieved_at', true),
+      ('anon', 'storage_bucket', false),
+      ('anon', 'storage_path', false),
+      ('anon', 'storage_url', false),
+      ('anon', 'storage_status', false),
+      ('anon', 'storage_size_bytes', false),
+      ('anon', 'storage_sha256', false),
+      ('anon', 'storage_uploaded_at', false),
+      ('anon', 'mime_type', false),
+      ('anon', 'metadata', false),
+      ('authenticated', 'storage_bucket', false),
+      ('authenticated', 'storage_path', false),
+      ('authenticated', 'storage_url', false),
+      ('authenticated', 'storage_status', false),
+      ('authenticated', 'storage_size_bytes', false),
+      ('authenticated', 'storage_sha256', false),
+      ('authenticated', 'storage_uploaded_at', false),
+      ('authenticated', 'mime_type', false),
+      ('authenticated', 'metadata', false)
+    ) AS expected(role_name, column_name, should_allow)
+    ORDER BY role_name, column_name
+  `);
+  const quranAudioColumnViolations = quranAudioColumnPrivileges.rows.filter(
+    (row) => Boolean(row.allowed) !== row.should_allow,
+  );
+
+  const quranAudioClientDml = await db.query(`
+    SELECT role_name, privilege,
+           has_table_privilege(role_name, 'public.quran_audio', privilege) AS allowed
+    FROM (VALUES
+      ('anon', 'INSERT'), ('anon', 'UPDATE'), ('anon', 'DELETE'),
+      ('anon', 'TRUNCATE'), ('anon', 'REFERENCES'), ('anon', 'TRIGGER'), ('anon', 'MAINTAIN'),
+      ('authenticated', 'INSERT'), ('authenticated', 'UPDATE'), ('authenticated', 'DELETE'),
+      ('authenticated', 'TRUNCATE'), ('authenticated', 'REFERENCES'), ('authenticated', 'TRIGGER'), ('authenticated', 'MAINTAIN')
+    ) AS checks(role_name, privilege)
+  `);
+  const quranAudioClientDmlViolations = quranAudioClientDml.rows.filter((row) => row.allowed);
+
+  const quranAudioServiceRole = await db.query(`
+    SELECT privilege,
+           has_table_privilege('service_role', 'public.quran_audio', privilege) AS allowed
+    FROM (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) AS checks(privilege)
+  `);
+  const quranAudioServiceRoleViolations = quranAudioServiceRole.rows.filter((row) => !row.allowed);
+
+  const quranAudioRls = await db.query(`
+    SELECT c.relrowsecurity AS rls_enabled,
+           EXISTS (
+             SELECT 1 FROM pg_policy p
+             WHERE p.polrelid = c.oid
+               AND p.polname = 'allow_public_read'
+               AND p.polcmd = 'r'
+           ) AS public_read_policy
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'quran_audio'
+  `);
+  const quranAudioRlsRow = quranAudioRls.rows[0] ?? {};
+  if (
+    quranAudioColumnViolations.length > 0 ||
+    quranAudioClientDmlViolations.length > 0 ||
+    quranAudioServiceRoleViolations.length > 0 ||
+    quranAudioRlsRow.rls_enabled !== true ||
+    quranAudioRlsRow.public_read_policy !== true
+  ) {
+    failed++;
+    console.error(
+      "QURAN_AUDIO_PUBLIC_COLUMN_PRIVILEGE_REGRESSION",
+      JSON.stringify({
+        columnViolations: quranAudioColumnViolations,
+        clientDmlViolations: quranAudioClientDmlViolations,
+        serviceRoleViolations: quranAudioServiceRoleViolations,
+        rls: quranAudioRlsRow,
+      }),
+    );
+  } else {
+    console.log("QURAN_AUDIO_PUBLIC_COLUMN_PRIVILEGE_PASSED");
+  }
+
   const clientTablePrivileges = await db.query(`
     SELECT n.nspname AS schema_name, c.relname AS table_name,
            r.role_name, p.privilege
