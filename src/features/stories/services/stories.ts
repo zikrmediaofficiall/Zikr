@@ -78,7 +78,7 @@ export async function getStories(limit = 100): Promise<Story[]> {
     let response: StoryRow[] | undefined;
     try {
       response = await supabaseServerAnonRequest<StoryRow[]>(
-        `/rest/v1/stories?select=id,slug,title,summary,content,category,mood,metadata,published,created_at,updated_at&published=eq.true&is_approved=eq.true&user_id=is.null&limit=${safeLimit}&order=created_at.desc`,
+        `/rest/v1/stories?select=id,slug,title,summary,content,category,mood,metadata,published,is_approved,user_id,created_at,updated_at&published=eq.true&is_approved=eq.true&user_id=is.null&limit=${safeLimit}&order=created_at.desc`,
         { cache: "force-cache", next: { revalidate: 60, tags: ["public-stories"] } }
       );
     } catch (summaryError) {
