@@ -1,3 +1,14 @@
+## 2026-11-17T04:51:57.453Z — social deletion evidence rows refreshed
+
+**State: OPEN / NOT MERGE-READY.** Exact-head social deletion checks passed; remaining file review and owner gates remain open.
+
+- PR #393 exact head 497562bb13092037dcaa841559f75a24ce133ba4 passed GitHub Quality Gate 44019233186 and CircleCI config-guard/source-verify/application-build-docs. Supabase Preview skipped. package.json blob a52110598fcd327d898a552d40e8d6069588d05d includes scripts/tests/social-deletion.test.ts in pnpm test.
+- Updated matrix evidence for src/app/api/admin/social/route.ts, src/features/social/services/social-queue-metadata.ts, scripts/tests/social-deletion.test.ts and src/features/social/services/platform-availability.ts. The full test file and full social worker/provider flow remain only partially reviewed; statuses were not falsely upgraded to fully closed.
+- PR #344 documentation branch parent checkpoint d81bef69e7973e29b766a48810782a37bb4d9130 was open/draft with no reviews. At that parent checkpoint the matrix/inventory/project-status/ledger blobs were 31dee510f978b3084d1021aaf109942fc2c09cbc, f8e9fa642c939c60d6ce2ed4a3e29f452ae8a84e, b3f49991f169b81e947e0a91a50b7f55f7a529ac and da22257c106b07c391126b63949201af6bd5846c. This commit refreshes the matrix/inventory evidence and status/ledger pointers.
+- Main and its immutable manifest remain unchanged; no production data, provider, storage, cron, release or deployment operation was performed.
+
+---
+
 ## 2026-11-17T04:50:47.527Z — exact-head social deletion CI completion and artifact reconciliation
 
 **State: OPEN / NOT MERGE-READY.** The social deletion repair is verified on its exact head; repository-wide review and owner acceptance remain open.
