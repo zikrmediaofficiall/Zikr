@@ -66,7 +66,7 @@ for (const [path, sha] of manifestByPath) {
 const unreviewed = matrixFiles.filter((row) => row.status === "UNREVIEWED");
 const highPriorityUnreviewed = unreviewed.filter((row) => row.priority === "HIGH" || row.priority === "CRITICAL");
 const nonUnreviewed = matrixFiles.length - unreviewed.length;
-assert.equal(unreviewed.length, 1163, "the current audit checkpoint's unreviewed count must match the matrix");
+assert.equal(unreviewed.length, 1161, "the current audit checkpoint's unreviewed count must match the matrix");
 assert.equal(highPriorityUnreviewed.length, 355, "the current audit checkpoint's high-priority count must match the matrix");
 
 const manifestBlobSha = gitBlobSha(manifestText);
