@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const migration = readFileSync(
-  "supabase/migrations/20261117020000_harden_public_stories_read_policy.sql",
+  "supabase/migrations/20261117030000_harden_public_stories_read_policy.sql",
   "utf8",
 );
 assert.match(
