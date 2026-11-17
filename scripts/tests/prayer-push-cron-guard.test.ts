@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const guard = readFileSync(
-  "supabase/migrations/20261117030000_guard_prayer_push_cron_without_pg_net.sql",
+  "supabase/migrations/20261117050000_guard_prayer_push_cron_without_pg_net.sql",
   "utf8",
 );
 const projectRefReconciliation = readFileSync(
