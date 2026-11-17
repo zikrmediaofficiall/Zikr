@@ -344,6 +344,25 @@ assert.match(prayerTimesApiRoute, /consumePrayerTimesRateLimit/);
 assert.match(prayerTimesApiRoute, /getTrustedClientAddress/);
 assert.match(prayerTimesApiRoute, /status: 429/);
 assert.match(prayerTimesApiRoute, /status: 503/);
+assert.match(prayerTimesApiRoute, /export const revalidate = 0;/);
+assert.match(prayerTimesApiRoute, /const upstreamFetchOptions = upstreamDate/);
+assert.match(prayerTimesApiRoute, /next: \{ revalidate: 3600 \}/);
+assert.match(prayerTimesApiRoute, /cache: 'no-store' as const/);
+assert.match(prayerTimesApiRoute, /const responseCacheHeaders = upstreamDate/);
+assert.match(prayerTimesApiRoute, /'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400'/);
+assert.match(prayerTimesApiRoute, /'Cache-Control': 'no-store'/);
+assert.match(prayerTimesApiRoute, /'CDN-Cache-Control': 'no-store'/);
+assert.ok(
+  prayerTimesApiRoute.indexOf("const upstreamFetchOptions = upstreamDate") <
+    prayerTimesApiRoute.indexOf("await fetch("),
+  "date-less current-day requests must bypass the Next.js upstream Data Cache",
+);
+assert.ok(
+  prayerTimesApiRoute.indexOf("const responseCacheHeaders = upstreamDate") <
+    prayerTimesApiRoute.indexOf("return NextResponse.json(data"),
+  "only explicitly dated lookups may receive shared CDN cache headers",
+);
+
 assert.match(prayerTimesApiRoute, /Retry-After': '60'/);
 assert.ok(
   prayerTimesApiRoute.indexOf("await consumePrayerTimesRateLimit") <
