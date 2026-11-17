@@ -7,17 +7,17 @@ const migration = readFileSync(
 );
 assert.match(
   migration,
-  /REVOKE ALL PRIVILEGES ON TABLE public\\.quran_audio\\s+FROM PUBLIC, anon, authenticated/i,
+  /REVOKE ALL PRIVILEGES ON TABLE public\.quran_audio\s+FROM PUBLIC, anon, authenticated/i,
   "browser roles must lose broad table privileges on the Quran audio catalogue",
 );
 assert.match(
   migration,
-  /GRANT SELECT \\(id, surah_id, reciter_id, audio_url, source_url, retrieved_at\\)[\\s\\S]*?TO anon, authenticated/i,
+  /GRANT SELECT \(id, surah_id, reciter_id, audio_url, source_url, retrieved_at\)[\s\S]*?TO anon, authenticated/i,
   "anonymous and authenticated users must receive only the public Quran audio projection",
 );
 assert.match(
   migration,
-  /GRANT SELECT, INSERT, UPDATE, DELETE[\\s\\S]*?TO service_role/i,
+  /GRANT SELECT, INSERT, UPDATE, DELETE[\s\S]*?TO service_role/i,
   "server-side audio import and read paths must retain their required privileges",
 );
 
@@ -25,7 +25,7 @@ const quranServer = readFileSync(
   "src/features/quran/services/quran-server.ts",
   "utf8",
 );
-const publicRecord = quranServer.match(/export type QuranAudioRecord = \\{([\\s\\S]*?)\\};/);
+const publicRecord = quranServer.match(/export type QuranAudioRecord = \{([\s\S]*?)\};/);
 assert.ok(publicRecord, "the public Quran audio response type must exist");
 assert.doesNotMatch(
   publicRecord[1],
@@ -50,7 +50,7 @@ const audioFunction = quranServer.slice(
 assert.ok(audioFunction.includes("audio_url: row.storage_url"));
 assert.ok(audioFunction.includes("source_url: row?.source_url ?? null"));
 assert.doesNotMatch(audioFunction, /storage_path:/);
-assert.doesNotMatch(audioFunction, /\\.\\.\\.row/);
+assert.doesNotMatch(audioFunction, /\.\.\.row/);
 
 const route = readFileSync("src/app/api/quran/audio/route.ts", "utf8");
 assert.doesNotMatch(
