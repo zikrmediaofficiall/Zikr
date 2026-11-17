@@ -128,7 +128,7 @@ BEGIN
     NULL;
   END;
 END;
-$;
+$$;
 RESET ROLE;
 
 DO $$
