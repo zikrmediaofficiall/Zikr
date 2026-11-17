@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { ADMIN_SEARCH_ACCESS_PERMISSIONS, getAdminSearchResultHref, getVisibleAdminSearchSourceKeys } from "../../src/features/admin/services/admin-search-visibility";
+import { ADMIN_SEARCH_ACCESS_PERMISSIONS, canSearchAdminVideoMetadata, getAdminSearchResultHref, getVisibleAdminSearchSourceKeys } from "../../src/features/admin/services/admin-search-visibility";
 import { hasAdminPermission, type AdminRole } from "../../src/features/admin/services/permissions";
 
 test("admin search only queries sources covered by the effective role", () => {
@@ -41,6 +41,30 @@ test("admin search only queries sources covered by the effective role", () => {
   assert.deepEqual(getVisibleAdminSearchSourceKeys("support"), []);
 });
 
+test("video search hides Kids metadata from video managers without kids.manage", () => {
+  assert.equal(
+    canSearchAdminVideoMetadata({ audience: "kids", generator: "zikr_internal_video_factory" }, "video_manager"),
+    false,
+  );
+  assert.equal(
+    canSearchAdminVideoMetadata({ publicPath: "/kids/stories/episode-1" }, "video_manager"),
+    false,
+  );
+  assert.equal(
+    canSearchAdminVideoMetadata({ generator: "zikr_internal_video_factory" }, "video_manager"),
+    false,
+    "internal factory videos without an explicit general audience must fail closed",
+  );
+  assert.equal(
+    canSearchAdminVideoMetadata({ audience: "general" }, "video_manager"),
+    true,
+  );
+  assert.equal(
+    canSearchAdminVideoMetadata({ audience: "kids" }, "super_admin"),
+    true,
+  );
+});
+
 test("admin search applies the effective role before issuing service-role reads", () => {
   const platformSource = readFileSync(
     "src/features/admin/services/platform.ts",
@@ -50,6 +74,8 @@ test("admin search applies the effective role before issuing service-role reads"
 
   assert.match(platformSource, /searchAdminContent\(query: string, role: AdminRole\)/);
   assert.match(platformSource, /getVisibleAdminSearchSourceKeys\(role\)\.map/);
+  assert.match(platformSource, /select=id,title,slug,published,updated_at,metadata/);
+  assert.match(platformSource, /canSearchAdminVideoMetadata\(row\.metadata, role\)/);
   assert.match(pageSource, /searchAdminContent\(query, profile\.role\)/);
 });
 
