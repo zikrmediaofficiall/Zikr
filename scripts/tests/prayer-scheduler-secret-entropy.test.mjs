@@ -26,10 +26,13 @@ assert.match(
   /if secret_value is null or secret_value !~ '\^\[0-9a-f\]\{64\}\$'/i,
   "the migration must fail closed if a strong scheduler token is not present after rotation",
 );
+// The migration documents the retired expression in SQL comments. Inspect executable
+// SQL only so a safety comment cannot make the regression fail falsely.
+const executableSql = migration.replace(/^\s*--.*$/gm, "");
 assert.doesNotMatch(
-  migration,
+  executableSql,
   /md5\s*\(\s*random\s*\(/i,
-  "the weak MD5(random()) construction must not remain in the hardening migration",
+  "the weak MD5(random()) construction must not remain in executable migration SQL",
 );
 assert.doesNotMatch(
   migration,
