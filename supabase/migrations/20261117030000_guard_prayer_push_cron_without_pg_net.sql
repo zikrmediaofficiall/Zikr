@@ -19,7 +19,8 @@ BEGIN
   END IF;
 
   IF to_regprocedure('cron.unschedule(bigint)') IS NULL THEN
-    RETURN;
+    RAISE EXCEPTION
+      'pg_cron exposes cron.job but cron.unschedule(bigint) is unavailable; cannot safely disable the ZIKR prayer dispatcher while pg_net is unavailable';
   END IF;
 
   IF (
@@ -29,7 +30,8 @@ BEGIN
       AND attname IN ('jobid', 'jobname', 'command')
       AND NOT attisdropped
   ) <> 3 THEN
-    RETURN;
+    RAISE EXCEPTION
+      'pg_cron cron.job is missing required jobid, jobname, or command columns; cannot safely disable the ZIKR prayer dispatcher while pg_net is unavailable';
   END IF;
 
   EXECUTE $sql$
