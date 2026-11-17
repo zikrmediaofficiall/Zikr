@@ -53,6 +53,11 @@ console.log("Public detail-route publication visibility contracts passed.");
 const storiesService = readFileSync("src/features/stories/services/stories.ts", "utf8");
 assert.match(storiesService, /isPublicStoryRecord\(row\)/, "public story responses must recheck approval and ownership");
 assert.match(storiesService, /is_approved=eq\.true&user_id=is\.null/, "public story queries must select only approved global stories");
+assert.match(
+  storiesService,
+  /select=id,slug,title,summary,content,category,mood,metadata,published,is_approved,user_id,created_at,updated_at/,
+  "the primary story list must select the fields required by the fail-closed row guard",
+);
 
 const videoSourceService = readFileSync("src/features/videos/services/video-sources.ts", "utf8");
 assert.match(videoSourceService, /is_approved=eq\.true&user_id=is\.null/, "video generation must only source approved global stories");
