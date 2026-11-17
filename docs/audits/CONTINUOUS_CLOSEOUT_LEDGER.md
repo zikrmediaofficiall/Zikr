@@ -3107,3 +3107,31 @@ No production SQL mutation, migration execution, data repair, content generation
 - The coordinated retirement migration `20261002130000` preserves legacy admin audit rows before retiring empty audit tables and does not drop `game_scenarios`. The current project's absence of `game_scenarios` is explained by the legacy SQL being outside the active migration path; the old Phase 18 12-row observation belongs to another project. Do not claim those rows were migrated into `kids_games`.
 - Updated matrix blob: `fcbcfcbf253800caa173a4591889774a63a6ef7b`; updated Supabase migration ledger blob: `91cedccc9edcc4f75b956e3e93faaa0688298b4a`; updated inventory blob: `b5043c92bd2fb4d8637386c213b1a501457f386e`. Counts: 1219 UNREVIEWED (387 high priority), 740 non-UNREVIEWED rows, 738 reviewed/non-historical blobs. Manifest remains `baace6d0c66ac299edb541c7caceba56eeae19be`.
 - No production mutation, migration, Edge Function invocation, cron, content generation, Gemini/TTS/provider request, social publication, storage operation, restore, release, merge or deployment was performed. Historical data-lineage confirmation remains owner-only.
+
+
+## 2026-11-17 02:54 UTC — Stories fallback, migration-version and exact-head reconciliation
+
+### Immutable inventory and current artifacts
+- Main snapshot commit: `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`; manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be`; 1,959 tracked blobs / 500 directories.
+- File-status matrix blob: `a770d973af13c64c8ebfa683ad5555ea0e6ecd32`; 1,215 UNREVIEWED (387 high priority), 744 other statuses, 742 reviewed blobs by matrix counter, 740 reviewed/non-historical excluding two historical destructive-review rows.
+- Inventory blob: `f5cce8ccbf92c8886f42486564c1b309768a49d8`.
+- Project status blob: `70d2e595b995e5b3f1befc5e3e0520d5cdfee074`.
+- Supabase remote migration ledger blob: `10477aea61b3d94c4008dca13d640a7a1059c50b`.
+- Current documentation PR #344 exact head: `804de210f2518ca62252cbf1e5dcd0202ae33df5`; Quality Gate run `44006594158` pending and all three CircleCI contexts pending. This head is not verified/merge-ready.
+
+### New code findings and repairs
+- Stories: the public list/detail/search path consumes `getStories`; the active search RPC is SECURITY INVOKER and filters approved/global stories, but `getStories` previously served `FALLBACK_STORIES` on a successful empty response and on a mixed response containing any non-public row. PR #390 exact head `c31659453b3fec443444266e9c14d905fbb9a930` filters public rows and preserves a successful empty response as empty. Quality Gate `44005956230` is in progress; CircleCI config-guard/application-build-docs passed, source-verify pending. No production content row changed.
+- Migration replay: main has 449 unique migration versions. PR #386 and #387 each add a different `20261117010000_*.sql` migration. The prior validator's content-score heuristic silently skipped one duplicate. PR #391 exact head `4a9c9a9cbdad8ef0b853947b76555ad957ddb84b` changes this to fail-closed detection and adds an exact collision regression. Quality Gate `44006319606` and Android Debug `44006319667` queued; CircleCI config-guard passed, source-verify/application-build-docs pending. No migration was applied.
+
+### Verified exact heads (checks passed; review/merge still blocked)
+- PR #375 `e4b42e6d331ed9ee3d91207b9ecbd96ea3611291`: Quality Gate `44004161657`; CircleCI config-guard/source-verify/application-build-docs passed. This supersedes stale `de8b208...` references. No owner/CODEOWNERS approval.
+- PR #373 `f7897608e4d67d988fb7151c1d70dff1636faac9`: Quality Gate `43964591529`; all CircleCI contexts passed. It fixes Dubai calculation method ID 16; it overlaps PR #375 in the same prayer worker auth file. Rebase/consolidate before merge.
+- PR #374 `32894db0fdf7e7abbb456879e45669ada9964335`: Quality Gate `43959124758`, Android Debug `43959124757`, all CircleCI contexts passed. Service-role video story queries now require approved/global rows.
+- PR #376 `f4f37ab05f1e6b8f4fd529f1aaeb7bdcb5c69813`: Quality Gate `43976195809`, Android Debug `43976197454`, all CircleCI contexts passed. PR #384 `f1d3cd43762ee47e7f0fbf19c4c9bb98ec99c868`: Quality Gate `44002881276`, all CircleCI contexts passed.
+- PR #386 `0c8ff121184992fc7bad19c284a78a795f1beabe`: Quality Gate `43992250576`, Android Debug `43992250671`, all CircleCI contexts passed.
+- PR #387 `a23e7565695e119a329d67234681fa74fa41d9c2` and PR #388 `02b3f1526f57dbfddc26293b38129b7d00c6de2f`: each passed recorded Quality Gate, Android Debug and all CircleCI contexts. Their migrations remain unapplied; coordinate with PR #386 to remove the version collision/redundant story policy path.
+
+### Gates and safety
+- Review lists for PR #375, #376, #384, #387 and #388 were empty at the latest check; no CODEOWNERS approval was recorded. Draft PRs #390/#391 have no owner review. No protected-branch rule or approval gate was bypassed.
+- No production database mutation, migration apply, Edge Function/Cron invocation, Gemini/content generation, social publishing, Storage operation, Android/iOS release, merge, Vercel deployment or production smoke check was performed.
+- Remaining work: finish the 1,215 unreviewed tracked files; resolve PR #373/#375 prayer-worker overlap and PR #386/#387 migration version collision; wait for PR #390/#391 and PR #344 exact-head checks; obtain owner/CODEOWNERS review; then merge/deploy only through protected gates and perform production/device acceptance.
