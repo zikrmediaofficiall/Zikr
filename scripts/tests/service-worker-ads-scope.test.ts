@@ -188,18 +188,23 @@ console.log("Service-worker advertising scope contract passed.");
 
 
 const prayerCacheHelper = readFileSync("public/sw-prayer-times-cache.js", "utf8");
-const prayerCacheSandbox = {
-  self: { location: { origin: productionOrigin } },
-  URL,
-  Intl,
-  Date,
-} as Record<string, any>;
-runInNewContext(prayerCacheHelper, prayerCacheSandbox);
-const isFreshPrayerTimesCacheEntry = prayerCacheSandbox.self.isFreshPrayerTimesCacheEntry as (
-  response: { clone: () => { json: () => Promise<unknown> } },
+type PrayerCacheResponse = { clone: () => { json: () => Promise<unknown> } };
+type PrayerCacheFreshness = (
+  response: PrayerCacheResponse,
   requestUrl: string | URL,
   now?: Date,
 ) => Promise<boolean>;
+const prayerCacheSandbox = {
+  self: {
+    location: { origin: productionOrigin },
+    isFreshPrayerTimesCacheEntry: undefined as unknown as PrayerCacheFreshness,
+  },
+  URL,
+  Intl,
+  Date,
+};
+runInNewContext(prayerCacheHelper, prayerCacheSandbox);
+const isFreshPrayerTimesCacheEntry = prayerCacheSandbox.self.isFreshPrayerTimesCacheEntry;
 const makePrayerResponse = (date: string, timeZone = "Africa/Cairo") => ({
   clone: () => ({
     json: async () => ({
