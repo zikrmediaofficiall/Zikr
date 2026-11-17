@@ -708,6 +708,50 @@ if (failed === 0) {
     console.log("QURAN_AUDIO_PUBLIC_COLUMN_PRIVILEGE_PASSED");
   }
 
+  const storyReadPolicies = await db.query(`
+    SELECT p.polname, p.polcmd, pg_get_expr(p.polqual, p.polrelid) AS using_expression
+    FROM pg_policy p
+    JOIN pg_class c ON c.oid = p.polrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'stories'
+      AND p.polname IN (
+        'stories_public_read_published',
+        'stories_authenticated_read_published_or_admin'
+      )
+  `);
+  const storyPolicyByName = new Map(
+    storyReadPolicies.rows.map((row) => [
+      row.polname,
+      String(row.using_expression ?? '').toLowerCase().replace(/\\s+/g, ' '),
+    ]),
+  );
+  const anonStoryPolicy = storyPolicyByName.get('stories_public_read_published') ?? '';
+  const authenticatedStoryPolicy =
+    storyPolicyByName.get('stories_authenticated_read_published_or_admin') ?? '';
+  const storyPolicyRegression =
+    !anonStoryPolicy.includes('published is true') ||
+    !anonStoryPolicy.includes('is_approved is true') ||
+    !anonStoryPolicy.includes('user_id is null') ||
+    !authenticatedStoryPolicy.includes('published is true') ||
+    !authenticatedStoryPolicy.includes('is_approved is true') ||
+    !authenticatedStoryPolicy.includes('user_id is null') ||
+    !authenticatedStoryPolicy.includes('private.is_admin_user()') ||
+    storyReadPolicies.rows.length !== 2;
+  if (storyPolicyRegression) {
+    failed++;
+    console.error(
+      'STORIES_PUBLIC_RLS_POLICY_REGRESSION',
+      JSON.stringify({
+        policies: storyReadPolicies.rows,
+        anonExpression: anonStoryPolicy,
+        authenticatedExpression: authenticatedStoryPolicy,
+      }),
+    );
+  } else {
+    console.log('STORIES_PUBLIC_RLS_POLICY_PASSED');
+  }
+
   const clientTablePrivileges = await db.query(`
     SELECT n.nspname AS schema_name, c.relname AS table_name,
            r.role_name, p.privilege
