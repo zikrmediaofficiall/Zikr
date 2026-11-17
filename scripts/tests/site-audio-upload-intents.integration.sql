@@ -65,10 +65,15 @@ BEGIN
     JOIN pg_class index_row ON index_row.oid = i.indexrelid
     JOIN pg_attribute column_row
       ON column_row.attrelid = i.indrelid
-     AND column_row.attnum = ANY(i.indkey)
+     AND column_row.attname = 'asset_id'
+    JOIN pg_am access_method ON access_method.oid = index_row.relam
     WHERE i.indrelid = 'public.site_audio_upload_intents'::regclass
       AND index_row.relname = 'site_audio_upload_intents_asset_id_idx'
-      AND column_row.attname = 'asset_id'
+      AND i.indkey[0] = column_row.attnum
+      AND i.indnkeyatts = 1
+      AND i.indpred IS NULL
+      AND i.indexprs IS NULL
+      AND access_method.amname = 'btree'
       AND i.indisvalid
       AND i.indisready
   ) THEN
