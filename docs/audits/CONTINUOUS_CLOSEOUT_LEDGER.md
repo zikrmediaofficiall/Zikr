@@ -1,3 +1,17 @@
+## 2026-11-17T04:52:39.155Z — exact repository-audit artifact checkpoint
+
+**State: OPEN / NOT MERGE-READY.**
+
+- PR #344 documentation branch exact parent head: e0cf087eb31da865645946c73ddb849588613d23 (open, draft). At this checkpoint, no submitted reviews or requested reviewers are recorded; GitHub check-runs had not yet appeared, and CircleCI config-guard/source-verify/application-build-docs were pending. Supabase Preview is not a pass.
+- Artifact blobs at that exact parent head: manifest baace6d0c66ac299edb541c7caceba56eeae19be; matrix 2ee161c9f2458afb06360e04374229912e105040; inventory ce7b86e08471f6fcf35de32bfc9e3d2da46a8684; Project Status 8b6f7eb18a272ec1d5e740d54608e0ed2625ef3e; previous closeout ledger 21b17acdf4066a1829cec76d0c40b3c7d0ad135b.
+- Main source snapshot remains a0f51cdc3fc31503f12ddddba76e37d9e07a15f7, tree 7a73fa9af3ae0de67275dd33c4a1f8f18038d909. Matrix covers 1,959 file rows: 1,180 UNREVIEWED, 363 high-priority UNREVIEWED, 779 non-UNREVIEWED; five historical destructive-review exceptions remain owner-gated.
+- PR #393 exact head 497562bb13092037dcaa841559f75a24ce133ba4 passed GitHub Quality Gate 44019233186 and all three CircleCI contexts. Supabase Preview skipped. Its focused social-deletion tests are in package.json pnpm test; no provider call or remote delete was performed.
+- PR #389 exact head b788f56d03caf22085b0e87c059665fa81c12957 passed Quality Gate, Android Debug and all three CircleCI contexts; Supabase Preview skipped. Its migration was not applied.
+- Historical billing cancellation/retirement lineage remains owner-confirmation required; no billing restore, table recreation or data mutation was attempted.
+- No owner approval, merge, production migration, cron/Edge Function execution, content generation, Gemini request, social publishing, storage/media mutation, release, Vercel deployment or production smoke check was performed.
+
+---
+
 ## 2026-11-17T04:51:57.453Z — social deletion evidence rows refreshed
 
 **State: OPEN / NOT MERGE-READY.** Exact-head social deletion checks passed; remaining file review and owner gates remain open.
