@@ -496,3 +496,12 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - PR #390 Stories fallback fix remains green at exact head `c31659453b3fec443444266e9c14d905fbb9a930`: full Quality Gate `44005956230` and all CircleCI contexts passed.
 - Read-only Vercel state remains: latest production deployment `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` is READY on old source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`, not current main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`. No deployment or production smoke test was run.
 - No production migration/DB write, Edge Function/Cron invocation, content generation, Gemini request, social publishing, Storage operation, release, merge or deployment was performed. Owner/CODEOWNERS and device acceptance remain open.
+
+
+## Checkpoint refresh — 2026-11-17 03:07 UTC
+
+- Matrix blob: `3a59585b0185f0f3453017459e6934ea1dbf3ca8`; immutable main remains 1,959 tracked blobs / 500 directories. Counts remain 1,214 UNREVIEWED (386 high priority), 745 other statuses, 743 reviewed blobs by matrix counter and 741 reviewed/non-historical excluding two historical destructive-review rows.
+- PR #391 exact head `e7e2df894f69b678d17b82211d5a12f9de17f52e` passed full Quality Gate `44006861723`, Android Debug `44006861706`, and all CircleCI contexts. The canonical log includes `MIGRATION_VERSION_UNIQUENESS_PASSED` and `QUALITY_GATE=PASSED_FULL`.
+- PR #392 current exact head `9d81f5235c0c11802c6062db574f49b4cf673a9f` corrects the first test attempt, which omitted the empty-string third argument to SQL `replace()`. The previous head `ad052b8c3af001729ae0c208a123f11681e6c986` failed that focused assertion; the new head is queued/pending: Quality Gate `44007904007`, Android Debug `44007904002`, and CircleCI contexts pending. No pass is claimed yet and no production migration was applied.
+- PR #390 remains green at exact head `c31659453b3fec443444266e9c14d905fbb9a930`: full Quality Gate `44005956230` and all CircleCI contexts passed.
+- No production database mutation, cron/Edge Function invocation, content generation, Gemini request, social publishing, Storage operation, release, merge or deployment was performed.
