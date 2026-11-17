@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T06:38:53.373Z (RLS initplan and FK-index migration review; PR #394 exact-head checks passed)
+Updated: 2026-11-17T06:40:53.687Z (RLS initplan, FK-index and CI gate trace; PR #394 full checks passed)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T06:38:53.373Z (RLS initplan and FK-index migration review; P
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `c6a09649b9d067ff5eb62cc3933fd7659f609389`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `55e293ca71a5c33fa29209d76310475f37818474`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -41,6 +41,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - Non-`UNREVIEWED` file rows: **794**
 - High-priority `UNREVIEWED`: **357**
 
+- The Quality Gate workflow selects `pnpm verify` for `audit/zikr-*` branches and reports `QUALITY_GATE=PASSED_FULL` only after the full suite/build. CircleCI `source-verify` and `application-build-docs` use `pnpm verify:pr`; signing/release contexts remain separate.
 - PR #394 exact head `0707df17c33554046f64e3a9e48c6fee03932b06` passed GitHub Quality Gate run `44031958531` and CircleCI `config-guard`, `source-verify`, and `application-build-docs`; the PostgreSQL 17 literal/identifier regression step and canonical source/architecture gate passed.
 - Foreign-key index migration review: `20260814143626_add_missing_foreign_key_indexes.sql` is production-applied. Six optional target tables are absent and four present FK columns have valid leading indexes; current indexes use equivalent `idx_*` names.
 - Read-only production RLS catalog check: all three historical migration versions are present; 46 public policies contain `auth.uid()`, zero raw UID calls remain after removing SELECT-initplan wrappers, and zero public policies contain `auth.jwt()`. The forward PR #394 migration is expected to be a no-op on the current production catalog.
