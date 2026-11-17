@@ -1,5 +1,22 @@
 # ZIKR Project Status
 
+## Latest audit checkpoint — 2026-11-17T06:29:29.000Z (RLS initplan rewrite safety; open)
+
+**State: OPEN / NOT MERGE-READY.** This checkpoint records one additional migration-code review and a forward-only repair in an existing draft PR. It is not a repository-wide error-free certification.
+
+- Immutable main source snapshot remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`. The immutable manifest remains blob `baace6d0c66ac299edb541c7caceba56eeae19be` with 2,459 recursive entries: 1,959 tracked files and 500 directories. Main was not changed.
+- Current matrix blob: `b1b0084beb1ec7941228231b5d347267ef1c36cc`; current inventory blob: `babbb592b5f2e718b201a88666b6e11084f84d6a`. The matrix has 1,959 file rows: **1,166 UNREVIEWED**, including **358 high-priority** files; **793 rows have a non-UNREVIEWED status**. Its reviewed-blob counter is 669. The two historical auth-initplan migration rows are now `FIX_PENDING_PR394`; the manifest is unchanged.
+- **New migration finding — historical RLS initplan rewrites:** read the actual contents of `20260814143804_optimize_rls_auth_initplans.sql` and `20260814143905_optimize_rls_jwt_initplans.sql`. Their regexp strings are over-escaped under PostgreSQL `standard_conforming_strings=on`, so raw `auth.uid()` / `auth.jwt()` calls are not reliably wrapped as SELECT initplans. The existing forward repair in PR #394 initially used a raw regexp over `pg_policies` text; code-path review identified a second hazard: that approach could rewrite function-like text inside SQL string literals or quoted identifiers. The current repair now scans deparsed expressions and preserves single-quoted literals and double-quoted identifiers while wrapping only actual function-call tokens.
+- **PR #394 exact head:** `0707df17c33554046f64e3a9e48c6fee03932b06`. PostgreSQL 17 fixtures now cover raw UID/JWT calls in USING/WITH CHECK, mixed/already-wrapped calls, string literals containing `auth.uid()` / `auth.jwt()`, and quoted identifiers with those names. GitHub Quality Gate run `44031958531` is **in progress**; CircleCI `config-guard` is **success**, while `source-verify` and `application-build-docs` are **pending**. No earlier-head check is reused. The PR remains draft/open; no owner review is recorded.
+- This is a forward-only migration. No historical migration was edited or replayed, and no production migration was applied. No production SQL/DDL/DML, Edge Function/Cron invocation, policy mutation, content generation, Gemini request, social publishing, Storage/media change, release, merge, Vercel deployment or production smoke test occurred in this batch.
+- Other recent open fixes remain separate: PR #400 (Kids written backfill source revalidation) and PR #399 (Kids age-review outcome copy) have exact-head Quality Gate/CircleCI success recorded in their PR bodies; both remain unmerged pending owner/CODEOWNERS review. Their checks do not substitute for PR #394's pending exact-head gate.
+- Governance remains blocking: no submitted CODEOWNERS approval; collaborator permission for `@Zikrmediaofficial` was not granted by the connected GitHub permission lookup; branch-protection settings remain unreadable (403). No merge or deployment was attempted.
+- Remaining manual acceptance includes physical Android/iOS devices, Apple Team ID/Associated Domains/AASA, Play signing fingerprints, production OAuth callbacks and push delivery, plus owner-controlled Auth leaked-password protection. These cannot be accepted from source tests alone.
+
+---
+
+# ZIKR Project Status
+
 ## Latest audit checkpoint — 2026-11-17T06:02:00.000Z (native bridge, site-audio FK index and repository artifact reconciliation; open)
 
 **State: OPEN / NOT MERGE-READY.** This is a bounded, evidence-backed continuation, not a repository-wide error-free certification.
