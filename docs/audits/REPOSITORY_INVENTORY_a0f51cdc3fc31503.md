@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T05:18:00.000Z (exact-head PR #396 CI status and Kids share-counter review reconciled)
+Updated: 2026-11-17T05:35:00.000Z (auth/OAuth, mobile media, Quran storage and live Supabase advisor evidence reconciled)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T05:18:00.000Z (exact-head PR #396 CI status and Kids share-c
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `fe6173a384a382a0e974861e2e284a84dd59b060`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `a9ece9dc04245fe9567a493324aa60396d4f1ce5`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -37,15 +37,15 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - Total tracked file rows: **1959**
-- `UNREVIEWED`: **1178**
-- Non-`UNREVIEWED` file rows: **781**
-- High-priority `UNREVIEWED`: **361**
+- `UNREVIEWED`: **1169**
+- Non-`UNREVIEWED` file rows: **790**
+- High-priority `UNREVIEWED`: **359**
 
-- `REVIEWED_PARTIAL`: 98
+- `REVIEWED_PARTIAL`: 95
 - `FIX_PENDING_PR346`: 1
-- `REVIEWED_SOURCE_ONLY`: 296
-- `UNREVIEWED`: 1178
-- `FIX_PENDING_PR382`: 7
+- `REVIEWED_SOURCE_ONLY`: 303
+- `UNREVIEWED`: 1169
+- `FIX_PENDING_PR382_PR394_PR395_PR396`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `FIX_PENDING_PR351`: 2
 - `DOCS_RECONCILIATION_PENDING`: 4
@@ -66,18 +66,21 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR352`: 3
 - `FIX_PENDING_PR353`: 4
 - `FIX_PENDING_PR340`: 3
+- `FIX_PENDING_PR382`: 6
 - `FIX_PENDING_PR373`: 4
 - `FIX_PENDING_PR389`: 2
 - `FIX_PENDING_PR362`: 3
+- `FIX_PENDING_PR397`: 2
 - `FIX_PENDING_PR347`: 2
 - `FIX_PENDING_PR370`: 4
+- `FIX_PENDING_PR398`: 2
 - `FIX_PENDING_PR393`: 2
 - `FIX_PENDING_PR375`: 2
 - `FIX_PENDING_PR341`: 1
 - `FIX_PENDING_PR338`: 3
 - `FIX_PENDING_PR339`: 2
 - `FIX_PENDING_PR380`: 2
-- `FIX_PENDING_PR391`: 1
+- `FIX_PENDING_PR391_PR395`: 1
 - `FIX_PENDING_PR376`: 4
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
@@ -91,13 +94,14 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR358`: 2
 - `FIX_PENDING_PR377`: 1
 - `FIX_PENDING_PR376_PR384`: 1
+- `FIX_PENDING_PR395`: 1
 - `FIX_PENDING_PR390`: 1
 - `FIX_PENDING_PR374`: 1
 - `REVIEWED_PRODUCTION_APPLIED`: 62
 - `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 5
 - `FIX_PENDING_PR392`: 1
 
-The matrix has 1959 file rows; 781 are not marked `UNREVIEWED`. A non-`UNREVIEWED` status may still be fix-pending or owner-pending; it is not equivalent to project closure.
+The matrix has 1959 file rows; 790 are not marked `UNREVIEWED`. Fix-pending, owner-pending, historical-exception and source-only statuses are not equivalent to merged or production-verified closure.
 
 ## Review batch — 2026-11-17 (billing cancellation and legacy table retirement lineage)
 
@@ -583,3 +587,16 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - PR #396 exact head `a8aa7b151ab5156a441633792cc1b23802032152` adds explicit NULL checks, pins the SECURITY DEFINER function to an empty search_path, and adds PostgreSQL 17 integration coverage for NULL/blank/zero arguments, no-mutation behavior, valid atomic limits and role grants. GitHub Quality Gate is queued; CircleCI config-guard/source-verify/application-build-docs are pending; Supabase Preview is skipped. The migration has not been applied.
 - Current row totals: 1959 file rows; 1178 UNREVIEWED (361 high priority); 781 non-UNREVIEWED. Main snapshot and immutable manifest remain unchanged. PR-only files are not added to the main manifest or matrix before merge.
 - No production SQL/DDL/DML, migration apply, rate-limit RPC invocation, content generation, Gemini request, social publishing, Storage/media mutation, release, merge or deployment was performed.
+
+
+## Review batch — 2026-11-17 (Auth/OAuth, native mobile, Quran audio and Supabase advisors)
+
+- Read the actual auth actions, Google OAuth initiation, callback, safe next-path/origin helpers, request proxy, Supabase middleware, authenticated profile-sync route/service, native callback handler, Capacitor bridge, Android manifest/MainActivity, iOS Info.plist/entitlements/Podfile/Xcode project and Android release URL/metadata/download paths. Browser/native OAuth uses PKCE, canonical origins and same-origin next-path validation; native callback accepts the fixed app scheme or canonical HTTPS bridge. Device, Apple signing and provider-console acceptance remain open.
+- Read offline Quran audio, its URL/path policy and regression tests. The historical storage migration hardcodes the retired `nmdeazfmtncelykzxkhs.supabase.co` project host. Read-only queries against active project `zqtssvlvmkzeeyqghqfk` found 19,608 `quran_audio` rows, all `external`, 0 `storage_url` values, 0 ready rows and 0 `quran-audio` Storage objects. The server rejects a non-current storage host and falls back to the validated external `audio_url`; no current production row is affected. No historical migration was edited and no data or object was changed.
+- The native bridge exposed a public `writeFile(path, data)` facade without the path allowlist used by download/delete/getFileUrl. No in-repository caller was found. PR #397 exact head `e299be7a72a60396c6653cdddbdfc79e9c870b13` adds the same Quran-audio path guard and a regression assertion; exact-head Quality Gate and Android Debug are in progress.
+- Supabase Performance Advisor flagged `site_audio_upload_intents.asset_id` as an unindexed FK. Read-only query confirmed the table has 0 rows and no valid index on `asset_id`. PR #398 exact head `2070312056a49061b1df62d98aa0c99c7da6f5ad` adds a forward-only btree index and a PostgreSQL 17 integration assertion; exact-head Quality Gate is in progress. No production DDL/index creation was performed.
+- PR #395 exact head `d0776622580bfb218b99099807a263c3ebf7b536` contains profile timestamp trigger hardening, a corrected own-profile RLS fixture, the client payload type fix and the migration replay fixture column. Its exact-head Quality Gate remains in progress; previous failed heads were investigated and corrected, not counted as passes.
+- Live Supabase security/performance review: service-only tables `push_subscriptions`, `site_audio_assets`, `site_audio_upload_intents`, `social_publish_queue` and `video_generation_requests` have no anon/authenticated table grants; their no-policy RLS state is consistent with service-role-only access. `prophet_sections` has two permissive SELECT policies for authenticated users (public read plus admin read), a performance warning retained for owner review. The advisor reports 77 unused indexes; none were dropped. Leaked-password protection is disabled in Auth settings and requires an owner/dashboard action.
+- Production `consume_admin_rate_limit` still has the NULL-argument validation gap and `search_path=public`; PR #396 exact head `a8aa7b151ab5156a441633792cc1b23802032152` passed full-scope Quality Gate and all three CircleCI contexts, but is draft/unmerged and its migration is not applied.
+- PR #394 exact head `4a7f546c714315d75c1a926302294b96d2e0afce` passed Quality Gate and all three CircleCI contexts. PR #344 documentation branch exact head `31a869334e555947b87ef02ef5b09be6746af7d5` passed Quality Gate, CircleCI and Android Debug APK checks. PR #395/#397/#398 remain pending exact-head verification. Shared workflow and migration-replay files touched by multiple open PRs require combined mainline verification after rebase/merge.
+- No production SQL/DDL/DML, migration apply, index creation/deletion, Auth setting change, content generation, Gemini request, social publish, Storage/media mutation, Android/iOS release, merge, Vercel deployment or production smoke test was performed.
