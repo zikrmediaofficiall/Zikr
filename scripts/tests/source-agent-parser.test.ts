@@ -105,3 +105,13 @@ assert.ok(authBlock.indexOf("authorizeSchedulerBearer") < authBlock.indexOf('sup
   "the strict Bearer preflight must run before the service-role secret RPC");
 
 console.log("Source-agent parser outcome, fetch safety, and strict scheduler-auth preflight passed.");
+
+const prayerWorkerSource = readFileSync("supabase/functions/prayer-notification-worker/index.ts", "utf8");
+const prayerWorkerAuthStart = prayerWorkerSource.indexOf("const authorized = await authorizeSchedulerBearer");
+const prayerWorkerSecretRead = prayerWorkerSource.indexOf('supabase.rpc("get_push_scheduler_secret")', prayerWorkerAuthStart);
+const prayerWorkerWorkStart = prayerWorkerSource.indexOf("const now = new Date()", prayerWorkerAuthStart);
+assert.ok(prayerWorkerAuthStart >= 0, "the prayer notification worker must use the shared strict scheduler authorization helper");
+assert.ok(prayerWorkerAuthStart < prayerWorkerSecretRead && prayerWorkerSecretRead < prayerWorkerWorkStart,
+  "the worker must parse the strict Bearer header before reading the secret and before scheduling or delivering notifications");
+assert.doesNotMatch(prayerWorkerSource, /function constantTimeEqual/,
+  "the worker must not retain a second, permissive scheduler-auth implementation");
