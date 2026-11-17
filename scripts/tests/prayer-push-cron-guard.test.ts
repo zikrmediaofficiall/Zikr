@@ -25,14 +25,14 @@ assert.ok(
   "the migration must check pg_net and unschedule capability before reading the exact cron job, then unschedule only after matching it",
 );
 assert.ok(unscheduleCallIndex >= 0, "the migration must use the guarded unschedule call");
-assert.match(
-  guard,
-  /IF to_regprocedure\('cron\\.unschedule\\(bigint\\)'\) IS NULL THEN\\s+RAISE EXCEPTION/,
+assert.ok(
+  guard.includes("IF to_regprocedure('cron.unschedule(bigint)') IS NULL THEN") &&
+    guard.includes("cannot safely disable the ZIKR prayer dispatcher"),
   "the migration must fail rather than leave a dispatcher active when unschedule is unavailable",
 );
-assert.match(
-  guard,
-  /\) <> 3 THEN\\s+RAISE EXCEPTION/,
+assert.ok(
+  guard.includes(") <> 3 THEN") &&
+    guard.includes("cron.job is missing required jobid, jobname, or command columns"),
   "an unexpected cron.job schema must fail closed rather than silently skip cleanup",
 );
 
