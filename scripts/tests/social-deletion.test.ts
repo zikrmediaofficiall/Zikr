@@ -416,6 +416,57 @@ assert.equal(
 );
 assert.equal(mismatchedRemoteIdPatchCalls, 0, "a stale provider ID must not acquire a deletion lease");
 
+const crossPlatformRemoteIdRow = {
+  ...deletionQueueRow,
+  metadata: {
+    platformResults: {
+      youtube: { platform: "facebook", ok: true, remoteId: "youtube-remote-1" },
+    },
+    platformDeletions: {},
+  },
+};
+let crossPlatformDeletionPatchCalls = 0;
+const crossPlatformDeletionRequest = async <T>(_path: string, init?: RequestInit): Promise<T> => {
+  if (init?.method === "PATCH") crossPlatformDeletionPatchCalls += 1;
+  return [{ ...crossPlatformRemoteIdRow }] as T;
+};
+assert.equal(
+  await claimSocialQueuePlatformDeletion(
+    deletionClaimInput,
+    crossPlatformDeletionRequest as typeof import("../../src/lib/supabase/admin-rest").supabaseServerAdminRequest,
+  ),
+  "stale",
+  "an object-keyed result that explicitly names another provider must never authorize deletion on the requested platform",
+);
+assert.equal(
+  crossPlatformDeletionPatchCalls,
+  0,
+  "cross-platform provider metadata must be rejected before acquiring a deletion lease",
+);
+
+let crossPlatformMetadataPatchCalls = 0;
+const crossPlatformMetadataRequest = async <T>(_path: string, init?: RequestInit): Promise<T> => {
+  if (init?.method === "PATCH") crossPlatformMetadataPatchCalls += 1;
+  return [{ ...crossPlatformRemoteIdRow }] as T;
+};
+assert.equal(
+  await patchSocialQueueMetadataWithCas({
+    id: deletionQueueRow.id,
+    expectedStatus: "published",
+    expectedVideoUrl: deletionQueueRow.video_url,
+    expectedPlatformRemoteId: { platform: "youtube", remoteId: "youtube-remote-1" },
+    patch: { platformDeletions: { youtube: { status: "deleted", remoteId: "youtube-remote-1" } } },
+  }, crossPlatformMetadataRequest as typeof import("../../src/lib/supabase/admin-rest").supabaseServerAdminRequest),
+  false,
+  "metadata CAS must not attach a provider result to a platform key whose explicit result platform disagrees",
+);
+assert.equal(
+  crossPlatformMetadataPatchCalls,
+  0,
+  "cross-platform provider metadata must block the metadata PATCH",
+);
+
+
 const previousRemoteDeletionRow = {
   ...deletionQueueRow,
   metadata: {
