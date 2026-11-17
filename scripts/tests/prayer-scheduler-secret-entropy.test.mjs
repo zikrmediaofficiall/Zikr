@@ -8,7 +8,7 @@ const migration = readFileSync(
 
 assert.match(
   migration,
-  /replace\s*\(\s*gen_random_uuid\(\)::text\s*\|\|\s*gen_random_uuid\(\)::text,\s*'-'\s*\)/i,
+  /replace\s*\(\s*gen_random_uuid\(\)::text\s*\|\|\s*gen_random_uuid\(\)::text,\s*'-',\s*''\s*\)/i,
   "the scheduler token must be built from two cryptographically generated UUIDs",
 );
 assert.match(
