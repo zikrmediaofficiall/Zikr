@@ -77,7 +77,7 @@ const projectStatusBlobSha = gitBlobSha(projectStatusText);
 assert.ok(inventoryText.includes(manifestBlobSha), "inventory must pin the exact immutable manifest blob");
 assert.ok(inventoryText.includes(matrixBlobSha), "inventory must pin the exact matrix blob");
 assert.ok(inventoryText.includes(`- \`UNREVIEWED\`: ${unreviewed.length}`), "inventory must report the exact unreviewed count");
-assert.ok(inventoryText.includes(`High-priority unreviewed files: **${highPriorityUnreviewed.length}**`), "inventory must report the exact high-priority count");
+assert.ok(inventoryText.includes(`High-priority \\`UNREVIEWED\\`: **${highPriorityUnreviewed.length}**`), "inventory must report the exact high-priority count");
 assert.ok(inventoryText.includes(`Non-\`UNREVIEWED\` file rows: **${nonUnreviewed}**`), "inventory must report the exact non-unreviewed count");
 
 assert.ok(projectStatusText.includes(manifestBlobSha), "project status must pin the immutable manifest blob");
