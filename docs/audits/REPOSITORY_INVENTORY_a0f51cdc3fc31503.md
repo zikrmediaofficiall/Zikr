@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-16T23:17:35.173Z (reconciled with PR #376/#381 exact-head tests and current production deployment source)
+Updated: 2026-11-17T00:10:23.000Z (reconciled with admin video/template review, live Supabase ACL/index checks and Kids RLS finding)
 
 ## Exact snapshot
 
@@ -71,17 +71,17 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
-- `REVIEWED_DATA_VALIDATED`: 45
+- `REVIEWED_DATA_VALIDATED`: 49
 - `REVIEWED_PARTIAL`: 66
-- `REVIEWED_PERMISSION_SCAN`: 86
+- `REVIEWED_PERMISSION_SCAN`: 88
 - `REVIEWED_PRODUCTION_APPLIED`: 47
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
 - `REVIEWED_REGRESSION_COVERAGE`: 71
-- `REVIEWED_SOURCE_ONLY`: 300
-- `SECURITY_FIX_PENDING_PR340`: 4
-- `UNREVIEWED`: 1246
+- `REVIEWED_SOURCE_ONLY`: 301
+- `SECURITY_FIX_PENDING_PR340`: 5
+- `UNREVIEWED`: 1238
 
-High-priority unreviewed files: **414**. The matrix has 1959 file rows; 713 are not marked `UNREVIEWED`.
+High-priority unreviewed files: **406**. The matrix has 1959 file rows; 721 are not marked `UNREVIEWED`.
 
 ## Review batch — 2026-11-17 (narration provenance and worker SSRF guard)
 
@@ -443,3 +443,13 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 
 - PR #381 current exact head `9786fb84f61df4674cda883b472ea7df1d9c1b21` includes server-side ownership checks for Cloudinary narration, canonical Quran URL validation, redirect rejection, 15 MiB streamed narration cap, and provider download limits. The provider path now bounds Free API JSON to 64 KiB, ComfyUI prompt JSON to 64 KiB, history JSON to 2 MiB and output video to 50 MiB; Hugging Face output is capped at 50 MiB. Media response bodies are streamed and cancelled on overflow. Free API returned media URLs are limited to the configured endpoint or explicit CDN allowlist; redirects are rejected.
 - Current PR #381 exact-head checks: GitHub Quality Gate `43976532247` pending; Android Native Login Debug APK `43976532354` in progress; CircleCI config-guard passed; source-verify/application-build-docs pending. Earlier head `5eb658f...` had source-verify failure; current head is not yet verified. No provider request, generation, TTS/Gemini, Cloudinary upload/delete, social publishing or production mutation was performed.
+
+
+## Review batch — 2026-11-17 (admin video, template registry, prayer worker config and Kids RLS)
+
+- Read the complete admin video request client and template studio client. Traced list/detail/retry/approval/purge consumers and template GET/POST actions. General video managers are filtered from Kids rows; Kids mutations/previews require kids.manage bound to the same admin. Video-template approval enforces a distinct reviewer and post-commit audit. Preview requests set templatePreview and skipSocialPublish; no preview was triggered.
+- The purge UI is intentionally disabled. The server-side /api/admin/video-purge route returns 409 before lock acquisition, Cloudinary/Storage inventory, or any database mutation for every valid scope; no purge was invoked.
+- Read template registry migrations 20261106010000, 20261106020000, 20261106061131 and 20261106090800. Remote migration history contains all versions. Read-only live checks confirm service_role-only RPC execution, SECURITY INVOKER/empty search_path, required service_role table privileges, the three template actor-FK indexes, and service-only social_post_insights RLS/ACL/index. The conditional youtube_sync_state redaction target row id=1 is absent; no claim is made that the update changed a row.
+- Read prayer worker deno.json and entrypoint. Direct dependencies are pinned; no deno.lock exists in the function directory. Worker auth and Aladhan Dubai method fixes are tracked in PR #373 exact head f7897608e4d67d988fb7151c1d70dff1636faac9; Quality Gate 43964591529 and all three CircleCI contexts passed. No Edge Function was invoked or deployed.
+- Read applied Kids read-policy migration 20261114210000 and inspected live RLS. The database currently has only permissive videos_public_read and no category-based restrictive guard. Kids category has 49 rows / 35 published; all 35 published rows carry audience='kids'. PR #340 exact head 86b166410669b47f2984854fc3c4f364f8370c9b adds the missing restrictive category guard; Quality Gate 43868893060 and all three CircleCI contexts passed. Owner/CODEOWNERS review is absent and migration remains unapplied.
+- Current matrix blob: `0c53cb076f40a8287be77c96a2724617eee339fa`; main manifest remains immutable at `baace6d0c66ac299edb541c7caceba56eeae19be`. Matrix now records 1238 UNREVIEWED files (406 high priority), 1238 non-UNREVIEWED rows and 719 reviewed/non-historical blobs.
