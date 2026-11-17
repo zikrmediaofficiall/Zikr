@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T02:31:04.000Z (reconciled with passing category-derived Kids admin-search regression fix)
+Updated: 2026-11-17T04:25:04.368Z (reconciled with current audit checkpoint)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T02:31:04.000Z (reconciled with passing category-derived Kids
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `984104d3c1fb633d6e0ce1c94f2c700188c67bfb`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `64bf9965fb6c68a40954f53d4eb253d96cb21ba5`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -36,6 +36,11 @@ The manifest includes every recursive tree entry (files and directories). The st
 
 ## File-status matrix
 
+- Total tracked file rows: **1959**
+- `UNREVIEWED`: **1194**
+- Non-`UNREVIEWED` file rows: **765**
+- High-priority `UNREVIEWED`: **377**
+
 - `DOCS_RECONCILIATION_PENDING`: 4
 - `FIX_PENDING_PR337`: 5
 - `FIX_PENDING_PR338`: 3
@@ -43,7 +48,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR340`: 3
 - `FIX_PENDING_PR341`: 1
 - `FIX_PENDING_PR343`: 2
-- `FIX_PENDING_PR343_PR376_PR377_PR378_PR379_PR380_PR381`: 1
+- `FIX_PENDING_PR343_PR376_PR377_PR378_PR379_PR380_PR381_PR386_PR387_PR388`: 1
 - `FIX_PENDING_PR346`: 1
 - `FIX_PENDING_PR347`: 2
 - `FIX_PENDING_PR349`: 5
@@ -59,30 +64,52 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR373`: 4
 - `FIX_PENDING_PR374`: 1
 - `FIX_PENDING_PR375`: 2
-- `FIX_PENDING_PR376`: 5
+- `FIX_PENDING_PR376`: 4
+- `FIX_PENDING_PR376_PR384`: 1
 - `FIX_PENDING_PR377`: 1
 - `FIX_PENDING_PR378`: 3
 - `FIX_PENDING_PR379`: 4
 - `FIX_PENDING_PR380`: 2
 - `FIX_PENDING_PR381`: 9
 - `FIX_PENDING_PR381_PARTIAL_REVIEW`: 3
+- `FIX_PENDING_PR382`: 7
+- `FIX_PENDING_PR382_PR383`: 1
+- `FIX_PENDING_PR387`: 2
+- `FIX_PENDING_PR387_PR388`: 1
+- `FIX_PENDING_PR389`: 2
+- `FIX_PENDING_PR390`: 1
+- `FIX_PENDING_PR391`: 1
+- `FIX_PENDING_PR392`: 1
+- `FIX_PENDING_PR393`: 2
+- `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 2
 - `HISTORICAL_PR320_OVERLAY`: 1
 - `HISTORICAL_STALE_MANIFEST`: 1
 - `OWNER_CONFIG_REQUIRED_PR343`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
 - `REVIEWED_DATA_VALIDATED`: 49
-- `REVIEWED_PARTIAL`: 66
-- `REVIEWED_PERMISSION_SCAN`: 88
-- `REVIEWED_PRODUCTION_APPLIED`: 63
-- `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 2
+- `REVIEWED_PARTIAL`: 84
+- `REVIEWED_PERMISSION_SCAN`: 84
+- `REVIEWED_PRODUCTION_APPLIED`: 62
 - `REVIEWED_PRODUCTION_SMOKE_200`: 4
-- `REVIEWED_REGRESSION_COVERAGE`: 71
-- `REVIEWED_SOURCE_ONLY`: 302
+- `REVIEWED_REGRESSION_COVERAGE`: 70
+- `REVIEWED_SOURCE_ONLY`: 297
 - `SECURITY_FIX_PENDING_PR340`: 5
-- `UNREVIEWED`: 1219
+- `UNREVIEWED`: 1194
 
-High-priority unreviewed files: **387**. The matrix has 1959 file rows; 740 are not marked `UNREVIEWED`.
+The matrix has 1959 file rows; 765 are not marked `UNREVIEWED`. A non-`UNREVIEWED` status may still be fix-pending or owner-pending; it is not equivalent to project closure.
+
+## Review batch — 2026-11-17 (scheduler guard and social deletion identity)
+
+- Read the complete prayer project-ref reconciliation migration, its PostgreSQL 17 setup/assertion files, the scheduler worker/auth consumers, and the integration runner. The applied reconciliation migration schedules `net.http_post` without a `pg_net` availability check. PR #389 adds a forward guard that matches the exact dispatcher name, worker endpoint and scheduler-secret command, preserves unrelated same-name jobs, and fails if `cron.unschedule(bigint)` is unavailable. Its migration was renumbered to `20261117050000` to avoid the stories policy migration `20261117030000` in PR #388 and secret rotation `20261117040000` in PR #392. Exact head: `b788f56d03caf22085b0e87c059665fa81c12957`; Quality Gate/Android/CircleCI were still running at this checkpoint; Supabase Preview was skipped. No production migration or cron was run.
+- Read the complete social queue metadata helper and the admin remote-deletion route path. Found that object-keyed `platformResults` trusted the map key but ignored an explicit conflicting `candidate.platform`; this could let a malformed cross-platform remote ID pass the deletion-claim/CAS precondition. PR #393 exact head `b386dd58de04cf49a6330d582409e8c1f1b6dad2` rejects explicit platform mismatches and adds zero-PATCH regression cases. Quality Gate and CircleCI were running; Supabase Preview was skipped. No provider API call, remote deletion or database mutation occurred.
+- Read the video catalog publication policy and its full regression test; read the published-video cleanup helper and its full test; read the social deletion provider helper and visibility helper. The cleanup worker only marks the 48-hour staging-retention deadline; it does not delete Cloudinary masters or Supabase Storage objects. Actual cleanup remains separately gated. No media was deleted.
+- PR #392 exact head `92964e296997b41de8e5bb0f2bef05cb7daba44e` passed Quality Gate `44009265330`, Android Debug `44009265370`, and all three CircleCI contexts; the weak live scheduler-secret format remains until owner review, merge and approved migration apply. Secret value was not read.
+- PR #384 exact head `f1d3cd43762ee47e7f0fbf19c4c9bb98ec99c868` passed Quality Gate `44002881276` and all three CircleCI contexts; it is stacked on PR #376 head `f4f37ab05f1e6b8f4fd529f1aaeb7bdcb5c69813`. PR #391 exact head `e7e2df894f69b678d17b82211d5a12f9de17f52e` passed Quality Gate `44006861723`, Android Debug `44006861706`, and all three CircleCI contexts.
+- Migration versions across the current audit stack are distinct: PR #386 `20261117010000`, PR #387 `20261117020000`, PR #388 `20261117030000`, PR #392 `20261117040000`, PR #389 `20261117050000`. PR #386 is stacked on #385; PR #388 is stacked on #387. No migration was applied.
+- Read-only Vercel inventory shows production deployment `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` is READY on `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; main `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` is four commits ahead. `vercel.json` keeps Git deployment disabled; no deployment or production smoke suite was triggered.
+- Owner/CODEOWNERS approval remains absent. The CODEOWNERS account has no collaborator permission visible to this connection; branch-protection settings remain unreadable (GitHub API 403). Physical Android/iOS, Apple Team ID/Associated Domains/AASA, Play signing, OAuth callbacks and push-delivery acceptance remain manual/device-only.
+- No production SQL/DDL/DML, migration apply, Edge Function/Cron invocation, Gemini/content generation, social publish, provider call, Storage/media deletion, secret/index change, release, merge or deployment was performed.
 
 ## Review batch — 2026-11-17 (narration provenance and worker SSRF guard)
 
