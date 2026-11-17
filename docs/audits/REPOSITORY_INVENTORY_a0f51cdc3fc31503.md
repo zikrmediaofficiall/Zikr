@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T05:35:00.000Z (auth/OAuth, mobile media, Quran storage and live Supabase advisor evidence reconciled)
+Updated: 2026-11-17T06:02:00.000Z (native loader and site-audio fixture review; exact-head PR verification refresh)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T05:35:00.000Z (auth/OAuth, mobile media, Quran storage and l
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `a9ece9dc04245fe9567a493324aa60396d4f1ce5`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `481f149e9b63e4bd9d6e9edc5fdad182daf11217`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -37,14 +37,14 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - Total tracked file rows: **1959**
-- `UNREVIEWED`: **1169**
-- Non-`UNREVIEWED` file rows: **790**
+- `UNREVIEWED`: **1167**
+- Non-`UNREVIEWED` file rows: **792**
 - High-priority `UNREVIEWED`: **359**
 
 - `REVIEWED_PARTIAL`: 95
 - `FIX_PENDING_PR346`: 1
-- `REVIEWED_SOURCE_ONLY`: 303
-- `UNREVIEWED`: 1169
+- `REVIEWED_SOURCE_ONLY`: 304
+- `UNREVIEWED`: 1167
 - `FIX_PENDING_PR382_PR394_PR395_PR396`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `FIX_PENDING_PR351`: 2
@@ -60,7 +60,7 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR387_PR388`: 1
 - `FIX_PENDING_PR369`: 1
 - `FIX_PENDING_PR381_PARTIAL_REVIEW`: 3
-- `REVIEWED_REGRESSION_COVERAGE`: 70
+- `REVIEWED_REGRESSION_COVERAGE`: 71
 - `FIX_PENDING_PR343`: 2
 - `FIX_PENDING_PR349`: 5
 - `FIX_PENDING_PR352`: 3
@@ -600,3 +600,11 @@ No Kids content or database rows were changed during this revalidation. The 20 u
 - Production `consume_admin_rate_limit` still has the NULL-argument validation gap and `search_path=public`; PR #396 exact head `a8aa7b151ab5156a441633792cc1b23802032152` passed full-scope Quality Gate and all three CircleCI contexts, but is draft/unmerged and its migration is not applied.
 - PR #394 exact head `4a7f546c714315d75c1a926302294b96d2e0afce` passed Quality Gate and all three CircleCI contexts. PR #344 documentation branch exact head `31a869334e555947b87ef02ef5b09be6746af7d5` passed Quality Gate, CircleCI and Android Debug APK checks. PR #395/#397/#398 remain pending exact-head verification. Shared workflow and migration-replay files touched by multiple open PRs require combined mainline verification after rebase/merge.
 - No production SQL/DDL/DML, migration apply, index creation/deletion, Auth setting change, content generation, Gemini request, social publish, Storage/media mutation, Android/iOS release, merge, Vercel deployment or production smoke test was performed.
+
+
+## Review batch — 2026-11-17T06:02:00.000Z (native loader and site-audio test fixture)
+
+- Read `src/components/layout/native-capacitor-bridge-loader.tsx` and its `src/app/layout.tsx` consumer. The loader mounts both native modules through `next/dynamic` with SSR disabled; the Google OAuth handler remains the sole PKCE callback owner. No loader defect was reproduced.
+- Read `scripts/tests/site-audio-upload-intents.integration-setup.sql` and traced its only shell-runner consumer. It creates roles and a stub asset table only inside the disposable PostgreSQL 17 integration container; no production object is addressed.
+- PR #395 exact head `d0776622580bfb218b99099807a263c3ebf7b536` passed Quality Gate `44024606420` and all three CircleCI contexts. PR #397 exact head `e299be7a72a60396c6653cdddbdfc79e9c870b13` passed Quality Gate `44024658079`, Android Debug APK `44024658056`, and all three CircleCI contexts. Both remain open/draft pending owner review.
+- PR #398 exact head `fa99af59041ebfda2eb5976a0928c0dee841c7e2` restores the integration runner's `100755` executable mode after the prior diff accidentally changed it to `100644`; a runtime mode assertion now guards that contract. Its SQL test also requires a valid, ready, full non-partial single-key btree on `asset_id`. PostgreSQL 17 integration passed in Quality Gate run `44028580036`; the canonical source gate and CircleCI source/application contexts were still pending at this checkpoint. No production index was created.

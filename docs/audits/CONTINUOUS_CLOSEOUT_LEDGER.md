@@ -1,3 +1,21 @@
+# Continuous closeout ledger — ZIKR
+
+## 2026-11-17T06:02:00.000Z — native loader trace, site-audio FK index and artifact reconciliation
+
+**State: OPEN / NOT MERGE-READY.** The entries below are bounded findings; no project-wide closure is claimed.
+
+- Main snapshot: commit `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`, tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`. Immutable manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be` remains unchanged (2,459 recursive entries; 1,959 files; 500 directories).
+- Reconciled artifacts: matrix `481f149e9b63e4bd9d6e9edc5fdad182daf11217`, inventory `126a92de8609c492087ff7559cd835939d508967`, project status `a519574bcc4711defe8358f3ae21f51ec13b4bbd`. Matrix totals: 1,959 file rows, 1,167 UNREVIEWED, 359 high-priority UNREVIEWED, 792 non-UNREVIEWED. Two rows were advanced after full source review: `src/components/layout/native-capacitor-bridge-loader.tsx` and `scripts/tests/site-audio-upload-intents.integration-setup.sql`. Manifest is immutable and was not regenerated from PR-only files.
+- PR #395 exact head `d0776622580bfb218b99099807a263c3ebf7b536`: Quality Gate `44024606420` and CircleCI config-guard/source-verify/application-build-docs passed. No migration apply, owner approval or merge.
+- PR #397 exact head `e299be7a72a60396c6653cdddbdfc79e9c870b13`: Quality Gate `44024658079`, Android Debug APK `44024658056`, and all three CircleCI contexts passed. The native public write facade now validates Quran-audio paths. No device launch/release or owner approval.
+- PR #398 exact head `fa99af59041ebfda2eb5976a0928c0dee841c7e2`: read the full migration, integration SQL/shell harness, base site-audio table migration, fixture and cleanup consumer. The prior PR diff unintentionally changed the existing integration runner mode from `100755` to `100644`; restored `100755` and added a self-check so the regression fails in CI. Tightened the index test to require a valid/ready, non-partial, non-expression btree whose sole key is `asset_id`. Quality Gate `44028580036` passed the PostgreSQL 17 site-audio integration step; canonical source/architecture gate remained in progress. CircleCI config-guard passed; source-verify/application-build-docs remained pending. No production DDL or index creation.
+- Read and traced the native loader's only mount in `src/app/layout.tsx` and its dynamic imports. The Google OAuth handler remains the sole native PKCE callback owner. Read and traced the site-audio fixture's only consumer; it creates only disposable test roles and a stub asset table in the PostgreSQL container.
+- Production Supabase remains read-only at 449/449 migration versions through `20261116045100`. The site-audio upload-intent table had 0 rows at the latest read-only observation; the proposed `20261117090000` index migration is not applied. No production SQL/DDL/DML, index change, Edge Function/Cron invocation, content generation, Gemini/provider request, social publish, Storage/media mutation, Android/iOS release, merge or deployment.
+- Previous documentation head `0bb3594752a3c5818e359525809077e1b825b4ce` passed Quality Gate `44025153860`, Android Debug `44025153977`, and all three CircleCI contexts. The new documentation head must pass its own checks.
+- Governance blockers: no submitted CODEOWNERS approval; GitHub branch-protection settings remain inaccessible (403). Manual/device acceptance remains Android/iOS physical devices, Apple Team ID/Associated Domains/AASA, Play signing fingerprints, production OAuth callback and push delivery, plus owner-controlled leaked-password protection. No protected-branch or approval gate was bypassed.
+
+---
+
 ## 2026-11-17T05:35:00.000Z — Auth/mobile, Quran audio and live Supabase audit
 
 **State: OPEN / NOT MERGE-READY.** This is a bounded source review plus live read-only checks and pending repair PRs. Repository-wide review, owner acceptance and production verification remain open.
