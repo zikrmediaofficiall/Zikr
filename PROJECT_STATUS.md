@@ -1,11 +1,11 @@
 # ZIKR Project Status
 
-## Latest audit checkpoint — 2026-11-17T05:15:00.000Z (Kids share-counter source review and shared rate-limit repair; open)
+## Latest audit checkpoint — 2026-11-17T05:18:00.000Z (Kids share-counter source review and shared rate-limit repair; open)
 
 **State: OPEN / NOT MERGE-READY.** This is an evidence-backed continuation, not a repository-wide error-free certification. Main source and production resources were not changed by this audit batch.
 
 - Main remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`; tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`. The immutable recursive manifest remains blob `baace6d0c66ac299edb541c7caceba56eeae19be` and records 2,459 entries: 1,959 tracked files and 500 directories.
-- Current inventory blob: `f8acd78161be6a95356245e37c06c2bb62088b73`. Current file-status matrix blob: `490e0c5fa3191ddb531d63b327896c73c38984ad`. The matrix covers 1,959 file rows: **1178 UNREVIEWED**, including **361 high-priority**; 781 rows have a non-UNREVIEWED status, but many are fix-pending or owner-pending and are not closed.
+- Current inventory blob: `a3ff2f4f342f854405095878ee763e74294d6ae6`. Current file-status matrix blob: `fe6173a384a382a0e974861e2e284a84dd59b060`. The matrix covers 1,959 file rows: **1,178 UNREVIEWED**, including **361 high-priority**; 781 rows have a non-UNREVIEWED status, but many are fix-pending or owner-pending and are not closed.
 - **PR #396 — shared rate-limit NULL-argument guard:** exact head `a8aa7b151ab5156a441633792cc1b23802032152`. Read the original RPC and all server-side call sites; SQL three-valued logic allowed NULL numeric arguments through the old validation, causing a NULL limit to consume state and return NULL and a NULL window to raise a NOT NULL violation. The forward-only migration rejects NULL before mutation, pins an empty search_path and preserves service_role-only execution. PostgreSQL 17 integration tests cover invalid arguments/no mutation, valid atomic limits and role ACLs. GitHub Quality Gate is queued; CircleCI config-guard/source-verify/application-build-docs are pending; Supabase Preview skipped. PR is draft/open; no owner approval or merge. No production migration was applied.
 - **Kids share-counter migrations:** read and traced `20260814120000_0033_atomic_kids_share_counter.sql` and `20260814121000_0034_lock_down_kids_share_rpc.sql`; the later active-state migration supersedes the original function with a service-role-only SECURITY INVOKER contract. Both matrix rows are now REVIEWED_SOURCE_ONLY; this is source review, not a production/runtime pass.
 

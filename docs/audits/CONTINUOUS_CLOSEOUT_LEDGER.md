@@ -1,3 +1,15 @@
+## 2026-11-17T05:18:00.000Z — exact-head CI and audit-test reconciliation
+
+**State: OPEN / NOT MERGE-READY.** This checkpoint corrects the audit-artifact test expectations and records current exact-head checks; it does not certify the full repository.
+
+- Main snapshot remains `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` / tree `7a73fa9af3ae0de67275dd33c4a1f8f18038d909`; immutable manifest blob `baace6d0c66ac299edb541c7caceba56eeae19be` remains unchanged (1,959 files / 500 directories).
+- Current audit artifacts: matrix `fe6173a384a382a0e974861e2e284a84dd59b060`, inventory `a3ff2f4f342f854405095878ee763e74294d6ae6`, Project Status `26fe458661a74a27a1837f2245cfb3039682231a`. Matrix row counts: 1,959 total, 1178 UNREVIEWED (361 high priority), 781 non-UNREVIEWED; matrix header `reviewed_blob_count=754`. The two Kids share-counter migrations remain REVIEWED_SOURCE_ONLY.
+- PR #396 exact head `a8aa7b151ab5156a441633792cc1b23802032152`: GitHub Quality Gate run `44022670846` is in progress; CircleCI config-guard and source-verify passed; application-build-docs remains pending; Supabase Preview skipped. No earlier-head check result is reused. PR remains draft/open, no owner review or merge.
+- The artifact contract test `scripts/tests/repository-audit-artifacts.test.mjs` previously hard-coded the pre-review counts 1,185/368. Updated its expected current checkpoint to 1,178/361 so the canonical `pnpm test` validates the reconciled matrix, inventory and project status instead of failing on stale expectations. Exact-head execution remains pending on PR #344 Quality Gate.
+- No production migration, SQL write, rate-limit RPC invocation, content generation, Gemini request, social publishing, storage/media operation, release, merge, Vercel deployment or production smoke check was performed.
+
+---
+
 ## 2026-11-17T05:15:00.000Z — Kids share-counter review and shared rate-limit repair
 
 **State: OPEN / NOT MERGE-READY.** This is a bounded source review plus an unverified repair PR; repository-wide review, owner approval and production acceptance remain open.
