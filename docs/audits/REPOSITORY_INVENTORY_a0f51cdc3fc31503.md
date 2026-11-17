@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T06:02:00.000Z (native loader and site-audio fixture review; exact-head PR verification refresh)
+Updated: 2026-11-17T06:29:29.000Z (historical RLS auth-initplan migration review; PR #394 forward repair pending)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T06:02:00.000Z (native loader and site-audio fixture review; 
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `481f149e9b63e4bd9d6e9edc5fdad182daf11217`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `b1b0084beb1ec7941228231b5d347267ef1c36cc`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -37,14 +37,14 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - Total tracked file rows: **1959**
-- `UNREVIEWED`: **1167**
-- Non-`UNREVIEWED` file rows: **792**
-- High-priority `UNREVIEWED`: **359**
+- `UNREVIEWED`: **1166**
+- Non-`UNREVIEWED` file rows: **793**
+- High-priority `UNREVIEWED`: **358**
 
 - `REVIEWED_PARTIAL`: 95
 - `FIX_PENDING_PR346`: 1
 - `REVIEWED_SOURCE_ONLY`: 304
-- `UNREVIEWED`: 1167
+- `UNREVIEWED`: 1166
 - `FIX_PENDING_PR382_PR394_PR395_PR396`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `FIX_PENDING_PR351`: 2
@@ -97,11 +97,12 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR395`: 1
 - `FIX_PENDING_PR390`: 1
 - `FIX_PENDING_PR374`: 1
-- `REVIEWED_PRODUCTION_APPLIED`: 62
+- `REVIEWED_PRODUCTION_APPLIED`: 61
 - `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 5
 - `FIX_PENDING_PR392`: 1
+- `FIX_PENDING_PR394`: 2
 
-The matrix has 1959 file rows; 790 are not marked `UNREVIEWED`. Fix-pending, owner-pending, historical-exception and source-only statuses are not equivalent to merged or production-verified closure.
+The matrix has 1959 file rows; 793 are not marked `UNREVIEWED`. Fix-pending, owner-pending, historical-exception and source-only statuses are not equivalent to merged or production-verified closure.
 
 ## Review batch — 2026-11-17 (billing cancellation and legacy table retirement lineage)
 
