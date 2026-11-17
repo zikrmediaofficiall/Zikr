@@ -3385,3 +3385,14 @@ No production SQL mutation, migration execution, data repair, content generation
 - PR #393 exact head `b386dd58de04cf49a6330d582409e8c1f1b6dad2` remains fully verified: Quality Gate `44016422205` passed `QUALITY_GATE=PASSED_FULL` and all CircleCI contexts passed; Supabase Preview skipped.
 - PR #344 documentation/audit branch now contains the new artifact-contract test and package-script registration. Its exact head after the latest documentation update must be checked independently; do not reuse any Quality Gate result from an earlier head. Owner review is still absent.
 - No production SQL/DDL/DML, migration apply, policy/grant change, contact submission, Edge Function/Cron invocation, social publishing, provider API call, content generation, Gemini request, Storage/media deletion, release, merge or Vercel deployment occurred.
+
+
+---
+## 2026-11-17T07:22:53.315Z — Kids World result RPC, RLS, catalog and inventory reconciliation
+
+- Immutable source snapshot: main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7; tree 7a73fa9af3ae0de67275dd33c4a1f8f18038d909; manifest blob undefined; 2,459 tree entries (1,959 tracked files, 500 directories).
+- Matrix blob c3955bec4e7cb8943ea0313a0abb417bd6c957f2; inventory blob 8d354977f06055e710fea4bf2ab66dda96f00691; project-status blob e57d2e941740b5427e1eed72c27a27f94be16d82. Matrix status counts: 1157 UNREVIEWED, 351 high-priority UNREVIEWED, 802 non-UNREVIEWED, 675 REVIEWED_* blobs. The artifact regression test now asserts 1157/351.
+- Read-only Supabase evidence: the four applied RLS/seed/function/index migrations were checked against live policies, ACLs and index validity. Thirteen published runtime game slugs match the registry; all are present in the active/published Kids content catalog. No RPC, SQL mutation, content generation or provider request was triggered.
+- Historical risk remains open: 20260929070000 drops four Kids tables with CASCADE. Current result/progress/user-achievement tables are empty, but the previous project's pre-migration retention state is unknown. No data was deleted or restored.
+- PR #353 exact head 0834fa235e27718d6cf1e14cb92926dfadb2325c: stable legacy submission IDs, transaction advisory lock before idempotency lookup, 12-way PostgreSQL 17 concurrency test, and canonical persisted-result response on duplicate. GitHub Quality Gate was in progress at last poll; CircleCI config-guard, source-verify and application-build-docs passed; Supabase Preview skipped. PR remains draft/open; CODEOWNERS approval absent.
+- No merge, production migration, production database mutation, social publishing, Gemini/content generation, Storage/media change, Android/iOS release or Vercel deployment.

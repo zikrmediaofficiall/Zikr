@@ -1,7 +1,7 @@
 # Repository inventory — main snapshot a0f51cdc3fc31503f12ddddba76e37d9e07a15f7
 
 Generated: 2026-11-16T13:04:59.302Z
-Updated: 2026-11-17T06:53:03.782Z (RLS, FK-index, prayer-cache and service-worker freshness review; PR #401 full checks passed)
+Updated: 2026-11-17T07:22:53.315Z (Kids World result/RLS/catalog review; PR #353 exact-head Quality Gate in progress, CircleCI passed)
 
 ## Exact snapshot
 
@@ -13,7 +13,7 @@ Updated: 2026-11-17T06:53:03.782Z (RLS, FK-index, prayer-cache and service-worke
 - Directories: **500**
 - Tree truncated: **no**
 - Full manifest: [`docs/audits/REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl`](./REPOSITORY_MANIFEST_a0f51cdc3fc31503.jsonl) — blob SHA `baace6d0c66ac299edb541c7caceba56eeae19be`
-- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `1565abf2ec9d10512f6fb769d00e4ab98c477cae`
+- Full file-status matrix: [`docs/audits/REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl`](./REPOSITORY_FILE_STATUS_MATRIX_a0f51cdc3fc31503.jsonl) — current blob SHA `c3955bec4e7cb8943ea0313a0abb417bd6c957f2`
 
 The manifest includes every recursive tree entry (files and directories). The status matrix contains one row for every tracked blob. Unreviewed files are explicitly marked `UNREVIEWED`; no prior summary or manifest was treated as source review.
 
@@ -37,9 +37,9 @@ The manifest includes every recursive tree entry (files and directories). The st
 ## File-status matrix
 
 - Total tracked file rows: **1959**
-- `UNREVIEWED`: **1161**
-- Non-`UNREVIEWED` file rows: **798**
-- High-priority `UNREVIEWED`: **355**
+- `UNREVIEWED`: **1157**
+- Non-`UNREVIEWED` file rows: **802**
+- High-priority `UNREVIEWED`: **351**
 
 - Service-worker prayer-time cache review: date-less `/api/prayer-times` requests were cached persistently without checking the provider-local date; PR #401 exact head `0e02078b98d2d7f8e73b40de984d47e8e55f897a` adds a timezone-aware freshness guard and stale-entry deletion; Quality Gate 44033964478 passed with `QUALITY_GATE=PASSED_FULL`, and all three CircleCI contexts passed. The log explicitly confirms the prayer-cache freshness regression passed. Owner/CODEOWNERS approval remains pending.
 - Legacy prayer-cache RLS migrations `20260815104409` and `20260815104455` are production-applied but safely no-op because `public.prayer_times_cache` is absent; runtime `prayerTimesCache` is an in-memory Map and no DB consumer was found.
@@ -51,8 +51,8 @@ The manifest includes every recursive tree entry (files and directories). The st
 
 - `REVIEWED_PARTIAL`: 95
 - `FIX_PENDING_PR346`: 1
-- `REVIEWED_SOURCE_ONLY`: 304
-- `UNREVIEWED`: 1161
+- `REVIEWED_SOURCE_ONLY`: 302
+- `UNREVIEWED`: 1157
 - `FIX_PENDING_PR382_PR394_PR395_PR396`: 1
 - `OWNER_SETTING_REQUIRED`: 1
 - `FIX_PENDING_PR351`: 2
@@ -65,14 +65,15 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR350`: 2
 - `FIX_PENDING_PR343_PR376_PR377_PR378_PR379_PR380_PR381_PR386_PR387_PR388`: 1
 - `REVIEWED_DATA_GENERAL_EDITORIAL`: 1
+- `FIX_PENDING_PR401`: 2
 - `FIX_PENDING_PR387_PR388`: 1
 - `FIX_PENDING_PR369`: 1
 - `FIX_PENDING_PR381_PARTIAL_REVIEW`: 3
-- `REVIEWED_REGRESSION_COVERAGE`: 71
+- `REVIEWED_REGRESSION_COVERAGE`: 72
 - `FIX_PENDING_PR343`: 2
 - `FIX_PENDING_PR349`: 5
 - `FIX_PENDING_PR352`: 3
-- `FIX_PENDING_PR353`: 4
+- `FIX_PENDING_PR353`: 5
 - `FIX_PENDING_PR340`: 3
 - `FIX_PENDING_PR382`: 6
 - `FIX_PENDING_PR373`: 4
@@ -105,13 +106,14 @@ The manifest includes every recursive tree entry (files and directories). The st
 - `FIX_PENDING_PR395`: 1
 - `FIX_PENDING_PR390`: 1
 - `FIX_PENDING_PR374`: 1
-- `REVIEWED_PRODUCTION_APPLIED`: 64
+- `REVIEWED_PRODUCTION_APPLIED`: 68
 - `HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED`: 5
+- `FIX_PENDING_PR394`: 2
 - `FIX_PENDING_PR392`: 1
 - `FIX_PENDING_PR394`: 2
 - `FIX_PENDING_PR401`: 2
 
-The matrix has 1959 file rows; 798 are not marked `UNREVIEWED`. Fix-pending, owner-pending, historical-exception and source-only statuses are not equivalent to merged or production-verified closure.
+The matrix has 1959 file rows; 802 are not marked `UNREVIEWED`. Fix-pending, owner-pending, historical-exception and source-only statuses are not equivalent to merged or production-verified closure.
 
 ## Review batch — 2026-11-17 (billing cancellation and legacy table retirement lineage)
 
@@ -121,6 +123,16 @@ The matrix has 1959 file rows; 798 are not marked `UNREVIEWED`. Fix-pending, own
 - The 20260919021452 and 20260919044739 files are SELECT 1 reconciliation markers only and are marked REVIEWED_SOURCE_ONLY.
 - Current row-level matrix: 1,959 file rows; 1,180 UNREVIEWED (363 high priority); 779 non-UNREVIEWED. Historical destructive review required now covers five rows. The immutable main manifest remains unchanged.
 - No production SQL write, migration apply, billing change, restore, cron, Edge Function, content generation, Gemini request, social provider call, storage operation, release, merge or deployment was performed.
+
+
+## Review batch — 2026-11-17 (Kids World result RPC, RLS, catalog and destructive migration audit)
+
+- Read the actual contents of migrations 20260827175605, 20260827182831, 20260827184319, 20260827184749, 20260929070000, 20261001214711, 20261009054919 and 20261101090000; traced the Kids game routes, service, registry, validator, Supabase types, RLS contract tests, body-limit tests, runtime tests and security-hardening verifier.
+- Read-only production Supabase checks confirm the four RLS/seed/function/index versions are applied. The kids_game_results and kids_game_progress owner policies use SELECT-initplan auth.uid(); direct authenticated writes are revoked by 20261009054919. kids_record_game_result_internal is not executable by anon/authenticated and is executable by service_role. The achievement FK index is valid and ready. No RPC or function was invoked.
+- Live Kids catalog reconciliation: 13/13 kids_games runtime slugs are published and match src/lib/games/registry.ts; all 13 are also present in the 35 active/published kids_content game rows. Current counts: results 0, per-game progress 0, player progress 0, user achievements 0, achievement catalog 11. No content generation or data mutation was performed.
+- Historical destructive finding: 20260929070000 executes DROP TABLE IF EXISTS ... CASCADE for game results, game progress, achievements and character selection. The current active project has no result/progress rows and no kids_achievements_legacy_20261002 table, but this does not establish whether the older project held data before the reset. The row remains HISTORICAL_DESTRUCTIVE_REVIEW_REQUIRED pending owner confirmation; no restore, replay or destructive action was attempted.
+- PR #353 also fixes a response-integrity issue: duplicate RPC responses previously echoed the retry payload rather than the stored result. The open draft PR reads the persisted row by both result ID and user ID on duplicate responses. Current exact head 0834fa235e27718d6cf1e14cb92926dfadb2325c; its advisory-lock-before-lookup migration and 12-way PostgreSQL 17 concurrency regression remain in the same PR. The previous head e97e6631a2443c56e2c4ebe0d5222d0a5ab0a34d passed its own Quality Gate and all CircleCI contexts; the new exact head's Quality Gate is in progress, all three CircleCI contexts passed, and Supabase Preview was skipped. Prior-head checks are not reused.
+- No production SQL/DDL/DML, migration apply, RPC invocation, content generation, Gemini request, social publishing, provider call, storage operation, Android/iOS release, merge or Vercel deployment occurred.
 
 ---
 
