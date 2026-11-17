@@ -36,11 +36,17 @@ const ledgerText = read(ledgerPath);
 
 const manifest = parseJsonl(manifestText, "Repository manifest");
 const matrix = parseJsonl(matrixText, "Repository file-status matrix");
-const manifestFiles = manifest.filter((row) => row.kind === "entry" && row.type === "blob");
-const manifestDirectories = manifest.filter((row) => row.kind === "entry" && row.type === "tree");
+const manifestEntries = manifest.filter((row) => row.kind === "entry");
+const snapshot = manifest.find((row) => row.kind === "snapshot");
+const manifestFiles = manifestEntries.filter((row) => row.type === "blob");
+const manifestDirectories = manifestEntries.filter((row) => row.type === "tree");
 const matrixFiles = matrix.filter((row) => row.kind === "file");
 
-assert.equal(manifest.length, 2459, "the immutable main snapshot must contain 2,459 recursive entries");
+assert.ok(snapshot, "the manifest must include its immutable snapshot header");
+assert.equal(manifestEntries.length, 2459, "the immutable main snapshot must contain 2,459 recursive entries");
+assert.equal(snapshot.entry_count, 2459, "the snapshot header must agree with the recursive entry count");
+assert.equal(snapshot.blob_count, 1959, "the snapshot header must agree with the tracked blob count");
+assert.equal(snapshot.directory_count, 500, "the snapshot header must agree with the directory count");
 assert.equal(manifestFiles.length, 1959, "the main snapshot must contain 1,959 tracked blobs");
 assert.equal(manifestDirectories.length, 500, "the main snapshot must contain 500 directories");
 assert.equal(matrixFiles.length, manifestFiles.length, "every tracked blob must have exactly one matrix row");
