@@ -57,5 +57,31 @@ BEGIN
      OR policy_row.qual ~* '(?i)select\s+\(select auth\.uid\(\)' THEN
     RAISE EXCEPTION 'Existing initplan was changed or JWT was not repaired: %', policy_row.qual;
   END IF;
+
+  SELECT qual INTO policy_row
+  FROM pg_policies
+  WHERE schemaname = 'public'
+    AND tablename = 'rls_initplan_test'
+    AND policyname = 'literal_auth_text_policy';
+
+  IF policy_row.qual IS NULL
+     OR position('''auth.uid()''' IN policy_row.qual) = 0
+     OR position('''auth.jwt()''' IN policy_row.qual) = 0
+     OR policy_row.qual ~* 'select[[:space:]]+auth\.uid\(\)|select[[:space:]]+auth\.jwt\(\)' THEN
+    RAISE EXCEPTION 'Function-like text inside SQL string literals was rewritten: %', policy_row.qual;
+  END IF;
+
+  SELECT qual INTO policy_row
+  FROM pg_policies
+  WHERE schemaname = 'public'
+    AND tablename = 'rls_initplan_test'
+    AND policyname = 'quoted_auth_identifier_policy';
+
+  IF policy_row.qual IS NULL
+     OR position('"auth.uid()"' IN policy_row.qual) = 0
+     OR position('"auth.jwt()"' IN policy_row.qual) = 0
+     OR policy_row.qual ~* 'select[[:space:]]+auth\.uid\(\)|select[[:space:]]+auth\.jwt\(\)' THEN
+    RAISE EXCEPTION 'Function-like text inside quoted identifiers was rewritten: %', policy_row.qual;
+  END IF;
 END
 $$;
