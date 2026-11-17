@@ -32,10 +32,19 @@ BEGIN
   END IF;
 
   IF NULLIF(BTRIM(request_row.video_url), '') IS NOT NULL
+     OR NULLIF(BTRIM(request_row.thumbnail_url), '') IS NOT NULL
      OR NULLIF(BTRIM(request_row.youtube_id), '') IS NOT NULL
      OR NULLIF(BTRIM(request_row.facebook_id), '') IS NOT NULL
      OR NULLIF(BTRIM(request_row.heygen_video_id), '') IS NOT NULL
-     OR NULLIF(BTRIM(request_row.provider_job_id), '') IS NOT NULL THEN
+     OR NULLIF(BTRIM(request_row.provider_job_id), '') IS NOT NULL
+     OR NULLIF(BTRIM(request_row.content ->> 'audioUrl'), '') IS NOT NULL
+     OR NULLIF(BTRIM(request_row.content ->> 'humanAudioUrl'), '') IS NOT NULL
+     OR NULLIF(BTRIM(request_row.content ->> 'audioMediaAssetId'), '') IS NOT NULL
+     OR NULLIF(BTRIM(request_row.content ->> 'audioMediaAssetOwnerId'), '') IS NOT NULL
+     OR request_row.content ->> 'audioSource' = 'human_recording'
+     OR NULLIF(BTRIM(request_row.content ->> 'videoUrl'), '') IS NOT NULL
+     OR NULLIF(BTRIM(request_row.content ->> 'generatedVideoUrl'), '') IS NOT NULL
+     OR NULLIF(BTRIM(request_row.content ->> 'thumbnailUrl'), '') IS NOT NULL THEN
     RAISE EXCEPTION 'VIDEO_REQUEST_DELETE_HAS_MEDIA' USING ERRCODE = '23503';
   END IF;
 
