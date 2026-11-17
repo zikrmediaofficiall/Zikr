@@ -3,6 +3,7 @@ import {
   type AdminPermission,
   type AdminRole,
 } from "@/features/admin/services/permissions";
+import { isGeneralAudienceVideoMetadata } from "@/features/videos/services/video-audience-visibility";
 
 export const ADMIN_SEARCH_ACCESS_PERMISSIONS = [
   "content.manage",
@@ -21,6 +22,11 @@ export const ADMIN_SEARCH_SOURCE_PERMISSIONS = {
 } as const satisfies Record<string, AdminPermission>;
 
 export type AdminSearchSourceKey = keyof typeof ADMIN_SEARCH_SOURCE_PERMISSIONS;
+
+/** Video search must apply the separate Kids permission before returning metadata or titles. */
+export function canSearchAdminVideoMetadata(metadata: unknown, role: AdminRole): boolean {
+  return hasAdminPermission(role, "kids.manage") || isGeneralAudienceVideoMetadata(metadata);
+}
 
 /**
  * Admin search runs with the service role, so source-level permissions must be
