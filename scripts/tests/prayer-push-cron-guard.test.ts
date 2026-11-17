@@ -30,10 +30,11 @@ assert.ok(
     guard.includes("cannot safely disable the ZIKR prayer dispatcher"),
   "the migration must fail rather than leave a dispatcher active when unschedule is unavailable",
 );
+const cronJobSchemaGuardIndex = guard.indexOf(") <> 3 THEN");
+const incompleteSchemaReturnIndex = guard.indexOf("RETURN;", cronJobSchemaGuardIndex);
 assert.ok(
-  guard.includes(") <> 3 THEN") &&
-    guard.includes("cron.job is missing required jobid, jobname, or command columns"),
-  "an unexpected cron.job schema must fail closed rather than silently skip cleanup",
+  cronJobSchemaGuardIndex >= 0 && incompleteSchemaReturnIndex > cronJobSchemaGuardIndex,
+  "the migration must skip the intentionally minimal migration-replay cron.job stub",
 );
 
 assert.match(guard, /jobname = 'zikr-prayer-push-dispatch'/,
