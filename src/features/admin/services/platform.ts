@@ -6,7 +6,7 @@ import {
   supabaseServerAdminRequest,
 } from "@/lib/supabase/server";
 import { buildAdminVideoQueueOverview } from "@/features/admin/services/admin-dashboard-visibility";
-import { canSearchAdminVideoMetadata, getVisibleAdminSearchSourceKeys, type AdminSearchSourceKey } from "@/features/admin/services/admin-search-visibility";
+import { canSearchAdminVideoRow, getVisibleAdminSearchSourceKeys, resolveKidsVideoCategoryIds, type AdminSearchSourceKey } from "@/features/admin/services/admin-search-visibility";
 import { hasAdminPermission, type AdminPermission, type AdminRole } from "@/features/admin/services/permissions";
 import { readAdminRows } from "@/features/admin/services/safe-read";
 import { getServerEnv } from "@/lib/env";
@@ -348,6 +348,55 @@ export type AdminSearchResult = {
   updated_at: string;
 };
 
+async function searchAdminVideoRows(pattern: string, role: AdminRole): Promise<Array<Record<string, unknown>>> {
+  const basePath =
+    "/rest/v1/videos?select=id,title,slug,published,updated_at,metadata,category_id&or=(title.ilike." +
+    pattern +
+    ",description.ilike." +
+    pattern +
+    ")&order=updated_at.desc&limit=10";
+
+  if (hasAdminPermission(role, "kids.manage")) {
+    const rows = await supabaseServerAdminRequest<unknown>(basePath, { method: "GET" });
+    if (!Array.isArray(rows)) throw new Error("Admin video search returned an invalid row set.");
+    return rows as Array<Record<string, unknown>>;
+  }
+
+  // Service-role reads bypass RLS. Resolve the canonical category IDs first and
+  // fail closed if that lookup is unavailable or malformed.
+  const categoryRows = await supabaseServerAdminRequest<unknown>(
+    "/rest/v1/video_categories?select=id,slug",
+    { method: "GET" },
+  );
+  const kidsCategoryIds = resolveKidsVideoCategoryIds(categoryRows);
+  if (kidsCategoryIds === null) {
+    throw new Error("Admin video search could not verify Kids category visibility.");
+  }
+
+  const paths = kidsCategoryIds.length > 0
+    ? [
+        `${basePath}&category_id=not.in.(${kidsCategoryIds.join(",")})`,
+        `${basePath}&category_id=is.null`,
+      ]
+    : [basePath];
+  const rowSets = await Promise.all(
+    paths.map(async (path) => {
+      const rows = await supabaseServerAdminRequest<unknown>(path, { method: "GET" });
+      if (!Array.isArray(rows)) throw new Error("Admin video search returned an invalid row set.");
+      return rows as Array<Record<string, unknown>>;
+    }),
+  );
+  const uniqueRows = new Map<string, Record<string, unknown>>();
+  for (const row of rowSets.flat()) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const id = typeof row.id === "string" ? row.id : "";
+    if (id && !uniqueRows.has(id)) uniqueRows.set(id, row);
+  }
+  return [...uniqueRows.values()]
+    .filter((row) => canSearchAdminVideoRow(row, role, kidsCategoryIds))
+    .slice(0, 10);
+}
+
 export async function searchAdminContent(query: string, role: AdminRole): Promise<{
   items: AdminSearchResult[];
   unavailableSources: string[];
@@ -358,7 +407,7 @@ export async function searchAdminContent(query: string, role: AdminRole): Promis
   const sourcePaths: Record<AdminSearchSourceKey, readonly [string, string]> = {
     articles: ["مقال", "/rest/v1/articles?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
     stories: ["قصة", "/rest/v1/stories?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
-    videos: ["فيديو", "/rest/v1/videos?select=id,title,slug,published,updated_at,metadata&or=(title.ilike." + pattern + ",description.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    videos: ["فيديو", "/rest/v1/videos?select=id,title,slug,published,updated_at,metadata,category_id&or=(title.ilike." + pattern + ",description.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
     hadiths: ["حديث", "/rest/v1/hadiths?select=id,text_ar,grade_ar,published,updated_at&or=(text_ar.ilike." + pattern + ",grade_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
     duas: ["دعاء", "/rest/v1/duas?select=id,title_ar,text_ar,published,updated_at&or=(title_ar.ilike." + pattern + ",text_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
     content_library: ["مكتبة", "/rest/v1/content_library?select=id,title_ar,title_en,slug,published,updated_at&or=(title_ar.ilike." + pattern + ",title_en.ilike." + pattern + ",body_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
@@ -368,10 +417,11 @@ export async function searchAdminContent(query: string, role: AdminRole): Promis
   const results = await Promise.all(
     requests.map(async ([type, path]) => {
       try {
-        const rows = await supabaseServerAdminRequest<Array<Record<string, unknown>>>(path, { method: "GET" });
-        const visibleRows = type === "فيديو"
-          ? rows.filter((row) => canSearchAdminVideoMetadata(row.metadata, role))
-          : rows;
+        const rows = type === "فيديو"
+          ? await searchAdminVideoRows(pattern, role)
+          : await supabaseServerAdminRequest<Array<Record<string, unknown>>>(path, { method: "GET" });
+        if (!Array.isArray(rows)) throw new Error("Admin search returned an invalid row set.");
+        const visibleRows = rows;
         return {
           type,
           ok: true,
