@@ -6,7 +6,7 @@ import {
   supabaseServerAdminRequest,
 } from "@/lib/supabase/server";
 import { buildAdminVideoQueueOverview } from "@/features/admin/services/admin-dashboard-visibility";
-import { getVisibleAdminSearchSourceKeys, type AdminSearchSourceKey } from "@/features/admin/services/admin-search-visibility";
+import { canSearchAdminVideoMetadata, getVisibleAdminSearchSourceKeys, type AdminSearchSourceKey } from "@/features/admin/services/admin-search-visibility";
 import { hasAdminPermission, type AdminPermission, type AdminRole } from "@/features/admin/services/permissions";
 import { readAdminRows } from "@/features/admin/services/safe-read";
 import { getServerEnv } from "@/lib/env";
@@ -358,7 +358,7 @@ export async function searchAdminContent(query: string, role: AdminRole): Promis
   const sourcePaths: Record<AdminSearchSourceKey, readonly [string, string]> = {
     articles: ["مقال", "/rest/v1/articles?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
     stories: ["قصة", "/rest/v1/stories?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
-    videos: ["فيديو", "/rest/v1/videos?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",description.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    videos: ["فيديو", "/rest/v1/videos?select=id,title,slug,published,updated_at,metadata&or=(title.ilike." + pattern + ",description.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
     hadiths: ["حديث", "/rest/v1/hadiths?select=id,text_ar,grade_ar,published,updated_at&or=(text_ar.ilike." + pattern + ",grade_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
     duas: ["دعاء", "/rest/v1/duas?select=id,title_ar,text_ar,published,updated_at&or=(title_ar.ilike." + pattern + ",text_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
     content_library: ["مكتبة", "/rest/v1/content_library?select=id,title_ar,title_en,slug,published,updated_at&or=(title_ar.ilike." + pattern + ",title_en.ilike." + pattern + ",body_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
@@ -369,10 +369,13 @@ export async function searchAdminContent(query: string, role: AdminRole): Promis
     requests.map(async ([type, path]) => {
       try {
         const rows = await supabaseServerAdminRequest<Array<Record<string, unknown>>>(path, { method: "GET" });
+        const visibleRows = type === "فيديو"
+          ? rows.filter((row) => canSearchAdminVideoMetadata(row.metadata, role))
+          : rows;
         return {
           type,
           ok: true,
-          rows: rows.map((row) => ({
+          rows: visibleRows.map((row) => ({
             type,
             id: String(row.id ?? ""),
             title: String(row.title ?? row.title_ar ?? row.title_en ?? row.text_ar ?? "بدون عنوان"),
