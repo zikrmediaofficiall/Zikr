@@ -231,7 +231,7 @@ export async function recordKidsGameResultForUser(
   // A duplicate submission must return the persisted result, not the retry
   // payload. Clients may resend the same key after a timeout with stale or
   // altered local state; the idempotency key makes the first stored result canonical.
-  let persistedResult = {
+  let persistedResult: KidsGameResultResponse["result"] = {
     id: row.result_id,
     gameId: payload.gameId,
     score: payload.score,
