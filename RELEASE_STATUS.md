@@ -1,9 +1,9 @@
 # ZIKR Project Release & Build Status
 
-## Current source/deployment reconciliation — 2026-11-16 20:50 UTC
+## Current source/deployment reconciliation — 2026-11-17 02:17 UTC
 
 - Current Git main: a0f51cdc3fc31503f12ddddba76e37d9e07a15f7.
-- Latest production source: 00fc4ff6dba9f76a9d59cae28c2270a58cac77d9; Vercel deployment dpl_7btEkudu5wcxhicM6uRoCkWfJtyr was confirmed READY in the read-only deployment inventory at 20:50 UTC. No HTTP smoke was run in this batch.
+- Latest production source: `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; Vercel deployment `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` was rechecked READY in the read-only deployment inventory at 02:17 UTC. Project Node version is `22.x`. No HTTP smoke was run in this batch.
 - Main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7 is one commit ahead of the production source; it includes the social-publishing publishedAt/catalog timestamp consistency fix and regression coverage. It is not recorded as deployed.
 - Main a0f51 passed GitHub Quality Gate run 43833156580 and the recorded CircleCI source-verify, application-build-docs and config-guard contexts.
 - vercel.json sets git.deploymentEnabled=false and defines no Vercel cron jobs. Do not infer an automatic deployment from a Git merge; manual deployment and production smoke verification are required after authorized review.
