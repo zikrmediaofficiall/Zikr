@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { runInNewContext } from "node:vm";
 import { readFileSync } from "node:fs";
 
 import { getServiceWorkerScriptUrl } from "../../src/lib/ads/runtime-policy";
@@ -184,3 +185,111 @@ assert.ok(
 );
 
 console.log("Service-worker advertising scope contract passed.");
+
+
+const prayerCacheHelper = readFileSync("public/sw-prayer-times-cache.js", "utf8");
+const prayerCacheSandbox = {
+  self: { location: { origin: productionOrigin } },
+  URL,
+  Intl,
+  Date,
+} as Record<string, any>;
+runInNewContext(prayerCacheHelper, prayerCacheSandbox);
+const isFreshPrayerTimesCacheEntry = prayerCacheSandbox.self.isFreshPrayerTimesCacheEntry as (
+  response: { clone: () => { json: () => Promise<unknown> } },
+  requestUrl: string | URL,
+  now?: Date,
+) => Promise<boolean>;
+const makePrayerResponse = (date: string, timeZone = "Africa/Cairo") => ({
+  clone: () => ({
+    json: async () => ({
+      data: {
+        date: { gregorian: { date } },
+        meta: { timezone: timeZone },
+      },
+    }),
+  }),
+});
+const fixedPrayerNow = new Date("2026-11-17T12:00:00.000Z");
+const todayPrayerUrl = new URL("/api/prayer-times?latitude=31.2&longitude=29.9", productionOrigin);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry(makePrayerResponse("17-11-2026"), todayPrayerUrl, fixedPrayerNow),
+  true,
+  "a cached response for the current Gregorian date in its provider timezone may be used offline",
+);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry(makePrayerResponse("16-11-2026"), todayPrayerUrl, fixedPrayerNow),
+  false,
+  "a yesterday response without an explicit date must not be returned as today's prayer times",
+);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry(
+    makePrayerResponse("16-11-2026", "America/Los_Angeles"),
+    todayPrayerUrl,
+    new Date("2026-11-17T01:00:00.000Z"),
+  ),
+  true,
+  "freshness must use the provider's location timezone rather than the device date",
+);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry(
+    makePrayerResponse("17-11-2026", "America/Los_Angeles"),
+    todayPrayerUrl,
+    new Date("2026-11-17T01:00:00.000Z"),
+  ),
+  false,
+  "a UTC/device date match must not override a different local date in the prayer location",
+);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry(
+    makePrayerResponse("18-11-2026", "Asia/Tokyo"),
+    todayPrayerUrl,
+    new Date("2026-11-17T16:00:00.000Z"),
+  ),
+  true,
+  "locations east of UTC must use their own next calendar day",
+);
+const explicitPrayerDateUrl = new URL(
+  "/api/prayer-times?latitude=31.2&longitude=29.9&date=2026-11-16",
+  productionOrigin,
+);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry(makePrayerResponse("16-11-2026"), explicitPrayerDateUrl, fixedPrayerNow),
+  true,
+  "an explicitly requested historical date remains a valid cache key after the current day changes",
+);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry(makePrayerResponse("17-11-2026"), explicitPrayerDateUrl, fixedPrayerNow),
+  false,
+  "a cached response for a different explicit date must be rejected",
+);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry(makePrayerResponse("17-11-2026", "Invalid/Timezone"), todayPrayerUrl, fixedPrayerNow),
+  false,
+  "an invalid provider timezone must fail closed",
+);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry({ clone: () => ({ json: async () => ({ data: {} }) }) }, todayPrayerUrl, fixedPrayerNow),
+  false,
+  "missing Gregorian date metadata must fail closed",
+);
+assert.equal(
+  await isFreshPrayerTimesCacheEntry({ clone: () => ({ json: async () => { throw new Error("invalid JSON"); } }) }, todayPrayerUrl, fixedPrayerNow),
+  false,
+  "malformed cached JSON must fail closed",
+);
+
+const prayerHandlerStart = worker.indexOf('if (url.pathname === "/api/prayer-times")');
+const publicApiHandlerStart = worker.indexOf("if (isPublicContentApi(url))", prayerHandlerStart);
+assert.ok(prayerHandlerStart >= 0 && publicApiHandlerStart > prayerHandlerStart);
+const prayerHandler = worker.slice(prayerHandlerStart, publicApiHandlerStart);
+assert.ok(
+  worker.indexOf('importScripts("/sw-prayer-times-cache.js")') < prayerHandlerStart,
+  "the freshness helper must load before the service worker handles prayer-time requests",
+);
+assert.match(prayerHandler, /await self\.isFreshPrayerTimesCacheEntry\(response\.clone\(\), url\)/);
+assert.match(prayerHandler, /await self\.isFreshPrayerTimesCacheEntry\(cached\.clone\(\), url\)/);
+assert.match(prayerHandler, /await cache\.delete\(request\)/);
+assert.match(prayerHandler, /Offline prayer-times data is unavailable or expired/);
+
+console.log("Service-worker prayer-times cache freshness contract passed.");
