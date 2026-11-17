@@ -1,14 +1,16 @@
 # ZIKR Project Release & Build Status
 
-## Current source/deployment reconciliation — 2026-11-17 02:17 UTC
+## Current source/deployment reconciliation — 2026-11-17T04:25:38.059Z
 
-- Current Git main: a0f51cdc3fc31503f12ddddba76e37d9e07a15f7.
-- Latest production source: `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; Vercel deployment `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr` was rechecked READY in the read-only deployment inventory at 02:17 UTC. Project Node version is `22.x`. No HTTP smoke was run in this batch.
-- Main a0f51cdc3fc31503f12ddddba76e37d9e07a15f7 is one commit ahead of the production source; it includes the social-publishing publishedAt/catalog timestamp consistency fix and regression coverage. It is not recorded as deployed.
-- Main a0f51 passed GitHub Quality Gate run 43833156580 and the recorded CircleCI source-verify, application-build-docs and config-guard contexts.
-- vercel.json sets git.deploymentEnabled=false and defines no Vercel cron jobs. Do not infer an automatic deployment from a Git merge; manual deployment and production smoke verification are required after authorized review.
-- Apple AASA was last recorded HTTP 503; PR #343 adds a fail-closed IOS_ASSOCIATED_DOMAIN_APP_ID build guard. A valid Apple Team/App ID value remains owner-only configuration.
-- No Android release, Vercel deployment, migration apply, social publish or production mutation was triggered by this audit.
+- Current Git main: `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7`.
+- Latest production deployment: `dpl_7btEkudu5wcxhicM6uRoCkWfJtyr`, state **READY**, source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`, alias `zikrmediaofficial.vercel.app`.
+- Main is **four commits ahead** of the deployed source (compare: [00fc4ff...a0f51](https://github.com/zikrofficial-X/Zikr/compare/00fc4ff6dba9f76a9d59cae28c2270a58cac77d9...a0f51cdc3fc31503f12ddddba76e37d9e07a15f7)); it is not recorded as deployed. The four commits reconcile Kids social publication timestamps/catalog state.
+- `vercel.json` sets `git.deploymentEnabled=false`; Git merge does not imply production deployment. A manual owner-authorized release is required after approval.
+- The production deployment was rechecked read-only and is READY. No HTTP smoke suite was run in this audit; historical smoke evidence from the 2026-11-16 final review is not treated as a smoke result for the exact current deployment or current main.
+- Node version is `22.x`. Apple AASA was last recorded HTTP 503; PR #343 adds a fail-closed `IOS_ASSOCIATED_DOMAIN_APP_ID` build guard, but a valid Apple Team/App ID remains owner-only configuration.
+- No Android/iOS release, Vercel deployment, migration apply, social publish or production mutation was triggered by this audit.
+
+---
 
 ---
 
@@ -26,10 +28,10 @@ Production URL: https://zikrmediaofficial.vercel.app
 | Deployment state | READY (Production) |
 | Production alias | `zikrmediaofficial.vercel.app` |
 | Deployment URL | https://zikr-8pdpwlqag-zikr3.vercel.app |
-| Deployment created | 2026-11-16 (UTC) |
-| Runtime verification | `/api/health` returns HTTP 200 and the exact deployed SHA; core page/API smoke checks return HTTP 200 |
+| Deployment created | 2026-11-17T04:11:00Z (UTC) |
+| Runtime verification | Not re-run in this audit; historical smoke evidence is for the prior verified source, not this exact deployment or current main |
 
-The latest production deployment is READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; current main is `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` (one commit ahead) and is not recorded as deployed. Deployment inventory was rechecked at 20:50 UTC; no HTTP smoke was run in this batch. `vercel.json` keeps Git deployments disabled, so a manual owner-authorized deployment is required after review. No deployment was triggered.
+The latest production deployment is READY on source `00fc4ff6dba9f76a9d59cae28c2270a58cac77d9`; current main is `a0f51cdc3fc31503f12ddddba76e37d9e07a15f7` (four commits ahead) and is not recorded as deployed. Deployment inventory was rechecked at 20:50 UTC; no HTTP smoke was run in this batch. `vercel.json` keeps Git deployments disabled, so a manual owner-authorized deployment is required after review. No deployment was triggered.
 
 ## Atomic Android release preparation
 
