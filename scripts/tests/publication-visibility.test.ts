@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { shouldSuppressOfflineFallback } from "../../src/lib/data/publication-visibility-contract";
+import { isPublicStoryRecord } from "../../src/features/stories/services/story-public-visibility";
 
 assert.equal(shouldSuppressOfflineFallback("unpublished"), true);
 assert.equal(shouldSuppressOfflineFallback("unknown"), true);
 assert.equal(shouldSuppressOfflineFallback("published"), false);
 assert.equal(shouldSuppressOfflineFallback("missing"), false);
+
+assert.equal(isPublicStoryRecord({ published: true, is_approved: true, user_id: null }), true);
+assert.equal(isPublicStoryRecord({ published: true, is_approved: false, user_id: null }), false);
+assert.equal(isPublicStoryRecord({ published: true, is_approved: true, user_id: "70000000-0000-4000-8000-000000000001" }), false);
+assert.equal(isPublicStoryRecord({ published: false, is_approved: true, user_id: null }), false);
+assert.equal(isPublicStoryRecord({ published: true, user_id: null }), false, "missing approval must fail closed");
+assert.equal(isPublicStoryRecord({ published: true, is_approved: true }), false, "missing ownership state must fail closed");
 
 const helper = readFileSync("src/lib/data/publication-visibility.ts", "utf8");
 assert.match(helper, /supabaseServerAdminRequest/);
@@ -42,3 +50,17 @@ for (const [path, lookup] of serviceContracts) {
 }
 
 console.log("Public detail-route publication visibility contracts passed.");
+const storiesService = readFileSync("src/features/stories/services/stories.ts", "utf8");
+assert.match(storiesService, /isPublicStoryRecord\(row\)/, "public story responses must recheck approval and ownership");
+assert.match(storiesService, /is_approved=eq\.true&user_id=is\.null/, "public story queries must select only approved global stories");
+
+const videoSourceService = readFileSync("src/features/videos/services/video-sources.ts", "utf8");
+assert.match(videoSourceService, /is_approved=eq\.true&user_id=is\.null/, "video generation must only source approved global stories");
+assert.match(videoSourceService, /isPublicStoryRecord\(story\)/, "video source rows must be validated before use");
+
+const storyRlsMigration = readFileSync(
+  "supabase/migrations/20261117010000_stories_public_rls_requires_approved_global_rows.sql",
+  "utf8",
+);
+assert.match(storyRlsMigration, /published IS TRUE\s+AND is_approved IS TRUE\s+AND user_id IS NULL/);
+assert.match(storyRlsMigration, /private\.is_admin_user\(\)/);
