@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { ADMIN_SEARCH_ACCESS_PERMISSIONS, canSearchAdminVideoMetadata, getAdminSearchResultHref, getVisibleAdminSearchSourceKeys } from "../../src/features/admin/services/admin-search-visibility";
+import { ADMIN_SEARCH_ACCESS_PERMISSIONS, canSearchAdminVideoMetadata, canSearchAdminVideoRow, getAdminSearchResultHref, getVisibleAdminSearchSourceKeys, isKidsVideoCategorySlug, resolveKidsVideoCategoryIds } from "../../src/features/admin/services/admin-search-visibility";
 import { hasAdminPermission, type AdminRole } from "../../src/features/admin/services/permissions";
 
 test("admin search only queries sources covered by the effective role", () => {
@@ -74,8 +74,13 @@ test("admin search applies the effective role before issuing service-role reads"
 
   assert.match(platformSource, /searchAdminContent\(query: string, role: AdminRole\)/);
   assert.match(platformSource, /getVisibleAdminSearchSourceKeys\(role\)\.map/);
-  assert.match(platformSource, /select=id,title,slug,published,updated_at,metadata/);
-  assert.match(platformSource, /canSearchAdminVideoMetadata\(row\.metadata, role\)/);
+  assert.match(platformSource, /select=id,title,slug,published,updated_at,metadata,category_id/);
+  assert.match(platformSource, /video_categories\?select=id,slug/);
+  assert.match(platformSource, /category_id=not\.in\./);
+  assert.match(platformSource, /category_id=is\.null/);
+  assert.match(platformSource, /resolveKidsVideoCategoryIds\(categoryRows\)/);
+  assert.match(platformSource, /if \(kidsCategoryIds === null\)/);
+  assert.match(platformSource, /canSearchAdminVideoRow\(row, role, kidsCategoryIds\)/);
   assert.match(pageSource, /searchAdminContent\(query, profile\.role\)/);
 });
 
@@ -143,4 +148,45 @@ test("admin search keeps drafts and audience-restricted videos inside admin rout
     getAdminSearchResultHref({ type: "مكتبة", slug: null, published: false }),
     "/admin/content",
   );
+});
+
+test("Kids category membership overrides missing or conflicting video metadata", () => {
+  const kidsCategoryId = "d1dba41d-4642-4696-9590-85bfd68b1eae";
+  const generalCategoryId = "7b63e617-04b4-4f93-8a1a-ec094d64098f";
+  const kidsCategoryIds = resolveKidsVideoCategoryIds([
+    { id: kidsCategoryId, slug: "kids-stories" },
+    { id: generalCategoryId, slug: "quran-verified" },
+  ]);
+
+  assert.deepEqual(kidsCategoryIds, [kidsCategoryId]);
+  assert.equal(isKidsVideoCategorySlug(" Kids_Story "), true);
+  assert.equal(isKidsVideoCategorySlug("quran-verified"), false);
+  assert.equal(
+    canSearchAdminVideoRow(
+      { category_id: kidsCategoryId, metadata: { audience: "general" } },
+      "video_manager",
+      kidsCategoryIds ?? [],
+    ),
+    false,
+    "a Kids category must override metadata that incorrectly claims general audience",
+  );
+  assert.equal(
+    canSearchAdminVideoRow({ category_id: kidsCategoryId, metadata: null }, "video_manager", kidsCategoryIds ?? []),
+    false,
+    "a Kids category must remain restricted when metadata is missing",
+  );
+  assert.equal(
+    canSearchAdminVideoRow({ category_id: generalCategoryId, metadata: { audience: "general" } }, "video_manager", kidsCategoryIds ?? []),
+    true,
+  );
+  assert.equal(
+    canSearchAdminVideoRow({ category_id: null, metadata: { audience: "kids" } }, "video_manager", kidsCategoryIds ?? []),
+    false,
+  );
+  assert.equal(
+    canSearchAdminVideoRow({ category_id: kidsCategoryId, metadata: null }, "super_admin", kidsCategoryIds ?? []),
+    true,
+  );
+  assert.equal(resolveKidsVideoCategoryIds({ rows: [] }), null);
+  assert.equal(resolveKidsVideoCategoryIds([{ id: "invalid", slug: "kids-stories" }]), null);
 });
