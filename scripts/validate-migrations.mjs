@@ -723,7 +723,7 @@ if (failed === 0) {
   const storyPolicyByName = new Map(
     storyReadPolicies.rows.map((row) => [
       row.polname,
-      String(row.using_expression ?? '').toLowerCase().replace(/\\s+/g, ' '),
+      String(row.using_expression ?? '').toLowerCase().replace(/\s+/g, ' '),
     ]),
   );
   const anonStoryPolicy = storyPolicyByName.get('stories_public_read_published') ?? '';
