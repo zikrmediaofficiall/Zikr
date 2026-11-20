@@ -16,7 +16,8 @@ import {
 } from "@/features/companions/services/companions";
 import { pageMetadata } from "@/lib/site";
 
-export const revalidate = 3600;
+// Detail reads verify live publication state with no-store requests.
+export const dynamic = "force-dynamic";
 
 const loadCompanion = cache((slug: string) => getCompanionBySlug(slug));
 
