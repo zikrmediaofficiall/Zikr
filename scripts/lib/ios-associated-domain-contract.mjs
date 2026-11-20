@@ -1,16 +1,16 @@
 export const IOS_ASSOCIATED_DOMAIN_APP_ID_PATTERN = /^[A-Z0-9]{10}\.com\.zikr\.app$/;
 
-export function getIosAssociatedDomainAppIdStatus({ appId, vercelEnv } = {}) {
+export function getIosAssociatedDomainAppIdStatus({ appId, vercelEnv, required = vercelEnv === "production" } = {}) {
   const value = typeof appId === "string" ? appId.trim() : "";
   if (!value) {
-    return vercelEnv === "production"
+    return required
       ? {
           status: "fail",
           detail: "IOS_ASSOCIATED_DOMAIN_APP_ID is required for production Apple Universal Links; provide the real Apple Team ID and bundle ID.",
         }
       : {
           status: "warn",
-          detail: "IOS_ASSOCIATED_DOMAIN_APP_ID is optional outside production; Apple Universal Links remain unavailable until it is configured.",
+          detail: "IOS_ASSOCIATED_DOMAIN_APP_ID is optional for web deployments; iOS Universal Links remain unavailable until the real Apple Team ID and bundle ID are configured.",
         };
   }
 
