@@ -8,7 +8,7 @@ from urllib.error import URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-MAX_VIDEO_BYTES = 256 * 1024 * 1024
+MAX_VIDEO_BYTES = 50 * 1024 * 1024
 MIN_VIDEO_BYTES = 1024
 SPACE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 BUILTIN_SPACE_IDS = {

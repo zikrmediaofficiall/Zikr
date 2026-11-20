@@ -102,7 +102,7 @@
     "security:anon-grants:check": "node scripts/verify-private-table-grants.mjs",
     "written-content:generate": "tsx scripts/jobs/written-content-automation.ts",
     "written-content:check": "tsx scripts/tests/written-content-automation.test.ts",
-    "video:providers:check": "tsx scripts/tests/video-custom-provider-registry.test.ts",
+    "video:providers:check": "tsx scripts/tests/video-custom-provider-registry.test.ts && tsx scripts/tests/video-provider-download.test.ts",
     "error:boundaries:check": "node scripts/verify-error-boundaries.mjs",
     "video:purge:check": "node scripts/tests/video-purge-contract.test.mjs",
     "quran:tafsir:check": "node scripts/verify-quran-tafsir-backfill.mjs",

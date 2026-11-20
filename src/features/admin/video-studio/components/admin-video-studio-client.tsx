@@ -92,6 +92,7 @@ export default function AdminVideoStudioClient() {
   const [sourceLoading, setSourceLoading] = useState(false);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
+  const [uploadedAudioAssetId, setUploadedAudioAssetId] = useState("");
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -209,6 +210,7 @@ export default function AdminVideoStudioClient() {
   function chooseAudio(file: File | null) {
     setError(null);
     setUploadedAudioUrl("");
+    setUploadedAudioAssetId("");
     if (!file) {
       setAudioFile(null);
       return;
@@ -228,7 +230,7 @@ export default function AdminVideoStudioClient() {
 
   async function uploadHumanAudio(): Promise<string | null> {
     if (!audioFile) return "";
-    if (uploadedAudioUrl) return uploadedAudioUrl;
+    if (uploadedAudioUrl && uploadedAudioAssetId) return uploadedAudioUrl;
     const response = await fetch(
       "/api/admin/video-generation/narration-upload",
       {
@@ -239,7 +241,7 @@ export default function AdminVideoStudioClient() {
     );
     const payload = await response.json().catch(() => ({}));
     if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return null;
-    if (!response.ok || typeof payload.audioUrl !== "string" || payload.auditRecorded !== true) {
+    if (!response.ok || typeof payload.audioUrl !== "string" || typeof payload.mediaAssetId !== "string" || payload.auditRecorded !== true) {
       const requestedReference = typeof payload.requestedUploadReference === "string" &&
         payload.requestedUploadReference !== payload.uploadReference
         ? `؛ المرجع المطلوب: ${payload.requestedUploadReference}`
@@ -249,7 +251,7 @@ export default function AdminVideoStudioClient() {
         : "";
       throw new Error(`${payload.error || "تعذر تأكيد تسجيل رفع الصوت في سجل التدقيق؛ لم يتم إرفاقه بطلب الفيديو."}${recoveryReference}`);
     }
-    if (payload.assetTrackingStatus === "reconciliation_pending") {
+    if (payload.assetTrackingStatus !== "ready") {
       const requestedReference = typeof payload.requestedUploadReference === "string" &&
         payload.requestedUploadReference !== payload.uploadReference
         ? `؛ المرجع المطلوب: ${payload.requestedUploadReference}`
@@ -257,9 +259,11 @@ export default function AdminVideoStudioClient() {
       const recoveryReference = typeof payload.uploadReference === "string"
         ? ` (مرجع الاسترداد: ${payload.uploadReference}${requestedReference})`
         : "";
-      setWarning(`تم رفع التسجيل وتأكيد التدقيق، لكن حالة الأصل تحتاج إلى مراجعة في مكتبة الوسائط.${recoveryReference}`);
+      setWarning(`تم رفع التسجيل، لكن حالة الأصل لم تصل إلى ready في مكتبة الوسائط؛ لن يتم إرفاقه بطلب الفيديو حتى اكتمال التسوية.${recoveryReference}`);
+      return null;
     }
     setUploadedAudioUrl(payload.audioUrl);
+    setUploadedAudioAssetId(payload.mediaAssetId);
     return payload.audioUrl as string;
   }
 
@@ -299,6 +303,7 @@ export default function AdminVideoStudioClient() {
             ? undefined
             : narration.trim().replace(/\s+/g, " "),
           humanAudioUrl: humanAudioUrl || undefined,
+          humanAudioAssetId: humanAudioUrl ? uploadedAudioAssetId : undefined,
           content: {
             renderer: "template",
             workflow: "ai-video-studio",
@@ -330,6 +335,7 @@ export default function AdminVideoStudioClient() {
       setSourceId("");
       setAudioFile(null);
       setUploadedAudioUrl("");
+      setUploadedAudioAssetId("");
     } catch (cause) {
       setError(
         cause instanceof Error
