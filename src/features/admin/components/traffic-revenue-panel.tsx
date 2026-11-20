@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { getTrafficRevenueSnapshot } from "@/features/admin/services/traffic-revenue";
+import { getGa4ReportingStatusPresentation } from "@/features/admin/services/traffic-revenue-metrics";
 
 const format = (value: number | null) =>
   value === null ? "غير متاح" : value.toLocaleString("ar-EG-u-nu-latn");
@@ -68,6 +69,10 @@ export async function TrafficRevenuePanel({
     );
   }
   const metrics = snapshot.metrics;
+  const ga4Status = getGa4ReportingStatusPresentation(
+    snapshot.ga4Analytics.status,
+    snapshot.integrations.ga4MeasurementConfigured,
+  );
 
   return (
     <section className="mt-8 space-y-6" dir="rtl" aria-labelledby="traffic-revenue-heading">
@@ -126,8 +131,8 @@ export async function TrafficRevenuePanel({
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-bold text-brand-cream">تحليلات زيارات الموقع — Google Analytics 4</h3>
-          <Badge variant="outline" className={snapshot.integrations.ga4ReportingConnected ? "border-emerald-400/20 text-emerald-200/80" : "border-amber-300/20 text-amber-100/75"}>
-            {snapshot.integrations.ga4ReportingConnected ? "تقارير GA4 متصلة" : snapshot.ga4Analytics.status === "authorization_required" ? "تحتاج إعادة تفويض" : "غير متصلة"}
+          <Badge variant="outline" className={ga4Status.connected ? "border-emerald-400/20 text-emerald-200/80" : "border-amber-300/20 text-amber-100/75"}>
+            {ga4Status.label}
           </Badge>
         </div>
         {snapshot.ga4Analytics.status === "connected" ? (
@@ -252,12 +257,12 @@ export async function TrafficRevenuePanel({
               <div>
                 <p className="font-semibold text-brand-cream">Google Analytics 4</p>
                 <p className="mt-1 text-xs leading-5 text-brand-cream/45">
-                  {snapshot.integrations.ga4MeasurementConfigured
-                    ? "معرّف القياس متاح في إعدادات تشغيل التطبيق؛ واجهة التقارير البرمجية لم تُربط بعد."
-                    : "معرّف القياس غير متاح في بيئة تشغيل التطبيق الحالية."}
+                  {ga4Status.measurementDescription}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-brand-cream/45">{ga4Status.description}
                 </p>
               </div>
-              <Badge variant="outline" className="shrink-0 border-amber-300/20 text-amber-100/75">التقارير غير متصلة</Badge>
+              <Badge variant="outline" className={"shrink-0 " + (ga4Status.connected ? "border-emerald-400/20 text-emerald-200/80" : "border-amber-300/20 text-amber-100/75")}>{ga4Status.label}</Badge>
             </div>
             <div className="flex items-start justify-between gap-3 py-3">
               <div>

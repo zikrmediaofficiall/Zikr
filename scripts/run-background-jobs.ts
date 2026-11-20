@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { processTemplateVideoQueue, seedAutomatedVideoRequests } from "./jobs/template-video-automation";
 import { processScheduledContent } from "./jobs/content-publishing";
-import { processSocialPublishQueue, syncSocialInsights } from "./jobs/social-publishing";
+import { processSocialPublishQueue, reconcileKidsCatalogMetadata, syncSocialInsights } from "./jobs/social-publishing";
 import { getVideoEngineConfig } from "../src/features/videos/providers/types";
 import { buildRunNowRequestDeleteFilter, evaluateBackgroundJobOutcome, isSameRunNowRequest, shouldClearRunNowRequest, shouldRunScheduledContentPublishing } from "../src/features/videos/services/background-job-outcome";
 import { isVideoAutomationEnabled, isVideoPurgeInProgress } from "../src/features/videos/services/background-job-settings";
@@ -283,9 +283,17 @@ async function processVideos(settings: VideoAutomationSettings) {
 
 
 async function processSocial(settings: VideoAutomationSettings) {
+  // Catalog reconciliation is internal-only and has its own opt-in. It must
+  // remain available when external publishing is paused or provider credentials
+  // are unavailable; the purge lock still prevents concurrent media/catalog work.
+  const catalogReconciliation = await reconcileKidsCatalogMetadata();
+  if (catalogReconciliation.enabled && (catalogReconciliation.scanned > 0 || catalogReconciliation.failed > 0)) {
+    console.log("[background-jobs] Kids catalog reconciliation:", JSON.stringify(catalogReconciliation));
+  }
+
   if (!settings.autoPublish || process.env.SOCIAL_PUBLISH_ENABLED !== "true") {
     console.log("[background-jobs] Social publishing remains paused by Admin settings or workflow policy.");
-    return { processed: 0, succeeded: 0, deferred: 0, authBlocked: 0, approvalBlocked: 0, failed: 0, enabled: false, insights: null };
+    return { processed: 0, succeeded: 0, deferred: 0, authBlocked: 0, approvalBlocked: 0, failed: catalogReconciliation.failed, enabled: false, insights: null, catalogReconciliation };
   }
 
   // Expensive provider insights are refreshed only by an explicit maintenance run,
@@ -304,8 +312,9 @@ async function processSocial(settings: VideoAutomationSettings) {
     approvalBlocked: result.approvalBlocked,
     failed: result.failed,
     enabledPlatforms: result.enabledPlatforms,
+    catalogReconciliation,
   }));
-  return { ...result, enabled: true, insights };
+  return { ...result, failed: result.failed + catalogReconciliation.failed, enabled: true, insights, catalogReconciliation };
 }
 
 async function recordAutomationRun(summary: {

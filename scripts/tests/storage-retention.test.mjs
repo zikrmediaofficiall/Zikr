@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   compareSemverTags,
   getReferenceOrderColumn,
+  getReferenceScanLimit,
   textReferencePatterns,
   storagePathReferencePatterns,
   jsonReferencePattern,
@@ -657,6 +658,37 @@ assert.equal(getReferenceOrderColumn("pinned_messages"), "id");
 assert.equal(getReferenceOrderColumn("content_agent_runs"), "id");
 assert.equal(getReferenceOrderColumn("kids_achievements"), "id");
 assert.equal(getReferenceOrderColumn("video_template_versions"), "id");
+
+assert.equal(getReferenceScanLimit("quran_audio", "metadata"), 25000);
+assert.equal(getReferenceScanLimit("quran_audio", "audio_url"), 5000);
+assert.equal(getReferenceScanLimit("videos", "metadata"), 5000);
+const quranAudioReferenceRows = await collectPaginatedRows(
+  async (offset, end) => Array.from(
+    { length: Math.max(0, Math.min(end - offset + 1, 19608 - offset)) },
+    (_, index) => ({ id: offset + index }),
+  ),
+  "Reference inventory for quran_audio.metadata",
+  1000,
+  getReferenceScanLimit("quran_audio", "metadata"),
+);
+assert.equal(
+  quranAudioReferenceRows.length,
+  19608,
+  "the cleanup reference scan must cover all canonical Quran audio metadata rows",
+);
+await assert.rejects(
+  () => collectPaginatedRows(
+    async (offset, end) => Array.from(
+      { length: Math.max(0, Math.min(end - offset + 1, 25001 - offset)) },
+      (_, index) => ({ id: offset + index }),
+    ),
+    "Reference inventory for quran_audio.metadata",
+    1000,
+    getReferenceScanLimit("quran_audio", "metadata"),
+  ),
+  /exceeded the safe scan limit; refusing cleanup/,
+  "reference inventories above the explicit Quran metadata cap must still fail closed",
+);
 assert.throws(() => getReferenceOrderColumn("unknown_table"), /No deterministic primary-key order/);
 const orderMapStart = storageRetentionSource.indexOf("const REFERENCE_ORDER_COLUMNS = Object.freeze({");
 const orderMapEnd = storageRetentionSource.indexOf("});", orderMapStart);
@@ -730,6 +762,8 @@ for (const [table, column] of [
   ["push_runtime_settings", "value"],
   ["quran_audio", "metadata"],
   ["video_automation_runs", "metadata"],
+  ["video_generation_requests", "content"],
+  ["social_publish_queue", "metadata"],
   ["content_translation_queue", "source_payload"],
   ["site_settings", "value"],
 ]) {
@@ -893,6 +927,8 @@ assert.deepEqual(
     contentAgentQueue: { body: `pending ${publicUrl}` },
     agentRun: { details: { outputUrl: publicUrl } },
     templateVersion: { config: { previewUrl: publicUrl } },
+    videoRequest: { content: { media: { sourceUrl: publicUrl } } },
+    socialQueue: { metadata: { originalVideoUrl: publicUrl } },
     achievement: { criteria: { illustration: publicUrl } },
   }, encodedReferenceCandidates, supabaseUrl)],
   [encodedReferencePath],

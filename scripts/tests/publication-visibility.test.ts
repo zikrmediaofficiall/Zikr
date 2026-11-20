@@ -18,6 +18,7 @@ assert.match(helper, /inFlightLookups/);
 
 const serviceContracts = [
   ["src/features/articles/services/articles.ts", '"articles", safeSlug'],
+  ["src/features/companions/services/companions.ts", '"companions", cleanSlug'],
   ["src/features/dua/services/dua.ts", '"duas", cleanSlug'],
   ["src/features/prophets/services/prophets.ts", '"prophets", cleanSlug'],
 ] as const;
