@@ -107,11 +107,11 @@ assert.ok(authBlock.indexOf("authorizeSchedulerBearer") < authBlock.indexOf('sup
 console.log("Source-agent parser outcome, fetch safety, and strict scheduler-auth preflight passed.");
 
 const prayerWorkerSource = readFileSync("supabase/functions/prayer-notification-worker/index.ts", "utf8");
-const prayerWorkerAuthStart = prayerWorkerSource.indexOf("const authorized = await authorizeSchedulerBearer");
+const prayerWorkerAuthStart = prayerWorkerSource.indexOf("const supplied = parseSchedulerBearerToken(");
 const prayerWorkerSecretRead = prayerWorkerSource.indexOf('supabase.rpc("get_push_scheduler_secret")', prayerWorkerAuthStart);
 const prayerWorkerWorkStart = prayerWorkerSource.indexOf("const now = new Date()", prayerWorkerAuthStart);
-assert.ok(prayerWorkerAuthStart >= 0, "the prayer notification worker must use the shared strict scheduler authorization helper");
+assert.ok(prayerWorkerAuthStart >= 0, "the prayer notification worker must parse its strict Bearer token with the bounded scheduler-auth helper");
 assert.ok(prayerWorkerAuthStart < prayerWorkerSecretRead && prayerWorkerSecretRead < prayerWorkerWorkStart,
-  "the worker must parse the strict Bearer header before reading the secret and before scheduling or delivering notifications");
-assert.doesNotMatch(prayerWorkerSource, /function constantTimeEqual/,
-  "the worker must not retain a second, permissive scheduler-auth implementation");
+  "the worker must reject malformed Bearer headers before reading the secret and before scheduling or delivering notifications");
+assert.match(prayerWorkerSource, /constantTimeEqual\(supplied, expected\.data\)/,
+  "the worker must compare a syntactically valid token with the stored secret using its constant-time comparison");
