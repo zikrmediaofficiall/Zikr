@@ -24,6 +24,14 @@ assert.deepEqual(getRequiredPullRequestCheckNames([".circleci/config.yml"]), ["Z
 assert.deepEqual(getRequiredPullRequestCheckNames([".github/workflows/circleci-config-validation.yml"]), ["ZIKR / Quality Gate", "Validate CircleCI configuration"]);
 assert.deepEqual(getRequiredPullRequestCheckNames(["android/app/build.gradle", ".circleci/config.yml"]), ["ZIKR / Quality Gate", "Build Android Debug APK", "Validate CircleCI configuration"]);
 assert.throws(() => getRequiredPullRequestCheckNames(null), /changedPaths/, "release gate path selection must fail closed on malformed changed-file data");
+const videoDeleteIntegration = readFileSync("scripts/tests/video-request-delete.integration.sh", "utf8");
+assert.match(
+  videoDeleteIntegration,
+  /psql -X -q -v ON_ERROR_STOP=1 -U postgres -d zikr_video_delete_test -c "SELECT 1"/,
+  "the video-request integration must wait for its configured database, not just the PostgreSQL server process",
+);
+assert.doesNotMatch(videoDeleteIntegration, /pg_isready/, "pg_isready can pass before POSTGRES_DB initialization completes");
+
 
 const circleCiConfig = readFileSync(".circleci/config.yml", "utf8");
 const androidDraftStart = circleCiConfig.indexOf("  android-release-draft:");
@@ -46,6 +54,18 @@ assert.ok(
 );
 const workflowStart = circleCiConfig.indexOf("\nworkflows:");
 const workflowConfig = circleCiConfig.slice(workflowStart);
+const releaseBranchFilter = "/^fix\\/production-web-release-optional-aasa-20261120$/";
+for (const jobName of ["source-verify", "application-build-docs"]) {
+  const invocationStart = workflowConfig.indexOf("      - " + jobName + ":");
+  assert.ok(invocationStart >= 0, jobName + " must be invoked by the canonical CircleCI workflow");
+  const nextInvocation = workflowConfig.indexOf("\n      - ", invocationStart + 1);
+  const invocation = workflowConfig.slice(invocationStart, nextInvocation >= 0 ? nextInvocation : undefined);
+  assert.ok(
+    invocation.includes(releaseBranchFilter),
+    jobName + " must run on the controlled production-release PR branch so release preflight can verify its CI contexts",
+  );
+}
+
 const androidRebuildInvocationStart = workflowConfig.indexOf("      - android-rebuild:");
 const androidDispatchInvocationStart = workflowConfig.indexOf("      - android-release-dispatch:", androidRebuildInvocationStart);
 const nextInvocationAfterDispatch = workflowConfig.indexOf("\n      - ", androidDispatchInvocationStart + 1);
@@ -217,6 +237,12 @@ assert.ok(productionSmokeIndex > supabaseHealthIndex, "public production smoke m
 assert.ok(releaseWorkflow.includes("node scripts/verify-vercel-deployment-ready.mjs"));
 assert.ok(releaseWorkflow.includes("node scripts/verify-supabase-edge-health.mjs"));
 
+assert.ok(
+  releaseWorkflow.includes("if app_id:") &&
+    releaseWorkflow.includes("Optional iOS Universal Links") &&
+    releaseWorkflow.includes("Invalid iOS Universal Links App ID"),
+  "website production release must warn when the optional Apple App ID is absent but still reject malformed configured IDs",
+);
 assert.ok(releaseWorkflow.includes("NEXT_PUBLIC_SUPABASE_URL="));
 assert.ok(releaseWorkflow.includes("SUPABASE_URL must point to the approved ZIKR production project"));
 

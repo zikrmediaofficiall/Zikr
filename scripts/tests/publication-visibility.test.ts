@@ -51,6 +51,14 @@ assert.equal(
 const prophetService = readFileSync("src/features/prophets/services/prophets.ts", "utf8");
 const companionService = readFileSync("src/features/companions/services/companions.ts", "utf8");
 const companionDetail = companionService.slice(companionService.indexOf("export async function getCompanionBySlug"));
+
+const companionDetailPage = readFileSync("src/app/companions/[slug]/page.tsx", "utf8");
+assert.match(companionDetailPage, /export const dynamic = ["']force-dynamic["']/, "companion detail must render dynamically because publication and story reads use no-store");
+assert.doesNotMatch(companionDetailPage, /export const revalidate = 3600/, "companion detail must not declare ISR caching while its database reads are no-store");
+const companionListPage = readFileSync("src/app/companions/page.tsx", "utf8");
+assert.match(companionListPage, /export const dynamic = ["']force-dynamic["']/, "companion list must render dynamically because publication verification uses no-store reads");
+assert.doesNotMatch(companionListPage, /export const revalidate = 3600/, "companion list must not declare ISR caching while its database read is no-store");
+
 assert.match(companionService, /async function getDatabaseCompanions\(\): Promise<CompanionSummary\[\] \| null>/, "companion list reads must distinguish an empty result from a failed query");
 assert.match(companionService.slice(companionService.indexOf("async function getDatabaseCompanions"), companionService.indexOf("async function filterOfflineCompanionsByPublicationState")), /cache: "no-store"/, "companion list publication reads must not serve stale cached rows");
 assert.match(companionDetail, /cache: "no-store"/, "companion and story detail reads must observe current publication state and deletions");
