@@ -10,6 +10,7 @@ import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findDuplicateMigrationVersions } from './lib/migration-version-contract.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MIG_DIR = join(ROOT, 'supabase', 'migrations');
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS auth.users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text,
   raw_user_meta_data jsonb DEFAULT '{}'::jsonb,
+  last_sign_in_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
@@ -301,17 +303,8 @@ if (Number(seededDefaultAclOwners.rows[0]?.owner_count ?? 0) < 2) {
 }
 console.log("CLIENT_NON_DML_BASELINE_SEEDED: existing tables and both owner default ACLs contain browser-role grants.");
 
-const versions = new Map();
-const duplicateVersions = new Set();
 const activePolicies = new Map();
 const duplicatePolicies = [];
-
-const migrationScore = (file) => {
-  const sql = readFileSync(join(MIG_DIR, file), 'utf8').toLowerCase();
-  return (sql.includes('create table') ? 4 : 0)
-    + (sql.includes('alter table') ? 2 : 0)
-    + (sql.includes('create function') ? 1 : 0);
-};
 
 function normalizeIdent(value) {
   return value.replace(/^['\"]|['\"]$/g, '').trim().toLowerCase();
@@ -352,28 +345,17 @@ function scanPolicyChanges(sql, file) {
   }
 }
 
+const duplicateVersions = findDuplicateMigrationVersions(files);
+if (duplicateVersions.length > 0) {
+  console.error('DUPLICATE_MIGRATION_VERSIONS:');
+  for (const issue of duplicateVersions) {
+    console.error(`  ${issue.version}: ${issue.first} -> ${issue.duplicate}`);
+  }
+  process.exit(1);
+}
+
 for (const file of files) {
   const sql = readFileSync(join(MIG_DIR, file), 'utf8');
-  const match = /^(\d+)_/.exec(file);
-  if (match) {
-    const version = match[1];
-    const previous = versions.get(version);
-    if (!previous) {
-      versions.set(version, file);
-    } else {
-      const previousScore = migrationScore(previous);
-      const currentScore = migrationScore(file);
-      if (currentScore > previousScore) {
-        duplicateVersions.add(previous);
-        versions.set(version, file);
-        console.warn(`Skipping duplicate migration version ${version}: ${previous} (using ${file})`);
-      } else {
-        duplicateVersions.add(file);
-        console.warn(`Skipping duplicate migration version ${version}: ${file} (using ${previous})`);
-      }
-    }
-  }
-
   scanPolicyChanges(sql, file);
 }
 
@@ -385,7 +367,7 @@ if (duplicatePolicies.length > 0) {
   process.exit(1);
 }
 
-const migrationsToApply = files.filter((file) => !duplicateVersions.has(file));
+const migrationsToApply = files;
 if (migrationsToApply.length === 0) throw new Error(`No migrations found in ${MIG_DIR}`);
 console.log('Applying', migrationsToApply.length, 'migrations in order');
 
