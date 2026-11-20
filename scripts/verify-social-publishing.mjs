@@ -270,6 +270,37 @@ if (!kidsCatalogReconciliationPolicy.includes("SOCIAL_KIDS_CATALOG_RECONCILIATIO
     !socialWorker.includes("reconcilePublishedKidsVideoCatalog()")) {
   failures.push("Kids catalog metadata failures must have a bounded opt-in, approval-revalidated, provider-free reconciliation path");
 }
+const catalogEntryStart = socialWorker.indexOf("export async function reconcileKidsCatalogMetadata()");
+const catalogEntryEnd = socialWorker.indexOf("export async function syncSocialInsights()", catalogEntryStart);
+const catalogEntry = catalogEntryStart >= 0 && catalogEntryEnd > catalogEntryStart
+  ? socialWorker.slice(catalogEntryStart, catalogEntryEnd)
+  : "";
+const providerQueueStart = socialWorker.indexOf("export async function processSocialPublishQueue");
+const providerQueueBody = providerQueueStart >= 0 ? socialWorker.slice(providerQueueStart) : "";
+const processSocialStart = runner.indexOf("async function processSocial(");
+const processSocialEnd = runner.indexOf("async function recordAutomationRun", processSocialStart);
+const processSocialBody = processSocialStart >= 0 && processSocialEnd > processSocialStart
+  ? runner.slice(processSocialStart, processSocialEnd)
+  : "";
+const reconciliationCall = processSocialBody.indexOf("reconcileKidsCatalogMetadata()");
+const publishingGate = processSocialBody.indexOf('if (!settings.autoPublish || process.env.SOCIAL_PUBLISH_ENABLED !== "true")');
+if (!catalogEntry.includes("isKidsCatalogReconciliationEnabled(process.env)") ||
+    !catalogEntry.includes("isVideoPurgeInProgress()") ||
+    /publishFacebook|publishToFacebook|publishToYoutube/.test(catalogEntry) ||
+    !providerQueueBody ||
+    providerQueueBody.includes("reconcilePublishedKidsVideoCatalog()") ||
+    reconciliationCall < 0 ||
+    publishingGate < 0 ||
+    reconciliationCall > publishingGate ||
+    processSocialBody.indexOf("processSocialPublishQueue(batchSize)") < publishingGate) {
+  failures.push("catalog-only Kids reconciliation must run behind its own opt-in and purge lock before the external publishing gate; provider queue claims must remain gated");
+}
+if (!socialWorkflow.includes("cloudinary_ready=false") ||
+    !socialWorkflow.includes('if [[ "$cloudinary_ready" != "true" ]]') ||
+    !socialWorkflow.includes("catalog-only Kids reconciliation may still run") ||
+    !socialWorkflow.includes("SOCIAL_PUBLISH_ENABLED=false")) {
+  failures.push("missing Cloudinary credentials must disable external publishing without aborting the catalog-only reconciliation worker");
+}
 if (!youtubeCatalogSync.includes('typeof row.updated_at !== "string"') ||
     !youtubeCatalogSync.includes('"&updated_at=eq." + encodeURIComponent(row.updated_at)') ||
     youtubeCatalogSync.includes('(expectedUpdatedAt ? "&updated_at=eq."')) {

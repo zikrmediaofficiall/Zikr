@@ -143,7 +143,7 @@ test("YouTube media fallback requires a confirmed published or partial queue row
         published_at: publishedAt,
         metadata: { platformResults },
       }]),
-      { status: "published", id: "abc123xyz_1", publishedAt },
+      { status: "published", id: "abc123xyz_1", publishedAt, supersededDeletedIds: [] },
       status + " queue rows may supply only their confirmed YouTube publication",
     );
   }

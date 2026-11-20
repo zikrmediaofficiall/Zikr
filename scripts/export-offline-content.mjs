@@ -54,7 +54,7 @@ const datasets = [
   ['scholars', 'scholars', 'select=*', 'published=eq.true', 'order=name_ar.asc,id.asc'],
   ['tawasheeh', 'tawasheeh', 'select=*', 'published=eq.true', 'is_active=eq.true', 'order=created_at.asc,id.asc'],
   ['quran_reciters', 'quran_reciters', 'select=*', 'order=name_ar.asc,id.asc'],
-  ['quran_audio', 'quran_audio', 'select=*', 'order=surah_id.asc,reciter_id.asc,id.asc'],
+  ['quran_audio', 'quran_audio', 'select=id,surah_id,reciter_id,audio_url,source_url,retrieved_at', 'order=surah_id.asc,reciter_id.asc,id.asc'],
   ['kids_games', 'kids_games', 'select=*', 'published=eq.true', 'order=order_index.asc,id.asc'],
   ['kids_game_levels', 'kids_game_levels', 'select=*', 'published=eq.true', 'order=game_id.asc,level_no.asc,id.asc'],
   ['dua_categories', 'dua_categories', 'select=*', 'published=eq.true', 'is_active=eq.true', 'order=slug.asc,id.asc'],
