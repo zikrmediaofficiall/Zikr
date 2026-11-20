@@ -24,6 +24,14 @@ assert.deepEqual(getRequiredPullRequestCheckNames([".circleci/config.yml"]), ["Z
 assert.deepEqual(getRequiredPullRequestCheckNames([".github/workflows/circleci-config-validation.yml"]), ["ZIKR / Quality Gate", "Validate CircleCI configuration"]);
 assert.deepEqual(getRequiredPullRequestCheckNames(["android/app/build.gradle", ".circleci/config.yml"]), ["ZIKR / Quality Gate", "Build Android Debug APK", "Validate CircleCI configuration"]);
 assert.throws(() => getRequiredPullRequestCheckNames(null), /changedPaths/, "release gate path selection must fail closed on malformed changed-file data");
+const videoDeleteIntegration = readFileSync("scripts/tests/video-request-delete.integration.sh", "utf8");
+assert.match(
+  videoDeleteIntegration,
+  /psql -X -q -v ON_ERROR_STOP=1 -U postgres -d zikr_video_delete_test -c "SELECT 1"/,
+  "the video-request integration must wait for its configured database, not just the PostgreSQL server process",
+);
+assert.doesNotMatch(videoDeleteIntegration, /pg_isready/, "pg_isready can pass before POSTGRES_DB initialization completes");
+
 
 const circleCiConfig = readFileSync(".circleci/config.yml", "utf8");
 const androidDraftStart = circleCiConfig.indexOf("  android-release-draft:");
