@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { Download, Settings } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { MobileNav } from "./mobile-nav";
@@ -75,6 +75,14 @@ export async function Navbar() {
         </Link>
 
         <LanguageAwareNav links={links} />
+
+        <Link
+          href="/api/download/android"
+          className="hidden shrink-0 items-center gap-2 rounded-xl bg-brand-gold px-3 py-2 text-xs font-bold text-black transition hover:bg-brand-gold/90 lg:inline-flex"
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          {isEnglish ? "Download app" : "تحميل التطبيق"}
+        </Link>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <LanguageToggle />
