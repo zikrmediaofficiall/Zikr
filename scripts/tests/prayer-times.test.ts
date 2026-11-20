@@ -345,3 +345,44 @@ try {
 }
 
 console.log("Prayer-time next-prayer, bounded cache, saved-location validation, and push-location contracts passed.");
+
+const prayerTimesApiRoute = readFileSync("src/app/api/prayer-times/route.ts", "utf8");
+const prayerTimesRateLimit = readFileSync("src/features/prayer/services/rate-limit.ts", "utf8");
+assert.match(prayerTimesApiRoute, /consumePrayerTimesRateLimit/);
+assert.match(prayerTimesApiRoute, /getTrustedClientAddress/);
+assert.match(prayerTimesApiRoute, /status: 429/);
+assert.match(prayerTimesApiRoute, /status: 503/);
+assert.match(prayerTimesApiRoute, /export const revalidate = 0;/);
+assert.match(prayerTimesApiRoute, /const upstreamFetchOptions = upstreamDate/);
+assert.match(prayerTimesApiRoute, /next: \{ revalidate: 3600 \}/);
+assert.match(prayerTimesApiRoute, /cache: 'no-store' as const/);
+assert.match(prayerTimesApiRoute, /const responseCacheHeaders = upstreamDate/);
+assert.match(prayerTimesApiRoute, /'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400'/);
+assert.match(prayerTimesApiRoute, /'Cache-Control': 'no-store'/);
+assert.match(prayerTimesApiRoute, /'CDN-Cache-Control': 'no-store'/);
+assert.ok(
+  prayerTimesApiRoute.indexOf("const upstreamFetchOptions = upstreamDate") <
+    prayerTimesApiRoute.indexOf("await fetch("),
+  "date-less current-day requests must bypass the Next.js upstream Data Cache",
+);
+assert.ok(
+  prayerTimesApiRoute.indexOf("const responseCacheHeaders = upstreamDate") <
+    prayerTimesApiRoute.indexOf("return NextResponse.json(data"),
+  "only explicitly dated lookups may receive shared CDN cache headers",
+);
+
+assert.match(prayerTimesApiRoute, /Retry-After': '60'/);
+assert.ok(
+  prayerTimesApiRoute.indexOf("await consumePrayerTimesRateLimit") <
+    prayerTimesApiRoute.indexOf("await fetch("),
+  "the shared caller limit must be checked before any Aladhan upstream request",
+);
+assert.match(prayerTimesRateLimit, /consume_admin_rate_limit/);
+assert.match(prayerTimesRateLimit, /getContactRateLimitActorId/);
+assert.match(prayerTimesRateLimit, /public_prayer_times_lookup/);
+assert.match(prayerTimesRateLimit, /RATE_LIMIT_MAX_REQUESTS = 30/);
+assert.match(prayerTimesRateLimit, /RATE_LIMIT_WINDOW_SECONDS = 60/);
+assert.match(prayerTimesRateLimit, /typeof data !== "boolean"/);
+assert.match(prayerTimesRateLimit, /throw new Error/);
+
+console.log("Prayer-time next-prayer, bounded cache, saved-location validation, and push-location contracts passed.");
