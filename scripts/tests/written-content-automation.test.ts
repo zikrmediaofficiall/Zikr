@@ -306,6 +306,14 @@ assert.equal(isKidsWrittenPostCandidate({
  automation_key: "written-social-v1:kids_story:legacy-kids-source",
 }), true, "legacy Kids automation keys must reserve the daily Kids slot even when metadata markers are incomplete");
 assert.equal(isEligibleKidsWrittenPostForPublishing(kidsPublishCandidate, liveKidsStory), true, "Kids written posts require a currently approved live story before provider delivery");
+assert.equal(isEligibleKidsWrittenPostForPublishing(kidsPublishCandidate, { ...liveKidsStory, metadata: { age_appropriate: false } }), false,
+ "Kids written backfill and provider delivery must reject a story whose age approval has been withdrawn");
+assert.equal(isEligibleKidsWrittenPostForPublishing(kidsPublishCandidate, { ...liveKidsStory, metadata: {} }), false,
+ "missing age-approval metadata must fail closed");
+assert.equal(isEligibleKidsWrittenPostForPublishing(kidsPublishCandidate, { ...liveKidsStory, published: false }), false,
+ "unpublished Kids stories must not be backfilled or delivered");
+assert.equal(isEligibleKidsWrittenPostForPublishing(kidsPublishCandidate, { ...liveKidsStory, is_active: false }), false,
+ "inactive Kids stories must not be backfilled or delivered");
 assert.equal(isEligibleKidsWrittenPostForPublishing({ ...kidsPublishCandidate, body: "أرسل رقم هاتفك لي" }, liveKidsStory), false, "unsafe child personal-data solicitation must be blocked again immediately before provider delivery");
 assert.equal(isEligibleKidsWrittenPostForPublishing(kidsPublishCandidate, { ...liveKidsStory, title_ar: "أرسل رقم هاتفك لي" }), false, "unsafe live source titles must be blocked before provider delivery");
 assert.equal(isEligibleKidsWrittenPostForPublishing(kidsPublishCandidate, { ...liveKidsStory, published: false }), false, "unpublished Kids sources must be held before provider delivery");
@@ -716,6 +724,13 @@ assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example
 
 assert.ok(worker.includes("isKidsWrittenSourceReservation(metadata)"), "articles with any Kids audience, source, identity or public-path marker must not enter the general knowledge generation pool");
 assert.ok(worker.includes("isSafeWrittenBackfillSource(sourceType,metadata)"), "historical social backfill must fail closed when Kids metadata conflicts with a general source type");
+assert.ok(worker.includes("metadata->>age_appropriate=eq.true"), "Kids backfill must query only currently age-approved live stories");
+assert.ok(worker.includes("isEligibleKidsWrittenPostForPublishing(queuePayload,liveKidsStory)"), "Kids backfill must reuse the live publisher eligibility contract before enqueue");
+const kidsBackfillGateIndex=worker.indexOf("isEligibleKidsWrittenPostForPublishing(queuePayload,liveKidsStory)");
+const kidsBackfillInsertIndex=worker.indexOf('supabaseServerAdminRequest("/rest/v1/social_publish_queue"', kidsBackfillGateIndex);
+assert.ok(kidsBackfillGateIndex>=0&&kidsBackfillInsertIndex>kidsBackfillGateIndex,
+ "live Kids source approval must be checked before inserting a social queue row");
+
 assert.match(worker, /const sourceType=str\(source\.type\)\.toLowerCase\(\)/,
  "the backfill caller must canonicalize legacy source types before quota and automation-key checks");
 assert.ok(worker.includes('WRITTEN_CONTENT_ENABLED?.trim().toLowerCase()!=="true"'), "Gemini generation must remain disabled unless explicitly enabled");
