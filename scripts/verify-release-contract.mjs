@@ -169,8 +169,12 @@ for (const [name, source] of [["APK download", androidApkDownload], ["AAB downlo
   assert.ok(!source.includes("storage/v1/object/public/android-releases"), name + " must keep binary delivery on GitHub Releases");
 }
 assert.ok(androidApkDownload.includes("getSignedGitHubAssetUrl") && androidAabDownload.includes("getSignedGitHubAssetUrl"), "APK and AAB download endpoints must resolve assets through GitHub Releases");
-assert.ok(androidAppVersion.includes("RELEASE_DOWNLOAD_ENDPOINT") && androidAppVersion.includes("getLatestStableAndroidRelease"), "Native app update metadata must advertise GitHub-backed release endpoints only");
+assert.ok(androidAppVersion.includes("RELEASE_DOWNLOAD_ENDPOINT") && androidAppVersion.includes("getSelectedAndroidRelease"), "Native app update metadata must advertise GitHub-backed release endpoints using the shared selected release");
+for (const [name, source] of [["APK download", androidApkDownload], ["AAB download", androidAabDownload], ["App version metadata", androidAppVersion]]) {
+  assert.ok(source.includes("getSelectedAndroidRelease"), name + " must use the same admin-selected stable release");
+}
 const androidReleaseService = read("src/features/releases/services/github-android-release.ts");
+assert.ok(androidReleaseService.includes("return selectAndroidRelease(latestStable, pinnedRelease)"), "The shared Android release resolver must honor the validated admin pin before automatic latest selection");
 assert.ok(androidReleaseService.includes("function hasAab("), "Android release discovery must explicitly detect AAB assets");
 assert.ok(androidReleaseService.includes("hasApk(release) &&\n        hasAab(release)"), "Latest stable Android release must have both APK and AAB assets");
 assert.ok(androidReleaseService.includes("!hasApk(release) || !hasAab(release)"), "Pinned Android releases missing either APK or AAB must be rejected");
