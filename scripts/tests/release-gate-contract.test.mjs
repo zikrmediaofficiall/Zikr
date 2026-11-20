@@ -118,7 +118,7 @@ assert.ok(
 assert.doesNotMatch(workflow, /Quality gate:\s*PASSED/i, "the workflow must not hardcode a successful quality-gate claim");
 
 assert.match(gate, /CODEOWNERS/);
-assert.match(gate, /merge_commit_sha === commitSha/);
+assert.match(gate, /merge_commit_sha === approvalCommitSha/);
 const approval = readFileSync("scripts/lib/release-gate-approval.mjs", "utf8");
 assert.match(approval, /APPROVED/);
 assert.ok(gate.includes("hasCurrentCodeOwnerApproval(reviews, owner, pullRequest.head.sha)"),
@@ -303,3 +303,54 @@ assert.ok(androidRecoveryDispatchWorkflow.includes('context.ref === "refs/tags/"
   "the recovery dispatcher must retain exact tag-dispatch handling");
 assert.ok(androidRecoveryDispatchWorkflow.includes('item.context === "ci/circleci: android-rebuild"'),
   "the recovery dispatcher must retain the signed-build status gate");
+
+import {
+  findMergedMainPullRequest,
+  getApprovalCommitSha,
+} from "../lib/release-gate-pr.mjs";
+
+const releaseSourceSha = "a".repeat(40);
+const approvedMainMergeSha = "b".repeat(40);
+const androidPreparationCommit = {
+  commit: { message: "release: prepare Android v1.1.16 atomically" },
+  parents: [{ sha: approvedMainMergeSha }],
+};
+assert.equal(
+  getApprovalCommitSha(releaseSourceSha, androidPreparationCommit),
+  approvedMainMergeSha,
+  "Android preparation commits must inherit the CODEOWNER review basis from their sole merged-main parent",
+);
+assert.equal(
+  getApprovalCommitSha(releaseSourceSha, {
+    commit: { message: "fix(android-release): repair release metadata" },
+    parents: [{ sha: approvedMainMergeSha }],
+  }),
+  releaseSourceSha,
+  "ordinary commits must still require their own exact merged-PR review basis",
+);
+assert.throws(
+  () => getApprovalCommitSha(releaseSourceSha, {
+    commit: { message: "release: prepare Android v1.1.16 atomically" },
+    parents: [],
+  }),
+  /exactly one parent/,
+  "malformed Android preparation commits must fail closed",
+);
+const approvedParentPullRequest = {
+  number: 999,
+  base: { ref: "main" },
+  merged_at: "2026-11-20T21:00:00Z",
+  merge_commit_sha: approvedMainMergeSha,
+};
+assert.equal(
+  findMergedMainPullRequest([approvedParentPullRequest], approvedMainMergeSha),
+  approvedParentPullRequest,
+  "the exact merged-main parent PR must be selected",
+);
+assert.equal(
+  findMergedMainPullRequest([approvedParentPullRequest], "c".repeat(40)),
+  undefined,
+  "a PR for a different commit must never be accepted as the review basis",
+);
+assert.match(gate, /getApprovalCommitSha\(commitSha, sourceCommit\)/);
+assert.match(gate, /findMergedMainPullRequest\(pullRequests, approvalCommitSha\)/);
