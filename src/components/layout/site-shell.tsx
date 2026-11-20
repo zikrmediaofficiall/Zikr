@@ -6,6 +6,7 @@ import { LanguageProvider } from './language-provider';
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/lib/i18n';
 import { EditorialDepth } from '@/components/content/editorial-depth';
 import { EditorialUtilityDepth } from '@/components/content/editorial-utility-depth';
+import { ContentExpansion } from '@/components/content/content-expansion';
 import { getSiteSetting } from '@/features/site-content/services/site-content';
 
 const InstallPrompt = dynamic(
@@ -59,6 +60,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
           {children}
           <EditorialDepth pathname={pathname} />
           <EditorialUtilityDepth pathname={pathname} />
+          <ContentExpansion pathname={pathname} />
         </main>
         <Footer socialLinks={{
           facebookPageUrl: socialSettings?.facebookPageUrl,
