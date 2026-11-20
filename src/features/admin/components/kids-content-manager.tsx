@@ -250,7 +250,7 @@ export async function AdminKidsContentManager({ canPublish, canManageMedia }: Pr
       <Card className="space-y-4">
         <div>
           <h2 className="text-xl text-brand-gold">مراجعة ملاءمة القصص للتوليد الآلي</h2>
-          <p className="text-sm arabic-muted mt-1">اقرأ النص العربي كاملًا وحدد القرار لكل قصة. القرار يغيّر أهلية التوليد والنشر الآلي فقط، ولا يغيّر حالة الظهور العام.</p>
+          <p className="text-sm arabic-muted mt-1">اقرأ النص العربي كاملًا، وراجع النص الإنجليزي إن وُجد، ثم حدد القرار. الموافقة تحفظ حالة النشر الحالية ولا تنشر المسودات تلقائيًا؛ أما الرفض فيسحب اعتماد العمر ويحوّل القصة إلى غير منشورة.</p>
         </div>
         {!reviewOk ? (
           <div role="alert" className="rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-100">

@@ -112,6 +112,9 @@ function installNativeFacade(
       });
     },
     async writeFile(path, data) {
+      if (!isSafeQuranAudioDownloadPath(path)) {
+        throw new Error("Blocked an unsafe Quran audio file write path.");
+      }
       return plugins.Filesystem?.writeFile?.({
         path,
         data,

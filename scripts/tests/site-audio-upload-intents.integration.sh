@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ ! -x "${BASH_SOURCE[0]}" ]]; then
+  echo "site-audio upload-intent integration runner must remain executable." >&2
+  exit 1
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONTAINER_NAME="zikr-site-audio-upload-intents-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
 
@@ -34,6 +39,7 @@ fi
 psql=(docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U postgres -d zikr_site_audio_upload_intents_test)
 "${psql[@]}" -f /workspace/scripts/tests/site-audio-upload-intents.integration-setup.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261114000000_site_audio_upload_intents.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261117090000_site_audio_upload_intents_asset_id_index.sql
 "${psql[@]}" -f /workspace/scripts/tests/site-audio-upload-intents.integration.sql
 
 echo "Site-audio upload-intent integration passed."

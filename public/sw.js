@@ -23,6 +23,9 @@ if (isCanonicalMonetagWorker) {
   }
 }
 
+// The helper rejects stale "today" responses when Cache Storage is used offline.
+importScripts("/sw-prayer-times-cache.js");
+
 // Service Worker for Zikr PWA
 const CACHE_NAME = "zikr-v15";
 const APP_SHELL_CACHE_PATTERN = /^zikr-v\d+$/;
@@ -440,25 +443,41 @@ self.addEventListener("fetch", event => {
   if (url.pathname === "/api/prayer-times") {
     event.respondWith(
       fetch(request)
-        .then(response => {
-          if (response.ok) {
+        .then(async response => {
+          if (
+            response.ok &&
+            await self.isFreshPrayerTimesCacheEntry(response.clone(), url)
+          ) {
             const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+            caches.open(CACHE_NAME)
+              .then(cache => cache.put(request, copy))
+              .catch(error => console.warn("[SW] Prayer-time cache write failed:", error));
           }
           return response;
         })
-        .catch(() =>
-          caches
-            .match(request)
-            .then(
-              cached =>
-                cached ||
-                new Response(JSON.stringify({ error: "Network error" }), {
-                  status: 503,
-                  headers: { "Content-Type": "application/json" },
-                })
-            )
-        )
+        .catch(async () => {
+          try {
+            const cache = await caches.open(CACHE_NAME);
+            const cached = await cache.match(request);
+            if (
+              cached &&
+              await self.isFreshPrayerTimesCacheEntry(cached.clone(), url)
+            ) {
+              return cached;
+            }
+            if (cached) await cache.delete(request);
+          } catch (error) {
+            console.warn("[SW] Prayer-time offline cache read failed:", error);
+          }
+
+          return new Response(JSON.stringify({ error: "Offline prayer-times data is unavailable or expired." }), {
+            status: 503,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+            },
+          });
+        })
     );
     return;
   }
