@@ -117,6 +117,7 @@ client/public/__manus__/version.json
 
 
 # Android/Gradle local state
+/.circleci-signing/
 android/.gradle/
 android/local.properties
 android/keystore.properties

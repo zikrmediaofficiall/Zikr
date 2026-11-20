@@ -45,3 +45,11 @@ export function getFavoriteHref(type: string, ref: string): string {
       return "/favorites";
   }
 }
+
+
+const FAVORITE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Accept only canonical PostgreSQL UUID text for favorites.id. */
+export function isFavoriteId(value: unknown): value is string {
+  return typeof value === "string" && FAVORITE_ID_PATTERN.test(value);
+}

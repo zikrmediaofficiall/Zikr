@@ -12,6 +12,7 @@ const privateEnvironmentFiles = [
   ".env.test.local",
   ".envrc",
   "android/.env.production",
+  ".circleci-signing/zikr-release.keystore",
 ];
 
 for (const file of privateEnvironmentFiles) {
