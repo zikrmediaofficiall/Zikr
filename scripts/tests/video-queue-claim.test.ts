@@ -525,10 +525,16 @@ test("social publisher recovers durable video handoffs even while new video gene
   const processSocialStart = backgroundJobsSource.indexOf("async function processSocial");
   const processSocialEnd = backgroundJobsSource.indexOf("async function recordAutomationRun", processSocialStart);
   const processSocial = backgroundJobsSource.slice(processSocialStart, processSocialEnd);
+  const reconciliationCall = processSocial.indexOf("reconcileKidsCatalogMetadata()");
+  const publishingGate = processSocial.indexOf('if (!settings.autoPublish || process.env.SOCIAL_PUBLISH_ENABLED !== "true")');
+  assert.ok(
+    reconciliationCall >= 0 && publishingGate > reconciliationCall,
+    "catalog-only reconciliation must run before the external publishing gates",
+  );
   assert.ok(
     processSocial.includes('if (!settings.autoPublish || process.env.SOCIAL_PUBLISH_ENABLED !== "true")') &&
-      processSocial.indexOf("processSocialPublishQueue(batchSize)") > processSocial.indexOf("if (!settings.autoPublish"),
-    "handoff recovery remains inside the explicitly enabled social-publishing path",
+      processSocial.indexOf("processSocialPublishQueue(batchSize)") > publishingGate,
+    "provider queue claims and video social handoff recovery remain inside the explicitly enabled social-publishing path",
   );
 });
 

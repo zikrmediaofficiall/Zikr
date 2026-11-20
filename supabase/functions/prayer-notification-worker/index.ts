@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { authorizeSchedulerBearer } from "../_shared/scheduler-auth.ts";
 import type { ExportedVapidKeys } from "webpush";
 import { forEachIdPage } from "./pagination.ts";
 import { canSchedulePrayerSubscription, isDeliverySubscriptionOwnerValid, isDeliveryWithinGraceWindow } from "./eligibility.ts";
@@ -921,6 +922,15 @@ async function deliverDue(
         console.warn("[prayer-notification-worker] Delivery lease was recovered before the push provider call; skipping:", delivery.id);
         continue;
       }
+      // A suspended Edge invocation can resume after stale-claim recovery
+      // before its interval timer runs again. Reconfirm the exact row version
+      // immediately before the outbound send so a recovered lease cannot send.
+      const leaseConfirmed = await updateLease({ processing_at: new Date().toISOString() });
+      if (!leaseConfirmed || heartbeat.leaseLost) {
+        await heartbeat.stop();
+        console.warn("[prayer-notification-worker] Delivery lease was no longer current immediately before the push provider call; skipping:", delivery.id);
+        continue;
+      }
       await applicationServer
         .subscribe({
           endpoint: subscription.endpoint,
@@ -1022,29 +1032,20 @@ async function deliverDue(
   return { sent, failed, deactivated };
 }
 
-function constantTimeEqual(left: string, right: string) {
-  const encoder = new TextEncoder();
-  const a = encoder.encode(left);
-  const b = encoder.encode(right);
-  let diff = a.length ^ b.length;
-  const length = Math.max(a.length, b.length);
-  for (let i = 0; i < length; i += 1) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
-  return diff === 0;
-}
 
 Deno.serve(async request => {
   if (request.method !== "POST")
     return json({ error: "Method not allowed" }, 405);
 
   try {
-    const expected = await supabase.rpc("get_push_scheduler_secret");
-    if (expected.error || typeof expected.data !== "string") {
-      throw new Error("Scheduler authentication is unavailable");
-    }
-    const supplied =
-      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-    if (!supplied || !constantTimeEqual(supplied, expected.data))
-      return json({ error: "Unauthorized" }, 401);
+    const authorized = await authorizeSchedulerBearer(
+      request.headers.get("authorization"),
+      async () => {
+        const { data, error } = await supabase.rpc("get_push_scheduler_secret");
+        return error ? null : data;
+      },
+    );
+    if (!authorized) return json({ error: "Unauthorized" }, 401);
 
     const now = new Date();
     const bundle = await loadVapidBundle();

@@ -33,7 +33,6 @@ export async function GET(request: Request) {
     return json({
       audio: null,
       reason: result.reason,
-      storage_path: result.storage_path,
     });
   } catch (error) {
     console.error(

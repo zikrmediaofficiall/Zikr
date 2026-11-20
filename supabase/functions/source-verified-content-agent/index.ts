@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { authorizeSchedulerBearer } from "../_shared/scheduler-auth.ts";
 import { getSourceAgentRunStatus, getSourceParserSkipReason, parseSourceItems } from "./parse-items.ts";
 
 const PROJECT_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -29,22 +30,14 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function constantTimeEqual(left: string, right: string): boolean {
-  const a = new TextEncoder().encode(left);
-  const b = new TextEncoder().encode(right);
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i += 1) result |= a[i] ^ b[i];
-  return result === 0;
-}
-
 async function isAuthorized(request: Request): Promise<boolean> {
-  const authorization = request.headers.get("authorization") ?? "";
-  const supplied = authorization.replace(/^Bearer\s+/i, "").trim();
-  if (!supplied) return false;
-  const { data, error } = await supabase.rpc("get_push_scheduler_secret");
-  if (error || typeof data !== "string" || !data) return false;
-  return constantTimeEqual(supplied, data);
+  return authorizeSchedulerBearer(
+    request.headers.get("authorization"),
+    async () => {
+      const { data, error } = await supabase.rpc("get_push_scheduler_secret");
+      return error ? null : data;
+    },
+  );
 }
 
 async function processSource(source: Source, now: string) {

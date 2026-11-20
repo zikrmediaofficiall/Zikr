@@ -1,6 +1,7 @@
 import { supabaseServerAdminRequest } from "@/lib/supabase/admin-rest";
 import { buildNextRowVersionUpdatedAt } from "@/lib/supabase/row-version";
 import { isSocialPlatformDeletionCurrent } from "@/features/social/services/social-deletion-visibility";
+import { hasMalformedSocialPlatformResults } from "./platform-availability";
 
 type SocialQueueMetadataRow = {
   id: string;
@@ -21,13 +22,22 @@ function successfulPlatformRemoteId(
   metadata: Record<string, unknown> | null | undefined,
   platform: string,
 ): string | null {
+  // Duplicate/invalid legacy array entries are ambiguous: do not let the
+  // first matching provider row authorize a destructive remote deletion.
+  if (hasMalformedSocialPlatformResults(metadata?.platformResults)) return null;
+
   const values = metadata?.platformResults;
   const candidate = Array.isArray(values)
     ? values.find(value => isRecord(value) && value.platform === platform)
     : isRecord(values)
       ? values[platform]
       : null;
-  if (!isRecord(candidate) || candidate.ok !== true || typeof candidate.remoteId !== "string") {
+  if (
+    !isRecord(candidate) ||
+    (candidate.platform !== undefined && candidate.platform !== platform) ||
+    candidate.ok !== true ||
+    typeof candidate.remoteId !== "string"
+  ) {
     return null;
   }
   const remoteId = candidate.remoteId.trim();

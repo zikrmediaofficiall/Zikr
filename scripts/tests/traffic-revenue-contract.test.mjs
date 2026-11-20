@@ -57,3 +57,10 @@ assert.match(metricsHelper, /averageRenderDuration/);
 assert.doesNotMatch(metricsHelper, /platformResults|remoteIds|SocialPlatform/);
 
 console.log("✅ Internal analytics and revenue contracts passed.");
+
+assert.match(metricsHelper, /getGa4ReportingStatusPresentation/);
+assert.match(panel, /getGa4ReportingStatusPresentation\(\s*snapshot\.ga4Analytics\.status,\s*snapshot\.integrations\.ga4MeasurementConfigured/);
+assert.match(panel, /ga4Status\.measurementDescription/);
+assert.match(panel, /ga4Status\.description/);
+assert.match(panel, /ga4Status\.label/);
+assert.doesNotMatch(panel, /واجهة التقارير البرمجية لم تُربط بعد/);

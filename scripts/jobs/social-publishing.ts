@@ -3,6 +3,7 @@ import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
 import { syncFacebookReelsInsights } from "../../src/features/social/services/facebook-reels-insights";
 import { getFacebookPageProfile } from "../../src/features/social/integrations/facebook";
 import { getEnabledSocialPlatforms } from "../../src/features/social/services/platform-availability";
+import { isKidsCatalogReconciliationEnabled } from "../../src/features/social/services/kids-social-catalog-reconciliation";
 import { getFacebookProfileSyncFailureCount } from "../../src/features/social/services/social-insights-sync-status";
 import { isVideoPurgeLockResponseActive } from "../../src/features/videos/services/background-job-settings";
 import { recoverPendingVideoSocialQueueEnqueues } from "./template-video-automation";
@@ -22,6 +23,21 @@ async function isVideoPurgeInProgress(): Promise<boolean> {
   } catch (error) {
     console.error("[social-worker] Could not verify the video purge lock; failing closed:", error);
     return true;
+  }
+}
+
+export async function reconcileKidsCatalogMetadata() {
+  if (!isKidsCatalogReconciliationEnabled(process.env)) {
+    return { enabled: false, scanned: 0, candidates: 0, synced: 0, pending: 0, held: 0, failed: 0, truncated: false };
+  }
+  if (await isVideoPurgeInProgress()) {
+    return { enabled: true, scanned: 0, candidates: 0, synced: 0, pending: 0, held: 0, failed: 0, truncated: false, purgeLocked: true };
+  }
+  try {
+    return await reconcilePublishedKidsVideoCatalog();
+  } catch (error) {
+    console.error("[social-worker] Kids catalog reconciliation unavailable:", error);
+    return { enabled: true, scanned: 0, candidates: 0, synced: 0, pending: 0, held: 0, failed: 1, truncated: false };
   }
 }
 
@@ -86,17 +102,6 @@ export async function processSocialPublishQueue(limit = 10) {
     console.log("[social-worker] Video purge lock is active; no social queue item will be claimed.");
     return { processed: 0, succeeded: 0, deferred: 0, authBlocked: 0, approvalBlocked: 0, failed: 0, purgeLocked: true };
   }
-  // Catalog-only recovery is opt-in and never calls a social provider. It
-  // revalidates the current Kids human-approval fingerprint before updating
-  // the internal video catalog for already-published queue rows.
-  const kidsCatalogReconciliation = await reconcilePublishedKidsVideoCatalog().catch((error: unknown) => {
-    console.error("[social-worker] Kids catalog reconciliation unavailable:", error);
-    return { enabled: true, scanned: 0, candidates: 0, synced: 0, pending: 0, held: 0, failed: 1, truncated: false };
-  });
-  if (kidsCatalogReconciliation.enabled && (kidsCatalogReconciliation.scanned > 0 || kidsCatalogReconciliation.failed > 0)) {
-    console.log("[social-worker] Kids catalog reconciliation:", JSON.stringify(kidsCatalogReconciliation));
-  }
-
   // A completed render can outlive the generation toggle. Recover its durable
   // social handoff here as well as in the video worker so the separate social
   // workflow can finish it while new video generation is paused.

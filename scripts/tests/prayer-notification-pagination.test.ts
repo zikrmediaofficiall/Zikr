@@ -274,6 +274,17 @@ assert.ok(endpointSnapshotFilters >= 3 && keySnapshotFilters >= 3 && authSnapsho
   "deactivation and last-used updates must compare the exact endpoint/key snapshot before touching a subscription");
 const subscriptionOwnershipGuardPosition = deliverySourceForFencing.indexOf("isDeliverySubscriptionOwnerValid(delivery.user_id, subscription.user_id)");
 assert.ok(subscriptionOwnershipGuardPosition >= 0 && pushDeliveryPosition > subscriptionOwnershipGuardPosition, "subscription ownership must be validated before any push is sent");
+const preSendLeaseConfirmationPosition = deliverySourceForFencing.indexOf("const leaseConfirmed = await updateLease({ processing_at: new Date().toISOString() });");
+assert.ok(
+  preSendLeaseConfirmationPosition > subscriptionOwnershipGuardPosition &&
+  pushDeliveryPosition > preSendLeaseConfirmationPosition,
+  "the exact delivery row version must be compare-and-set immediately before the outbound provider request",
+);
+assert.match(
+  deliverySourceForFencing,
+  /if \(!leaseConfirmed \|\| heartbeat\.leaseLost\)/,
+  "a stale or uncertain pre-send lease must fail closed without sending",
+);
 assert.equal(canSchedulePrayerSubscription(true, undefined), false, "a missing prayer preference must not be treated as opted in");
 assert.equal(canSchedulePrayerSubscription(true, null), false, "a null prayer preference must not be treated as opted in");
 assert.equal(canSchedulePrayerSubscription(false, { notifications_enabled: true }), false, "a subscription without a default location must not be scheduled");
