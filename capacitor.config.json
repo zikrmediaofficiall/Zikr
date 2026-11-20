@@ -42,8 +42,8 @@
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 1800,
-      "backgroundColor": "#000000",
-      "androidSplashResourceName": "splash",
+      "backgroundColor": "#061322",
+      "androidSplashResourceName": "zikr_splash",
       "showSpinner": false,
       "splashFullScreen": true,
       "splashImmersive": true
