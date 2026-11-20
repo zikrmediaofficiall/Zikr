@@ -4645,6 +4645,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      consume_min_interval_rate_limit: {
+        Args: {
+          p_actor: string
+          p_bucket: string
+          p_interval_ms: number
+        }
+        Returns: boolean
+      }
       admin_delete_unreferenced_video_generation_request: {
         Args: { p_expected_updated_at: string; p_request_id: string }
         Returns: { deleted_id: string }[]
