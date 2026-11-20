@@ -217,6 +217,12 @@ assert.ok(productionSmokeIndex > supabaseHealthIndex, "public production smoke m
 assert.ok(releaseWorkflow.includes("node scripts/verify-vercel-deployment-ready.mjs"));
 assert.ok(releaseWorkflow.includes("node scripts/verify-supabase-edge-health.mjs"));
 
+assert.ok(
+  releaseWorkflow.includes("if app_id:") &&
+    releaseWorkflow.includes("Optional iOS Universal Links") &&
+    releaseWorkflow.includes("Invalid iOS Universal Links App ID"),
+  "website production release must warn when the optional Apple App ID is absent but still reject malformed configured IDs",
+);
 assert.ok(releaseWorkflow.includes("NEXT_PUBLIC_SUPABASE_URL="));
 assert.ok(releaseWorkflow.includes("SUPABASE_URL must point to the approved ZIKR production project"));
 
