@@ -416,6 +416,109 @@ assert.equal(
 );
 assert.equal(mismatchedRemoteIdPatchCalls, 0, "a stale provider ID must not acquire a deletion lease");
 
+const crossPlatformRemoteIdRow = {
+  ...deletionQueueRow,
+  metadata: {
+    platformResults: {
+      youtube: { platform: "facebook", ok: true, remoteId: "youtube-remote-1" },
+    },
+    platformDeletions: {},
+  },
+};
+let crossPlatformDeletionPatchCalls = 0;
+const crossPlatformDeletionRequest = async <T>(_path: string, init?: RequestInit): Promise<T> => {
+  if (init?.method === "PATCH") crossPlatformDeletionPatchCalls += 1;
+  return [{ ...crossPlatformRemoteIdRow }] as T;
+};
+assert.equal(
+  await claimSocialQueuePlatformDeletion(
+    deletionClaimInput,
+    crossPlatformDeletionRequest as typeof import("../../src/lib/supabase/admin-rest").supabaseServerAdminRequest,
+  ),
+  "stale",
+  "an object-keyed result that explicitly names another provider must never authorize deletion on the requested platform",
+);
+assert.equal(
+  crossPlatformDeletionPatchCalls,
+  0,
+  "cross-platform provider metadata must be rejected before acquiring a deletion lease",
+);
+
+let crossPlatformMetadataPatchCalls = 0;
+const crossPlatformMetadataRequest = async <T>(_path: string, init?: RequestInit): Promise<T> => {
+  if (init?.method === "PATCH") crossPlatformMetadataPatchCalls += 1;
+  return [{ ...crossPlatformRemoteIdRow }] as T;
+};
+assert.equal(
+  await patchSocialQueueMetadataWithCas({
+    id: deletionQueueRow.id,
+    expectedStatus: "published",
+    expectedVideoUrl: deletionQueueRow.video_url,
+    expectedPlatformRemoteId: { platform: "youtube", remoteId: "youtube-remote-1" },
+    patch: { platformDeletions: { youtube: { status: "deleted", remoteId: "youtube-remote-1" } } },
+  }, crossPlatformMetadataRequest as typeof import("../../src/lib/supabase/admin-rest").supabaseServerAdminRequest),
+  false,
+  "metadata CAS must not attach a provider result to a platform key whose explicit result platform disagrees",
+);
+assert.equal(
+  crossPlatformMetadataPatchCalls,
+  0,
+  "cross-platform provider metadata must block the metadata PATCH",
+);
+
+
+const duplicatePlatformRemoteIdRow = {
+  ...deletionQueueRow,
+  metadata: {
+    platformResults: [
+      { platform: "youtube", ok: true, remoteId: "youtube-remote-1" },
+      { platform: "youtube", ok: true, remoteId: "youtube-remote-2" },
+    ],
+    platformDeletions: {},
+  },
+};
+let duplicatePlatformDeletionPatchCalls = 0;
+const duplicatePlatformDeletionRequest = async <T>(_path: string, init?: RequestInit): Promise<T> => {
+  if (init?.method === "PATCH") duplicatePlatformDeletionPatchCalls += 1;
+  return [{ ...duplicatePlatformRemoteIdRow }] as T;
+};
+assert.equal(
+  await claimSocialQueuePlatformDeletion(
+    deletionClaimInput,
+    duplicatePlatformDeletionRequest as typeof import("../../src/lib/supabase/admin-rest").supabaseServerAdminRequest,
+  ),
+  "stale",
+  "duplicate legacy entries for one provider make the result ledger ambiguous and must never authorize remote deletion",
+);
+assert.equal(
+  duplicatePlatformDeletionPatchCalls,
+  0,
+  "an ambiguous duplicate provider ledger must be rejected before acquiring a deletion lease",
+);
+
+let duplicatePlatformMetadataPatchCalls = 0;
+const duplicatePlatformMetadataRequest = async <T>(_path: string, init?: RequestInit): Promise<T> => {
+  if (init?.method === "PATCH") duplicatePlatformMetadataPatchCalls += 1;
+  return [{ ...duplicatePlatformRemoteIdRow }] as T;
+};
+assert.equal(
+  await patchSocialQueueMetadataWithCas({
+    id: deletionQueueRow.id,
+    expectedStatus: "published",
+    expectedVideoUrl: deletionQueueRow.video_url,
+    expectedPlatformRemoteId: { platform: "youtube", remoteId: "youtube-remote-1" },
+    patch: { platformDeletions: { youtube: { status: "deleted", remoteId: "youtube-remote-1" } } },
+  }, duplicatePlatformMetadataRequest as typeof import("../../src/lib/supabase/admin-rest").supabaseServerAdminRequest),
+  false,
+  "metadata CAS must reject duplicate legacy provider results instead of recording a deletion against an ambiguous ledger",
+);
+assert.equal(
+  duplicatePlatformMetadataPatchCalls,
+  0,
+  "an ambiguous duplicate provider ledger must block the metadata PATCH",
+);
+
+
 const previousRemoteDeletionRow = {
   ...deletionQueueRow,
   metadata: {

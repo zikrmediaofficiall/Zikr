@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { hasCurrentCodeOwnerApproval } from "./lib/release-gate-approval.mjs";
+import { getRequiredPullRequestCheckNames } from "./lib/release-gate-checks.mjs";
 
 const repository = process.env.GITHUB_REPOSITORY?.trim();
 const commitSha = process.env.RELEASE_COMMIT_SHA?.trim() || process.env.GITHUB_SHA?.trim();
@@ -109,6 +110,11 @@ if (!pullRequest) {
   throw new Error("The release commit must be the merge commit of a merged pull request targeting main; direct pushes are not accepted.");
 }
 
+const changedFiles = await allPages("/repos/" + repository + "/pulls/" + pullRequest.number + "/files");
+const requiredPullRequestChecks = getRequiredPullRequestCheckNames(
+  changedFiles.map((file) => file.filename),
+);
+
 const codeownersSource = readFileSync(".github/CODEOWNERS", "utf8");
 const globalOwnerLine = codeownersSource
   .split(/\r?\n/)
@@ -142,7 +148,7 @@ if (!approvedOwner) {
 
 await requireSuccessfulCheckRuns(
   pullRequest.head.sha,
-  ["ZIKR / Quality Gate", "Build Android Debug APK", "Validate CircleCI configuration"],
+  requiredPullRequestChecks,
   "PR #" + pullRequest.number + " head checks",
 );
 await requireCircleCiStatuses(pullRequest.head.sha, "PR #" + pullRequest.number + " head statuses", false);

@@ -26,7 +26,7 @@ import {
 import { isAllowedQuranAudioUrl, isValidQuranAudioDownloadRequest } from "./audio-download-policy";
 
 /** Prefer server-only reads in Production; Preview/Development intentionally use the public read path. */
-const quranDbRequest = async <T>(path: string): Promise<T> => {
+const quranDbRequest = async <T>(path: string, publicFallbackPath: string = path): Promise<T> => {
   const options = {
     timeoutMs: 15_000,
     retries: 1,
@@ -35,7 +35,7 @@ const quranDbRequest = async <T>(path: string): Promise<T> => {
   };
 
   if (!getServerEnv().SUPABASE_SERVICE_ROLE_KEY) {
-    return supabaseServerAnonRequest<T>(path, options);
+    return supabaseServerAnonRequest<T>(publicFallbackPath, options);
   }
 
   try {
@@ -45,7 +45,7 @@ const quranDbRequest = async <T>(path: string): Promise<T> => {
       "[quran-server] admin read unavailable; trying public read:",
       adminError instanceof Error ? adminError.message : "unknown error",
     );
-    return supabaseServerAnonRequest<T>(path, options);
+    return supabaseServerAnonRequest<T>(publicFallbackPath, options);
   }
 };
 
@@ -459,21 +459,23 @@ export type QuranAudioRecord = {
   audio_url: string | null;
   source_url: string | null;
   retrieved_at: string | null;
-  storage_url: string | null;
-  storage_status: "pending" | "uploading" | "ready" | "failed" | "external" | null;
-  storage_path: string | null;
+};
+
+type QuranAudioDbRow = QuranAudioRecord & {
+  storage_url?: string | null;
+  storage_status?: "pending" | "uploading" | "ready" | "failed" | "external" | null;
+  storage_path?: string | null;
 };
 
 export async function getQuranAudioFromDb(
   surahId: number,
   reciterCode: string,
 ): Promise<
-  | {
- audio: QuranAudioRecord; reason?: undefined; storage_path?: undefined }
-  | { audio: null; reason: string; storage_path: string | null }
+  | { audio: QuranAudioRecord; reason?: undefined }
+  | { audio: null; reason: string }
 > {
   if (!isValidQuranAudioDownloadRequest(surahId, reciterCode)) {
-    return { audio: null, reason: "invalid_audio_request", storage_path: null };
+    return { audio: null, reason: "invalid_audio_request" };
   }
 
   const candidates = [...new Set([
@@ -502,37 +504,36 @@ export async function getQuranAudioFromDb(
         }
       : null);
     if (!resolvedReciter?.id) {
-      return { audio: null, reason: "reciter_not_found", storage_path: null };
+      return { audio: null, reason: "reciter_not_found" };
     }
 
     if (!reciterRow?.id) {
       if (!fallbackReciter?.baseUrlTemplate) {
-        return { audio: null, reason: "reciter_not_found", storage_path: null };
+        return { audio: null, reason: "reciter_not_found" };
       }
       const fallbackAudioUrl = `${fallbackReciter.baseUrlTemplate.replace(/\/$/, "")}/${String(surahId).padStart(3, "0")}.mp3`;
-      if (!isAllowedQuranAudioUrl(fallbackAudioUrl)) return { audio: null, reason: "untrusted_audio_url", storage_path: null };
+      if (!isAllowedQuranAudioUrl(fallbackAudioUrl)) return { audio: null, reason: "untrusted_audio_url" };
       return {
         audio: {
           audio_url: fallbackAudioUrl,
           source_url: "https://www.mp3quran.net/",
           retrieved_at: null,
-          storage_url: null,
-          storage_status: "external",
-          storage_path: null,
         },
       };
     }
 
-    const audio = await quranDbRequest<QuranAudioRecord[]>(
+    const audio = await quranDbRequest<QuranAudioDbRow[]>(
       `/rest/v1/quran_audio?surah_id=eq.${surahId}&reciter_id=eq.${encodeURIComponent(resolvedReciter.id)}&select=audio_url,source_url,retrieved_at,storage_url,storage_status,storage_path&limit=1`,
+      `/rest/v1/quran_audio?surah_id=eq.${surahId}&reciter_id=eq.${encodeURIComponent(resolvedReciter.id)}&select=audio_url,source_url,retrieved_at&limit=1`,
     );
     const row = audio?.[0] ?? null;
 
     if (row?.storage_status === "ready" && row.storage_url && isAllowedQuranAudioUrl(row.storage_url)) {
       return {
         audio: {
-          ...row,
           audio_url: row.storage_url,
+          source_url: row.source_url,
+          retrieved_at: row.retrieved_at,
         },
       };
     }
@@ -550,22 +551,22 @@ export async function getQuranAudioFromDb(
     if (externalUrl) {
       return {
         audio: {
-          ...row,
           audio_url: externalUrl,
+          source_url: row?.source_url ?? null,
+          retrieved_at: row?.retrieved_at ?? null,
         },
       };
     }
 
     return {
       audio: null,
-      reason: storedUrl || row?.storage_url ? "untrusted_audio_url" : row?.storage_status ?? "not_imported",
-      storage_path: row?.storage_path ?? null,
+      reason: storedUrl || row?.storage_url ? "untrusted_audio_url" : "not_imported",
     };
   } catch (error) {
     console.error(
       `[quran-server] getQuranAudioFromDb failed for ${surahId}/${reciterCode}:`,
       error,
     );
-    return { audio: null, reason: "storage_unavailable", storage_path: null };
+    return { audio: null, reason: "storage_unavailable" };
   }
 }

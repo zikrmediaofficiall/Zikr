@@ -77,6 +77,25 @@ if (!publisher.includes("SOCIAL_PUBLISH_AFTER: \"2026-11-06T20:00:00Z\"")) failu
 if (!publisher.includes("youtube.upload") || !publisher.includes("SOCIAL_PUBLISH_FACEBOOK_ENABLED") || !publisher.includes("SOCIAL_PUBLISH_YOUTUBE_ENABLED")) failures.push("social preflight must verify provider scopes and credentials before allowing queue claims");
 if (socialRunner.includes("reconcileCompletedVideoSocialQueue")) failures.push("video worker must never reconcile historical completed requests into social queue rows");
 if (!socialRunner.includes("processSocialPublishQueue") || !socialRunner.includes('process.env.SOCIAL_PUBLISH_ENABLED !== "true"')) failures.push("background runner must execute social publishing only when the protected workflow and admin setting allow it");
+const socialProcessStart = socialRunner.indexOf("async function processSocial(");
+const socialProcessEnd = socialRunner.indexOf("async function recordAutomationRun", socialProcessStart);
+const socialProcessBody = socialProcessStart >= 0 && socialProcessEnd > socialProcessStart
+  ? socialRunner.slice(socialProcessStart, socialProcessEnd)
+  : "";
+const catalogReconciliationCall = socialProcessBody.indexOf("reconcileKidsCatalogMetadata()");
+const externalPublishGate = socialProcessBody.indexOf('if (!settings.autoPublish || process.env.SOCIAL_PUBLISH_ENABLED !== "true")');
+if (catalogReconciliationCall < 0 ||
+    externalPublishGate < 0 ||
+    catalogReconciliationCall > externalPublishGate ||
+    socialProcessBody.indexOf("processSocialPublishQueue(batchSize)") < externalPublishGate) {
+  failures.push("catalog-only Kids reconciliation must remain available before external publishing gates while provider queue claims stay gated");
+}
+if (!publisher.includes("cloudinary_ready=false") ||
+    !publisher.includes('if [[ "$cloudinary_ready" != "true" ]]') ||
+    !publisher.includes("catalog-only Kids reconciliation may still run") ||
+    !publisher.includes("SOCIAL_PUBLISH_ENABLED=false")) {
+  failures.push("social publisher preflight must not abort catalog-only reconciliation when Cloudinary is unavailable");
+}
 if (!socialRunner.includes('process.env.SOCIAL_SYNC_INSIGHTS === "true"')) failures.push("social insight sync must remain opt-in to protect Free-plan query usage");
 if (!socialRunner.includes('"insights"') || !socialRunner.includes('target === "insights"')) failures.push("social insights must have an isolated non-publishing worker target");
 const insightsWorkflow = read(".github/workflows/sync-social-insights.yml");
