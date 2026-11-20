@@ -10,7 +10,7 @@ const proxySource = read("../../src/proxy.ts");
 const proxyMatcher = proxySource.slice(proxySource.indexOf("export const config"));
 assert.ok(proxyMatcher.includes("\\\\.well-known/"), "public Apple/Android association endpoints must bypass Supabase session lookup in the proxy");
 const isForceStaticRoute = (source) =>
-  /export\\s+const\\s+dynamic\\s*=\\s*(['"])force-static\\1;/.test(source);
+  /export\s+const\s+dynamic\s*=\s*(['"])force-static\1;/.test(source);
 
 assert.ok(aasa.includes("process.env.IOS_ASSOCIATED_DOMAIN_APP_ID"));
 
@@ -38,11 +38,6 @@ assert.deepEqual(
   "fail",
   "production must reject an invalid Apple app identifier",
 );
-const packageJson = JSON.parse(read("../../package.json"));
-assert.ok(
-  packageJson.scripts.prebuild.includes("scripts/verify-ios-associated-domain.mjs"),
-  "the Vercel production build must run the Apple association environment guard",
-);
 const webBuildGuard = read("../verify-ios-associated-domain.mjs");
 assert.ok(webBuildGuard.includes("required: false"), "the shared web build must not fail because an optional iOS-only association ID is absent");
 const deploymentEnvValidator = read("../validate-deployment-env.mjs");
@@ -52,6 +47,11 @@ assert.ok(
   mobileReadiness.includes('vercelEnv: "production"') &&
     mobileReadiness.includes("getIosAssociatedDomainAppIdStatus"),
   "the iOS store-release readiness gate must retain the strict production App ID requirement",
+);
+const packageJson = JSON.parse(read("../../package.json"));
+assert.ok(
+  packageJson.scripts.prebuild.includes("scripts/verify-ios-associated-domain.mjs"),
+  "the Vercel production build must run the Apple association environment guard",
 );
 assert.ok(
   webBuildGuard.includes("getIosAssociatedDomainAppIdStatus"),
@@ -71,12 +71,12 @@ for (const prefix of publicAppLinkPrefixes) {
 assert.ok(aasa.includes("{ '/': '/duas' }"), "iOS Universal Links must include the legacy /duas alias before its server redirect to /dua");
 assert.doesNotMatch(
   aasa,
-  /\\{\\s*['"]\\/['"]\\s*:\\s*['"]\\/\\*['"]\\s*\\}/,
+  /\{\s*['"]\/['"]\s*:\s*['"]\/\*['"]\s*\}/,
   "iOS Universal Links must not use a catch-all that associates admin/API/technical routes with the consumer app",
 );
 assert.match(
   aasa,
-  /['"]\\/auth\\/callback\\*['"][^}]*exclude:\\s*true/,
+  /['"]\/auth\/callback\*['"][^}]*exclude:\s*true/,
   "the HTTPS OAuth callback must remain excluded from Universal Links",
 );
 
@@ -89,10 +89,11 @@ assert.deepEqual(
   ["App/AppDebug.entitlements", "App/App.entitlements"],
   "iOS Debug and Release must use separate APNs entitlement environments",
 );
-assert.match(debugEntitlements, /<key>aps-environment<\\/key>\\s*<string>development<\\/string>/);
-assert.match(releaseEntitlements, /<key>aps-environment<\\/key>\\s*<string>production<\\/string>/);
+assert.match(debugEntitlements, /<key>aps-environment<\/key>\s*<string>development<\/string>/);
+assert.match(releaseEntitlements, /<key>aps-environment<\/key>\s*<string>production<\/string>/);
 for (const source of [debugEntitlements, releaseEntitlements]) {
   assert.ok(source.includes("applinks:zikrmediaofficial.vercel.app"), "both build configurations must retain the Universal Links entitlement");
 }
+
 
 console.log("App association route contract passed.");
