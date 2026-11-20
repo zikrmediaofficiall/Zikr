@@ -792,6 +792,7 @@ workflows:
                 - /^fix\/android-release-draft-immutable-tag-mainline-5-20261110$/
                 - /^fix\/android-release-draft-single-owner-20261110$/
                 - /^fix\/mobile-ads-native-adsbygoogle-mainline-20261110$/
+                - /^fix\/production-web-release-optional-aasa-20261120$/
                 - /^fix\/offline-snapshot-git-identity-mainline-2-20261110$/
                 - /^fix\/preserve-quran-audio-cache-mainline-4-20261110$/
                 - /^fix\/search-console-contract-mainline-3-20261110$/
@@ -822,6 +823,7 @@ workflows:
                 - /^fix\/android-release-draft-immutable-tag-mainline-5-20261110$/
                 - /^fix\/android-release-draft-single-owner-20261110$/
                 - /^fix\/mobile-ads-native-adsbygoogle-mainline-20261110$/
+                - /^fix\/production-web-release-optional-aasa-20261120$/
                 - /^fix\/offline-snapshot-git-identity-mainline-2-20261110$/
                 - /^fix\/preserve-quran-audio-cache-mainline-4-20261110$/
                 - /^fix\/search-console-contract-mainline-3-20261110$/
