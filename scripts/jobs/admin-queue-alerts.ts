@@ -1,9 +1,18 @@
 import { createHash } from "node:crypto";
 import { supabaseServerAdminRequest } from "../../src/lib/supabase/admin-rest";
+import {
+  getQueueAlertRetrySince,
+  MAX_QUEUE_ALERT_FAILURE_ROWS,
+  QUEUE_ALERT_FAILURE_PAGE_SIZE,
+  isQueueAlertDeliveryComplete,
+  shouldSendQueueAlertChannel,
+  shouldSkipQueueAlertDelivery,
+  type QueueAlertDelivery,
+} from "./queue-alert-contract";
 
 type QueueName = "video" | "social";
 type FailedQueueRow = { id: string; title?: string | null; error_message?: string | null; updated_at: string };
-type DeliveryRow = { alert_key: string; delivered_at: string | null };
+type DeliveryRow = { alert_key: string } & QueueAlertDelivery;
 
 type QueueAlert = {
   queue: QueueName;
@@ -14,6 +23,20 @@ type QueueAlert = {
 
 function configured(value: string | undefined) {
   return value?.trim() || null;
+}
+
+function hasWebhookConfiguration() {
+  return Boolean(
+    configured(process.env.ADMIN_QUEUE_ALERT_WEBHOOK_URL) ??
+    configured(process.env.ADMIN_ALERT_WEBHOOK_URL)
+  );
+}
+
+function hasEmailConfiguration() {
+  const apiKey = configured(process.env.RESEND_API_KEY);
+  const to = configured(process.env.ADMIN_QUEUE_ALERT_EMAIL_TO) ?? configured(process.env.ADMIN_ALERT_EMAIL_TO);
+  const from = configured(process.env.ADMIN_QUEUE_ALERT_EMAIL_FROM) ?? configured(process.env.RESEND_FROM_EMAIL);
+  return Boolean(apiKey && to && from);
 }
 
 function escapeHtml(value: string) {
@@ -61,19 +84,54 @@ async function sendEmail(subject: string, text: string, html: string) {
 async function adminAlertsEnabled() {
   const rows = await supabaseServerAdminRequest<Array<{ value: unknown }>>(
     "/rest/v1/admin_settings?key=eq.admin_alerts_enabled&select=value&limit=1",
-  ).catch(() => []);
+  );
+  if (!Array.isArray(rows)) {
+    throw new Error("Unable to verify the admin queue-alert setting.");
+  }
+  if (rows.length === 0) return true;
+
   const value = rows[0]?.value;
-  return value !== false && value !== "false";
+  if (value === false || value === "false") return false;
+  if (value === true || value === "true") return true;
+  throw new Error("The admin queue-alert setting has an invalid value; refusing outbound delivery.");
 }
 
-async function loadFailures(since: string): Promise<QueueAlert[]> {
+async function loadQueueFailures(queue: QueueName, since: string, until: string): Promise<FailedQueueRow[]> {
+  const table = queue === "video" ? "video_generation_requests" : "social_publish_queue";
+  const rows: FailedQueueRow[] = [];
+
+  // Keep the scan bounded, but do not silently alert on only the first 50
+  // failures from a seven-day retry window.
+  for (let offset = 0; offset <= MAX_QUEUE_ALERT_FAILURE_ROWS; offset += QUEUE_ALERT_FAILURE_PAGE_SIZE) {
+    const page = await supabaseServerAdminRequest<FailedQueueRow[]>(
+      `/rest/v1/${table}?status=eq.failed&updated_at=gte.${encodeURIComponent(since)}&updated_at=lte.${encodeURIComponent(until)}&select=id,title,error_message,updated_at&order=updated_at.asc,id.asc&limit=${QUEUE_ALERT_FAILURE_PAGE_SIZE}&offset=${offset}`,
+    );
+    if (!Array.isArray(page)) {
+      throw new Error(
+        `Queue alert ${queue} failure inventory returned an invalid page; refusing to send an incomplete alert.`,
+      );
+    }
+    const currentPage = page;
+    if (offset === MAX_QUEUE_ALERT_FAILURE_ROWS && currentPage.length > 0) {
+      throw new Error(
+        `Queue alert ${queue} failure inventory exceeded ${MAX_QUEUE_ALERT_FAILURE_ROWS} rows; refusing to send an incomplete alert.`,
+      );
+    }
+    rows.push(...currentPage);
+    if (currentPage.length < QUEUE_ALERT_FAILURE_PAGE_SIZE) return rows;
+  }
+
+  throw new Error(
+    `Queue alert ${queue} failure inventory exceeded ${MAX_QUEUE_ALERT_FAILURE_ROWS} rows; refusing to send an incomplete alert.`,
+  );
+}
+
+async function loadFailures(runStartedAt: string): Promise<QueueAlert[]> {
+  const since = getQueueAlertRetrySince(runStartedAt);
+  const until = new Date(Date.parse(runStartedAt)).toISOString();
   const [video, social] = await Promise.all([
-    supabaseServerAdminRequest<FailedQueueRow[]>(
-      "/rest/v1/video_generation_requests?status=eq.failed&updated_at=gte." + encodeURIComponent(since) + "&select=id,title,error_message,updated_at&order=updated_at.asc&limit=50",
-    ),
-    supabaseServerAdminRequest<FailedQueueRow[]>(
-      "/rest/v1/social_publish_queue?status=eq.failed&updated_at=gte." + encodeURIComponent(since) + "&select=id,title,error_message,updated_at&order=updated_at.asc&limit=50",
-    ),
+    loadQueueFailures("video", since, until),
+    loadQueueFailures("social", since, until),
   ]);
   return ([
     { queue: "video" as const, title: "فشل جديد في طابور توليد الفيديو", rows: video },
@@ -111,30 +169,62 @@ export async function notifyNewQueueFailures(runStartedAt: string) {
 
   const alerts = await loadFailures(runStartedAt);
   let delivered = 0;
+  const deliveryChannels = {
+    webhookConfigured: hasWebhookConfiguration(),
+    emailConfigured: hasEmailConfiguration(),
+  };
+  if (!deliveryChannels.webhookConfigured && !deliveryChannels.emailConfigured) {
+    console.log("[queue-alerts] No delivery channel is configured; no outbound alert was sent.");
+    return { alerts: 0, delivered: 0 };
+  }
   for (const alert of alerts) {
     const existing = await supabaseServerAdminRequest<DeliveryRow[]>(
-      "/rest/v1/admin_queue_alert_deliveries?alert_key=eq." + encodeURIComponent(alert.alertKey) + "&select=alert_key,delivered_at&limit=1",
-    ).catch(() => []);
-    if (existing[0]?.delivered_at) continue;
+      "/rest/v1/admin_queue_alert_deliveries?alert_key=eq." + encodeURIComponent(alert.alertKey) + "&select=alert_key,delivered_at,webhook_sent,email_sent&limit=1",
+    ).catch((error) => {
+      console.error(
+        `[queue-alerts] Delivery ledger lookup failed for ${alert.queue}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      return null;
+    });
+    if (!existing) continue;
+    const delivery = existing[0] ?? null;
+    if (shouldSkipQueueAlertDelivery(delivery, deliveryChannels)) continue;
 
     const message = buildPayload(alert, runStartedAt);
-    let webhookSent = false;
-    let emailSent = false;
+    let webhookResult = delivery?.webhook_sent
+      ? { configured: true, sent: true }
+      : { configured: false, sent: false };
+    let emailResult = delivery?.email_sent
+      ? { configured: true, sent: true }
+      : { configured: false, sent: false };
     let lastError: string | null = null;
-    try {
-      webhookSent = (await sendWebhook(message.payload)).sent;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      console.error(`[queue-alerts] Webhook failed for ${alert.queue}: ${lastError}`);
+
+    if (shouldSendQueueAlertChannel(delivery, "webhook")) {
+      try {
+        webhookResult = await sendWebhook(message.payload);
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        console.error(`[queue-alerts] Webhook failed for ${alert.queue}: ${lastError}`);
+      }
     }
-    try {
-      emailSent = (await sendEmail(alert.title, message.text, message.html)).sent;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      console.error(`[queue-alerts] Email failed for ${alert.queue}: ${lastError}`);
+    if (shouldSendQueueAlertChannel(delivery, "email")) {
+      try {
+        emailResult = await sendEmail(alert.title, message.text, message.html);
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        console.error(`[queue-alerts] Email failed for ${alert.queue}: ${lastError}`);
+      }
     }
 
-    const deliveredAt = webhookSent || emailSent ? new Date().toISOString() : null;
+    const webhookSent = webhookResult.sent;
+    const emailSent = emailResult.sent;
+    const deliveredAt = isQueueAlertDeliveryComplete({
+      webhookConfigured: deliveryChannels.webhookConfigured,
+      webhookSent,
+      emailConfigured: deliveryChannels.emailConfigured,
+      emailSent,
+    }) ? new Date().toISOString() : null;
     await supabaseServerAdminRequest("/rest/v1/admin_queue_alert_deliveries?on_conflict=alert_key", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
