@@ -86,6 +86,7 @@ if (googleWebClientId && !/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.t
 const iosAssociatedDomainAppIdStatus = getIosAssociatedDomainAppIdStatus({
   appId: env("IOS_ASSOCIATED_DOMAIN_APP_ID"),
   vercelEnv: process.env.VERCEL_ENV,
+  required: false,
 });
 add(iosAssociatedDomainAppIdStatus.status, "IOS_ASSOCIATED_DOMAIN_APP_ID", iosAssociatedDomainAppIdStatus.detail);
 

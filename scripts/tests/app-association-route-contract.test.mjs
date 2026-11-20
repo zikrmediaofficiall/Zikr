@@ -17,7 +17,12 @@ assert.ok(aasa.includes("process.env.IOS_ASSOCIATED_DOMAIN_APP_ID"));
 assert.deepEqual(
   getIosAssociatedDomainAppIdStatus({ appId: "", vercelEnv: "production" }).status,
   "fail",
-  "production must not build while the Apple Team ID/bundle ID is missing",
+  "the production iOS store-release gate must not pass while the Apple Team ID/bundle ID is missing",
+);
+assert.deepEqual(
+  getIosAssociatedDomainAppIdStatus({ appId: "", vercelEnv: "production", required: false }).status,
+  "warn",
+  "a normal production web build must warn, not fail, when the optional Apple association ID is absent",
 );
 assert.deepEqual(
   getIosAssociatedDomainAppIdStatus({ appId: "", vercelEnv: "preview" }).status,
@@ -33,13 +38,23 @@ assert.deepEqual(
   "fail",
   "production must reject an invalid Apple app identifier",
 );
+const webBuildGuard = read("../verify-ios-associated-domain.mjs");
+assert.ok(webBuildGuard.includes("required: false"), "the shared web build must not fail because an optional iOS-only association ID is absent");
+const deploymentEnvValidator = read("../validate-deployment-env.mjs");
+assert.ok(deploymentEnvValidator.includes("required: false"), "the web deployment environment audit must report the missing iOS ID as a warning");
+const mobileReadiness = read("../verify-mobile-readiness.mjs");
+assert.ok(
+  mobileReadiness.includes('vercelEnv: "production"') &&
+    mobileReadiness.includes("getIosAssociatedDomainAppIdStatus"),
+  "the iOS store-release readiness gate must retain the strict production App ID requirement",
+);
 const packageJson = JSON.parse(read("../../package.json"));
 assert.ok(
   packageJson.scripts.prebuild.includes("scripts/verify-ios-associated-domain.mjs"),
   "the Vercel production build must run the Apple association environment guard",
 );
 assert.ok(
-  read("../verify-ios-associated-domain.mjs").includes("getIosAssociatedDomainAppIdStatus"),
+  webBuildGuard.includes("getIosAssociatedDomainAppIdStatus"),
   "the build guard must use the shared iOS association contract",
 );
 assert.ok(assetLinks.includes("process.env.ANDROID_APP_LINKS_SHA256"));
