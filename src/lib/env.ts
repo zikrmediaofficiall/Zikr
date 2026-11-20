@@ -99,6 +99,7 @@ const rawEnv: Record<string, string | undefined> = {
 
   // ── Islamic content API ───────────────────────────────────────────────────
   HADITH_API_BASE_URL: pick("HADITH_API_BASE_URL"),
+  NOMINATIM_BASE_URL: pick("NOMINATIM_BASE_URL"),
 
   // ── Facebook ──────────────────────────────────────────────────────────────
   FACEBOOK_APP_ID: pick("FACEBOOK_APP_ID"),
@@ -174,6 +175,8 @@ export function getServerEnv() {
     GEMINI_MODEL: validatedEnv.GEMINI_MODEL || "gemini-3.1-flash-lite",
     HADITH_API_BASE_URL:
       validatedEnv.HADITH_API_BASE_URL || "https://ummahapi.com/api/hadith",
+    NOMINATIM_BASE_URL:
+      validatedEnv.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org",
     YOUTUBE_API_KEY: validatedEnv.YOUTUBE_API_KEY || "",
     YOUTUBE_CLIENT_ID: validatedEnv.YOUTUBE_CLIENT_ID || "",
     YOUTUBE_CLIENT_SECRET: validatedEnv.YOUTUBE_CLIENT_SECRET || "",
@@ -226,6 +229,7 @@ export function getEnvAudit() {
       "AUTH_CALLBACK_URL",
       "GEMINI_API_KEY",
       "GEMINI_MODEL",
+      "NOMINATIM_BASE_URL",
       "YOUTUBE_API_KEY",
       "YOUTUBE_CLIENT_ID",
       "YOUTUBE_CLIENT_SECRET",
@@ -239,6 +243,7 @@ export function getEnvAudit() {
     ],
     optionalIntegrations: [
       "HADITH_API_BASE_URL",
+      "NOMINATIM_BASE_URL",
       "YOUTUBE_API_KEY",
       "YOUTUBE_CLIENT_ID",
       "YOUTUBE_CLIENT_SECRET",
