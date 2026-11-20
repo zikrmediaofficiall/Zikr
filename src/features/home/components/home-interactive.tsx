@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { convertTo12Hour, getPrayerTimes, getPrayerTimesByCity, getMinutesOfDayInTimeZone } from '@/features/prayer/services/prayer-times';
 import type { PrayerTimes } from '@/lib/types/prayer';
 import { resolveLocationLabel } from '@/lib/location/reverse-geocode';
+import { OpenStreetMapAttribution } from '@/components/location/openstreetmap-attribution';
 import { getSavedPrayerLocation, persistPrayerLocation, type SavedPrayerLocation } from '@/features/prayer/services/saved-prayer-location';
 
 type Locale = 'ar' | 'en';
@@ -246,6 +247,12 @@ function PrayerTimesPanel({ locale }: { locale: Locale }) {
                 isEnglish ? 'Loading…' : 'جاري التحميل…'
               ) : null}
             </p>
+            {savedLocation && (
+              <OpenStreetMapAttribution
+                locale={locale}
+                className="mt-1 text-[11px] text-brand-cream/35"
+              />
+            )}
           </div>
           <form onSubmit={submitCity} className="flex w-full gap-2 sm:w-auto" dir={isEnglish ? 'ltr' : 'rtl'}>
             <input value={cityInput} onChange={event => setCityInput(event.target.value)} placeholder={isEnglish ? 'City name' : 'اسم المدينة'} aria-label={isEnglish ? 'City name' : 'اسم المدينة'} className="min-w-0 flex-1 rounded-xl border border-brand-gold/15 bg-black/20 px-3 py-2 text-sm text-brand-cream outline-none focus:border-brand-gold/45 sm:w-36 sm:flex-none" />
