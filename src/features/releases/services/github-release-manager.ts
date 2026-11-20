@@ -16,7 +16,7 @@ type GitHubRelease = {
   html_url?: string;
 };
 
-type GitHubRef = { object?: { sha?: string } };
+type GitHubRef = { object?: { sha?: string; type?: string } };
 type GitHubGitCommit = { tree?: { sha?: string } };
 
 class GitHubApiError extends Error {
