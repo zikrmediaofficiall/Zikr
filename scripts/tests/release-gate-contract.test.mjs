@@ -1,11 +1,29 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hasCurrentCodeOwnerApproval } from "../lib/release-gate-approval.mjs";
+import { ANDROID_DEBUG_PATH_FILTERS, CIRCLECI_VALIDATION_PATH_FILTERS, getRequiredPullRequestCheckNames } from "../lib/release-gate-checks.mjs";
 
 const workflow = readFileSync(".github/workflows/release-vercel.yml", "utf8");
 const releaseWorkflow = readFileSync(".github/workflows/release-finalization.yml", "utf8");
 const androidReleaseWorkflow = readFileSync(".github/workflows/publish-android-release-assets.yml", "utf8");
+const androidRecoveryDispatchWorkflow = readFileSync(".github/workflows/dispatch-android-release-recovery.yml", "utf8");
 const gate = readFileSync("scripts/verify-release-gates.mjs", "utf8");
+
+const androidWorkflowPaths = readFileSync(".github/workflows/android-native-login-test.yml", "utf8");
+const circleValidationPaths = readFileSync(".github/workflows/circleci-config-validation.yml", "utf8");
+for (const path of ANDROID_DEBUG_PATH_FILTERS) {
+  assert.ok(androidWorkflowPaths.includes(`"${path}"`), "release gate Android path policy must match the Android workflow filter: " + path);
+}
+for (const path of CIRCLECI_VALIDATION_PATH_FILTERS) {
+  assert.ok(circleValidationPaths.includes(`"${path}"`), "release gate CircleCI path policy must match the CircleCI workflow filter: " + path);
+}
+assert.deepEqual(getRequiredPullRequestCheckNames(["README.md"]), ["ZIKR / Quality Gate"], "unrelated changes must not require path-filtered checks that did not run");
+assert.deepEqual(getRequiredPullRequestCheckNames(["android/app/src/main/AndroidManifest.xml"]), ["ZIKR / Quality Gate", "Build Android Debug APK"]);
+assert.deepEqual(getRequiredPullRequestCheckNames(["src/features/auth/actions.ts"]), ["ZIKR / Quality Gate", "Build Android Debug APK"]);
+assert.deepEqual(getRequiredPullRequestCheckNames([".circleci/config.yml"]), ["ZIKR / Quality Gate", "Validate CircleCI configuration"]);
+assert.deepEqual(getRequiredPullRequestCheckNames([".github/workflows/circleci-config-validation.yml"]), ["ZIKR / Quality Gate", "Validate CircleCI configuration"]);
+assert.deepEqual(getRequiredPullRequestCheckNames(["android/app/build.gradle", ".circleci/config.yml"]), ["ZIKR / Quality Gate", "Build Android Debug APK", "Validate CircleCI configuration"]);
+assert.throws(() => getRequiredPullRequestCheckNames(null), /changedPaths/, "release gate path selection must fail closed on malformed changed-file data");
 
 const circleCiConfig = readFileSync(".circleci/config.yml", "utf8");
 const androidDraftStart = circleCiConfig.indexOf("  android-release-draft:");
@@ -218,3 +236,44 @@ assert.ok(
   releaseWorkflow.includes("VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}"),
   "Vercel build and deployment must carry the approved commit SHA",
 );
+
+
+assert.match(
+  androidReleaseWorkflow,
+  /\(github\.event_name == 'push' && github\.ref_type == 'tag'\)/,
+  "automatic tag publication must remain available only to tag-push events",
+);
+assert.match(
+  androidReleaseWorkflow,
+  /github\.event_name == 'workflow_dispatch' &&[\s\S]*?inputs\.retry == true[\s\S]*?github\.ref_type == 'tag'/,
+  "manual tag dispatch must require the explicit retry input",
+);
+assert.doesNotMatch(
+  androidReleaseWorkflow,
+  /if:\s*>-\s*\n\s*github\.ref_type == 'tag'\s*\|\|/,
+  "a tag ref alone must not authorize manual publisher dispatch",
+);
+const manualRecoveryGuardIndex = androidReleaseWorkflow.indexOf("Verify explicit recovery guard for manual dispatch");
+const androidCodeOwnerPreflightIndex = androidReleaseWorkflow.indexOf("Verify current PR CODEOWNER approval before publishing Android assets");
+assert.ok(manualRecoveryGuardIndex >= 0 && manualRecoveryGuardIndex < androidCodeOwnerPreflightIndex,
+  "manual recovery authorization must run before the CODEOWNER preflight and every release mutation");
+for (const required of [
+  "docs/finalization/RELEASE_RETRY.flag",
+  '"RETRY"',
+  "docs/releases/${version}.md",
+  "TAG_TARGET_SHA",
+  "GITHUB_SHA",
+  "ci/circleci: android-rebuild",
+  'if [[ "${tag}" != "${TAG}" ]]',
+  "releases/tags/${TAG}",
+  "release_prerelease",
+  '"${release_draft}" != "true"',
+]) {
+  assert.ok(androidReleaseWorkflow.includes(required), "manual publisher retry must enforce " + required);
+}
+assert.ok(androidRecoveryDispatchWorkflow.includes("docs/finalization/RELEASE_RETRY.flag"),
+  "the recovery dispatcher must retain the repository retry flag");
+assert.ok(androidRecoveryDispatchWorkflow.includes('context.ref === "refs/tags/" + tag'),
+  "the recovery dispatcher must retain exact tag-dispatch handling");
+assert.ok(androidRecoveryDispatchWorkflow.includes('item.context === "ci/circleci: android-rebuild"'),
+  "the recovery dispatcher must retain the signed-build status gate");
