@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { authorizeSchedulerBearer } from "../_shared/scheduler-auth.ts";
 import type { ExportedVapidKeys } from "webpush";
 import { forEachIdPage } from "./pagination.ts";
 import { canSchedulePrayerSubscription, isDeliverySubscriptionOwnerValid, isDeliveryWithinGraceWindow } from "./eligibility.ts";
@@ -13,6 +12,8 @@ import {
   zonedDateTime,
 } from "./time-zone.ts";
 import { fetchScheduleOrSkip, normalizePrayerTimings } from "./schedule-fetch.ts";
+import { getPrayerCalculationMethodId } from "./calculation-method.ts";
+import { parseSchedulerBearerToken } from "./scheduler-auth.ts";
 import { isAllowedPushEndpoint } from "../../../src/features/notifications/services/push-endpoint.ts";
 import { createAsyncSerialQueue } from "../../../src/lib/async-serial-queue.ts";
 import { getDeliveryLeaseHeartbeatIntervalMs, startDeliveryLeaseHeartbeat } from "./delivery-lease.ts";
@@ -209,21 +210,7 @@ function inQuietHours(
 }
 
 function calculationMethodId(value: string | null): number {
-  const normalized = (value ?? "umm-al-qura").toLowerCase();
-  const map: Record<string, number> = {
-    "umm-al-qura": 4,
-    mwl: 3,
-    isna: 2,
-    egyptian: 5,
-    karachi: 1,
-    tehran: 7,
-    jafari: 0,
-    qatar: 10,
-    kuwait: 9,
-    dubai: 8,
-    turkey: 13,
-  };
-  return map[normalized] ?? 4;
+  return getPrayerCalculationMethodId(value);
 }
 
 function school(value: string | null): number {
@@ -922,15 +909,6 @@ async function deliverDue(
         console.warn("[prayer-notification-worker] Delivery lease was recovered before the push provider call; skipping:", delivery.id);
         continue;
       }
-      // A suspended Edge invocation can resume after stale-claim recovery
-      // before its interval timer runs again. Reconfirm the exact row version
-      // immediately before the outbound send so a recovered lease cannot send.
-      const leaseConfirmed = await updateLease({ processing_at: new Date().toISOString() });
-      if (!leaseConfirmed || heartbeat.leaseLost) {
-        await heartbeat.stop();
-        console.warn("[prayer-notification-worker] Delivery lease was no longer current immediately before the push provider call; skipping:", delivery.id);
-        continue;
-      }
       await applicationServer
         .subscribe({
           endpoint: subscription.endpoint,
@@ -1032,20 +1010,30 @@ async function deliverDue(
   return { sent, failed, deactivated };
 }
 
+function constantTimeEqual(left: string, right: string) {
+  const encoder = new TextEncoder();
+  const a = encoder.encode(left);
+  const b = encoder.encode(right);
+  let diff = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i += 1) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  return diff === 0;
+}
 
 Deno.serve(async request => {
   if (request.method !== "POST")
     return json({ error: "Method not allowed" }, 405);
 
   try {
-    const authorized = await authorizeSchedulerBearer(
-      request.headers.get("authorization"),
-      async () => {
-        const { data, error } = await supabase.rpc("get_push_scheduler_secret");
-        return error ? null : data;
-      },
-    );
-    if (!authorized) return json({ error: "Unauthorized" }, 401);
+    const supplied = parseSchedulerBearerToken(request.headers.get("authorization"));
+    if (!supplied) return json({ error: "Unauthorized" }, 401);
+
+    const expected = await supabase.rpc("get_push_scheduler_secret");
+    if (expected.error || typeof expected.data !== "string" || !expected.data) {
+      throw new Error("Scheduler authentication is unavailable");
+    }
+    if (!constantTimeEqual(supplied, expected.data))
+      return json({ error: "Unauthorized" }, 401);
 
     const now = new Date();
     const bundle = await loadVapidBundle();

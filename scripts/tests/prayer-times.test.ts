@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { getCurrentPrayer, getNextPrayer, getPrayerTimes, getPrayerTimesByCity, parsePrayerTimeMinutes, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
+import { CALCULATION_METHODS, getCurrentPrayer, getNextPrayer, getPrayerTimes, getPrayerTimesByCity, parsePrayerTimeMinutes, type PrayerTime } from "../../src/features/prayer/services/prayer-times";
 import { normalizeSavedPrayerLocation } from "../../src/features/prayer/services/saved-prayer-location";
 import { readFileSync } from "node:fs";
 import { parsePrayerCoordinate } from "../../src/features/prayer/services/prayer-location-validation";
@@ -10,6 +10,12 @@ import {
   getPrayerNotificationIdsToCancel,
   getZonedDateTime,
 } from "../../src/features/prayer/services/prayer-notification-schedule";
+
+assert.equal(CALCULATION_METHODS[8], "Gulf Region");
+assert.equal(CALCULATION_METHODS[16], "Dubai (experimental)");
+assert.equal(CALCULATION_METHODS[1], "University of Islamic Sciences, Karachi");
+assert.equal(CALCULATION_METHODS[2], "Islamic Society of North America (ISNA)");
+assert.equal(CALCULATION_METHODS[3], "Muslim World League");
 
 assert.equal(parsePrayerCoordinate(31.2, -90, 90), 31.2);
 assert.equal(parsePrayerCoordinate("29.9187", -180, 180), 29.9187);
