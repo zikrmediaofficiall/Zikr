@@ -113,9 +113,19 @@ jobs:
         run: bash scripts/tests/prophet-sections-rls.integration.sh
         timeout-minutes: 5
 
+      - name: Verify RLS auth initplan regex migration against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/rls-initplan-rewrite.integration.sh
+        timeout-minutes: 5
+
       - name: Verify Kids game and question publication policies against PostgreSQL 17
         shell: bash
         run: bash scripts/tests/kids-game-levels-rls.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify profile auth timestamps and sensitive-field guard against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/profile-auth-timestamps.integration.sh
         timeout-minutes: 5
 
       - name: Verify Kids content active-state public-read policy against PostgreSQL 17
@@ -141,6 +151,11 @@ jobs:
       - name: Verify admin-managed write permissions against PostgreSQL 17
         shell: bash
         run: bash scripts/tests/admin-managed-write-rls.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify shared rate-limit null arguments against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/admin-rate-limit-arguments.integration.sh
         timeout-minutes: 5
 
       - name: Verify source-agent cron reconciliation against PostgreSQL 17
