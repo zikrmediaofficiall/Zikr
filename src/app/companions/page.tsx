@@ -14,7 +14,8 @@ export const metadata: Metadata = pageMetadata({
   path: "/companions",
 });
 
-export const revalidate = 3600;
+// This route checks live publication visibility with no-store Supabase requests.
+export const dynamic = "force-dynamic";
 
 function categoryCountLabel(category: string, count: number) {
   return category === "أمهات المؤمنين"
