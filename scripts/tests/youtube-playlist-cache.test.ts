@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   buildYoutubeSyncAttemptState,
+  claimYoutubeSyncAttempt,
   getCachedPlaylistsForChannel,
   normalizeCachedYoutubePlaylists,
 } from "../../src/features/videos/integrations/youtube";
@@ -100,6 +101,47 @@ assert.deepEqual(
   "a same-channel sync attempt must preserve its last successful playlist cache",
 );
 
+let updateClaimCalls = 0;
+let insertClaimCalls = 0;
+const existingRowClaim = await claimYoutubeSyncAttempt({
+  expectedUpdatedAt: "2026-11-13T12:00:00.000Z",
+  update: async () => {
+    updateClaimCalls += 1;
+    return { data: { id: 1 }, error: null };
+  },
+  insert: async () => {
+    insertClaimCalls += 1;
+    return { data: { id: 1 }, error: null };
+  },
+});
+assert.equal(existingRowClaim, true, "a matching row revision must acquire the sync claim");
+assert.equal(updateClaimCalls, 1, "an existing singleton row must be claimed with compare-and-set");
+assert.equal(insertClaimCalls, 0, "an existing singleton row must not be replaced by an upsert/insert");
+
+const lostCompareAndSet = await claimYoutubeSyncAttempt({
+  expectedUpdatedAt: "2026-11-13T12:00:00.000Z",
+  update: async () => ({ data: null, error: null }),
+  insert: async () => { throw new Error("insert must not run after a stale revision"); },
+});
+assert.equal(lostCompareAndSet, false, "a concurrent winner must prevent a second provider sync");
+
+const duplicateFirstInsert = await claimYoutubeSyncAttempt({
+  expectedUpdatedAt: null,
+  update: async () => { throw new Error("update must not run when the singleton row is absent"); },
+  insert: async () => ({ data: null, error: { code: "23505", message: "duplicate key" } }),
+});
+assert.equal(duplicateFirstInsert, false, "a concurrent first insert must be treated as a lost claim");
+
+const claimFailure = Object.assign(new Error("database unavailable"), { code: "08006" });
+await assert.rejects(
+  () => claimYoutubeSyncAttempt({
+    expectedUpdatedAt: "2026-11-13T12:00:00.000Z",
+    update: async () => ({ data: null, error: claimFailure }),
+    insert: async () => ({ data: null, error: null }),
+  }),
+  /database unavailable/,
+  "unexpected claim errors must fail closed instead of starting a provider request",
+);
 
 const source = readFileSync("src/features/videos/integrations/youtube.ts", "utf8");
 const migration = readFileSync(
@@ -149,12 +191,21 @@ assert.ok(
   "the feed cache must reject a profile belonging to a previously configured channel",
 );
 const syncLockStart = source.indexOf("const syncLockState = buildYoutubeSyncAttemptState({");
-const syncLockEnd = source.indexOf("if (stateError)", syncLockStart);
+const syncLockEnd = source.indexOf("if (!claimAcquired)", syncLockStart);
 const syncLockSource = syncLockStart >= 0 && syncLockEnd > syncLockStart
   ? source.slice(syncLockStart, syncLockEnd)
   : "";
 assert.match(syncLockSource, /cachedPlaylists:\s*health\.cachedPlaylists/);
-assert.match(syncLockSource, /\.upsert\(syncLockState\)/);
+assert.match(syncLockSource, /\.update\(syncLockState\)/);
+assert.match(syncLockSource, /\.eq\('updated_at', health\.updatedAt\)/);
+assert.match(syncLockSource, /\.insert\(syncLockState\)/);
+assert.doesNotMatch(source, /\.upsert\(syncLockState\)/);
+assert.match(source, /updatedAt: row\?\.updated_at \?\? null/);
+assert.equal(
+  [...source.matchAll(/\.eq\('last_attempted_at', attemptAt\)/g)].length,
+  2,
+  "success and failure finalization must not overwrite a newer sync attempt",
+);
 
 assert.ok(
   source.includes("readCachedChannel(channelId)"),
