@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { isSupabaseConfigured, supabaseServerAnonRequest } from "@/lib/supabase/server";
 import { resolveCanonicalPublished } from "@/lib/data/content-merge";
-import { getDatabasePublicationState } from "@/lib/data/publication-visibility";
+import { getDatabasePublicationState, getDatabasePublicationStates } from "@/lib/data/publication-visibility";
 import { shouldSuppressOfflineFallback } from "@/lib/data/publication-visibility-contract";
 import { COMPANIONS } from "@/features/companions/data/fallback";
 import { uniqueCompanionSummaries } from "@/features/companions/utils/companions";
@@ -167,18 +167,34 @@ function fallbackBySlug(slug: string): CompanionSummary | null {
   );
 }
 
-async function getDatabaseCompanions(): Promise<CompanionSummary[]> {
+async function getDatabaseCompanions(): Promise<CompanionSummary[] | null> {
   try {
     const rows = await supabaseServerAnonRequest<CompanionSummary[]>(
       "/rest/v1/companions?select=id,name_ar,name_en,title_ar,bio_ar,slug,category,birth_place_ar,death_place_ar,death_year&published=eq.true&order=name_ar.asc",
+      { cache: "no-store", timeoutMs: 8000, retries: 1 },
     );
     return Array.isArray(rows)
       ? uniqueCompanionSummaries(rows.filter((row) => row.slug && row.name_ar))
-      : [];
+      : null;
   } catch (error) {
     console.error("[companions] Failed to load published content:", error);
-    return [];
+    return null;
   }
+}
+
+async function filterOfflineCompanionsByPublicationState(
+  candidates: CompanionSummary[],
+): Promise<CompanionSummary[]> {
+  if (!isSupabaseConfigured() || candidates.length === 0) return candidates;
+
+  const publicationStates = await getDatabasePublicationStates(
+    "companions",
+    candidates.map((candidate) => candidate.slug),
+  );
+
+  return candidates.filter((candidate) =>
+    !shouldSuppressOfflineFallback(publicationStates.get(candidate.slug) ?? "unknown"),
+  );
 }
 
 export async function getPublishedCompanions(): Promise<CompanionSummary[]> {
@@ -189,10 +205,11 @@ export async function getPublishedCompanions(): Promise<CompanionSummary[]> {
     console.error("[companions] Offline catalogue unavailable:", error);
   }
 
-  const database = isSupabaseConfigured() ? await getDatabaseCompanions() : [];
-  if (database.length) return resolveCanonicalPublished(database, offline);
+  const database = isSupabaseConfigured() ? await getDatabaseCompanions() : null;
+  const fallback = offline.length ? offline : FALLBACK_COMPANIONS;
+  if (database?.length) return resolveCanonicalPublished(database, fallback);
 
-  return offline.length ? offline : FALLBACK_COMPANIONS;
+  return filterOfflineCompanionsByPublicationState(fallback);
 }
 
 export async function searchPublishedCompanions(query: string): Promise<CompanionSummary[]> {
@@ -242,6 +259,7 @@ export async function getCompanionBySlug(
     try {
       const rows = await supabaseServerAnonRequest<Record<string, unknown>[]>(
       `/rest/v1/companions?select=id,name_ar,name_en,title_ar,bio_ar,slug,category,birth_place_ar,death_place_ar,death_year,metadata&slug=eq.${encodeURIComponent(cleanSlug)}&published=eq.true&limit=1`,
+        { cache: "no-store", timeoutMs: 8000, retries: 1 },
     );
 
     const row = rows[0];
@@ -259,17 +277,20 @@ export async function getCompanionBySlug(
             : null,
       };
 
-      const stories = await supabaseServerAnonRequest<Record<string, unknown>[]>(
-        `/rest/v1/companion_stories?select=id,companion_id,title_ar,title_en,content_ar,content_en,story_type,order_num&companion_id=eq.${encodeURIComponent(String(row.id))}&order=order_num.asc&limit=100`,
-      ).catch((error) => {
+      let dbStories: CompanionStory[] = [];
+      try {
+        const storyRows = await supabaseServerAnonRequest<Record<string, unknown>[]>(
+          `/rest/v1/companion_stories?select=id,companion_id,title_ar,title_en,content_ar,content_en,story_type,order_num&companion_id=eq.${encodeURIComponent(String(row.id))}&order=order_num.asc&limit=100`,
+          { cache: "no-store", timeoutMs: 8000, retries: 1 },
+        );
+        dbStories = storyRows.map(mapStoryRow);
+      } catch (error) {
         console.error("[companions] Failed to load companion stories:", error);
-        return [];
-      });
+      }
 
-      const dbStories = stories.map(mapStoryRow);
       return {
         ...companion,
-        stories: dbStories.length ? dbStories : localStories,
+        stories: dbStories,
       };
       }
     } catch (error) {
@@ -277,10 +298,8 @@ export async function getCompanionBySlug(
     }
   }
 
-  const fallback = fallbackBySlug(cleanSlug);
-  if (!local && !fallback) return null;
-
-  if (isSupabaseConfigured()) {
+  const hasLocalFallback = Boolean(local || fallbackBySlug(cleanSlug));
+  if (isSupabaseConfigured() && hasLocalFallback) {
     const publicationState = await getDatabasePublicationState("companions", cleanSlug);
     if (shouldSuppressOfflineFallback(publicationState)) return null;
   }
@@ -292,10 +311,11 @@ export async function getCompanionBySlug(
       death_place_ar: null,
       death_year: null,
       metadata: null,
-      stories: localStories,
+      stories: isSupabaseConfigured() ? [] : localStories,
     };
   }
 
+  const fallback = fallbackBySlug(cleanSlug);
   return fallback
     ? {
         ...fallback,
