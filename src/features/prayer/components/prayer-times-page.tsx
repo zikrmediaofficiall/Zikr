@@ -28,6 +28,7 @@ import type { PrayerTimesResponse } from "@/features/prayer/services/prayer-time
 import { unlockAudioContext, isAudioUnlocked } from "@/lib/audio/spiritual-tones";
 import { usePrayerAlert, PRAYER_NAMES_AR } from "@/features/prayer/hooks/use-prayer-alert";
 import { resolveLocationLabel } from "@/lib/location/reverse-geocode";
+import { OpenStreetMapAttribution } from "@/components/location/openstreetmap-attribution";
 import { getSavedPrayerLocation, persistPrayerLocation } from "@/features/prayer/services/saved-prayer-location";
 
 const CAIRO = { lat: 30.0444, lon: 31.2357, city: "القاهرة" };
@@ -211,7 +212,12 @@ export function PrayerTimesPage() {
       <section className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-brand-gold">مواقيت الصلاة</h1>
         <p className="max-w-2xl mx-auto text-lg leading-8 arabic-muted">احصل على مواقيت الصلاة الدقيقة لموقعك</p>
-        {currentLocation && <div className="text-lg text-brand-cream">{currentLocation.city}</div>}
+        {currentLocation && (
+          <>
+            <div className="text-lg text-brand-cream">{currentLocation.city}</div>
+            <OpenStreetMapAttribution className="text-xs text-brand-cream/35" />
+          </>
+        )}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Button variant={audioUnlocked ? "ghost" : "secondary"} onClick={handleUnlockAudio} className="text-sm">{audioUnlocked ? "الصوت مفعّل" : "تفعيل صوت الأذان"}</Button>
           <Link href="/settings" className="inline-flex items-center gap-1.5 rounded-lg border border-brand-gold/25 px-4 py-2 text-sm text-brand-cream/70 transition-colors hover:border-brand-gold/50 hover:text-brand-gold"><Settings className="h-4 w-4" aria-hidden="true" /> إعدادات الأذان</Link>
