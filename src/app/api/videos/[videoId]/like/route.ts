@@ -24,7 +24,7 @@ async function isPublicVideo(supabase: Awaited<ReturnType<typeof createClient>>,
 async function likeStatus(
   supabase: Awaited<ReturnType<typeof createClient>>,
   videoId: string,
-  authenticated: boolean,
+  viewerId: string | null,
 ) {
   const countQuery = supabase
     .from("video_like_counts")
@@ -32,11 +32,12 @@ async function likeStatus(
     .eq("video_id", videoId)
     .maybeSingle();
 
-  const viewerQuery = authenticated
+  const viewerQuery = viewerId
     ? supabase
         .from("video_likes")
         .select("video_id")
         .eq("video_id", videoId)
+        .eq("user_id", viewerId)
         .maybeSingle()
     : Promise.resolve({ data: null, error: null });
 
@@ -51,7 +52,7 @@ async function likeStatus(
   return NextResponse.json({
     likeCount: Number(countResult.data?.like_count ?? 0),
     viewerLiked: Boolean(viewerResult.data),
-    authenticated,
+    authenticated: Boolean(viewerId),
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -70,7 +71,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (!video.exists) {
     return NextResponse.json({ error: "الفيديو غير موجود أو غير منشور." }, { status: 404 });
   }
-  return likeStatus(supabase, videoId, Boolean(user));
+  return likeStatus(supabase, videoId, user?.id ?? null);
 }
 
 export async function POST(_request: NextRequest, context: RouteContext) {
@@ -98,7 +99,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   if (error && error.code !== "23505") {
     return NextResponse.json({ error: "تعذر تسجيل الإعجاب الآن." }, { status: 503 });
   }
-  return likeStatus(supabase, videoId, true);
+  return likeStatus(supabase, videoId, user.id);
 }
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
@@ -119,5 +120,5 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   if (error) {
     return NextResponse.json({ error: "تعذر إزالة الإعجاب الآن." }, { status: 503 });
   }
-  return likeStatus(supabase, videoId, true);
+  return likeStatus(supabase, videoId, user.id);
 }

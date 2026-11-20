@@ -47,7 +47,7 @@ assert.deepEqual(
     { id: "ok", type: "content", label_ar: "مادة", title: "مادة منشورة", subtitle: "مكتبة ذِكر", href: "/content/item" },
     { id: "bad-type", type: "admin", label_ar: "خاص", title: "خاص", subtitle: "", href: "/admin" },
     { id: "external", type: "content", label_ar: "مادة", title: "رابط", subtitle: "", href: "//example.com" },
-    { id: "absolute", type: "article", label_ar: "مقال", title: "رابط", subtitle: "", href: "https://example.com" },
+    { id: "absolute", type: "article", label_ar: "مقال", title: "رابط", subtitle: "", href: "https://external.test" },
   ]),
   [{ id: "ok", type: "content", labelAr: "مادة", title: "مادة منشورة", subtitle: "مكتبة ذِكر", href: "/content/item" }],
 );

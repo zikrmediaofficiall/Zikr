@@ -166,7 +166,7 @@ Production video generation is configured for a daily target of 20, in four UTC 
 
 External video publishing now uses a verified automated QA policy for the five checks (source, audio, visuals, captions, rights). The worker creates a system QA record only when every check passes and binds it to the exact source, content, template version, and MP4 URL; it revalidates that fingerprint immediately before each upload. Failed or uncertain checks are not auto-approved and are retained in the generation audit without public distribution. Manual review is not required for passing general-audience videos. Kids videos still require a matching human review record for the exact content snapshot; automated QA alone is not sufficient.
 
-The live Supabase project has the private `video_likes` table and the RLS-protected `video_like_counts` summary table. Only authenticated users can add/remove their own likes; the public site reads aggregate counts, not other users' identities.
+The live Supabase project has the private `video_likes` table and the `video_like_counts` summary table. Only authenticated users can add/remove their own likes; the pending visibility migration limits aggregate reads and direct authenticated inserts to videos visible through the full public catalog RLS policy, while viewer-like reads remain restricted to the authenticated user.
 
 
 ### OAuth callback and Facebook Page scopes

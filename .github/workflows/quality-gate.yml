@@ -141,6 +141,10 @@ jobs:
       - name: Verify public video audience RLS against PostgreSQL 17
         shell: bash
         run: bash scripts/tests/kids-video-public-read-rls.integration.sh
+
+      - name: Verify video-like read/write visibility against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/video-like-count-visibility.integration.sh
         timeout-minutes: 5
 
       - name: Verify client table privilege hardening against PostgreSQL 17
