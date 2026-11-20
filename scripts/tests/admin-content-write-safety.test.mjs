@@ -70,6 +70,10 @@ assert.ok(ageApprovalGate >= 0 && ageApprovalGate < ageApprovalInput,
   "users without content.publish must not see the age-approval control");
 assert.match(kidsManager, /reviewKidsStoryAgeSuitabilityAction/);
 assert.match(kidsManager, /name="confirm_review"/);
+assert.match(kidsManager, /الموافقة تحفظ حالة النشر الحالية ولا تنشر المسودات تلقائيًا/);
+assert.match(kidsManager, /الرفض فيسحب اعتماد العمر ويحوّل القصة إلى غير منشورة/);
+assert.doesNotMatch(kidsManager, /لا يغيّر حالة الظهور العام/,
+  "age-review copy must disclose that rejection unpublishes a previously published story");
 assert.match(kidsManager, /content_ar,content_en,updated_at/);
 
 const libraryAdmin = readFileSync("src/app/admin/library/page.tsx", "utf8");
