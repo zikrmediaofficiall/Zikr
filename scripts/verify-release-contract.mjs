@@ -284,6 +284,23 @@ assert.ok(atomicReleaseManager.includes("Promise.all(["), "All release source fi
 assert.ok(atomicReleaseManager.includes("replaceMatchesExactly"), "Release metadata updates must fail closed when an expected version field is missing or duplicated");
 assert.ok(atomicReleaseManager.includes("assertAllVersionsMatch"), "Release preparation must reject pre-existing Android/iOS/footer version drift");
 
+const appVersionRoute = read("src/app/api/app-version/route.ts");
+assert.ok(appVersionRoute.includes("sha256Url") && appVersionRoute.includes('"sha256sums"'), "The latest stable app-version response must expose the published SHA256SUMS asset");
+const androidDownloadCard = read("src/components/platform/android-release-card.tsx");
+assert.ok(androidDownloadCard.includes('id="android-download"') && androidDownloadCard.includes("release?.sha256Url"), "The Android download card must expose a stable anchor and checksum download");
+const navbar = read("src/components/layout/navbar.tsx");
+const mobileNav = read("src/components/layout/mobile-nav.tsx");
+const footer = read("src/components/layout/footer.tsx");
+const homePage = read("src/app/page.tsx");
+assert.ok(navbar.includes('href="/api/download/android"') && navbar.includes("Download app"), "Desktop navigation must expose the direct Android APK download");
+assert.ok(mobileNav.includes('href: "/api/download/android"'), "The mobile navigation menu must expose the direct Android APK download");
+assert.ok(footer.includes('href="/api/download/android"') && footer.includes("Download APK"), "The global footer must expose the direct Android APK download");
+assert.ok(homePage.includes("AndroidReleaseCard"), "The homepage must surface the Android release card");
+
+const releaseAdminPage = read("src/app/admin/release/page.tsx");
+assert.ok(releaseAdminPage.includes("operationIsStale") && releaseAdminPage.includes("operationNeedsReview"), "The release center must distinguish stale and unverified prior operations");
+assert.ok(releaseAdminPage.includes("disabled={operationIsActive || operationNeedsReview}"), "The release action must remain disabled while a prior operation cannot be verified");
+
 
 const applicationBuildDocsJob = releaseWorkflow.split("- application-build-docs:")[1]?.split("\n      - ")[0] ?? "";
 assert.ok(applicationBuildDocsJob.includes("branches:\n              only:\n                - main"), "Application build/docs verification must remain required for main");
