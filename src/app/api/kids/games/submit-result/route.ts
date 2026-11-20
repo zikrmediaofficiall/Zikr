@@ -1,7 +1,6 @@
 import { recordKidsGameResultForUser } from "@/features/kids/services/games";
 import { MAX_REQUEST_BODY_BYTES, readBoundedJsonBody } from "@/lib/request/bounded-json-body";
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 function getPublicSupabaseClient() {
@@ -68,11 +67,10 @@ export async function POST(request: NextRequest) {
       combo: legacyBody.combo ?? 0,
       timeSeconds: legacyBody.timeSeconds ?? legacyBody.duration ?? 0,
       completed: legacyBody.completed === true,
+      // A stable client key is required for retry-safe result submission. Never
+      // mint a new server-side ID: that would turn each retry into fresh XP.
       clientSubmissionId:
-        typeof legacyBody.clientSubmissionId === "string" &&
-        legacyBody.clientSubmissionId.length >= 8
-          ? legacyBody.clientSubmissionId
-          : `legacy_${randomUUID().replaceAll("-", "")}`,
+        legacyBody.clientSubmissionId ?? request.headers.get("idempotency-key"),
       metadata: {
         legacyRoute: true,
       },
