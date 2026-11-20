@@ -140,7 +140,7 @@ export default async function AdminReleasePage({
             <button
               type="submit"
               className="rounded-xl bg-brand-gold px-6 py-3 font-bold text-black hover:bg-brand-gold/90"
-              disabled={operationIsActive}
+              disabled={operationIsActive || operationNeedsReview}
             >
               {operationIsActive ? "يوجد إصدار قيد البناء" : "إطلاق أحدث نسخة Android"}
             </button>
