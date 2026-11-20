@@ -387,15 +387,41 @@ const envExample = readFileSync(".env.example", "utf8");
 assert.match(envExample, /^SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER=1970-01-01T00:00:00.000Z$/m);
 const environmentDocs = readFileSync("docs/environment-variables.md", "utf8");
 assert.ok(
-  environmentDocs.includes("reconciliation pauses whenever either publishing gate is off"),
-  "the catalog-only switch must document that the current runner still requires the Admin auto-publish and SOCIAL_PUBLISH_ENABLED gates",
+  environmentDocs.includes("catalog reconciliation runs before the external publishing gate"),
+  "catalog-only reconciliation must be independent of the Admin auto-publish and SOCIAL_PUBLISH_ENABLED gates",
 );
 
 const worker = readFileSync("scripts/jobs/social-publishing.ts", "utf8");
-assert.ok(worker.includes("reconcilePublishedKidsVideoCatalog()"), "the scheduled worker must run the opt-in reconciler");
+assert.ok(worker.includes("export async function reconcileKidsCatalogMetadata"), "the social job must expose an isolated catalog-only reconciliation entry point");
+const catalogEntryStart = worker.indexOf("export async function reconcileKidsCatalogMetadata()");
+const catalogEntryEnd = worker.indexOf("export async function syncSocialInsights()", catalogEntryStart);
+const catalogEntry = catalogEntryStart >= 0 && catalogEntryEnd > catalogEntryStart
+  ? worker.slice(catalogEntryStart, catalogEntryEnd)
+  : "";
+assert.ok(catalogEntry.includes("isKidsCatalogReconciliationEnabled(process.env)"), "catalog reconciliation must require its own explicit opt-in");
+assert.ok(catalogEntry.includes("isVideoPurgeInProgress()"), "catalog reconciliation must fail closed during a video purge");
+assert.ok(catalogEntry.includes("reconcilePublishedKidsVideoCatalog()"), "the catalog-only entry point must invoke the bounded service reconciler");
+assert.doesNotMatch(catalogEntry, /publishFacebook|publishToFacebook|publishToYoutube/, "catalog-only reconciliation must never call external providers");
+const providerQueueStart = worker.indexOf("export async function processSocialPublishQueue");
+assert.ok(providerQueueStart >= 0, "the provider queue worker must remain independently callable");
+assert.doesNotMatch(worker.slice(providerQueueStart), /reconcilePublishedKidsVideoCatalog\(\)/, "provider queue processing must not own catalog-only reconciliation");
+
+const runner = readFileSync("scripts/run-background-jobs.ts", "utf8");
+const processSocialStart = runner.indexOf("async function processSocial(");
+const processSocialEnd = runner.indexOf("async function recordAutomationRun", processSocialStart);
+const processSocial = processSocialStart >= 0 && processSocialEnd > processSocialStart
+  ? runner.slice(processSocialStart, processSocialEnd)
+  : "";
+const reconciliationCall = processSocial.indexOf("reconcileKidsCatalogMetadata()");
+const publishingGate = processSocial.indexOf('if (!settings.autoPublish || process.env.SOCIAL_PUBLISH_ENABLED !== "true")');
+const providerQueueCall = processSocial.indexOf("processSocialPublishQueue(batchSize)");
+assert.ok(reconciliationCall >= 0 && publishingGate > reconciliationCall, "catalog-only reconciliation must run before the external publishing gate");
+assert.ok(providerQueueCall > publishingGate, "provider queue processing must remain behind both external publishing gates");
 const operations = readFileSync("docs/admin/SOCIAL_PUBLISHING_OPERATIONS.md", "utf8");
 assert.ok(operations.includes("SOCIAL_KIDS_CATALOG_RECONCILIATION_ENABLED"));
 assert.ok(operations.includes("SOCIAL_KIDS_CATALOG_RECONCILIATION_AFTER"));
 assert.ok(operations.includes("does not call Facebook/YouTube"));
+assert.ok(workflow.includes("cloudinary_ready=false"), "missing Cloudinary credentials must disable provider publishing without aborting the catalog-only worker");
+assert.ok(workflow.includes("catalog-only Kids reconciliation may still run"), "the publisher preflight must preserve the internal catalog-only path when Cloudinary is unavailable");
 
 console.log("Kids social catalog reconciliation policy and safety contracts passed.");
