@@ -46,6 +46,18 @@ assert.ok(
 );
 const workflowStart = circleCiConfig.indexOf("\nworkflows:");
 const workflowConfig = circleCiConfig.slice(workflowStart);
+const releaseBranchFilter = "/^fix\\/production-web-release-optional-aasa-20261120$/";
+for (const jobName of ["source-verify", "application-build-docs"]) {
+  const invocationStart = workflowConfig.indexOf("      - " + jobName + ":");
+  assert.ok(invocationStart >= 0, jobName + " must be invoked by the canonical CircleCI workflow");
+  const nextInvocation = workflowConfig.indexOf("\\n      - ", invocationStart + 1);
+  const invocation = workflowConfig.slice(invocationStart, nextInvocation >= 0 ? nextInvocation : undefined);
+  assert.ok(
+    invocation.includes(releaseBranchFilter),
+    jobName + " must run on the controlled production-release PR branch so release preflight can verify its CI contexts",
+  );
+}
+
 const androidRebuildInvocationStart = workflowConfig.indexOf("      - android-rebuild:");
 const androidDispatchInvocationStart = workflowConfig.indexOf("      - android-release-dispatch:", androidRebuildInvocationStart);
 const nextInvocationAfterDispatch = workflowConfig.indexOf("\n      - ", androidDispatchInvocationStart + 1);
