@@ -10,6 +10,9 @@ const files = {
   prophets: "src/features/prophets/services/prophets.ts",
   companions: "src/features/companions/services/companions.ts",
   scholars: "src/features/scholars/services/scholars.ts",
+  search: "src/features/search/services/search.ts",
+  searchContract: "src/features/search/services/search-contract.ts",
+  searchResults: "src/features/search/public-search-results.ts",
   migrationOne: "supabase/migrations/20261030043335_arabic_full_text_search_v2.sql",
   migrationTwo: "supabase/migrations/20261030044153_arabic_search_surahs_and_content_library.sql",
 };
@@ -29,6 +32,10 @@ for (const key of ["migrationOne", "migrationTwo"]) {
   if (!contents[key].includes("searchable_normalized")) failures.push(`${key} does not define normalized search schema`);
 }
 if (!contents.migrationOne.includes("private.normalize_arabic_search_text")) failures.push("canonical database normalizer is missing from migration history");
+if (!contents.searchContract.includes('"content"')) failures.push("public search result contract omits the content-library type");
+if (!contents.search.includes('getPublicContentLibrary(1000, "ar")')) failures.push("legacy search fallback omits approved content-library items");
+if (!contents.search.includes("mapPublicSearchRows(rows)")) failures.push("indexed search response does not use the shared safe result mapper");
+if (!contents.searchResults.includes("isPublicSearchResultType(type)")) failures.push("public search row mapper does not validate result types");
 for (const key of normalizedFields) {
   if (!contents[key].includes("searchable_normalized=plfts(simple).")) failures.push(`${key} does not use PostgREST configured plain-text search syntax`);
 }
