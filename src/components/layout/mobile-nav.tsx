@@ -22,6 +22,8 @@ function resolveIcon(name?: IconName): LucideIcon {
 }
 
 const utilityLinks = [
+  { href: "/api/download/android", ar: "تحميل تطبيق Android", en: "Download Android app", icon: "Download" },
+  { href: "/platform#android-download", ar: "تفاصيل إصدار التطبيق", en: "Android app version", icon: "Smartphone" },
   { href: "/about", ar: "عن المنصة", en: "About ZIKR", icon: "Info" },
   { href: "/platform", ar: "دليل الاستخدام", en: "Platform guide", icon: "BookOpenCheck" },
   { href: "/faq", ar: "الأسئلة الشائعة", en: "Frequently asked questions", icon: "CircleHelp" },

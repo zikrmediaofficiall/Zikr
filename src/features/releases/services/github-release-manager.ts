@@ -16,7 +16,7 @@ type GitHubRelease = {
   html_url?: string;
 };
 
-type GitHubRef = { object?: { sha?: string } };
+type GitHubRef = { object?: { sha?: string; type?: string } };
 type GitHubGitCommit = { tree?: { sha?: string } };
 
 class GitHubApiError extends Error {
@@ -384,10 +384,9 @@ export async function prepareAndroidRelease() {
     throw new Error("الإصدار " + tag + " موجود بالفعل على GitHub.");
   }
 
-  const activeDraft = releases.find(release => release.draft && release.tag_name?.startsWith("v"));
-  if (activeDraft) {
-    throw new Error("يوجد Release قيد البناء بالفعل: " + activeDraft.tag_name);
-  }
+  // Old drafts for other versions may be abandoned recovery records. They must
+  // never block a new release; the exact-tag duplicate check above is the lock
+  // that prevents creating a second draft for this version.
 
   if (await getOptionalTextFile(notesPath, baseSha)) {
     throw new Error("ملف ملاحظات الإصدار موجود مسبقاً: " + notesPath);
@@ -498,6 +497,18 @@ export async function prepareAndroidRelease() {
   );
   if (!tagObject.sha) throw new Error("تم تجهيز commit الإصدار لكن تعذر إنشاء Git tag object.");
 
+  const verifiedTagObject = await githubJson<{
+    tag?: string;
+    object?: { sha?: string; type?: string };
+  }>("/repos/" + REPO + "/git/tags/" + encodeURIComponent(tagObject.sha));
+  if (
+    verifiedTagObject.tag !== tag ||
+    verifiedTagObject.object?.type !== "commit" ||
+    verifiedTagObject.object.sha !== preparedCommitSha
+  ) {
+    throw new Error("فشل التحقق من أن Git tag يشير إلى نفس commit الذي يحتوي على metadata الإصدار.");
+  }
+
   await githubJson(
     "/repos/" + REPO + "/git/refs",
     {
@@ -505,6 +516,16 @@ export async function prepareAndroidRelease() {
       body: JSON.stringify({ ref: "refs/tags/" + tag, sha: tagObject.sha }),
     },
   );
+
+  const publishedTagRef = await githubJson<GitHubRef>(
+    "/repos/" + REPO + "/git/ref/tags/" + encodeURIComponent(tag),
+  );
+  if (
+    publishedTagRef.object?.type !== "tag" ||
+    publishedTagRef.object.sha !== tagObject.sha
+  ) {
+    throw new Error("تعذر تأكيد نشر Git tag الصحيح على نفس commit الإصدار.");
+  }
 
   const release = await githubJson<GitHubRelease>(
     "/repos/" + REPO + "/releases",
@@ -520,6 +541,20 @@ export async function prepareAndroidRelease() {
       }),
     },
   );
+  if (!release.id || release.tag_name !== tag || release.draft !== true) {
+    throw new Error("تم إنشاء Git tag لكن GitHub لم يؤكد Draft Release مطابقًا لنفس الإصدار.");
+  }
+
+  const verifiedRelease = await githubJson<GitHubRelease>(
+    "/repos/" + REPO + "/releases/" + release.id,
+  );
+  if (
+    verifiedRelease.id !== release.id ||
+    verifiedRelease.tag_name !== tag ||
+    verifiedRelease.draft !== true
+  ) {
+    throw new Error("فشل التحقق النهائي من هوية GitHub Release أو ارتباطه بالـTag المطلوب.");
+  }
 
   return {
     tag,
@@ -527,7 +562,7 @@ export async function prepareAndroidRelease() {
     versionCode: nextVersionCode,
     commitSha: preparedCommitSha,
     releaseId: release.id ?? null,
-    releaseUrl: release.html_url ?? null,
+    releaseUrl: release.html_url ?? "https://github.com/" + REPO + "/releases/tag/" + encodeURIComponent(tag),
     notes,
   };
 }

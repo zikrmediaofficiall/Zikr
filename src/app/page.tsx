@@ -8,6 +8,7 @@ import { SITE_CATALOG, CATALOG_ITEMS } from '@/lib/navigation/catalog';
 import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { SmartLinkPromo } from '@/components/smartlink-promo';
+import AndroidReleaseCard from '@/components/platform/android-release-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,6 +149,12 @@ export default async function HomePage() {
               </div>
             </form>
           </div>
+        </Container>
+      </section>
+
+      <section className="border-b border-brand-gold/10 px-3 py-7 sm:px-4 sm:py-9">
+        <Container className="max-w-5xl">
+          <AndroidReleaseCard />
         </Container>
       </section>
 

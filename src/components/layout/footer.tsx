@@ -155,6 +155,39 @@ export function Footer({ socialLinks, showSmartLink = false }: { socialLinks?: F
         <FooterColumn title={copy.legal} links={legalLinks} isEnglish={isEnglish} />
       </Container>
 
+      <Container className="relative mt-10">
+        <section
+          className="flex flex-col gap-4 rounded-2xl border border-brand-gold/20 bg-brand-emerald/20 p-5 sm:flex-row sm:items-center sm:justify-between"
+          dir={isEnglish ? "ltr" : "rtl"}
+          aria-label={isEnglish ? "Download the ZIKR Android app" : "تحميل تطبيق ذِكرٌ"}
+        >
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-brand-gold">
+              {isEnglish ? "ZIKR for Android" : "تطبيق ذِكرٌ للموبايل"}
+            </p>
+            <p className="text-xs leading-6 text-brand-cream/60">
+              {isEnglish
+                ? "Get the latest stable, verified Android release."
+                : "حمّل أحدث إصدار Android مستقر بعد التحقق من ملفاته."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/api/download/android"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-gold px-5 py-2.5 text-sm font-bold text-black transition hover:bg-brand-gold/90"
+            >
+              {isEnglish ? "Download APK" : "تنزيل التطبيق APK"}
+            </Link>
+            <Link
+              href="/platform#android-download"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-gold/25 px-4 py-2.5 text-xs font-semibold text-brand-gold hover:bg-brand-gold/10"
+            >
+              {isEnglish ? "Version details" : "تفاصيل الإصدار"}
+            </Link>
+          </div>
+        </section>
+      </Container>
+
       {showSmartLink && isWebRuntime ? (
         <Container className="relative mt-10 border-t border-brand-gold/10 pt-6">
           <div className="flex flex-col gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:text-start">

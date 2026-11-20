@@ -55,10 +55,19 @@ export default async function AdminReleasePage({
     typeof params.tag === "string"
       ? params.tag
       : null;
+  const operationStartedAt = Date.parse(operation?.startedAt ?? "");
   const operationIsActive = Boolean(
     operation?.status === "building" &&
-      operation.startedAt &&
-      Date.now() - Date.parse(operation.startedAt) < 6 * 60 * 60 * 1000,
+      Number.isFinite(operationStartedAt) &&
+      Date.now() - operationStartedAt < 6 * 60 * 60 * 1000,
+  );
+  const operationIsStale = Boolean(
+    operation?.status === "building" &&
+      Number.isFinite(operationStartedAt) &&
+      Date.now() - operationStartedAt >= 6 * 60 * 60 * 1000,
+  );
+  const operationNeedsReview = Boolean(
+    operation?.status === "building" && !Number.isFinite(operationStartedAt),
   );
 
   const releaseError = typeof params.android_release_error === "string" ? params.android_release_error.slice(0, 300) : null;
@@ -72,10 +81,10 @@ export default async function AdminReleasePage({
         <p className="text-xs tracking-[0.18em] text-brand-cream/30">إدارة الإصدار</p>
         <h1 className="mt-2 text-3xl font-bold text-brand-gold">مركز الإصدار</h1>
         <p className="mt-2 max-w-4xl text-sm leading-7 text-brand-cream/50">
-          مركز واحد لإطلاق إصدار Android رسمي من أحدث نسخة على main. الزر ينشئ
-          version جديدًا، يحدّث metadata، وينشئ Git tag موثقًا وDraft Release.
-          يجب التأكد من ظهور pipeline الوسم في CircleCI؛ شغّله يدويًا إذا لم يبدأ تلقائيًا،
-          ولا تنشر الـRelease قبل نجاح فحوص APK/AAB والتوقيع وSHA-256.
+          مركز واحد لإطلاق إصدار Android من أحدث commit على main. الزر يرفع
+          رقم الإصدار وversionCode معًا، ويُنشئ Tag وDraft Release مرتبطين بنفس commit.
+          لا يظهر الإصدار للمستخدمين إلا بعد بناء APK وAAB وتوقيعهما والتحقق من
+          هوية المصدر وSHA-256 ونجاح بوابات CI.
         </p>
       </header>
 
@@ -85,13 +94,27 @@ export default async function AdminReleasePage({
         </section>
       ) : null}
 
+      {operationIsStale ? (
+        <section className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm leading-7 text-amber-100/80">
+          توجد عملية قديمة مسجلة باسم <span className="font-mono">{operation?.tag}</span>،
+          لكنها تجاوزت مهلة البناء ولا تُعد عملية نشطة. المسودات القديمة لإصدارات أخرى
+          لن تمنع إنشاء إصدار أحدث، وسيظل منع تكرار الوسم نفسه فعالًا.
+        </section>
+      ) : null}
+
+      {operationNeedsReview ? (
+        <section role="alert" className="rounded-2xl border border-red-500/25 bg-red-500/5 p-4 text-sm leading-7 text-red-200">
+          وقت بدء العملية السابقة غير صالح؛ تم إيقاف الإطلاق احتياطيًا حتى تتم مراجعة حالتها.
+        </section>
+      ) : null}
+
       {startedTag ? (
         <section className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5">
           <h2 className="font-semibold text-emerald-300">تم إطلاق عملية الإصدار</h2>
           <p className="mt-2 text-sm leading-7 text-brand-cream/70">
-            تم إنشاء <span className="font-mono text-brand-gold">{startedTag}</span> كـGit tag وإنشاء Draft Release.
-            تحقق من pipeline الخاص بالوسم في CircleCI؛ إذا لم يبدأ تلقائيًا فشغّله يدويًا.
-            سيظل الإصدار غير عام حتى تنجح فحوص APK/AAB.
+            تم تجهيز <span className="font-mono text-brand-gold">{startedTag}</span> كـGit tag وDraft Release.
+            سيُنشر الإصدار بعد نجاح بناء APK وAAB والتحقق من التوقيع والبصمات وربط الملفات
+            بنفس commit والوسم؛ لا يتم إظهار ملفات غير مكتملة للمستخدمين.
           </p>
           <a
             href="https://app.circleci.com/pipelines/github/zikrofficial-X/Zikr"
@@ -117,7 +140,7 @@ export default async function AdminReleasePage({
             <button
               type="submit"
               className="rounded-xl bg-brand-gold px-6 py-3 font-bold text-black hover:bg-brand-gold/90"
-              disabled={operationIsActive}
+              disabled={operationIsActive || operationNeedsReview}
             >
               {operationIsActive ? "يوجد إصدار قيد البناء" : "إطلاق أحدث نسخة Android"}
             </button>
@@ -128,15 +151,21 @@ export default async function AdminReleasePage({
           <div className="rounded-xl border border-brand-gold/10 bg-black/10 p-4">
             <p className="text-xs text-brand-cream/35">حالة العملية</p>
             <p className="mt-2 font-semibold text-brand-cream/80">
-              {operationIsActive ? "قيد بناء APK/AAB" : "جاهز لإطلاق إصدار جديد"}
+              {operationIsActive
+                ? "قيد بناء APK/AAB والتحقق"
+                : operationIsStale
+                  ? "عملية سابقة متوقفة — جاهز لإصدار أحدث"
+                  : operationNeedsReview
+                    ? "تحتاج العملية السابقة إلى مراجعة"
+                    : "جاهز لإطلاق إصدار جديد"}
             </p>
           </div>
           <div className="rounded-xl border border-brand-gold/10 bg-black/10 p-4">
-            <p className="text-xs text-brand-cream/35">الإصدار المطلوب</p>
-            <p className="mt-2 font-mono text-sm text-brand-gold">{operation?.tag ?? "—"}</p>
+            <p className="text-xs text-brand-cream/35">آخر عملية مسجلة</p>
+            <p className="mt-2 font-mono text-sm text-brand-gold">{operation?.tag ?? "لا توجد عملية سابقة"}</p>
           </div>
           <div className="rounded-xl border border-brand-gold/10 bg-black/10 p-4">
-            <p className="text-xs text-brand-cream/35">Commit المصدر</p>
+            <p className="text-xs text-brand-cream/35">Commit آخر عملية مسجلة</p>
             <p className="mt-2 break-all font-mono text-xs text-brand-cream/60">
               {operation?.commitSha ?? commit}
             </p>
@@ -186,14 +215,28 @@ export default async function AdminReleasePage({
             </p>
           </div>
           {latestAndroidRelease?.html_url ? (
-            <a
-              href={latestAndroidRelease.html_url}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-full border border-brand-gold/25 px-4 py-2 text-xs text-brand-gold hover:bg-brand-gold/10"
-            >
-              فتح GitHub Release
-            </a>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="/api/download/android"
+                className="rounded-full bg-brand-gold px-4 py-2 text-xs font-bold text-black hover:bg-brand-gold/90"
+              >
+                تنزيل APK
+              </a>
+              <a
+                href="/api/download/android/aab"
+                className="rounded-full border border-brand-gold/30 px-4 py-2 text-xs text-brand-gold hover:bg-brand-gold/10"
+              >
+                تنزيل AAB
+              </a>
+              <a
+                href={latestAndroidRelease.html_url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="rounded-full border border-brand-gold/25 px-4 py-2 text-xs text-brand-gold hover:bg-brand-gold/10"
+              >
+                فتح GitHub Release
+              </a>
+            </div>
           ) : null}
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
