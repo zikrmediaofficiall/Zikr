@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: zikr-autonomous-video-worker
+  group: zikr-background-worker
   cancel-in-progress: false
 
 jobs:

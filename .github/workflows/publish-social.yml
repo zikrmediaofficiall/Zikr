@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: zikr-social-publisher
+  group: zikr-background-worker
   cancel-in-progress: false
 
 jobs:
