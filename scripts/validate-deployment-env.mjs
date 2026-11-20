@@ -78,7 +78,6 @@ for (const name of OPTIONAL) {
 if (env("YOUTUBE_REFRESH_TOKEN")) {
   add("warn", "Legacy YouTube refresh token", "The current runtime ignores YOUTUBE_REFRESH_TOKEN; analytics and publishing require a scope-verified credential stored through Admin → Social in Supabase.");
 }
-
 const googleWebClientId = env("NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID");
 if (googleWebClientId && !/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.test(googleWebClientId)) {
   add("fail", "NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID", "must be a Google Web OAuth client ID");
@@ -86,6 +85,7 @@ if (googleWebClientId && !/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.t
 const iosAssociatedDomainAppIdStatus = getIosAssociatedDomainAppIdStatus({
   appId: env("IOS_ASSOCIATED_DOMAIN_APP_ID"),
   vercelEnv: process.env.VERCEL_ENV,
+  required: false,
 });
 add(iosAssociatedDomainAppIdStatus.status, "IOS_ASSOCIATED_DOMAIN_APP_ID", iosAssociatedDomainAppIdStatus.detail);
 
