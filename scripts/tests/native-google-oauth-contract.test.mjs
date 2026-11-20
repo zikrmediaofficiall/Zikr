@@ -19,9 +19,10 @@ assert.ok(nativeHandler.includes('url.searchParams.get("native") === "1"'), "nat
 assert.ok(nativeHandler.includes('url.username === ""') && nativeHandler.includes('url.password === ""') && nativeHandler.includes('url.port === ""'), "custom-scheme callbacks must reject credentials and non-default ports");
 
 const deployEnvValidator = read("scripts/validate-deployment-env.mjs");
+const iosAssociationContract = read("scripts/lib/ios-associated-domain-contract.mjs");
 assert.ok(deployEnvValidator.includes('"NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID"'), "deployment environment audit must warn when the public native Google client ID is missing");
 assert.ok(deployEnvValidator.includes("must be a Google Web OAuth client ID"), "deployment environment audit must reject malformed Google Web client IDs");
-assert.ok(deployEnvValidator.includes("must be a 10-character Apple Team ID plus .com.zikr.app"), "deployment environment audit must reject malformed iOS associated-domain app IDs");
+assert.ok(deployEnvValidator.includes("getIosAssociatedDomainAppIdStatus"), "deployment environment audit must use the shared iOS app ID contract");
 assert.ok(deployEnvValidator.includes(String.raw`/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i`), "Google client ID validator must escape literal domain dots");
 assert.ok(deployEnvValidator.includes(String.raw`/^[A-Z0-9]{10}\.com\.zikr\.app$/`), "iOS app ID validator must escape literal bundle-ID dots");
 

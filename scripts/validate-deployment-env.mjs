@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getIosAssociatedDomainAppIdStatus } from "./lib/ios-associated-domain-contract.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const envFiles = [".env.local", ".env.development.local"];
@@ -55,7 +56,6 @@ const OPTIONAL = [
   "NEXT_PUBLIC_KIDS_ANALYTICS_ENABLED",
   "QURAN_VIDEO_RECITER_CODE",
   "QURAN_AYAH_AUDIO_RECITER_CODE",
-  "IOS_ASSOCIATED_DOMAIN_APP_ID",
   "NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID",
 ];
 
@@ -83,10 +83,11 @@ const googleWebClientId = env("NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID");
 if (googleWebClientId && !/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.test(googleWebClientId)) {
   add("fail", "NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID", "must be a Google Web OAuth client ID");
 }
-const iosAssociatedDomainAppId = env("IOS_ASSOCIATED_DOMAIN_APP_ID");
-if (iosAssociatedDomainAppId && !/^[A-Z0-9]{10}\.com\.zikr\.app$/.test(iosAssociatedDomainAppId)) {
-  add("fail", "IOS_ASSOCIATED_DOMAIN_APP_ID", "must be a 10-character Apple Team ID plus .com.zikr.app");
-}
+const iosAssociatedDomainAppIdStatus = getIosAssociatedDomainAppIdStatus({
+  appId: env("IOS_ASSOCIATED_DOMAIN_APP_ID"),
+  vercelEnv: process.env.VERCEL_ENV,
+});
+add(iosAssociatedDomainAppIdStatus.status, "IOS_ASSOCIATED_DOMAIN_APP_ID", iosAssociatedDomainAppIdStatus.detail);
 
 function parseUrl(name) {
   const value = env(name);
