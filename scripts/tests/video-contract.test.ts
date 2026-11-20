@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
+import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
 import { isVideoAiPlanningEnabled } from "../../src/features/videos/providers/types";
 import { CURRENT_VIDEO_RENDERER_VERSION } from "../../src/features/videos/services/video-template-version";
 import { filterGeneralStorySources, resolveKidsVideoPublicDisclosure, resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
@@ -267,5 +268,32 @@ assert.equal(
   "محتوى تحريري أصلي من منصة ذِكر — غير منسوب إلى آية أو حديث.",
   "case and whitespace variants of editorial source types must not bypass the source disclosure",
 );
+
+assert.equal(resolveVideoResolution(undefined, "vertical"), "1080x1920");
+assert.equal(resolveVideoResolution(undefined, "horizontal"), "1920x1080");
+assert.equal(resolveVideoResolution("1080x1920", "vertical"), "1080x1920");
+assert.equal(resolveVideoResolution("1920x1080", "horizontal"), "1920x1080");
+assert.equal(resolveVideoResolution(" 1080x1920 ", undefined), "1080x1920");
+assert.throws(() => resolveVideoResolution("999999x999999", "vertical"), /Unsupported video resolution/);
+assert.throws(() => resolveVideoResolution("1080x1080", "vertical"), /Unsupported video resolution/);
+assert.throws(() => resolveVideoResolution("1080x1920", "horizontal"), /does not match/);
+assert.throws(() => resolveVideoResolution(undefined, "panoramic"), /vertical or horizontal/);
+assert.equal(resolveVideoCatalogDuration(53.1), 53);
+assert.equal(resolveVideoCatalogDuration(10.4), 10);
+assert.equal(resolveVideoCatalogDuration(60), 60);
+assert.throws(() => resolveVideoCatalogDuration(0), /positive number/);
+assert.throws(() => resolveVideoCatalogDuration(61), /no greater than 60/);
+assert.throws(() => resolveVideoCatalogDuration(Number.NaN), /positive number/);
+
+
+assert.ok(videoWorker.includes("resolveVideoResolution(request.content?.resolution, request.content?.videoFormat)"));
+assert.ok(videoWorker.includes("const renderedDurationSeconds = await assertPlayableOutput(outputPath, width, height, signal)"));
+assert.ok(videoWorker.includes("durationSeconds: renderedDurationSeconds"));
+assert.ok(videoWorker.includes("duration > MAX_AUTO_VIDEO_SECONDS"));
+assert.ok(videoWorker.includes("return duration;"));
+assert.ok(videoWorker.includes("renderDurationSeconds: rendered.durationSeconds"));
+assert.ok(videoWorker.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds)"));
+const videoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
+assert.ok(videoCreateRoute.includes("resolveVideoResolution(content.resolution, content.videoFormat)"));
 
 console.log("video contract tests passed");

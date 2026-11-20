@@ -44,7 +44,8 @@ import { getDefaultVideoVoiceProfile, getVideoVoiceProfile } from "../../src/fea
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
 import { resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene } from "../../src/features/videos/services/video-creative-variation";
 import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
-import { resolveRenderDuration } from "../../src/features/videos/services/render-duration";
+import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
+import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 
 const execFileAsync = promisify(execFile);
@@ -1171,7 +1172,7 @@ async function getVerifiedQuranAyahAudioUrl(surahId: number, ayahNumber: number,
   return null;
 }
 
-async function assertPlayableOutput(outputPath: string, expectedWidth: number, expectedHeight: number, signal?: AbortSignal) {
+async function assertPlayableOutput(outputPath: string, expectedWidth: number, expectedHeight: number, signal?: AbortSignal): Promise<number> {
   const probe = await probeMedia(outputPath, signal);
   const streams = probe.streams ?? [];
   const video = streams.find((stream) => stream.codec_type === "video");
@@ -1179,7 +1180,7 @@ async function assertPlayableOutput(outputPath: string, expectedWidth: number, e
   if (!video) throw new Error("Rendered output has no video stream.");
   if (!audio) throw new Error("Rendered output has no narration/audio stream.");
   const duration = Number(probe.format?.duration ?? 0);
-  if (!Number.isFinite(duration) || duration < 1) throw new Error("Rendered output has an invalid duration.");
+  if (!Number.isFinite(duration) || duration < 1 || duration > MAX_AUTO_VIDEO_SECONDS) throw new Error("Rendered output has an invalid duration.");
   if ((video.width ?? 0) !== expectedWidth || (video.height ?? 0) !== expectedHeight) {
     throw new Error("Rendered output resolution mismatch: expected " + expectedWidth + "x" + expectedHeight + ", got " + (video.width || 0) + "x" + (video.height || 0) + ".");
   }
@@ -1187,6 +1188,7 @@ async function assertPlayableOutput(outputPath: string, expectedWidth: number, e
   if (audio.codec_name !== "aac") throw new Error("Unexpected audio codec: " + (audio.codec_name || "unknown"));
   const bitrate = Number(video.bit_rate ?? 0);
   if (Number.isFinite(bitrate) && bitrate > 0 && bitrate < 350_000) throw new Error("Rendered output video bitrate is too low: " + bitrate + "bps.");
+  return duration;
 }
 
 async function assertAudibleAudio(pathname: string, signal?: AbortSignal) {
@@ -1246,9 +1248,7 @@ async function assertNarrationQuality(pathname: string, text: string, category: 
 }
 
 function requestedVideoShape(request: GeneratedRequest) {
-  const resolution = request.content?.resolution;
-  if (typeof resolution === "string" && /^\d+x\d+$/.test(resolution)) return resolution;
-  return request.content?.videoFormat === "horizontal" ? "1920x1080" : "1080x1920";
+  return resolveVideoResolution(request.content?.resolution, request.content?.videoFormat);
 }
 
 async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
@@ -1568,7 +1568,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       outputPath,
     ];
     await execFileAsync("ffmpeg", args, { maxBuffer: 4 * 1024 * 1024, signal });
-    await assertPlayableOutput(outputPath, width, height, signal);
+    const renderedDurationSeconds = await assertPlayableOutput(outputPath, width, height, signal);
     await assertAudibleAudio(outputPath, signal);
     throwIfVideoLeaseAborted(signal);
     const renderDurationMs = Date.now() - renderStartedAt;
@@ -1598,7 +1598,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       render: {
         templateVersion,
         resolution: width + "x" + height,
-        durationSeconds: duration,
+        durationSeconds: renderedDurationSeconds,
         scene,
         motion,
         sourceLocked: ["quran", "hadith", "dua", "adhkar", "story"].includes(request.category),
@@ -1613,6 +1613,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     return {
       videoUrl: uploadedMedia.secureUrl,
       scene,
+      durationSeconds: renderedDurationSeconds,
       renderDurationMs,
       composition: composition.key,
       sourceHash: sourceHashValue,
@@ -1813,6 +1814,7 @@ async function registerGeneratedVideoOnSite(
   rendered: {
     videoUrl: string;
     scene: string;
+    durationSeconds: number;
     renderDurationMs: number;
     sourceHash: string;
     contentHash: string;
@@ -1907,6 +1909,7 @@ async function registerGeneratedVideoOnSite(
     templateVersion: rendered.templateVersion,
     sourceHash: rendered.sourceHash,
     contentHash: rendered.contentHash,
+    renderDurationSeconds: rendered.durationSeconds,
     renderDurationMs: rendered.renderDurationMs,
     scene: rendered.scene,
     audience: request.content.audience === "kids" ? "kids" : "general",
@@ -1944,7 +1947,7 @@ async function registerGeneratedVideoOnSite(
     description: request.description ?? null,
     youtube_id: null,
     thumbnail_url: resolveCloudinaryVideoPoster(rendered.videoUrl),
-    duration: Math.max(1, Number(request.content.durationSeconds ?? request.duration ?? TARGET_VIDEO_SECONDS) || TARGET_VIDEO_SECONDS),
+    duration: resolveVideoCatalogDuration(rendered.durationSeconds),
     views: 0,
     published: false,
     category_id: categoryRows?.[0]?.id ?? null,

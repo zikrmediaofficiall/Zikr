@@ -11,6 +11,7 @@ import { resolveCuratedVideoSource } from "@/features/videos/data/curated-conten
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig } from "@/features/videos/services/template-config";
 import { versionedTemplateLabel } from "@/features/videos/services/video-template-version";
+import { resolveVideoResolution } from "@/features/videos/services/video-render-contract";
 
 const VALID_CATEGORIES = [
   "quran",
@@ -274,6 +275,20 @@ export async function POST(request: NextRequest) {
         videoFormat: config.defaultFormat,
         resolution: config.defaultFormat === "vertical" ? "1080x1920" : "1920x1080",
       };
+    }
+
+    try {
+      const resolution = resolveVideoResolution(content.resolution, content.videoFormat);
+      content = {
+        ...content,
+        resolution,
+        videoFormat: resolution === "1920x1080" ? "horizontal" : "vertical",
+      };
+    } catch {
+      return NextResponse.json(
+        { error: "مقاس الفيديو غير مدعوم. اختر 9:16 أو 16:9." },
+        { status: 422, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     let humanAudioUrl: string | null = null;
