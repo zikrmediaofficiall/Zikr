@@ -9,6 +9,7 @@ import {
   registerAdminNarrationAsset,
 } from "@/features/media/services/media-assets";
 import { resolveNarrationUploadRecoveryReference } from "@/features/media/services/narration-upload-recovery";
+import { parseAdminNarrationAssetUrl } from "@/features/media/services/video-audio-source";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -141,21 +142,15 @@ export async function POST(request: NextRequest) {
         { status: 502, headers: { "Cache-Control": "no-store" } },
       );
     }
-    let audioUrl: URL;
-    try {
-      audioUrl = new URL(result.secure_url);
-    } catch (urlError) {
-      console.error("[api/admin/video-generation/narration-upload] Invalid Cloudinary secure URL; asset retained for reconciliation.", { publicId, urlError });
+    const parsedUpload = parseAdminNarrationAssetUrl(result.secure_url, cloudName);
+    if (!parsedUpload || parsedUpload.publicId !== publicId) {
+      console.error("[api/admin/video-generation/narration-upload] Cloudinary secure URL does not match the requested public ID; asset retained for reconciliation.", {
+        publicId,
+        secureUrl: result.secure_url,
+        returnedPublicId: parsedUpload?.publicId ?? null,
+      });
       return NextResponse.json(
-        { error: "رابط التخزين الناتج غير صالح؛ احتفظنا بمرجع الرفع للمراجعة اليدوية.", ...(recoveryReference ?? { uploadReference: publicId }), recoveryRequired: true },
-        { status: 502, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-    if (audioUrl.protocol !== "https:" || audioUrl.hostname !== "res.cloudinary.com" ||
-        !audioUrl.pathname.includes(`/${cloudName}/video/upload/`)) {
-      console.error("[api/admin/video-generation/narration-upload] Non-canonical Cloudinary URL; asset retained for reconciliation.", { publicId, secureUrl: result.secure_url });
-      return NextResponse.json(
-        { error: "رابط التخزين الناتج غير صالح؛ احتفظنا بمرجع الرفع للمراجعة اليدوية.", ...(recoveryReference ?? { uploadReference: publicId }), recoveryRequired: true },
+        { error: "رابط التخزين الناتج لا يطابق معرّف الأصل؛ احتفظنا بمرجع الرفع للمراجعة اليدوية.", ...(recoveryReference ?? { uploadReference: publicId }), recoveryRequired: true },
         { status: 502, headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -164,7 +159,7 @@ export async function POST(request: NextRequest) {
     try {
       mediaAssetId = await registerAdminNarrationAsset({
         publicId,
-        secureUrl: result.secure_url,
+        secureUrl: parsedUpload.url,
         contentType,
         sizeBytes: bytes.byteLength,
         createdBy: auth.profile.id,
@@ -205,7 +200,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        audioUrl: result.secure_url,
+        audioUrl: parsedUpload.url,
         audioSource: "human_recording",
         auditRecorded: true,
         mediaAssetId,

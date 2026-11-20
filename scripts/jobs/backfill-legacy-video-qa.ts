@@ -8,6 +8,7 @@ import {
 import { normalizeVideoAudience, normalizeVideoMarker } from "../../src/features/videos/services/video-audience-visibility";
 import { sourceHash, videoContentHash } from "../../src/features/videos/providers/content-hash";
 import { AI_VISUAL_POLICY_VERSION } from "../../src/features/videos/providers/ai-visual-policy";
+import { MAX_AUTO_VIDEO_SECONDS } from "../../src/features/videos/services/render-duration";
 import {
   AUTOMATED_VIDEO_QA_ENGINE,
   AUTOMATED_VIDEO_QA_VERSION,
@@ -332,11 +333,22 @@ async function processRequest(request: LegacyVideoRequest, apply: boolean) {
   mediaVerified = await verifyRemoteMedia(request.video_url);
   if (!mediaVerified) return fail("Cloudinary did not confirm that the stored master is reachable as a video asset.");
 
+  const persistedRender = asRecord(validatedContent.render);
+  const persistedDurationSeconds = Number(persistedRender.durationSeconds);
+  if (
+    !Number.isFinite(persistedDurationSeconds) ||
+    persistedDurationSeconds < 1 ||
+    persistedDurationSeconds > MAX_AUTO_VIDEO_SECONDS
+  ) {
+    return fail("The legacy request has no valid measured render duration; it cannot be approved by automated backfill.");
+  }
+
   const checks = buildAutomatedVideoQaChecklist(
     requestForValidation,
     {
       videoUrl: request.video_url,
       scene: request.scene ?? "",
+      durationSeconds: persistedDurationSeconds,
       renderDurationMs: request.render_duration_ms ?? 0,
       sourceHash: request.source_hash,
       contentHash: request.content_hash,

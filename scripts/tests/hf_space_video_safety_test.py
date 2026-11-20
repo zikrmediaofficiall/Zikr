@@ -50,6 +50,9 @@ class FakeOpener:
 
 
 class HuggingFaceOutputSafetyTests(unittest.TestCase):
+    def test_download_limit_matches_cloudinary_upload_limit(self):
+        self.assertEqual(MODULE.MAX_VIDEO_BYTES, 50 * 1024 * 1024)
+
     def test_only_https_urls_from_the_configured_space_origin_are_allowed(self):
         self.assertTrue(MODULE.is_allowed_space_file_url(FILE_URL, SPACE_ORIGIN))
         self.assertFalse(MODULE.is_allowed_space_file_url(FILE_URL.replace("https://", "http://"), SPACE_ORIGIN))
