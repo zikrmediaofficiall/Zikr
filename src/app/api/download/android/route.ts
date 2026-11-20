@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import {
   findApkAsset,
-  getAndroidReleaseSetting,
-  getLatestStableAndroidRelease,
+  getSelectedAndroidRelease,
   getSignedGitHubAssetUrl,
-  getStableReleaseByTag,
   hasGitHubReleaseAccess,
-  selectAndroidRelease,
 } from "@/features/releases/services/github-android-release";
 
 export const dynamic = "force-dynamic";
@@ -14,29 +11,7 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    const setting = await getAndroidReleaseSetting();
-
-    if (!hasGitHubReleaseAccess()) {
-      return NextResponse.json(
-        { error: "إعداد الوصول إلى إصدارات Android غير مكتمل." },
-        {
-          status: 503,
-          headers: {
-            "Cache-Control": "no-store, no-cache, must-revalidate",
-            Pragma: "no-cache",
-          },
-        }
-      );
-    }
-
-    const latestStable = await getLatestStableAndroidRelease();
-
-    const pinnedRelease =
-      setting.mode === "pinned" && setting.releaseTag
-        ? await getStableReleaseByTag(setting.releaseTag)
-        : null;
-
-    const release = selectAndroidRelease(latestStable, pinnedRelease);
+    const release = await getSelectedAndroidRelease();
     const tag = release?.tag_name?.trim();
     const apk = findApkAsset(release);
 

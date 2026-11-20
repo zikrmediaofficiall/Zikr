@@ -1,6 +1,8 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { selectAndroidRelease } from "../android-release-selection";
+export { selectAndroidRelease } from "../android-release-selection";
 
 const RELEASES_API_BASE =
   "https://api.github.com/repos/zikrofficial-X/Zikr/releases";
@@ -101,7 +103,10 @@ async function fetchReleases(): Promise<GitHubRelease[] | null> {
         cache: "no-store",
       }
     );
-    if (!response.ok) return null;
+    if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error("GitHub Android release lookup failed: HTTP " + response.status);
+  }
 
     const batch = (await response.json()) as GitHubRelease[];
     if (!Array.isArray(batch) || batch.length === 0) break;
@@ -159,38 +164,47 @@ export async function getStableReleaseByTag(
 }
 
 export async function getAndroidReleaseSetting(): Promise<AndroidReleaseSetting> {
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("site_settings")
-      .select("value")
-      .eq("key", "android_release")
-      .maybeSingle();
-    const value = data?.value as AndroidReleaseSetting | null;
-    if (
-      value &&
-      (value.mode === "pinned" || value.mode === "github-supabase")
-    ) {
-      return value;
-    }
-  } catch {
-    // Optional admin setting unavailable: use latest stable release.
+  if (!isSupabaseConfigured()) {
+    return { mode: "auto", releaseTag: null };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "android_release")
+    .maybeSingle();
+
+  if (error) {
+    // A failed read must not silently bypass an admin pin and promote a newer
+    // release. Callers return a temporary-unavailable response instead.
+    console.error("[android release] setting lookup failed:", error.code);
+    throw new Error("Unable to read Android release setting");
+  }
+
+  const value = data?.value as AndroidReleaseSetting | null;
+  if (
+    value &&
+    (value.mode === "pinned" || value.mode === "github-supabase")
+  ) {
+    return value;
   }
 
   return { mode: "auto", releaseTag: null };
 }
-export function selectAndroidRelease(
-  latestStable: GitHubRelease | null,
-  pinned: GitHubRelease | null
-): GitHubRelease | null {
-  if (
-    pinned &&
-    latestStable &&
-    compareVersions(pinned.tag_name ?? "", latestStable.tag_name ?? "") >= 0
-  ) {
-    return pinned;
-  }
-  return latestStable ?? pinned;
+
+export async function getSelectedAndroidRelease(): Promise<GitHubRelease | null> {
+  const [setting, latestStable] = await Promise.all([
+    getAndroidReleaseSetting(),
+    getLatestStableAndroidRelease(),
+  ]);
+
+  const pinnedRelease =
+    setting.mode === "pinned" && setting.releaseTag
+      ? await getStableReleaseByTag(setting.releaseTag)
+      : null;
+
+  return selectAndroidRelease(latestStable, pinnedRelease);
 }
 
 export function findApkAsset(

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   findApkAsset,
   findAabAsset,
-  getLatestStableAndroidRelease,
+  getSelectedAndroidRelease,
   hasGitHubReleaseAccess,
 } from "@/features/releases/services/github-android-release";
 
@@ -31,7 +31,7 @@ export async function GET() {
       );
     }
 
-    const release = await getLatestStableAndroidRelease();
+    const release = await getSelectedAndroidRelease();
     if (!release) {
       return NextResponse.json(
         { error: "لا يوجد إصدار Android متاح حاليًا." },
