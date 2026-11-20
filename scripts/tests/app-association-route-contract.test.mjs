@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { getIosAssociatedDomainAppIdStatus } from "../lib/ios-associated-domain-contract.mjs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const aasa = read("../../src/app/.well-known/apple-app-site-association/route.ts");
@@ -12,6 +13,35 @@ const isForceStaticRoute = (source) =>
   /export\s+const\s+dynamic\s*=\s*(['"])force-static\1;/.test(source);
 
 assert.ok(aasa.includes("process.env.IOS_ASSOCIATED_DOMAIN_APP_ID"));
+
+assert.deepEqual(
+  getIosAssociatedDomainAppIdStatus({ appId: "", vercelEnv: "production" }).status,
+  "fail",
+  "production must not build while the Apple Team ID/bundle ID is missing",
+);
+assert.deepEqual(
+  getIosAssociatedDomainAppIdStatus({ appId: "", vercelEnv: "preview" }).status,
+  "warn",
+  "preview builds may remain usable without production Universal Links configuration",
+);
+assert.deepEqual(
+  getIosAssociatedDomainAppIdStatus({ appId: "ABCDEFGHIJ.com.zikr.app", vercelEnv: "production" }).status,
+  "pass",
+);
+assert.deepEqual(
+  getIosAssociatedDomainAppIdStatus({ appId: "invalid.com.zikr.app", vercelEnv: "production" }).status,
+  "fail",
+  "production must reject an invalid Apple app identifier",
+);
+const packageJson = JSON.parse(read("../../package.json"));
+assert.ok(
+  packageJson.scripts.prebuild.includes("scripts/verify-ios-associated-domain.mjs"),
+  "the Vercel production build must run the Apple association environment guard",
+);
+assert.ok(
+  read("../verify-ios-associated-domain.mjs").includes("getIosAssociatedDomainAppIdStatus"),
+  "the build guard must use the shared iOS association contract",
+);
 assert.ok(assetLinks.includes("process.env.ANDROID_APP_LINKS_SHA256"));
 assert.ok(assetLinks.includes("CURRENT_RELEASE_FINGERPRINT"));
 assert.ok(isForceStaticRoute(aasa), "iOS association route must be force-static");
