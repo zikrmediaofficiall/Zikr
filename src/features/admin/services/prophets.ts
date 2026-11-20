@@ -10,7 +10,7 @@ export type AdminProphet = {
   order_num: number | null;
   published: boolean;
   bio_ar: string | null;
-  metadata: Record<string, string> | null;
+  metadata: Record<string, unknown> | null;
 };
 
 export type AdminProphetsReadResult = {
@@ -43,14 +43,14 @@ export async function saveAdminProphetVideo(
   const supabase = await createClient();
   const { data: current, error: readError } = await supabase
     .from("prophets")
-    .select("metadata")
+    .select("metadata,updated_at")
     .eq("id", id)
     .single();
 
   if (readError || !current) return false;
 
   const existingMeta =
-    (current.metadata as Record<string, string> | null) ?? {};
+    (current.metadata as Record<string, unknown> | null) ?? {};
   const metadata = videoId
     ? { ...existingMeta, youtube_video_id: videoId }
     : Object.fromEntries(
@@ -59,13 +59,17 @@ export async function saveAdminProphetVideo(
         ),
       );
 
-  const { error } = await supabase
+  let update = supabase
     .from("prophets")
     .update({ metadata, updated_at: new Date().toISOString() })
     .eq("id", id);
+  update = current.updated_at
+    ? update.eq("updated_at", current.updated_at)
+    : update.is("updated_at", null);
+  const { data: updated, error } = await update.select("id").maybeSingle();
 
-  if (error) {
-    console.error("[admin/prophets] failed to save video:", error);
+  if (error || !updated) {
+    if (error) console.error("[admin/prophets] failed to save video:", error);
     return false;
   }
 
@@ -77,13 +81,15 @@ export async function setAdminProphetPublished(
   published: boolean,
 ): Promise<boolean> {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("prophets")
     .update({ published, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
-  if (error) {
-    console.error("[admin/prophets] failed to update published state:", error);
+  if (error || !updated) {
+    if (error) console.error("[admin/prophets] failed to update published state:", error);
     return false;
   }
 

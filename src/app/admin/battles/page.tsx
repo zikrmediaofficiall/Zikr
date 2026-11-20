@@ -14,6 +14,15 @@ import {
 import { parseYouTubeVideoId } from '@/features/admin/services/youtube';
 import { revalidatePath } from 'next/cache';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
+import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
+
+type AdminAuditEvent = Parameters<typeof recordAdminAuditEvent>[0];
+async function recordAdminAuditEventSafely(event: AdminAuditEvent) {
+  return runPostCommitAudit(
+    () => recordAdminAuditEvent(event),
+    (error) => console.error("[admin/battles] audit event failed after committed mutation:", error),
+  );
+}
 
 // ── Server Actions ────────────────────────────────────────────────────────────
 
@@ -28,7 +37,7 @@ async function saveBattleVideoAction(formData: FormData) {
   if (rawUrl && !videoId) throw new Error("رابط YouTube غير صالح. أدخل رابطًا صحيحًا أو اترك الحقل فارغًا لإزالة الربط.");
   const ok = await saveAdminBattleVideo(id, videoId);
   if (!ok) throw new Error("تعذر حفظ فيديو الغزوة. راجع صلاحيات قاعدة البيانات وسجل الأخطاء.");
-  await recordAdminAuditEvent({
+  await recordAdminAuditEventSafely({
     action: "battles.youtube_video.update",
     permission: "battles.manage",
     resourceType: "battles",
@@ -99,7 +108,7 @@ export default async function AdminBattlesPage() {
         <section className="space-y-4">
           <p className="text-xs text-brand-cream/35 mr-1">{battles.length} غزوة في قاعدة البيانات</p>
           {battles.map((battle) => {
-            const currentVideoId = battle.metadata?.youtube_video_id ?? '';
+            const currentVideoId = typeof battle.metadata?.youtube_video_id === 'string' ? battle.metadata.youtube_video_id : '';
             return (
               <Card key={battle.id} className="p-6 space-y-4">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
