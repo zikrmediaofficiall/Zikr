@@ -24,7 +24,7 @@ assert.ok(deployEnvValidator.includes('"NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID"'), "de
 assert.ok(deployEnvValidator.includes("must be a Google Web OAuth client ID"), "deployment environment audit must reject malformed Google Web client IDs");
 assert.ok(deployEnvValidator.includes("getIosAssociatedDomainAppIdStatus"), "deployment environment audit must use the shared iOS app ID contract");
 assert.ok(deployEnvValidator.includes(String.raw`/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i`), "Google client ID validator must escape literal domain dots");
-assert.ok(deployEnvValidator.includes(String.raw`/^[A-Z0-9]{10}\.com\.zikr\.app$/`), "iOS app ID validator must escape literal bundle-ID dots");
+assert.ok(iosAssociationContract.includes(String.raw`/^[A-Z0-9]{10}\\.com\\.zikr\\.app$/`), "iOS app ID contract must escape literal bundle-ID dots");
 
 const authCallback = read("src/app/auth/callback/route.ts");
 const appleAssociationRoute = read("src/app/.well-known/apple-app-site-association/route.ts");
