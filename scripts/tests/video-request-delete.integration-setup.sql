@@ -20,5 +20,6 @@ CREATE TABLE public.videos (
 );
 CREATE TABLE public.social_publish_queue (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  content_type text NOT NULL DEFAULT 'video',
   content_id text NOT NULL
 );
