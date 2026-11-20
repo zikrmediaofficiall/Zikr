@@ -16,7 +16,8 @@ if (workflow.includes("\n  push:")) failures.push("production video generation m
 if (!workflow.includes("if: github.ref == 'refs/heads/main'")) failures.push("video worker must restrict production secrets to main");
 if (!workflow.includes("environment: production")) failures.push("video worker must use the existing production-secret environment");
 if (!workflow.includes("concurrency:")) failures.push("video worker must define concurrency protection");
-if (!workflow.includes("group: zikr-autonomous-video-worker")) failures.push("video worker concurrency group is missing");
+const videoConcurrencyGroup = workflow.match(/concurrency:\s*\n\s*group:\s*([^\n]+)/)?.[1]?.trim();
+if (videoConcurrencyGroup !== "zikr-background-worker") failures.push("video worker must use the shared background-worker concurrency group");
 if (!workflow.includes("cancel-in-progress: false")) failures.push("video worker must not cancel an active generation run");
 if (!workflow.includes("workflow_dispatch:")) failures.push("video worker must retain manual recovery dispatch");
 if (!workflow.includes("urgent:")) failures.push("video worker must support an urgent dispatch input");
@@ -62,6 +63,9 @@ if (articleTranslator.includes("GEMINI_API_KEY_")) failures.push("article transl
 if (articleTranslator.includes("gemini-3.5-flash-lite")) failures.push("article translation must not make a second model call after a failed primary call");
 
 const publisher = read(".github/workflows/publish-social.yml");
+const socialConcurrencyGroup = publisher.match(/concurrency:\s*\n\s*group:\s*([^\n]+)/)?.[1]?.trim();
+if (socialConcurrencyGroup !== videoConcurrencyGroup) failures.push("video and social publishing workflows must share one concurrency group");
+if (!publisher.includes("cancel-in-progress: false")) failures.push("social publisher must not cancel an active background worker");
 const adminSocial = read("src/app/api/admin/social/route.ts");
 const socialRunner = read("scripts/run-background-jobs.ts");
 const socialService = read("src/features/social/services/social-publishing.ts");
