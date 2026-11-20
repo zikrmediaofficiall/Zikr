@@ -52,7 +52,7 @@ export async function getCurrentProfile(): Promise<AdminProfile | null> {
   }
 }
 
-export async function requireAdminPermission(permission: AdminPermission) {
+async function requireAuthenticatedAdminProfile(): Promise<AdminProfile> {
   const profile = await getCurrentProfile();
   if (!profile) {
     const requestHeaders = await headers();
@@ -63,7 +63,20 @@ export async function requireAdminPermission(permission: AdminPermission) {
         : '/admin';
     redirect(`/auth/login?next=${encodeURIComponent(nextPath)}`);
   }
+  return profile;
+}
+
+export async function requireAdminPermission(permission: AdminPermission) {
+  const profile = await requireAuthenticatedAdminProfile();
   if (!hasAdminPermission(profile.role, permission)) {
+    redirect('/profile?error=admin_permission_required');
+  }
+  return profile;
+}
+
+export async function requireAnyAdminPermission(permissions: readonly AdminPermission[]) {
+  const profile = await requireAuthenticatedAdminProfile();
+  if (!permissions.some((permission) => hasAdminPermission(profile.role, permission))) {
     redirect('/profile?error=admin_permission_required');
   }
   return profile;

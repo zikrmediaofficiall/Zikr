@@ -3,17 +3,18 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
-import { requireAdminPermission } from "@/features/admin/services/admin";
+import { requireAnyAdminPermission } from "@/features/admin/services/admin";
+import { ADMIN_SEARCH_ACCESS_PERMISSIONS, getAdminSearchResultHref } from "@/features/admin/services/admin-search-visibility";
 import { searchAdminContent } from "@/features/admin/services/platform";
 
 export const metadata: Metadata = { title: "بحث الإدارة | الأدمن" };
 
 export default async function AdminSearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  await requireAdminPermission("content.manage");
+  const profile = await requireAnyAdminPermission(ADMIN_SEARCH_ACCESS_PERMISSIONS);
   const params = await searchParams;
   const query = String(params.q ?? "").trim();
   const searchResult = query
-    ? await searchAdminContent(query)
+    ? await searchAdminContent(query, profile.role)
     : { items: [], unavailableSources: [] as string[] };
   const results = searchResult.items;
 
@@ -22,7 +23,7 @@ export default async function AdminSearchPage({ searchParams }: { searchParams: 
       <header>
         <p className="text-xs tracking-[0.2em] text-brand-cream/30">GLOBAL SEARCH</p>
         <h1 className="mt-2 text-3xl font-bold text-brand-gold">البحث المركزي</h1>
-        <p className="mt-2 text-sm leading-7 text-brand-cream/50">بحث موحد داخل المقالات والقصص والفيديوهات ومكتبة المحتوى.</p>
+        <p className="mt-2 text-sm leading-7 text-brand-cream/50">بحث موحد داخل مصادر المحتوى المسموح بها حسب صلاحيات حسابك.</p>
       </header>
 
       <form className="flex gap-2" method="get">
@@ -39,16 +40,7 @@ export default async function AdminSearchPage({ searchParams }: { searchParams: 
 
       <section className="space-y-3">
         {results.map((item) => {
-          const href =
-            item.type === "مقال" && item.slug
-              ? `/articles/${item.slug}`
-              : item.type === "قصة" && item.slug
-                ? `/stories/${item.slug}`
-                : item.type === "فيديو" && item.slug
-                  ? `/videos/${item.slug}`
-                  : item.type === "حديث" || item.type === "دعاء"
-                    ? "/admin/knowledge"
-                    : "/admin/content";
+          const href = getAdminSearchResultHref(item);
           return (
             <div key={`${item.type}-${item.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-gold/10 bg-black/15 p-4">
               <div><div className="text-xs text-brand-gold/60">{item.type}</div><h2 className="mt-1 font-semibold text-brand-cream">{item.title}</h2><p className="mt-1 text-xs text-brand-cream/35">{item.published ? "منشور" : "مسودة"} · {item.updated_at ? new Date(item.updated_at).toLocaleString('ar-EG-u-nu-latn') : '—'}</p></div>
