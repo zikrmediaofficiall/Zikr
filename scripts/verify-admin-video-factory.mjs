@@ -20,7 +20,7 @@ if (!createRoute.includes('requireAdminStepUpApi("video.manage"')) failures.push
 if (!createRoute.includes("SOURCE_LOCKED_CATEGORIES")) failures.push("video create API must enforce source-locked categories");
 if (!createRoute.includes("resolveVideoSource")) failures.push("video create API must resolve the canonical source");
 if (!createRoute.includes("sourceVerifiedAtRequest: true")) failures.push("video create API must stamp source verification");
-if (!createRoute.includes("ownCloudinaryAudioUrl")) failures.push("human narration must be restricted to ZIKR-owned Cloudinary uploads");
+if (!createRoute.includes("parseAdminNarrationAssetUrl") || !createRoute.includes("isReadyAdminNarrationAsset") || !createRoute.includes("humanAudioAssetId")) failures.push("human narration must be restricted to the current admin's tracked, audit-ready Cloudinary media asset");
 const createAudienceGuardIndex = createRoute.indexOf("const requestedAudience = normalizeVideoAudience(content.audience);");
 const createTemplateBranchIndex = createRoute.indexOf('if (typeof content.templateVersionId === "string"');
 const createRequestIndex = createRoute.indexOf("const result = await createVideoGenerationRequest({");
@@ -124,6 +124,42 @@ if (upload.includes("/storage/v1/object/videos/")) failures.push("narration uplo
 const mediaAssetsService = read("src/features/media/services/media-assets.ts");
 const narrationRecovery = read("src/features/media/services/narration-upload-recovery.ts");
 const studioClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
+const createVideoRoute = read("src/app/api/admin/videos/create/route.ts");
+const audioWorker = read("scripts/jobs/template-video-automation.ts");
+const audioSourceContract = read("src/features/media/services/video-audio-source.ts");
+if (
+  !audioSourceContract.includes("parseAdminNarrationAssetUrl") ||
+  !audioSourceContract.includes("isCanonicalQuranAyahAudioUrl") ||
+  !audioSourceContract.includes("isReadyAdminNarrationAsset") ||
+  !audioSourceContract.includes("audio/x-m4a") ||
+  !audioSourceContract.includes("MAX_ADMIN_NARRATION_BYTES")
+) {
+  failures.push("shared audio source contract must validate Cloudinary provenance, canonical Quran URLs, audit-ready media rows, MIME types and size limits");
+}
+if (
+  !createVideoRoute.includes("delete content.audioUrl") ||
+  !createVideoRoute.includes("delete content.audioSource") ||
+  !createVideoRoute.includes("isReadyAdminNarrationAsset") ||
+  !createVideoRoute.includes("humanAudioAssetId")
+) {
+  failures.push("video creation must discard client audio URLs and require the current admin's ready, audited media_assets row");
+}
+if (
+  !studioClient.includes('assetTrackingStatus !== "ready"') ||
+  !studioClient.includes("uploadedAudioAssetId") ||
+  !studioClient.includes("humanAudioAssetId")
+) {
+  failures.push("studio must not attach narration until the media asset is audit-ready and must send its exact asset ID");
+}
+if (
+  !audioWorker.includes("resolveVideoAudioSource") ||
+  !audioWorker.includes("isReadyAdminNarrationAsset") ||
+  !audioWorker.includes("readBoundedAudioResponse") ||
+  !audioWorker.includes('redirect: "error"') ||
+  !audioWorker.includes("MAX_VIDEO_AUDIO_BYTES")
+) {
+  failures.push("video worker must restrict audio fetches to canonical Quran or tracked Cloudinary narration, reject redirects, and bound response bytes");
+}
 if (!upload.includes("registerAdminNarrationAsset") || !upload.includes("markAdminNarrationAssetAuditRecorded")) {
   failures.push("Cloudinary narration uploads must be durably registered in media_assets before audit success is reported");
 }
@@ -133,8 +169,14 @@ if (!upload.includes("uploadReference") || !studioClient.includes("مرجع ال
 const cloudinaryResponseFailureStart = upload.indexOf(
   "if (!upload.ok || !result.secure_url || result.public_id !== publicId)",
 );
-const audioUrlParseStart = upload.indexOf("let audioUrl: URL", cloudinaryResponseFailureStart);
-const invalidCloudinaryUrlStart = upload.indexOf("if (audioUrl.protocol", audioUrlParseStart);
+const audioUrlParseStart = upload.indexOf(
+  "const parsedUpload = parseAdminNarrationAssetUrl(result.secure_url, cloudName)",
+  cloudinaryResponseFailureStart,
+);
+const invalidCloudinaryUrlStart = upload.indexOf(
+  "if (!parsedUpload || parsedUpload.publicId !== publicId)",
+  audioUrlParseStart,
+);
 const assetTrackingStart = upload.indexOf("let mediaAssetId", invalidCloudinaryUrlStart);
 const cloudinaryResponseFailureBlock = upload.slice(cloudinaryResponseFailureStart, audioUrlParseStart);
 const invalidCloudinaryUrlBlock = upload.slice(audioUrlParseStart, assetTrackingStart);
@@ -151,8 +193,11 @@ if (
   audioUrlParseStart < 0 ||
   invalidCloudinaryUrlStart <= audioUrlParseStart ||
   assetTrackingStart <= invalidCloudinaryUrlStart ||
+  !invalidCloudinaryUrlBlock.includes("parsedUpload.publicId !== publicId") ||
   !invalidCloudinaryUrlBlock.includes("uploadReference: publicId") ||
-  !invalidCloudinaryUrlBlock.includes("recoveryRequired: true")
+  !invalidCloudinaryUrlBlock.includes("recoveryRequired: true") ||
+  !upload.includes("secureUrl: parsedUpload.url") ||
+  !upload.includes("audioUrl: parsedUpload.url")
 ) {
   failures.push("invalid or non-canonical Cloudinary URLs must retain a recovery reference for the uploaded asset");
 }
