@@ -14,8 +14,17 @@ import {
 import { parseYouTubeVideoId } from '@/features/admin/services/youtube';
 import { revalidatePath } from 'next/cache';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
+import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
 
 
+
+type AdminAuditEvent = Parameters<typeof recordAdminAuditEvent>[0];
+async function recordAdminAuditEventSafely(event: AdminAuditEvent) {
+  return runPostCommitAudit(
+    () => recordAdminAuditEvent(event),
+    (error) => console.error("[admin/prophets] audit event failed after committed mutation:", error),
+  );
+}
 
 // ── Server Actions ────────────────────────────────────────────────────────────
 
@@ -30,7 +39,7 @@ async function saveProphetVideoAction(formData: FormData) {
   if (rawUrl && !videoId) throw new Error("رابط YouTube غير صالح. أدخل رابطًا صحيحًا أو اترك الحقل فارغًا لإزالة الربط.");
   const ok = await saveAdminProphetVideo(id, videoId);
   if (!ok) throw new Error("تعذر حفظ فيديو النبي. راجع صلاحيات قاعدة البيانات وسجل الأخطاء.");
-  await recordAdminAuditEvent({
+  await recordAdminAuditEventSafely({
     action: "prophets.youtube_video.update",
     permission: "prophets.manage",
     resourceType: "prophets",
@@ -134,7 +143,7 @@ export default async function AdminProphetsPage() {
         <section className="space-y-4">
           <p className="text-xs text-brand-cream/35 mr-1">{prophets.length} نبي في قاعدة البيانات</p>
           {prophets.map((prophet) => {
-            const currentVideoId = prophet.metadata?.youtube_video_id ?? '';
+            const currentVideoId = typeof prophet.metadata?.youtube_video_id === 'string' ? prophet.metadata.youtube_video_id : '';
             return (
               <Card key={prophet.id} className="p-6 space-y-4">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
