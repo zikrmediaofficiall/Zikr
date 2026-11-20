@@ -180,7 +180,7 @@ function walk(dir) {
 }
 for (const page of walk(adminRoot)) {
   const source = readFileSync(page, "utf8");
-  if (!/requireAdminPermission\(|requireAdmin\(|redirect\(/.test(source)) {
+  if (!/requireAdminPermission\(|requireAnyAdminPermission\(|requireAdmin\(|redirect\(/.test(source)) {
     failures.push("admin page has no server-side gate or explicit redirect: " + page.replace(root + "/", ""));
   }
   if (/SUPABASE_SERVICE_ROLE_KEY/.test(source)) failures.push("admin page references a service-role secret variable: " + page.replace(root + "/", ""));
