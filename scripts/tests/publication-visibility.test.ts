@@ -44,7 +44,7 @@ assert.match(duaService, /databaseLookupFailed \? fallbackBase : FALLBACK_DUAS/,
 assert.match(duaService, /!databaseLookupFailed && localMatch/, "dua visibility checks must not run for arbitrary unknown slugs");
 
 assert.equal(
-  duaService.match(/getDatabasePublicationStates/g)?.length,
+  duaService.match(/getDatabasePublicationStates\\(/g)?.length,
   2,
   "dua list and search fallbacks must both check canonical publication state",
 );
