@@ -76,7 +76,7 @@ BEGIN
 END;
 $$;
 
--- Completed or cancelled records with any published media/catalog/queue linkage are preserved.
+-- Completed or cancelled records with media/catalog/queue linkage are preserved.
 DO $$
 BEGIN
   BEGIN
@@ -130,6 +130,30 @@ BEGIN
 END;
 $$;
 RESET ROLE;
+
+-- Reference creation uses the same advisory lock and rejects deleted request IDs.
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.videos (metadata)
+    VALUES ('{"videoGenerationRequestId":"10000000-0000-4000-8000-000000000001"}');
+    RAISE EXCEPTION 'catalog reference to deleted request unexpectedly inserted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.social_publish_queue (content_type, content_id)
+    VALUES ('video_generation', '10000000-0000-4000-8000-000000000001');
+    RAISE EXCEPTION 'social queue reference to deleted request unexpectedly inserted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    NULL;
+  END;
+
+  INSERT INTO public.social_publish_queue (content_type, content_id)
+  VALUES ('written_post', 'not-a-uuid');
+END;
+$$;
 
 DO $$
 DECLARE remaining integer;
