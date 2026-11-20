@@ -160,7 +160,7 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.6.1",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.4.5",
+    "eslint-config-next": "16.4.6",
     "postcss": "^8.5.26",
     "prettier": "^3.10.1",
     "tailwindcss": "^4.3.3",
