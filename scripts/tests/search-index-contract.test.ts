@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { isPublicSearchResultType } from "../../src/features/search/services/search-contract";
+import { mapPublicSearchRows } from "../../src/features/search/public-search-results";
 
 const migration = readFileSync(
   "supabase/migrations/20261030043335_arabic_full_text_search_v2.sql",
@@ -32,6 +34,29 @@ assert.ok(search.includes("/rest/v1/rpc/search_public_content"));
 assert.ok(search.includes("searchIndexedContent"));
 assert.ok(search.includes("if (indexedResults !== null) {"));
 assert.ok(search.includes("getBundledLongformArticles"));
+assert.ok(search.includes('getPublicContentLibrary(1000, "ar")'));
+assert.ok(search.includes('type: "content"'));
+assert.ok(search.includes("mapPublicSearchRows(rows)"));
+assert.equal(isPublicSearchResultType("content"), true, "approved content-library search results must be retained");
+assert.equal(isPublicSearchResultType("ayah"), true, "Quran ayah results from the current search implementation must remain supported");
+assert.equal(isPublicSearchResultType("admin"), false, "unknown result types must be rejected");
+const searchResults = readFileSync("src/features/search/public-search-results.ts", "utf8");
+assert.ok(searchResults.includes("isPublicSearchResultType(type)"));
+assert.deepEqual(
+  mapPublicSearchRows([
+    { id: "ok", type: "content", label_ar: "مادة", title: "مادة منشورة", subtitle: "مكتبة ذِكر", href: "/content/item" },
+    { id: "bad-type", type: "admin", label_ar: "خاص", title: "خاص", subtitle: "", href: "/admin" },
+    { id: "external", type: "content", label_ar: "مادة", title: "رابط", subtitle: "", href: "//example.com" },
+    { id: "absolute", type: "article", label_ar: "مقال", title: "رابط", subtitle: "", href: "https://example.com" },
+  ]),
+  [{ id: "ok", type: "content", labelAr: "مادة", title: "مادة منشورة", subtitle: "مكتبة ذِكر", href: "/content/item" }],
+);
+const searchRoute = readFileSync("src/app/api/search/route.ts", "utf8");
+const cachedResponse = searchRoute.slice(searchRoute.indexOf("if (cached &&"), searchRoute.indexOf("if (cached)"));
+const uncachedResponse = searchRoute.slice(searchRoute.indexOf("const results = await globalSearch"), searchRoute.indexOf("} catch (error)"));
+assert.match(searchRoute, /const SEARCH_CACHE_HEADERS = \{[\s\S]*?["']Cache-Control["']\s*:\s*["']public, max-age=60, stale-while-revalidate=300["']/);
+assert.match(cachedResponse, /headers: SEARCH_CACHE_HEADERS/, "cache-hit responses must retain the public cache policy");
+assert.match(uncachedResponse, /headers: SEARCH_CACHE_HEADERS/, "cache-miss responses must use the same public cache policy");
 assert.ok(migration2.includes("quran_surahs_searchable_normalized_idx"));
 assert.ok(migration2.includes("content_library_searchable_normalized_idx"));
 assert.ok(migration3.includes("searchable_tags_normalized"));
