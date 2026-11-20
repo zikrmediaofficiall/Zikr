@@ -922,6 +922,15 @@ async function deliverDue(
         console.warn("[prayer-notification-worker] Delivery lease was recovered before the push provider call; skipping:", delivery.id);
         continue;
       }
+      // A suspended Edge invocation can resume after stale-claim recovery
+      // before its interval timer runs again. Reconfirm the exact row version
+      // immediately before the outbound send so a recovered lease cannot send.
+      const leaseConfirmed = await updateLease({ processing_at: new Date().toISOString() });
+      if (!leaseConfirmed || heartbeat.leaseLost) {
+        await heartbeat.stop();
+        console.warn("[prayer-notification-worker] Delivery lease was no longer current immediately before the push provider call; skipping:", delivery.id);
+        continue;
+      }
       await applicationServer
         .subscribe({
           endpoint: subscription.endpoint,
