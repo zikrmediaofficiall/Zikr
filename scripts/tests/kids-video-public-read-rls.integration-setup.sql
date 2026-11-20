@@ -24,6 +24,26 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 CREATE SCHEMA private;
 GRANT USAGE ON SCHEMA private TO anon, authenticated, service_role;
 
+CREATE TABLE public.video_categories (
+  id uuid PRIMARY KEY,
+  slug text NOT NULL,
+  published boolean NOT NULL DEFAULT true,
+  is_active boolean NOT NULL DEFAULT true
+);
+ALTER TABLE public.video_categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY video_categories_public_read
+  ON public.video_categories
+  FOR SELECT
+  TO public
+  USING (published IS TRUE AND is_active IS TRUE);
+GRANT SELECT ON public.video_categories TO anon, authenticated, service_role;
+
+INSERT INTO public.video_categories (id, slug, published, is_active)
+VALUES
+  ('20000000-0000-4000-8000-000000000001', 'general', true, true),
+  ('20000000-0000-4000-8000-000000000002', 'kids-stories', true, true),
+  ('20000000-0000-4000-8000-000000000003', 'kids', false, false);
+
 CREATE SCHEMA IF NOT EXISTS extensions;
 -- PGlite does not load pgcrypto. This deterministic, change-sensitive test double
 -- preserves the digest(text, text) interface; production uses pgcrypto's real SHA-256.
@@ -41,6 +61,7 @@ $digest$;
 
 CREATE TABLE public.videos (
   id text PRIMARY KEY,
+  category_id uuid REFERENCES public.video_categories(id) ON DELETE RESTRICT,
   published boolean NOT NULL DEFAULT false,
   metadata jsonb
 );
@@ -137,6 +158,19 @@ VALUES
   ('malformed-array-metadata', true, '["kids"]'::jsonb),
   ('json-null-metadata', true, 'null'::jsonb),
   ('unpublished-general', false, '{"audience":"general"}'::jsonb);
+
+-- Category membership is an independent Kids marker; missing or conflicting
+-- metadata must not bypass the public read gate, including hidden categories.
+UPDATE public.videos
+SET category_id = '20000000-0000-4000-8000-000000000002'
+WHERE id = 'kids-approved';
+
+INSERT INTO public.videos (id, category_id, published, metadata)
+VALUES
+  ('kids-category-null-metadata', '20000000-0000-4000-8000-000000000003', true, NULL),
+  ('kids-category-general-metadata', '20000000-0000-4000-8000-000000000002', true, '{"audience":"general"}'::jsonb),
+  ('kids-category-unapproved', '20000000-0000-4000-8000-000000000002', true, '{"audience":"kids","generator":"zikr_internal_video_factory"}'::jsonb);
+
 
 WITH approved_snapshot AS (
   SELECT
