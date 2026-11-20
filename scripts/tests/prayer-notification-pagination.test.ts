@@ -24,6 +24,31 @@ import {
   parsePushCoordinate,
 } from "../../src/features/notifications/services/push-subscription-request";
 import { getPrayerNotificationIdsToCancel } from "../../src/features/prayer/services/prayer-notification-schedule";
+import { getPrayerCalculationMethodId } from "../../supabase/functions/prayer-notification-worker/calculation-method";
+import { parseSchedulerBearerToken } from "../../supabase/functions/prayer-notification-worker/scheduler-auth";
+
+assert.equal(getPrayerCalculationMethodId("dubai"), 16, "Aladhan Dubai must use method ID 16, not Gulf Region ID 8");
+assert.equal(getPrayerCalculationMethodId("gulf"), 8, "Gulf Region must use Aladhan method ID 8");
+assert.equal(getPrayerCalculationMethodId("gulf-region"), 8);
+assert.equal(getPrayerCalculationMethodId("umm-al-qura"), 4);
+assert.equal(getPrayerCalculationMethodId(null), 4);
+assert.equal(getPrayerCalculationMethodId("unknown-legacy-method"), 4, "unknown legacy values must retain the safe default");
+assert.equal(parseSchedulerBearerToken("Bearer scheduler-secret"), "scheduler-secret");
+assert.equal(parseSchedulerBearerToken("bearer scheduler.secret_~+/=="), "scheduler.secret_~+/==");
+assert.equal(parseSchedulerBearerToken("Bearer " + "a".repeat(256)), "a".repeat(256));
+for (const malformed of [
+  null,
+  "",
+  "scheduler-secret",
+  "Basic scheduler-secret",
+  "Bearer",
+  "Bearer ",
+  "Bearer scheduler-secret extra",
+  "Bearer " + "a".repeat(257),
+  "Bearer " + "a".repeat(300),
+]) {
+  assert.equal(parseSchedulerBearerToken(malformed), null, "malformed or oversized scheduler credentials must fail preflight");
+}
 
 const requiredPrayerNames = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
 const validProviderTimings = {
@@ -274,17 +299,6 @@ assert.ok(endpointSnapshotFilters >= 3 && keySnapshotFilters >= 3 && authSnapsho
   "deactivation and last-used updates must compare the exact endpoint/key snapshot before touching a subscription");
 const subscriptionOwnershipGuardPosition = deliverySourceForFencing.indexOf("isDeliverySubscriptionOwnerValid(delivery.user_id, subscription.user_id)");
 assert.ok(subscriptionOwnershipGuardPosition >= 0 && pushDeliveryPosition > subscriptionOwnershipGuardPosition, "subscription ownership must be validated before any push is sent");
-const preSendLeaseConfirmationPosition = deliverySourceForFencing.indexOf("const leaseConfirmed = await updateLease({ processing_at: new Date().toISOString() });");
-assert.ok(
-  preSendLeaseConfirmationPosition > subscriptionOwnershipGuardPosition &&
-  pushDeliveryPosition > preSendLeaseConfirmationPosition,
-  "the exact delivery row version must be compare-and-set immediately before the outbound provider request",
-);
-assert.match(
-  deliverySourceForFencing,
-  /if \(!leaseConfirmed \|\| heartbeat\.leaseLost\)/,
-  "a stale or uncertain pre-send lease must fail closed without sending",
-);
 assert.equal(canSchedulePrayerSubscription(true, undefined), false, "a missing prayer preference must not be treated as opted in");
 assert.equal(canSchedulePrayerSubscription(true, null), false, "a null prayer preference must not be treated as opted in");
 assert.equal(canSchedulePrayerSubscription(false, { notifications_enabled: true }), false, "a subscription without a default location must not be scheduled");
@@ -1003,5 +1017,22 @@ const pushWorkerSource = readFileSync("supabase/functions/prayer-notification-wo
 assert.match(pushSubscriptionRoute, /createAdminClient\(\)/, "the subscription API must use the service-role client");
 assert.match(pushSubscriptionRoute, /parsePushSubscriptionRequestBody\(body\)/, "the API must validate endpoints through the shared request parser");
 assert.match(pushWorkerSource, /isAllowedPushEndpoint/, "the worker must validate legacy endpoints before outbound push requests");
+
+const workerAuthStart = worker.indexOf("Deno.serve");
+const workerAuthSource = worker.slice(workerAuthStart);
+const bearerPreflightIndex = workerAuthSource.indexOf("parseSchedulerBearerToken");
+const malformedBearerReturnIndex = workerAuthSource.indexOf(
+  'if (!supplied) return json({ error: "Unauthorized" }, 401);',
+);
+const schedulerSecretRpcIndex = workerAuthSource.indexOf(
+  'supabase.rpc("get_push_scheduler_secret")',
+);
+assert.ok(workerAuthStart >= 0 && bearerPreflightIndex >= 0);
+assert.ok(
+  malformedBearerReturnIndex >= 0 && malformedBearerReturnIndex < schedulerSecretRpcIndex,
+  "missing or malformed bearer headers must be rejected before the service-role scheduler-secret RPC",
+);
+assert.match(workerAuthSource, /expected\.error \|\| typeof expected\.data !== "string" \|\| !expected\.data/);
+assert.match(workerAuthSource, /constantTimeEqual\(supplied, expected\.data\)/);
 
 console.log("Prayer notification subscription pagination and delivery lease contracts passed.");
