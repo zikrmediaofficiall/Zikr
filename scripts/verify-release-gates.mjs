@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { hasCurrentCodeOwnerApproval } from "./lib/release-gate-approval.mjs";
 import { getRequiredPullRequestCheckNames } from "./lib/release-gate-checks.mjs";
+import { findMergedMainPullRequest, getApprovalCommitSha } from "./lib/release-gate-pr.mjs";
 
 const repository = process.env.GITHUB_REPOSITORY?.trim();
 const commitSha = process.env.RELEASE_COMMIT_SHA?.trim() || process.env.GITHUB_SHA?.trim();
@@ -99,14 +100,17 @@ async function requireCircleCiStatuses(sha, label, requireVercel) {
   }
 }
 
-const pullRequests = await allPages("/repos/" + repository + "/commits/" + commitSha + "/pulls");
-const pullRequest = pullRequests.find(
-  (candidate) =>
-    candidate.base?.ref === "main" &&
-    candidate.merged_at &&
-    candidate.merge_commit_sha === commitSha,
-);
+const sourceCommit = await api("/repos/" + repository + "/commits/" + commitSha);
+const approvalCommitSha = getApprovalCommitSha(commitSha, sourceCommit);
+const pullRequests = await allPages("/repos/" + repository + "/commits/" + approvalCommitSha + "/pulls");
+const pullRequest = findMergedMainPullRequest(pullRequests, approvalCommitSha);
 if (!pullRequest) {
+  if (approvalCommitSha !== commitSha) {
+    throw new Error(
+      "The Android release-preparation commit must be based directly on a merged main PR; " +
+        "no merged PR was found for parent " + approvalCommitSha.slice(0, 12) + ".",
+    );
+  }
   throw new Error("The release commit must be the merge commit of a merged pull request targeting main; direct pushes are not accepted.");
 }
 
@@ -157,5 +161,5 @@ await requireCircleCiStatuses(commitSha, "Merged commit statuses", requireVercel
 
 console.log(
   "RELEASE_PREFLIGHT_PASSED: commit=" + commitSha + "; PR=#" + pullRequest.number +
-  "; head=" + pullRequest.head.sha + "; CODEOWNERS=" + owners.join(",") + "; VercelStatusRequired=" + requireVercelStatus + "; checks=success.",
+  "; head=" + pullRequest.head.sha + "; reviewBasisCommit=" + approvalCommitSha + "; CODEOWNERS=" + owners.join(",") + "; VercelStatusRequired=" + requireVercelStatus + "; checks=success.",
 );
