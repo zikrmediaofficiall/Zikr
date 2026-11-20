@@ -10,7 +10,7 @@ import {
 
 import type { DuaCategory, Dua } from "@/features/dua/types/dua";
 import { resolveCanonicalPublished } from "@/lib/data/content-merge";
-import { getDatabasePublicationState } from "@/lib/data/publication-visibility";
+import { getDatabasePublicationState, getDatabasePublicationStates } from "@/lib/data/publication-visibility";
 import { shouldSuppressOfflineFallback } from "@/lib/data/publication-visibility-contract";
 import {
   FALLBACK_DUA_CATEGORIES,
@@ -157,7 +157,18 @@ export async function getDuas(
     const source = databaseLookupFailed ? fallbackBase : FALLBACK_DUAS.filter(
       dua => !categoryId || categoryId === "all" || dua.categoryId === categoryId,
     );
-    return source.filter(localeReady).slice(0, safeLimit);
+    if (databaseLookupFailed) return source.filter(localeReady).slice(0, safeLimit);
+
+    const publicationStates = await getDatabasePublicationStates(
+      "duas",
+      source.map((dua) => dua.slug),
+    );
+    return source
+      .filter((dua) =>
+        !shouldSuppressOfflineFallback(publicationStates.get(dua.slug) ?? "unknown"),
+      )
+      .filter(localeReady)
+      .slice(0, safeLimit);
   }
 
   const mapped = rows
@@ -185,10 +196,19 @@ export async function searchDuas(query: string, locale: Locale = "ar"): Promise<
           : Boolean(dua.titleAr?.trim() && dua.textAr?.trim())),
       );
       if (matches.length) return matches;
-      return FALLBACK_DUAS.filter((dua) =>
+      const fallbackMatches = FALLBACK_DUAS.filter((dua) =>
         [dua.titleAr, dua.textAr, dua.titleEn ?? "", dua.textEn ?? "", dua.occasionAr ?? "", dua.sourceAr ?? "", dua.benefitsAr ?? ""]
           .some((value) => normalizeArabicSearchText(value).includes(normalizedQuery)),
-      ).slice(0, 6);
+      );
+      const publicationStates = await getDatabasePublicationStates(
+        "duas",
+        fallbackMatches.map((dua) => dua.slug),
+      );
+      return fallbackMatches
+        .filter((dua) =>
+          !shouldSuppressOfflineFallback(publicationStates.get(dua.slug) ?? "unknown"),
+        )
+        .slice(0, 6);
     } catch (error) {
       databaseLookupFailed = true;
       console.error("[dua] Indexed search failed; using bounded fallback:", error);

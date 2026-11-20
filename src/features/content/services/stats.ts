@@ -20,6 +20,7 @@ const CONTENT_TABLES = {
 const PUBLISHED_TABLES = new Set([
   "articles",
   "duas",
+  "hadiths",
   "prophets",
   "companions",
   "scholars",
@@ -44,6 +45,14 @@ export async function getContentStats(): Promise<{
 
       if (PUBLISHED_TABLES.has(table)) {
         query = query.eq("published", true);
+      }
+
+      if (table === "kids_content") {
+        // Match the public Kids catalogue and RLS contract: active content only,
+        // with an explicit age-suitability approval required for stories.
+        query = query
+          .eq("is_active", true)
+          .or("type.neq.story,metadata->>age_appropriate.eq.true");
       }
 
       const { count, error } = await query;

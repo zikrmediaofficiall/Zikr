@@ -1,4 +1,4 @@
-export type PublicContentTable = "articles" | "companions" | "duas" | "prophets";
+export type PublicContentTable = "articles" | "duas" | "prophets" | "companions";
 export type DatabasePublicationState = "published" | "unpublished" | "missing" | "unknown";
 
 /**
