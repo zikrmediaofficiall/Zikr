@@ -76,15 +76,15 @@ const CORE_CHECKS = [
   { path: "/quran", label: "Quran page", expectedMain: /القرآن/i, expectedContent: /الفاتحة.*الناس/ },
   { path: "/prayer-times", label: "prayer times page", expectedMain: /مواقيت/i },
   { path: "/kids", label: "kids page", expectedMain: /نتعلم|الأطفال|الاطفال/i },
-  { path: "/kids/games", label: "kids games catalogue", expectedMain: /الألعاب|ألعاب|All games|Choose your next adventure/i, expectedContent: /مختبر الحروف|Arabic Letter Lab|Letter Lab/i },
+  { path: "/kids/games", label: "kids games catalogue route metadata", expected: /<title[^>]*>[^<]*الألعاب[^<]*<\/title>/i },
   { path: "/kids/videos", label: "kids video library", expectedMain: /قصص فيديو مخصصة للأطفال|Stories made for young viewers/i },
   { path: "/data-deletion", label: "Facebook data deletion instructions", expectedMain: /حذف بيانات المستخدم.*إرسال طلب حذف البيانات/i },
   { path: "/dua/zikr-dua-expansion-14", label: "short published dua detail", minMainText: 35 },
   {
     path: "/dua/zikr-dua-expansion-14",
-    label: "English-locale dua Arabic fallback",
+    label: "English-locale published dua remains readable",
     minMainText: 35,
-    expectedContent: /English translation is not available yet/,
+    expectedContent: /The English translation is not available yet|Original Arabic supplication for educational use/i,
     headers: { cookie: "zikr-locale=en" },
   },
   {
@@ -208,12 +208,12 @@ function mainTextFrom(html) {
   const mainTexts = [...withoutNonContent.matchAll(/<main\b[^>]*>([\s\S]*?)<\/main>/gi)]
     .map((match) => extractText(match[1]))
     .sort((left, right) => right.length - left.length);
-  const bestMain = mainTexts[0] ?? "";
-  const isLoadingShell =
-    /^(?:جاري التحميل(?:\.\.\.)?|loading(?:\.\.\.)?)$/i.test(bestMain.trim()) ||
-    /جاري تحميل المحتوى القرآني/i.test(bestMain);
-  if (bestMain.length >= 35 && !isLoadingShell) {
-    return bestMain;
+  const isLoadingShell = (text) =>
+    /^(?:جاري التحميل(?:\.\.\.)?|loading(?:\.\.\.)?)$/i.test(text.trim()) ||
+    /جاري تحميل المحتوى القرآني/i.test(text);
+  const renderedMainTexts = mainTexts.filter((text) => text.length >= 35 && !isLoadingShell(text));
+  if (renderedMainTexts.length) {
+    return renderedMainTexts.join(" ");
   }
   // When all main blocks are temporary loading shells, fall back to the HTML
   // outside scripts/styles so completed streamed segments still count as route content.

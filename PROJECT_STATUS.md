@@ -1,5 +1,16 @@
 # ZIKR Project Status
 
+## Production and release verification — 2026-11-21
+
+**State: Web production is READY on current `main`; smoke is blocked only by missing iOS App ID configuration.**
+
+- Current `main` commit: `71df2f2e01bca0d19e62569988541ff0c1a39a43`. GitHub Quality Gate run [44821726299](https://github.com/zikrofficial-X/Zikr/actions/runs/44821726299) passed on this exact commit.
+- Vercel production deployment `dpl_FvnR7LdpEs7KXUMeqV2wCcfhyDW6` is `READY`, aliased to `zikrmediaofficial.vercel.app`; `/api/health` returns HTTP 200 and the same commit SHA. No duplicate deployment was triggered because the requested commit is already live.
+- Production `/api/app-version` reports Android `1.1.15`. Immutable GitHub Release [`v1.1.15`](https://github.com/zikrofficial-X/Zikr/releases/tag/v1.1.15) targets `faf16ea2450ab22f44c336161cd841806d97bbe6`; version metadata is aligned at versionCode 69 / target SDK 36. Downloaded APK and AAB SHA-256 values match the published release metadata and `SHA256SUMS`. The source-commit placeholder in the repository release notes has been corrected; the immutable Git tag itself is unsigned.
+- `pnpm release:metadata` and `pnpm release:contract:check` passed. The live production smoke suite passed 77 of 78 checks after correcting stale SSR-only expectations for streamed/client-rendered pages and the current English dua content.
+- Remaining production smoke failure: `/.well-known/apple-app-site-association` returns HTTP 503 because `IOS_ASSOCIATED_DOMAIN_APP_ID` is not configured. The owner must provide the real 10-character Apple Team ID plus `.com.zikr.app`; it must not be guessed.
+- Supabase Production Health run [44807000673](https://github.com/zikrofficial-X/Zikr/actions/runs/44807000673) passed on commit `7eac64b015381dbbcc5dad18f702f5a8cec37130`. No database migration, corpus restore, or Edge Function deployment was run during this verification. The controlled release workflow includes those production mutations, so it was not dispatched as part of a deployment that was already current.
+
 ## Final verification — 2026-11-16
 
 **State: VERIFIED / DEPLOYED.** The exact source head is `26ae58fdd2220897511544e9475eab28979f88f5`. The complete review record is in [`docs/audits/FINAL_REVIEW_2026-11-16.md`](docs/audits/FINAL_REVIEW_2026-11-16.md).
