@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { getIosAssociatedDomainAppIdStatus } from "./lib/ios-associated-domain-contract.mjs";
 
 const requiredFiles = [
   "capacitor.config.json",
@@ -394,7 +395,13 @@ if (serviceWorker.match(/const CORE_INSTALL_ASSETS = \[([\s\S]*?)\];/)) {
 
 if (releaseCheck && releaseChannel === "store" && ["all", "android"].includes(releasePlatform) && !process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim()) failures.push("NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID is required for Android native Google sign-in in store builds.");
 if (releaseCheck && releaseChannel === "store" && ["all", "android"].includes(releasePlatform) && !process.env.ANDROID_APP_LINKS_SHA256) failures.push("ANDROID_APP_LINKS_SHA256 is required for a Play Store release; provide the real release signing certificate SHA-256 fingerprint.");
-if (releaseCheck && releaseChannel === "store" && ["all", "ios"].includes(releasePlatform) && !process.env.IOS_ASSOCIATED_DOMAIN_APP_ID) failures.push("IOS_ASSOCIATED_DOMAIN_APP_ID is required for an App Store release; provide the real Apple Team ID and bundle ID.");
+if (releaseCheck && releaseChannel === "store" && ["all", "ios"].includes(releasePlatform)) {
+  const iosAppIdStatus = getIosAssociatedDomainAppIdStatus({
+    appId: process.env.IOS_ASSOCIATED_DOMAIN_APP_ID,
+    vercelEnv: "production",
+  });
+  if (iosAppIdStatus.status !== "pass") failures.push(iosAppIdStatus.detail);
+}
 if (releaseCheck && !["all", "android", "ios"].includes(releasePlatform)) failures.push("MOBILE_RELEASE_PLATFORM must be one of: all, android, ios.");
 
 if (failures.length) {
