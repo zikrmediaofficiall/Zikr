@@ -15,6 +15,9 @@ function requireRegex(haystack: string, pattern: RegExp, label: string) {
   assert.ok(pattern.test(haystack), label + " does not match " + pattern);
 }
 
+requireText(migrations, "CREATE OR REPLACE FUNCTION public.consume_min_interval_rate_limit", "Nominatim minimum-interval RPC migration contract");
+requireText(types, "consume_min_interval_rate_limit", "Nominatim minimum-interval generated type contract");
+requireText(types, "p_interval_ms: number", "Nominatim minimum-interval RPC argument type contract");
 requireText(migrations, "media_assets", "media_assets migration contract");
 requireText(migrations, "source_id", "media_assets.source_id migration contract");
 requireRegex(types, /media_assets\s*:\s*\{/, "media_assets generated type contract");
