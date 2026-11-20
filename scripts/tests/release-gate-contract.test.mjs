@@ -50,7 +50,7 @@ const releaseBranchFilter = "/^fix\\/production-web-release-optional-aasa-202611
 for (const jobName of ["source-verify", "application-build-docs"]) {
   const invocationStart = workflowConfig.indexOf("      - " + jobName + ":");
   assert.ok(invocationStart >= 0, jobName + " must be invoked by the canonical CircleCI workflow");
-  const nextInvocation = workflowConfig.indexOf("\\n      - ", invocationStart + 1);
+  const nextInvocation = workflowConfig.indexOf("\n      - ", invocationStart + 1);
   const invocation = workflowConfig.slice(invocationStart, nextInvocation >= 0 ? nextInvocation : undefined);
   assert.ok(
     invocation.includes(releaseBranchFilter),
