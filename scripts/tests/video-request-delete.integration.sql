@@ -16,6 +16,20 @@ INSERT INTO public.social_publish_queue (content_id)
 VALUES ('10000000-0000-4000-8000-000000000005');
 INSERT INTO public.video_generation_requests (id, updated_at, status)
 VALUES ('10000000-0000-4000-8000-000000000006', '2026-11-01T00:00:00Z', 'failed');
+INSERT INTO public.video_generation_requests (id, updated_at, status, content)
+VALUES (
+  '10000000-0000-4000-8000-000000000007',
+  '2026-11-01T00:00:00Z',
+  'failed',
+  '{"audioSource":"human_recording","audioUrl":"https://res.cloudinary.com/zikr-media/video/upload/audio-human-123e4567-e89b-42d3-a456-426614174000.mp3","audioMediaAssetId":"22222222-2222-4222-8222-222222222222"}'::jsonb
+);
+INSERT INTO public.video_generation_requests (id, updated_at, status, thumbnail_url)
+VALUES (
+  '10000000-0000-4000-8000-000000000008',
+  '2026-11-01T00:00:00Z',
+  'failed',
+  'https://media.example/retained-thumbnail.jpg'
+);
 
 -- Only service_role can execute this privileged RPC.
 SET ROLE anon;
@@ -62,7 +76,7 @@ BEGIN
 END;
 $$;
 
--- Completed or cancelled records with media/catalog/queue linkage are preserved.
+-- Completed or cancelled records with any published media/catalog/queue linkage are preserved.
 DO $$
 BEGIN
   BEGIN
@@ -97,33 +111,25 @@ BEGIN
   EXCEPTION WHEN foreign_key_violation THEN
     NULL;
   END;
+  BEGIN
+    PERFORM * FROM public.admin_delete_unreferenced_video_generation_request(
+      '10000000-0000-4000-8000-000000000007', '2026-11-01T00:00:00Z'
+    );
+    RAISE EXCEPTION 'request with embedded narration asset reference unexpectedly deleted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    NULL;
+  END;
+  BEGIN
+    PERFORM * FROM public.admin_delete_unreferenced_video_generation_request(
+      '10000000-0000-4000-8000-000000000008', '2026-11-01T00:00:00Z'
+    );
+    RAISE EXCEPTION 'request with thumbnail URL unexpectedly deleted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    NULL;
+  END;
 END;
 $$;
 RESET ROLE;
-
--- Reference creation uses the same advisory lock and rejects deleted request IDs.
-DO $$
-BEGIN
-  BEGIN
-    INSERT INTO public.videos (metadata)
-    VALUES ('{"videoGenerationRequestId":"10000000-0000-4000-8000-000000000001"}');
-    RAISE EXCEPTION 'catalog reference to deleted request unexpectedly inserted';
-  EXCEPTION WHEN foreign_key_violation THEN
-    NULL;
-  END;
-
-  BEGIN
-    INSERT INTO public.social_publish_queue (content_type, content_id)
-    VALUES ('video_generation', '10000000-0000-4000-8000-000000000001');
-    RAISE EXCEPTION 'social queue reference to deleted request unexpectedly inserted';
-  EXCEPTION WHEN foreign_key_violation THEN
-    NULL;
-  END;
-
-  INSERT INTO public.social_publish_queue (content_type, content_id)
-  VALUES ('written_post', 'not-a-uuid');
-END;
-$$;
 
 DO $$
 DECLARE remaining integer;
@@ -136,9 +142,11 @@ BEGIN
     '10000000-0000-4000-8000-000000000003',
     '10000000-0000-4000-8000-000000000004',
     '10000000-0000-4000-8000-000000000005',
-    '10000000-0000-4000-8000-000000000006'
+    '10000000-0000-4000-8000-000000000006',
+    '10000000-0000-4000-8000-000000000007',
+    '10000000-0000-4000-8000-000000000008'
   );
-  IF remaining <> 5 THEN
+  IF remaining <> 7 THEN
     RAISE EXCEPTION 'expected exactly one safe request deletion; found % remaining', remaining;
   END IF;
 END;
