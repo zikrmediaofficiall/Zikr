@@ -42,6 +42,9 @@ export async function GET() {
     const tag = release.tag_name?.trim();
     const apk = findApkAsset(release);
     const aab = findAabAsset(release);
+    const checksums = release.assets?.find(
+      asset => asset.name?.toLowerCase() === "sha256sums",
+    );
 
     if (!tag || !apk?.name) {
       return NextResponse.json(
@@ -57,6 +60,9 @@ export async function GET() {
         apkUrl: RELEASE_DOWNLOAD_ENDPOINT,
         aabUrl: "/api/download/android/aab",
         aabName: aab?.name ?? null,
+        sha256Url: checksums
+          ? `${RELEASE_DOWNLOAD_BASE}/${encodeURIComponent(tag)}/${encodeURIComponent(checksums.name ?? "SHA256SUMS")}`
+          : null,
         releaseUrl:
           release.html_url ??
           `${RELEASE_DOWNLOAD_BASE}/${encodeURIComponent(tag)}/${encodeURIComponent(apk.name)}`,
