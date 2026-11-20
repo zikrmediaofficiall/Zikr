@@ -59,7 +59,7 @@ for (const [name, operation] of operationChecks) {
 const postCommitRoutes = [
   ["src/app/api/admin/video-generation/route.ts", 1],
   ["src/app/api/admin/video-purge/route.ts", 1],
-  ["src/app/api/admin/videos/[id]/route.ts", 1],
+  ["src/app/api/admin/videos/[id]/route.ts", 2],
   ["src/app/api/admin/videos/[id]/retry/route.ts", 1],
   ["src/app/api/admin/videos/create/route.ts", 1],
   ["src/app/api/admin/videos/upload/route.ts", 1],
@@ -85,10 +85,10 @@ assert.ok(videoGenerationDelete.includes("status: 410"), "disabled video request
 assert.ok(!videoGenerationDelete.includes("recordAdminAuditEvent") && !videoGenerationDelete.includes("supabaseServerAdminRequest"), "disabled video request DELETE must not perform or audit a database mutation");
 
 const singleVideoRoute = readFileSync("src/app/api/admin/videos/[id]/route.ts", "utf8");
-const singleVideoDelete = singleVideoRoute.split("export async function DELETE()")[1] ?? "";
-assert.ok(singleVideoDelete.includes("VIDEO_REQUEST_DELETE_REQUIRES_REFERENCE_AUDIT"), "single-row video request DELETE must remain disabled until retention references are audited");
-assert.ok(singleVideoDelete.includes("status: 410"), "disabled single-row video DELETE must not mutate data");
-assert.ok(!singleVideoDelete.includes("recordAdminAuditEvent") && !singleVideoDelete.includes("supabaseServerAdminRequest") && !singleVideoDelete.includes("runPostCommitAudit"), "disabled single-row video DELETE must not perform or audit a database mutation");
+const singleVideoDelete = singleVideoRoute.split("export async function DELETE(")[1] ?? "";
+assert.ok(singleVideoDelete.includes("admin_delete_unreferenced_video_generation_request"), "single-row video deletion must use the atomic reference-checking RPC");
+assert.ok(singleVideoDelete.includes("runPostCommitAudit") && singleVideoDelete.includes("recordAdminAuditEvent"), "single-row video deletion must preserve post-commit auditing");
+assert.ok(/requireAdminStepUpApi\(\s*["']video\.delete["']/.test(singleVideoDelete), "single-row video deletion must require the dedicated delete permission and step-up");
 
 const postCommitActions = [
   ["src/app/admin/android/actions.ts", 1],

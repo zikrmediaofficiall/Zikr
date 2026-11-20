@@ -84,6 +84,7 @@ export function mapDbAyah(ayah: DbAyah, locale: Locale): Ayah {
   return {
     number: ayah.ayah_number,
     text: locale === "en" ? ayah.text_en ?? "" : ayah.text_ar,
+    surahNumber: ayah.surah_id,
     numberInSurah: ayah.ayah_number,
     juz: ayah.juz ?? 0,
     manzil: 0,

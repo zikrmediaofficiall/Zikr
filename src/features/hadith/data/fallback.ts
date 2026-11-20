@@ -12,7 +12,7 @@ export const hadithBooks: HadithFallbackBook[] = [
 export const hadiths:HadithFallback[]=[
   {id:'b1',bookId:'bukhari',hadithNumber:'1',textAr:'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى...',narrator:'عمر بن الخطاب رضي الله عنه',grade:'صحيح',chapter:'بدء الوحي',ref:'bukhari:1'},
   {id:'b2',bookId:'bukhari',hadithNumber:'13',textAr:'لاَ يُؤْمِنُ أَحَدُكُمْ حَتَّى يُحِبَّ لأَخِيهِ مَا يُحِبُّ لِنَفْسِهِ.',narrator:'أنس بن مالك رضي الله عنه',grade:'صحيح',chapter:'الإيمان',ref:'bukhari:13'},
-  {id:'b3',bookId:'bukhari',hadithNumber:'3',textAr:'من سلك طريقا يلتمس فيه علما سهل الله له به طريقا إلى الجنة',narrator:'أبو هريرة رضي الله عنه',grade:'صحيح',chapter:'العلم',ref:'bukhari:3'},
-  {id:'b4',bookId:'bukhari',hadithNumber:'4',textAr:'خيركم من تعلم القرآن وعلمه',narrator:'عثمان بن عفان رضي الله عنه',grade:'صحيح',chapter:'فضائل القرآن',ref:'bukhari:4'},
-  {id:'m1',bookId:'muslim',hadithNumber:'1',textAr:'الدين النصيحة، قلنا: لمن؟ قال: لله ولكتابه ولرسوله ولأئمة المسلمين وعامتهم',narrator:'تميم الداري رضي الله عنه',grade:'صحيح',chapter:'الإيمان',ref:'muslim:1'},
+  {id:'m2',bookId:'muslim',hadithNumber:'2699a',textAr:'... وَمَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ ...',narrator:'أبو هريرة رضي الله عنه',grade:'صحيح',chapter:'الذكر والدعاء والتوبة والاستغفار',ref:'muslim:2699a'},
+  {id:'b4',bookId:'bukhari',hadithNumber:'5027',textAr:'خيركم من تعلم القرآن وعلمه',narrator:'عثمان بن عفان رضي الله عنه',grade:'صحيح',chapter:'فضائل القرآن',ref:'bukhari:5027'},
+  {id:'m1',bookId:'muslim',hadithNumber:'55a',textAr:'الدين النصيحة، قلنا: لمن؟ قال: لله ولكتابه ولرسوله ولأئمة المسلمين وعامتهم',narrator:'تميم الداري رضي الله عنه',grade:'صحيح',chapter:'الإيمان',ref:'muslim:55a'},
 ];

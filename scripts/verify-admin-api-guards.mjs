@@ -117,7 +117,8 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/videos/[id]/retry/route.ts POST": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/[id]/route.ts GET": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/[id]/route.ts PATCH": ["video.manage", "kids.manage"],
-  "src/app/api/admin/videos/[id]/route.ts DELETE": ["video.delete"],
+  // video.delete is unconditional; Kids requests additionally require kids.manage.
+  "src/app/api/admin/videos/[id]/route.ts DELETE": ["video.delete", "kids.manage"],
   "src/app/api/admin/videos/create/route.ts POST": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/route.ts GET": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/upload/route.ts POST": ["video.manage"],

@@ -461,15 +461,18 @@ for (const [name, source, filter] of [
   assert.match(source, /requireAdminApi\(['"]kids\.manage['"]\)/, name + " must resolve the separate Kids permission");
   assert.ok(source.includes(filter), name + " must filter Kids-only data before returning it");
 }
-const legacyVideoDelete = videoRoute.match(/export async function DELETE\(\)[\s\S]*$/)?.[0] ?? "";
-assert.match(legacyVideoDelete, /VIDEO_REQUEST_DELETE_REQUIRES_REFERENCE_AUDIT/);
-assert.match(legacyVideoDelete, /status: 410/);
-assert.match(legacyVideoDelete, /requireAdminStepUpApi\(['"]video\.delete['"]/);
-assert.doesNotMatch(
-  legacyVideoDelete,
-  /supabaseServerAdminRequest|runPostCommitAudit|recordAdminAuditEvent|method:\s*['"]DELETE['"]/,
-  "legacy single-row video deletion must remain disabled until media and queue references are audited",
-);
+const safeVideoDelete = videoRoute.match(/export async function DELETE\([\s\S]*$/)?.[0] ?? "";
+assert.match(safeVideoDelete, /requireAdminStepUpApi\(['"]video\.delete['"]/);
+assert.match(safeVideoDelete, /body\.confirmed !== true/);
+assert.match(safeVideoDelete, /body\.expectedUpdatedAt/);
+assert.match(safeVideoDelete, /requireAdminApi\(['"]kids\.manage['"]\)/);
+assert.match(safeVideoDelete, /admin_delete_unreferenced_video_generation_request/);
+assert.match(safeVideoDelete, /runPostCommitAudit[\s\S]*recordAdminAuditEvent/);
+assert.match(safeVideoDelete, /VIDEO_REQUEST_DELETE_\(\?:CONFLICT\|NOT_TERMINAL\|HAS_MEDIA\|REFERENCED_BY_/);
+const safeVideoDeleteMigration = readFileSync(resolve(process.cwd(), "supabase/migrations/20261116090000_admin_delete_unreferenced_video_generation_request.sql"), "utf8");
+for (const token of ["FOR UPDATE", "request_row.status NOT IN ('failed', 'cancelled')", "request_row.video_url", "request_row.provider_job_id", "video.metadata ->> 'videoGenerationRequestId'", "queue_item.content_id = p_request_id::text", "GRANT EXECUTE ON FUNCTION public.admin_delete_unreferenced_video_generation_request", "TO service_role;"]) {
+  assert.ok(safeVideoDeleteMigration.includes(token), `safe video-request deletion contract is missing ${token}`);
+}
 const legacyVideoPatch = videoRoute.match(/export async function PATCH\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
 assert.match(
   legacyVideoPatch,

@@ -555,5 +555,15 @@ assert.ok(
     circleBuildFilter.includes(auditBranchPattern),
   "CircleCI source verification and application build must cover cumulative audit repair branches",
 );
+const featureBranchPattern = String.raw`- /^feat\/.*$/`;
+assert.ok(
+  circleSourceFilter.includes(featureBranchPattern) &&
+    circleBuildFilter.includes(featureBranchPattern),
+  "CircleCI source verification and application build must run for feature branches",
+);
+assert.ok(
+  release.includes("version: v3.2.0") && !release.includes("version: latest"),
+  "Controlled release must use a pinned Supabase CLI version",
+);
 
 console.log("✅ CI/CD architecture checks passed");

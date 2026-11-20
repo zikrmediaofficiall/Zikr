@@ -48,8 +48,14 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
   return (
     <LanguageProvider initialLocale={initialLocale}>
       <div className={pathname.startsWith("/admin") || pathname.startsWith("/auth") || pathname.startsWith("/kids") ? "min-h-screen" : "min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0"}>
+        <a
+          href="#main-content"
+          className="sr-only z-[100] rounded-md bg-background px-4 py-3 text-foreground focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          {initialLocale === 'ar' ? 'تخطي إلى المحتوى' : 'Skip to content'}
+        </a>
         <Navbar />
-        <main>
+        <main id="main-content" tabIndex={-1}>
           {children}
           <EditorialDepth pathname={pathname} />
           <EditorialUtilityDepth pathname={pathname} />

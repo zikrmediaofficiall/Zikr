@@ -776,6 +776,7 @@ workflows:
             branches:
               only:
                 - main
+                - /^feat\/.*$/
                 - /^audit\/zikr-.*$/
                 - /^fix\/facebook-profile-metrics-refresh-20261110$/
                 - /^feat\/kids-written-social-posts-20261110$/
@@ -806,6 +807,7 @@ workflows:
             branches:
               only:
                 - main
+                - /^feat\/.*$/
                 - /^audit\/zikr-.*$/
                 - /^fix\/facebook-profile-metrics-refresh-20261110$/
                 - /^feat\/kids-written-social-posts-20261110$/
