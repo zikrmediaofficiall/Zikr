@@ -28,6 +28,7 @@ export type KnowledgeScholar = {
   website_url: string | null;
   youtube_url: string | null;
   published: boolean;
+  metadata: Record<string, unknown> | null;
 };
 
 export type KnowledgeSurah = {
@@ -90,7 +91,7 @@ export async function getKnowledgeAdminData(): Promise<KnowledgeAdminData> {
       "/rest/v1/companions?select=id,name_ar,name_en,slug,bio_ar,bio_en,category,thumbnail_url,featured_image_url,order_num,published,metadata&order=order_num.asc&limit=100",
     ),
     readAdminRows<KnowledgeScholar>(
-      "/rest/v1/scholars?select=id,name_ar,name_en,slug,bio_ar,bio_en,thumbnail_url,website_url,youtube_url,published&order=created_at.desc&limit=100",
+      "/rest/v1/scholars?select=id,name_ar,name_en,slug,bio_ar,bio_en,thumbnail_url,website_url,youtube_url,published,metadata&order=created_at.desc&limit=100",
     ),
     readAdminRows<KnowledgeSurah>(
       "/rest/v1/quran_surahs?select=id,name_ar,name_en,name_translation,slug,order,ayahs_count,revelation_place&order=order.asc&limit=114",
