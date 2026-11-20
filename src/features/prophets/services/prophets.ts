@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { isSupabaseConfigured, supabaseServerAnonRequest } from "@/lib/supabase/server";
 import { resolveCanonicalPublished } from "@/lib/data/content-merge";
-import { getDatabasePublicationState } from "@/lib/data/publication-visibility";
+import { getDatabasePublicationState, getDatabasePublicationStates } from "@/lib/data/publication-visibility";
 import { shouldSuppressOfflineFallback } from "@/lib/data/publication-visibility-contract";
 
 import type { Prophet } from "@/features/prophets/types/prophets";
@@ -179,8 +179,16 @@ export async function getProphets(): Promise<Prophet[]> {
   const database = isSupabaseConfigured() ? await getDatabaseProphets() : null;
   if (database !== null) {
     if (database.length) return resolveCanonicalPublished(database, offline);
-    // A successful empty published query must not fall back to an old DB snapshot.
-    return FALLBACK_PROPHETS.map(mapFallbackProphet);
+    // A successful empty published query may use only fallback slugs that are
+    // not explicitly unpublished in the canonical database.
+    const fallback = FALLBACK_PROPHETS.map(mapFallbackProphet);
+    const publicationStates = await getDatabasePublicationStates(
+      "prophets",
+      fallback.map((prophet) => prophet.slug),
+    );
+    return fallback.filter((prophet) =>
+      !shouldSuppressOfflineFallback(publicationStates.get(prophet.slug) ?? "unknown"),
+    );
   }
 
   return offline.length ? offline : FALLBACK_PROPHETS.map(mapFallbackProphet);
