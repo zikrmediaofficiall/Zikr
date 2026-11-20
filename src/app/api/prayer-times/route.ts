@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { consumePrayerTimesRateLimit } from '@/features/prayer/services/rate-limit';
+import { getTrustedClientAddress } from '@/lib/request/client-address';
 
 const ALADHAN_API_BASE = 'https://api.aladhan.com/v1';
 const UPSTREAM_TIMEOUT_MS = 8_000;
@@ -8,7 +10,7 @@ const MAX_ADDRESS_LENGTH = 240;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600;
+export const revalidate = 0;
 
 function isValidCoordinate(value: string | null, min: number, max: number): value is string {
   if (typeof value !== 'string' || !value.trim()) return false;
@@ -74,6 +76,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid calculation method.' }, { status: 400 });
   }
 
+  try {
+    const clientAddress = getTrustedClientAddress(
+      request.headers.get('x-real-ip'),
+      request.headers.get('x-forwarded-for'),
+    );
+    const allowed = await consumePrayerTimesRateLimit(clientAddress);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many prayer-time lookups. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } },
+      );
+    }
+  } catch (error) {
+    console.error('[prayer-times-api] Shared rate limiter unavailable:', error);
+    return NextResponse.json(
+      { error: 'Prayer-times lookup is temporarily unavailable.' },
+      { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } },
+    );
+  }
+
   const endpoint = city
     ? 'timingsByCity'
     : address
@@ -96,10 +118,13 @@ export async function GET(request: NextRequest) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
   try {
+    const upstreamFetchOptions = upstreamDate
+      ? { next: { revalidate: 3600 } }
+      : { cache: 'no-store' as const };
     const upstream = await fetch(`${ALADHAN_API_BASE}/${endpointPath}?${params.toString()}`, {
       headers: { 'User-Agent': 'Zikr-App/1.0 (Prayer Times)' },
       signal: controller.signal,
-      next: { revalidate: 3600 },
+      ...upstreamFetchOptions,
     });
 
     if (!upstream.ok) {
@@ -120,12 +145,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
-        'CDN-Cache-Control': 'max-age=3600',
-      },
-    });
+    const responseCacheHeaders = upstreamDate
+      ? {
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+          'CDN-Cache-Control': 'max-age=3600',
+        }
+      : {
+          'Cache-Control': 'no-store',
+          'CDN-Cache-Control': 'no-store',
+        };
+    return NextResponse.json(data, { headers: responseCacheHeaders });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       return NextResponse.json(
