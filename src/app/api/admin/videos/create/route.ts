@@ -12,6 +12,7 @@ import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig } from "@/features/videos/services/template-config";
 import { versionedTemplateLabel } from "@/features/videos/services/video-template-version";
 import { resolveVideoResolution } from "@/features/videos/services/video-render-contract";
+import { isReadyAdminNarrationAsset, parseAdminNarrationAssetUrl } from "@/features/media/services/video-audio-source";
 
 const VALID_CATEGORIES = [
   "quran",
@@ -33,28 +34,6 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-function ownCloudinaryAudioUrl(value: unknown) {
-  if (typeof value !== "string" || !value.trim()) return null;
-  try {
-    const url = new URL(value);
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
-    if (!cloudName || url.protocol !== "https:" || url.hostname !== "res.cloudinary.com" ||
-        url.username || url.password || url.hash) return null;
-    const parts = url.pathname.split("/").filter(Boolean);
-    if (parts[0] !== cloudName || parts[1] !== "video" || parts[2] !== "upload") return null;
-    const mediaParts = parts.slice(3);
-    const version = mediaParts[0] ?? "";
-    if (version.startsWith("v") && version.slice(1) && [...version.slice(1)].every(ch => ch >= "0" && ch <= "9")) mediaParts.shift();
-    const fileName = mediaParts.pop() ?? "";
-    const dot = fileName.lastIndexOf(".");
-    const publicId = [...mediaParts, dot > 0 ? fileName.slice(0, dot) : fileName].join("/");
-    const validExtension = [".mp3", ".m4a", ".wav", ".ogg", ".webm"].some(ext => fileName.toLowerCase().endsWith(ext));
-    if (!publicId.startsWith("audio-human-") || !validExtension) return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdminStepUpApi("video.manage", "/admin/video/studio");
@@ -106,6 +85,13 @@ export async function POST(request: NextRequest) {
     const submittedContent = isObject(body.content) ? body.content : {};
     const submittedKidsIntent = hasExplicitKidsVideoIntentMarker(submittedContent);
     let content: Record<string, unknown> = { ...submittedContent };
+    // Audio provenance is server-owned. Never trust URLs or ownership fields
+    // supplied inside the generic content object.
+    delete content.audioUrl;
+    delete content.audioSource;
+    delete content.audioMediaAssetId;
+    delete content.audioMediaAssetOwnerId;
+    delete content.audio;
     const qualityProfile = {
       version: "2026.1",
       audience: category === "other" ? "general" : "family",
@@ -292,6 +278,7 @@ export async function POST(request: NextRequest) {
     }
 
     let humanAudioUrl: string | null = null;
+    let humanAudioAssetId: string | null = null;
     if (typeof body.humanAudioUrl === "string" && body.humanAudioUrl.trim()) {
       if (category === "quran") {
         return NextResponse.json(
@@ -302,20 +289,44 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      humanAudioUrl = ownCloudinaryAudioUrl(body.humanAudioUrl);
-      if (!humanAudioUrl) {
+      const parsedAudio = parseAdminNarrationAssetUrl(
+        body.humanAudioUrl,
+        process.env.CLOUDINARY_CLOUD_NAME?.trim(),
+      );
+      const requestedAssetId = typeof body.humanAudioAssetId === "string" ? body.humanAudioAssetId.trim() : "";
+      if (!parsedAudio || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedAssetId)) {
         return NextResponse.json(
-          {
-            error:
-              "ملف الصوت يجب أن يكون مرفوعًا عبر أداة التسجيل في الاستوديو.",
-          },
-          { status: 400 }
+          { error: "ارفع التسجيل من الاستوديو واختر أصل الوسائط المسجل المرتبط به." },
+          { status: 400, headers: { "Cache-Control": "no-store" } },
         );
       }
+      const trackedAssets = await supabaseServerAdminRequest<Array<{
+        id: string; url: string; storage_path: string; mime_type: string | null;
+        media_type: string | null; asset_type: string | null; size_bytes: number | string | null;
+        created_by: string | null; published: boolean; metadata: unknown;
+      }>>(
+        `/rest/v1/media_assets?select=id,url,storage_path,mime_type,media_type,asset_type,size_bytes,created_by,published,metadata&id=eq.${encodeURIComponent(requestedAssetId)}&url=eq.${encodeURIComponent(parsedAudio.url)}&storage_path=eq.${encodeURIComponent(parsedAudio.publicId)}&created_by=eq.${encodeURIComponent(auth.profile.id)}&limit=2`,
+      );
+      const trackedAsset = Array.isArray(trackedAssets) && trackedAssets.length === 1 ? trackedAssets[0] : null;
+      if (!trackedAsset || !isReadyAdminNarrationAsset(trackedAsset, {
+        assetId: requestedAssetId,
+        url: parsedAudio.url,
+        publicId: parsedAudio.publicId,
+        uploaderId: auth.profile.id,
+      })) {
+        return NextResponse.json(
+          { error: "التسجيل غير موجود في مكتبة الوسائط أو لم تكتمل مراجعته وسجل تدقيقه؛ لم يتم إرفاقه بطلب الفيديو." },
+          { status: 409, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      humanAudioUrl = parsedAudio.url;
+      humanAudioAssetId = trackedAsset.id;
       content = {
         ...content,
         audioUrl: humanAudioUrl,
         audioSource: "human_recording",
+        audioMediaAssetId: humanAudioAssetId,
+        audioMediaAssetOwnerId: auth.profile.id,
       };
     }
 
@@ -336,7 +347,7 @@ export async function POST(request: NextRequest) {
       permission: "video.manage",
       resourceType: "video_generation_requests",
       resourceId: result.id,
-      metadata: { category, sourceVerified: Boolean(source), hasHumanAudio: Boolean(humanAudioUrl), templateVersionId: typeof content.templateVersionId === "string" ? content.templateVersionId : null, templateVersion: typeof content.templateVersion === "string" ? content.templateVersion : null },
+      metadata: { category, sourceVerified: Boolean(source), hasHumanAudio: Boolean(humanAudioUrl), humanAudioAssetId, templateVersionId: typeof content.templateVersionId === "string" ? content.templateVersionId : null, templateVersion: typeof content.templateVersion === "string" ? content.templateVersion : null },
       }),
       (auditError) => console.error("[api/admin/videos/create] audit event failed after committed mutation:", auditError),
     );
@@ -351,6 +362,7 @@ export async function POST(request: NextRequest) {
             ? "source_quran_recitation"
             : "arabic_neural_tts",
         sourceVerified: Boolean(source),
+        humanAudioAssetId,
       },
       { status: 201 }
     );

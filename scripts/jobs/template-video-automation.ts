@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -40,8 +40,11 @@ import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig, video
 import { CURRENT_VIDEO_RENDERER_VERSION, versionedTemplateLabel } from "../../src/features/videos/services/video-template-version";
 import { AI_VISUAL_POLICY_VERSION, aiVisualPolicyPromptLine } from "../../src/features/videos/providers/ai-visual-policy";
 import { createVideoProviderRouter } from "../../src/features/videos/providers/provider-router";
+import { MAX_PROVIDER_VIDEO_BYTES, readBoundedMediaResponse } from "../../src/features/videos/providers/media-response";
+import { resolveFreeVideoProviderDownloadUrl } from "../../src/features/videos/providers/free-api-provider";
 import { getDefaultVideoVoiceProfile, getVideoVoiceProfile } from "../../src/features/videos/services/voice-profiles";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
+import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
 import { resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene } from "../../src/features/videos/services/video-creative-variation";
 import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
@@ -57,6 +60,7 @@ const QURAN_AYAH_AUDIO_BASE_URL =
 const VIDEO_TEMPLATE_VERSION = CURRENT_VIDEO_RENDERER_VERSION;
 const VIDEO_OUTPUT_CRF = Math.min(23, Math.max(16, Number(process.env.VIDEO_OUTPUT_CRF ?? 18) || 18));
 const VIDEO_AUDIO_BITRATE = process.env.VIDEO_AUDIO_BITRATE?.trim() || "192k";
+const MAX_VIDEO_AUDIO_BYTES = 15 * 1024 * 1024;
 const engineConfig = () => getVideoEngineConfig();
 
 function throwIfVideoLeaseAborted(signal?: AbortSignal): void {
@@ -100,7 +104,7 @@ async function uploadGeneratedVideoToCloudinary(bytes: Uint8Array, storageKey: s
   if (!cloudName || !apiKey || !apiSecret) {
     throw new Error("Cloudinary video upload is not configured; refusing to use Supabase Storage as a fallback.");
   }
-  if (bytes.byteLength <= 0 || bytes.byteLength > 50 * 1024 * 1024) {
+  if (bytes.byteLength <= 0 || bytes.byteLength > MAX_PROVIDER_VIDEO_BYTES) {
     throw new Error("Generated MP4 must be between 1 byte and 50 MiB before Cloudinary upload.");
   }
   const safeKey = storageKey.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "video";
@@ -1089,9 +1093,82 @@ export function assertKidsStoryContract(request: GeneratedRequest) {
   }
 }
 
-function contentAudioUrl(request: GeneratedRequest) {
-  const value = request.content?.audioUrl;
-  return typeof value === "string" && /^https:\/\//i.test(value.trim()) ? value.trim() : "";
+async function readBoundedAudioResponse(response: Response, maxBytes: number): Promise<Uint8Array> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Audio response did not expose a readable body.");
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error("Audio download exceeded the 15 MiB narration limit.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (totalBytes < 1024) throw new Error("Audio download was empty or invalid.");
+  const result = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
+}
+
+async function contentAudioUrl(request: GeneratedRequest): Promise<string> {
+  const source = resolveVideoAudioSource({
+    category: request.category,
+    audioUrl: request.content?.audioUrl,
+    audioSource: request.content?.audioSource,
+    audioMediaAssetId: request.content?.audioMediaAssetId,
+    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME?.trim(),
+    quranAudioBaseUrl: QURAN_AYAH_AUDIO_BASE_URL,
+    surahId: request.content?.surahId,
+    ayahNumber: request.content?.ayahNumber,
+  });
+  if (!source) {
+    if (request.content?.audioSource === "human_recording") {
+      throw new Error("Human narration must reference a canonical, tracked Cloudinary media asset.");
+    }
+    return "";
+  }
+  if (source.kind === "quran") return source.url;
+
+  const ownerId = typeof request.content?.audioMediaAssetOwnerId === "string"
+    ? request.content.audioMediaAssetOwnerId.trim()
+    : "";
+  const filters = [
+    `url=eq.${encodeURIComponent(source.url)}`,
+    `storage_path=eq.${encodeURIComponent(source.publicId)}`,
+    "limit=2",
+  ];
+  if (source.mediaAssetId) filters.push(`id=eq.${encodeURIComponent(source.mediaAssetId)}`);
+  if (ownerId) filters.push(`created_by=eq.${encodeURIComponent(ownerId)}`);
+  const rows = await supabaseServerAdminRequest<Array<{
+    id: string; url: string; storage_path: string; mime_type: string | null;
+    media_type: string | null; asset_type: string | null; size_bytes: number | string | null;
+    created_by: string | null; published: boolean; metadata: unknown;
+  }>>(
+    `/rest/v1/media_assets?select=id,url,storage_path,mime_type,media_type,asset_type,size_bytes,created_by,published,metadata&${filters.join("&")}`,
+  );
+  const asset = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+  const uploaderId = typeof asset?.created_by === "string" ? asset.created_by : "";
+  if (!asset || !isReadyAdminNarrationAsset(asset, {
+    assetId: source.mediaAssetId || asset.id,
+    url: source.url,
+    publicId: source.publicId,
+    uploaderId,
+  }) || (ownerId && uploaderId !== ownerId)) {
+    throw new Error("Human narration media asset is missing, untracked, not audit-ready, or owned by another uploader.");
+  }
+  return source.url;
 }
 function contentAudioKind(request: GeneratedRequest, audioUrl: string) {
   if (request.content?.audioSource === "human_recording") return "user_supplied_human_recording";
@@ -1163,6 +1240,7 @@ async function getVerifiedQuranAyahAudioUrl(surahId: number, ayahNumber: number,
     const response = await fetch(url, {
       method: "GET",
       headers: { Range: "bytes=0-1023", Accept: "audio/mpeg" },
+      redirect: "error",
       signal: videoOperationSignal(signal, 15_000),
     });
     if (response.ok || response.status === 206) return url;
@@ -1349,7 +1427,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       throw new Error("Narration content QA failed: " + narrationTextQuality.errors.join(" | "));
     }
 
-    let audioUrl = contentAudioUrl(request);
+    let audioUrl = await contentAudioUrl(request);
     if (request.category === "quran" && !audioUrl) {
       const verifiedAyahAudio = await getVerifiedQuranAyahAudioUrl(
         Number(request.content?.surahId),
@@ -1419,14 +1497,29 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       if (aiResult.ok && aiResult.localPath) {
         aiVideoPath = aiResult.localPath;
       } else if (aiResult.ok && aiResult.videoUrl) {
-        const response = await fetch(aiResult.videoUrl, {
+        const remoteVideoUrl = aiResult.provider === "free_api"
+          ? resolveFreeVideoProviderDownloadUrl(
+              aiResult.videoUrl,
+              process.env.FREE_VIDEO_PROVIDER_URL ?? "",
+              process.env.FREE_VIDEO_PROVIDER_ALLOWED_HOSTS ?? "",
+            )
+          : null;
+        if (!remoteVideoUrl) {
+          throw new Error("AI provider returned a video URL outside the configured HTTPS host allowlist.");
+        }
+        const response = await fetch(remoteVideoUrl, {
+          redirect: "error",
           signal: videoOperationSignal(signal, 60_000),
         });
         if (!response.ok) {
           throw new Error("AI provider returned a video URL that could not be downloaded.");
         }
+        const videoBytes = await readBoundedMediaResponse(response, MAX_PROVIDER_VIDEO_BYTES);
+        if (videoBytes.byteLength < 1024) {
+          throw new Error("AI provider video download is empty or suspiciously small.");
+        }
         aiVideoPath = temp + "/ai-source.mp4";
-        await writeFile(aiVideoPath, new Uint8Array(await response.arrayBuffer()));
+        await writeFile(aiVideoPath, videoBytes);
       }
       request.content = {
         ...request.content,
@@ -1447,10 +1540,13 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     throwIfVideoLeaseAborted(signal);
     let audioKind = contentAudioKind(request, audioUrl);
     if (audioUrl) {
-      const response = await fetch(audioUrl, { headers: { Accept: "audio/*" }, signal: videoOperationSignal(signal, 60_000) });
+      const response = await fetch(audioUrl, { headers: { Accept: "audio/*" }, redirect: "error", signal: videoOperationSignal(signal, 60_000) });
       if (!response.ok) throw new Error("Audio download failed (HTTP " + response.status + ").");
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.length < 1024) throw new Error("Audio download was empty or invalid.");
+      const declaredAudioBytes = Number(response.headers.get("content-length") ?? 0);
+      if (Number.isFinite(declaredAudioBytes) && declaredAudioBytes > MAX_VIDEO_AUDIO_BYTES) {
+        throw new Error("Audio download exceeded the 15 MiB narration limit.");
+      }
+      const bytes = await readBoundedAudioResponse(response, MAX_VIDEO_AUDIO_BYTES);
       await writeFile(audioPath, bytes);
     } else {
       if (narrationProfile.mode !== "tts" || !narrationProfile.voice) {
@@ -1573,6 +1669,10 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     throwIfVideoLeaseAborted(signal);
     const renderDurationMs = Date.now() - renderStartedAt;
 
+    const outputStats = await stat(outputPath);
+    if (!outputStats.isFile() || outputStats.size < 1024 || outputStats.size > MAX_PROVIDER_VIDEO_BYTES) {
+      throw new Error("Rendered MP4 must be between 1 KiB and 50 MiB before it is read into memory.");
+    }
     const bytes = await readFile(outputPath);
     const storageKey = request.automation_key || request.id;
     const uploadedMedia = await uploadGeneratedVideoToCloudinary(bytes, storageKey, signal);
