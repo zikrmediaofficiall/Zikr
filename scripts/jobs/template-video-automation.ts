@@ -1915,6 +1915,7 @@ async function registerGeneratedVideoOnSite(
   rendered: {
     videoUrl: string;
     scene: string;
+    durationSeconds: number;
     renderDurationMs: number;
     sourceHash: string;
     contentHash: string;
