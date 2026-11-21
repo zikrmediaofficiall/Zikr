@@ -107,6 +107,7 @@ const rawEnv: Record<string, string | undefined> = {
   FACEBOOK_PAGE_ACCESS_TOKEN: pick("FACEBOOK_PAGE_ACCESS_TOKEN"),
   FACEBOOK_PAGE_ID: pick("FACEBOOK_PAGE_ID"),
   SOCIAL_PUBLISH_FACEBOOK_ENABLED: pick("SOCIAL_PUBLISH_FACEBOOK_ENABLED"),
+  SOCIAL_PUBLISH_YOUTUBE_ENABLED: pick("SOCIAL_PUBLISH_YOUTUBE_ENABLED"),
   FACEBOOK_GRAPH_API_VERSION: pick("FACEBOOK_GRAPH_API_VERSION") || "v26.0",
 
   // ── Runtime / media / publishing ─────────────────────────────────────────
