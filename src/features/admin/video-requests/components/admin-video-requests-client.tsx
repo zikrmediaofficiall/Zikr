@@ -156,6 +156,20 @@ function getProjectDeletionForUi(value: unknown): Record<string, unknown> {
   return marker && typeof marker === "object" && !Array.isArray(marker) ? marker as Record<string, unknown> : {};
 }
 
+function hasProjectVideoCopyForUi(request: VideoGenerationRequest): boolean {
+  const content = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+    ? request.content as Record<string, unknown> : {};
+  const marker = getProjectDeletionForUi(content);
+  const retention = content.storageRetention && typeof content.storageRetention === "object" && !Array.isArray(content.storageRetention)
+    ? content.storageRetention as Record<string, unknown> : {};
+  return Boolean(request.video_url) ||
+    (marker.state === "purging" && (
+      typeof marker.assetUrl === "string" ||
+      (Array.isArray(marker.storagePaths) && marker.storagePaths.length > 0)
+    )) ||
+    (retention.bucket === "videos" && typeof retention.path === "string" && retention.path.startsWith("automated/"));
+}
+
 type AdminVideoRequestsClientProps = { canManageKids: boolean; canDelete?: boolean; reviewOnly?: boolean };
 
 export default function AdminVideoRequestsClient({ canManageKids, canDelete = false, reviewOnly = false }: AdminVideoRequestsClientProps) {
@@ -355,7 +369,14 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       ? request.content as Record<string, unknown> : {};
     const deletion = content.projectMediaDeletion && typeof content.projectMediaDeletion === "object" && !Array.isArray(content.projectMediaDeletion)
       ? content.projectMediaDeletion as Record<string, unknown> : {};
-    const hasProjectCopy = Boolean(request.video_url) || (deletion.state === "purging" && typeof deletion.assetUrl === "string");
+    const retention = content.storageRetention && typeof content.storageRetention === "object" && !Array.isArray(content.storageRetention)
+      ? content.storageRetention as Record<string, unknown> : {};
+    const hasProjectCopy = Boolean(request.video_url) ||
+      (deletion.state === "purging" && (
+        typeof deletion.assetUrl === "string" ||
+        (Array.isArray(deletion.storagePaths) && deletion.storagePaths.length > 0)
+      )) ||
+      (retention.bucket === "videos" && typeof retention.path === "string" && retention.path.startsWith("automated/"));
     if (!canDelete || !hasProjectCopy || busyId) return;
     const pendingRetry = deletion.state === "purging";
     const confirmation = pendingRetry
@@ -411,7 +432,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     setSelectedReviewIds(new Set());
     setBatchApprovalChecks({ sourceVerified: false, audioReviewed: false, visualsReviewed: false, captionsReviewed: false, rightsReviewed: false });
     setMessage(`تم اعتماد ${approved.length} من ${selected.length} فيديو بعد إرسالها منفردة إلى مسار الاعتماد الرسمي.${failures.length ? ` تعذر اعتماد ${failures.length} فيديو؛ راجع التفاصيل أدناه.` : ""}`);
-    if (failures.length) setError(failures.join("\\n"));
+    if (failures.length) setError(failures.join("\n"));
     await load();
   }
 
@@ -695,7 +716,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
                     return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
                   })()}
-                  {canDelete && (request.video_url || (getProjectDeletionForUi(request.content).state === "purging" && typeof getProjectDeletionForUi(request.content).assetUrl === "string")) && (
+                  {canDelete && hasProjectVideoCopyForUi(request) && (
                     <Button variant="outline" disabled={busyId !== null} onClick={() => void deleteProjectCopy(request)}>
                       حذف نسخة المشروع فقط
                     </Button>

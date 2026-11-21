@@ -81,6 +81,7 @@ function requestContentForDeletion(
   row: RequestRow,
   videoUrl: string | null,
   storagePaths: string[],
+  linkedRequestIds: string[],
   requestedAt: string,
   requestedBy: string,
 ): Record<string, unknown> {
@@ -95,6 +96,7 @@ function requestContentForDeletion(
       state: "purging",
       ...(videoUrl ? { assetUrl: videoUrl } : {}),
       storagePaths,
+      linkedRequestIds,
       requestedAt,
       requestedBy,
     },
@@ -105,6 +107,7 @@ function queueMetadataForDeletion(
   row: QueueRow,
   videoUrl: string | null,
   storagePaths: string[],
+  linkedRequestIds: string[],
   requestedAt: string,
   requestedBy: string,
 ): Record<string, unknown> {
@@ -119,6 +122,7 @@ function queueMetadataForDeletion(
       state: "purging",
       ...(videoUrl ? { assetUrl: videoUrl } : {}),
       storagePaths,
+      linkedRequestIds,
       requestedAt,
       requestedBy,
     },
@@ -192,6 +196,19 @@ async function loadRequestsForAsset(videoUrl: string): Promise<RequestRow[]> {
     if (page.length < 500) return rows;
   }
   throw new Error("VIDEO_PROJECT_DELETE_REQUEST_INVENTORY_LIMIT");
+}
+
+async function loadRequestsByIds(requestIds: string[]): Promise<RequestRow[]> {
+  const ids = [...new Set(requestIds)].filter((id) => VIDEO_REQUEST_ID_PATTERN.test(id));
+  if (!ids.length) return [];
+  const filter = ids.length === 1 ? `eq.${ids[0]}` : `in.(${ids.join(",")})`;
+  const rows = await supabaseServerAdminRequest<RequestRow[]>(
+    `/rest/v1/video_generation_requests?id=${filter}&select=id,status,video_url,content,updated_at&order=id.asc&limit=1000`,
+  );
+  if (!Array.isArray(rows) || rows.length >= 1000) {
+    throw new Error("VIDEO_PROJECT_DELETE_REQUEST_INVENTORY_INVALID");
+  }
+  return rows;
 }
 
 async function loadQueuesForRequests(requestIds: string[]): Promise<QueueRow[]> {
@@ -305,9 +322,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     let verifiedAsset: Awaited<ReturnType<typeof verifyGeneratedCloudinaryVideo>> | null = null;
     if (assetUrl) verifiedAsset = await verifyGeneratedCloudinaryVideo(assetUrl);
 
-    const linkedRequests = assetUrl ? await loadRequestsForAsset(assetUrl) : [];
-    if (!linkedRequests.some((row) => row.id === current.id)) linkedRequests.unshift(current);
-    const requestIds = [...new Set(linkedRequests.map((row) => row.id))];
+    const assetLinkedRequests = assetUrl ? await loadRequestsForAsset(assetUrl) : [];
+    const priorLinkedIds = Array.isArray(currentDeletion.linkedRequestIds)
+      ? currentDeletion.linkedRequestIds.filter((value): value is string => typeof value === "string" && VIDEO_REQUEST_ID_PATTERN.test(value))
+      : [];
+    const allKnownRequestIds = [...new Set([current.id, ...assetLinkedRequests.map((row) => row.id), ...priorLinkedIds])];
+    const byId = new Map<string, RequestRow>();
+    for (const row of [...assetLinkedRequests, ...(priorLinkedIds.length ? await loadRequestsByIds(priorLinkedIds) : []), current]) byId.set(row.id, row);
+    const linkedRequests = [...byId.values()];
+    const requestIds = allKnownRequestIds;
     const queueRows = await loadQueuesForRequests(requestIds);
     const storagePaths = storagePathsFromRows(linkedRequests, queueRows);
     const requestedAt = new Date().toISOString();
@@ -317,7 +340,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     // and platform IDs remain; only the owner's internal video copy is detached.
     const updatedRequests: RequestRow[] = [];
     for (const row of linkedRequests) {
-      const content = requestContentForDeletion(row, assetUrl, storagePaths, requestedAt, requestedBy);
+      const content = requestContentForDeletion(row, assetUrl, storagePaths, requestIds, requestedAt, requestedBy);
       const nextStatus = ["pending", "processing", "retry_wait"].includes(row.status) ? "cancelled" : row.status;
       const filter = `id=eq.${encodeURIComponent(row.id)}&updated_at=eq.${encodeURIComponent(row.updated_at)}`;
       const updated = await patchRow<RequestRow>(
@@ -330,10 +353,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     const updatedQueues: QueueRow[] = [];
     for (const row of queueRows) {
-      const rowMetadata = asRecord(row.metadata);
       const pendingQueueDeletion = getProjectDeletion(row.metadata);
-      if (row.video_url !== assetUrl && pendingQueueDeletion.assetUrl !== assetUrl) continue;
-      const metadata = queueMetadataForDeletion(row, assetUrl, storagePaths, requestedAt, requestedBy);
+      const queueStoragePath = managedVideoStoragePath(getStorageRetention(row.metadata));
+      const matchesVideoAsset = assetUrl !== null && (row.video_url === assetUrl || pendingQueueDeletion.assetUrl === assetUrl);
+      const matchesStorageCopy = queueStoragePath !== null && storagePaths.includes(queueStoragePath);
+      if (!matchesVideoAsset && !matchesStorageCopy) continue;
+      const metadata = queueMetadataForDeletion(row, assetUrl, storagePaths, requestIds, requestedAt, requestedBy);
       const nextStatus = row.status === "published"
         ? "published"
         : ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
