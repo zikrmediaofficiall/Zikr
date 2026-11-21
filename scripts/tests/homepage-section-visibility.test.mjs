@@ -13,6 +13,11 @@ assert.match(home, /استكشف كل أقسام ذِكر/, "Hero must include a
 assert.match(home, /getSectionVisibility/, "Home must consume the persisted administrator visibility settings");
 assert.match(home, /getSectionDisplayOrder/, "Home must consume the persisted administrator section order");
 assert.match(home, /home-visual\.svg/, "Home hero must include its branded illustration");
+assert.match(home, /grid w-full min-w-0 max-w-6xl grid-cols-1/, "The mobile hero must use one bounded, shrinkable grid column");
+assert.match(home, /w-full min-w-0 text-center lg:text-right/, "Hero copy must shrink within the mobile viewport");
+assert.match(home, /flex w-full min-w-0 flex-col items-stretch/, "Hero actions must stack and fit narrow screens");
+assert.match(home, /aspect-\[9\/10\]/, "Hero artwork frame must match the SVG source aspect ratio");
+assert.match(home, /relative mx-auto w-full min-w-0 max-w-\[320px\]/, "Hero artwork wrapper must not exceed the available mobile width");
 assert.match(home, /lg:grid-cols-\[minmax\(0,1\.08fr\)_minmax\(300px,0\.92fr\)\]/, "Home hero must use a responsive text and image layout");
 assert.match(home, /shadow-\[0_28px_90px_rgba\(0,0,0,\.36\)\]/, "Home hero illustration must have a dedicated visual frame");
 assert.match(home, /bySectionOrder\(QUICK_ACTIONS\.filter/, "Quick actions must follow the administrator display order");
