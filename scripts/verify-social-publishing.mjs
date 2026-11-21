@@ -298,15 +298,13 @@ if (!catalogEntry.includes("isKidsCatalogReconciliationEnabled(process.env)") ||
   failures.push("catalog-only Kids reconciliation must run behind its own opt-in and purge lock before the external publishing gate; provider queue claims must remain gated");
 }
 if (
-  socialWorkflow.includes("page_id=not.is.null&page_id=") ||
   socialWorkflow.includes("page_access_token=not.is.null&page_access_token=") ||
   socialWorkflow.includes("refresh_token=not.is.null&refresh_token=") ||
   socialWorkflow.includes("channel_id=not.is.null&channel_id=") ||
-  !socialWorkflow.includes("page_access_token=not.is.null") ||
-  !socialWorkflow.includes("refresh_token=not.is.null") ||
-  !socialWorkflow.includes("channel_id=not.is.null")
+  !socialWorkflow.includes("and=(page_access_token.not.is.null,page_access_token.neq.)") ||
+  !socialWorkflow.includes("and=(refresh_token.not.is.null,refresh_token.neq.,channel_id.not.is.null,channel_id.neq.)")
 ) {
-  failures.push("social preflight must use unique PostgREST filters and verify non-null Facebook and YouTube credential fields");
+  failures.push("social preflight must use one PostgREST and-filter per credential record without exposing token values");
 }
 if (!socialWorkflow.includes("cloudinary_ready=false") ||
     !socialWorkflow.includes('if [[ "$cloudinary_ready" != "true" ]]') ||
@@ -409,12 +407,9 @@ if (socialWorkflow.includes("YOUTUBE_REFRESH_TOKEN") ||
   failures.push("GitHub workflow must not inject a refresh token or run unbounded social batches");
 }
 for (const requiredCredentialFilter of [
-  "page_access_token=not.is.null",
-  "page_access_token=neq.",
-  "refresh_token=not.is.null",
-  "refresh_token=neq.",
-  "channel_id=not.is.null",
-  "channel_id=neq.",
+  "page_id=not.is.null",
+  "and=(page_access_token.not.is.null,page_access_token.neq.)",
+  "and=(refresh_token.not.is.null,refresh_token.neq.,channel_id.not.is.null,channel_id.neq.)",
 ]) {
   if (!socialWorkflow.includes(requiredCredentialFilter)) {
     failures.push("social workflow readiness must require non-empty stored provider tokens and the YouTube channel ID without selecting token values: " + requiredCredentialFilter);
