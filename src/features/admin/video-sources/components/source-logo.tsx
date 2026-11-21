@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 export function SourceLogo({ src, label }: { src: string | null; label: string }) {
@@ -7,11 +8,13 @@ export function SourceLogo({ src, label }: { src: string | null; label: string }
   return (
     <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl border border-brand-gold/15 bg-black/25">
       {!failed && src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={src}
           alt={label + " logo"}
-          loading="lazy"
+          width={36}
+          height={36}
+          sizes="36px"
+          unoptimized
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
           className="h-9 w-9 object-contain"
