@@ -25,7 +25,7 @@ const expected = [
   ["rabbi-awzini", "https://quran.com/27/19"],
   ["rabbi-hab-li-min-ladunka", "https://quran.com/3/38"],
   ["rabbana-la-tuakhidhna", "https://quran.com/2/286"],
-  ["rabbana-ghfir-lana", "https://quran.com/3/193"],
+  ["rabbana-ghfir-lana", "https://quran.com/3/147"],
 ];
 
 assert.match(type, /sourceUrl\?: string/);
