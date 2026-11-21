@@ -45,7 +45,7 @@ const remoteHistoryMarkers = [
 ];
 for (const filename of remoteHistoryMarkers) {
   const marker = readFileSync("supabase/migrations/" + filename, "utf8");
-  assert.match(marker, /^\\s*(?:--[^\\n]*\\n)*SELECT\\s+1\\s*;\\s*$/i);
+  assert.match(marker, /^\s*(?:--[^\n]*\n)*SELECT\s+1\s*;\s*$/i);
 }
 
 const validator = readFileSync("scripts/validate-migrations.mjs", "utf8");
