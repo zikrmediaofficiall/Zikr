@@ -43,7 +43,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Verify exact commit checks and CODEOWNER approval
+      - name: Verify canonical GitHub owner identity and exact commit checks
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/verify-release-gates.mjs
@@ -57,7 +57,7 @@ jobs:
             echo "- Stage: ${{ inputs.release_reason || 'One-shot production smoke check' }}"
             echo "- Commit: ${{ github.sha }}"
             echo "- Deployment: Existing production alias (smoke verification only; this workflow does not deploy)"
-            echo "- Exact-commit quality checks and CODEOWNER approval: PASSED (verified by the release preflight)"
+            echo "- Exact-commit quality checks and canonical owner identity: PASSED (verified by the release preflight)"
             echo "- Production smoke verification: PASSED"
             echo "- Vercel CLI token workflow: retired"
           } >> "$GITHUB_STEP_SUMMARY"
