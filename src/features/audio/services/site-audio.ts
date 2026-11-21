@@ -95,7 +95,7 @@ export async function getSiteAudioLibrary(): Promise<SiteAudioAsset[]> {
     // returns an empty published list.
     if (error) throw error;
 
-    return (data ?? []).map(asset => {
+    const databaseAssets = (data ?? []).map(asset => {
       const resolved = resolveAudio(asset.storage_path, db);
       return {
         id: asset.id,
@@ -106,6 +106,15 @@ export async function getSiteAudioLibrary(): Promise<SiteAudioAsset[]> {
         ...resolved,
       };
     });
+
+    // Keep every public audio category usable even when only some categories
+    // have been populated in Supabase. Existing DB rows remain authoritative
+    // for their own kind; the reviewed static catalogue fills missing kinds.
+    const populatedKinds = new Set(databaseAssets.map(asset => asset.kind));
+    const missingKindFallbacks = getCuratedFallbackLibrary().filter(
+      asset => !populatedKinds.has(asset.kind),
+    );
+    return [...databaseAssets, ...missingKindFallbacks];
   } catch (error) {
     console.error(
       "[site-audio] Database catalogue unavailable; serving the bundled rights-reviewed catalogue:",
