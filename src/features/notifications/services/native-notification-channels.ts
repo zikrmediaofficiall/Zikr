@@ -5,7 +5,7 @@ type NativeNotificationChannelOptions = {
   name: string;
   description: string;
   importance: number;
-  sound: string;
+  sound?: string;
   vibration: boolean;
   visibility: number;
 };
@@ -64,7 +64,7 @@ export async function ensureNativeNotificationChannels(
         name: channel.name,
         description: channel.description,
         importance: channel.importance,
-        sound: channel.sound,
+        ...(channel.sound ? { sound: channel.sound } : {}),
         vibration: true,
         visibility: 1,
       });
