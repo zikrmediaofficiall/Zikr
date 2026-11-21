@@ -156,7 +156,7 @@ export const SITE_CATALOG: CatalogGroup[] = [
 export const CATALOG_ITEMS = SITE_CATALOG.flatMap(group => group.items);
 
 export function getCatalogItemKey(href: string): string {
-  return href.replace(/^\\/+|\\/+$/g, '').replaceAll('/', '-');
+  return href.split('/').filter(Boolean).join('-');
 }
 
 export function getCatalogItem(href: string): CatalogItem | undefined {
