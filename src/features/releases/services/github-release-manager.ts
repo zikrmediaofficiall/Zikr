@@ -278,6 +278,12 @@ export async function getAndroidReleaseSigningPreflightStatus(): Promise<Android
 
 export async function requestAndroidReleaseSigningPreflight() {
   const status = await getAndroidReleaseSigningPreflightStatus();
+  if (status.status === "queued" || status.status === "in_progress") {
+    return {
+      mainSha: status.mainSha,
+      workflowUrl: status.url ?? "https://github.com/" + REPO + "/actions/workflows/android-release-signing-preflight.yml",
+    };
+  }
   await dispatchGitHubWorkflow("android-release-signing-preflight.yml", {
     target_sha: status.mainSha,
   });

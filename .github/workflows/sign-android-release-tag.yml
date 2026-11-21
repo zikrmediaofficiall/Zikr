@@ -100,7 +100,14 @@ jobs:
           }
           git config user.name "$SIGNING_NAME"
           git config user.email "$SIGNING_EMAIL"
-          git config gpg.program gpg
+          GPG_WRAPPER="$TMP_DIR/gpg-with-passphrase"
+          cat > "$GPG_WRAPPER" <<'GPG'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec gpg --batch --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE:-}" "$@"
+          GPG
+          chmod 700 "$GPG_WRAPPER"
+          git config gpg.program "$GPG_WRAPPER"
           git config user.signingkey "$EXPECTED_FINGERPRINT"
           git tag -s -u "$EXPECTED_FINGERPRINT" "$TAG" "$COMMIT_SHA" -m "ZIKR Android $TAG"
           git verify-tag --raw "$TAG" > "$TMP_DIR/verify-tag.txt" 2>&1
