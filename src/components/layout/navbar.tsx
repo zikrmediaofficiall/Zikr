@@ -31,9 +31,11 @@ const links: NavLink[] = [
   { href: "/sections", label: "كل الأقسام", labelEn: "All sections", icon: "Grid3X3" },
 ];
 
-export async function Navbar() {
+export async function Navbar({ hiddenHrefs = [] }: { hiddenHrefs?: string[] }) {
   const locale = await getRequestLocale();
   const isEnglish = locale === "en";
+  const hidden = new Set(hiddenHrefs);
+  const visibleLinks = links.filter((link) => !hidden.has(link.href));
   let user = null;
   let isAdmin = false;
 
@@ -74,7 +76,7 @@ export async function Navbar() {
           </span>
         </Link>
 
-        <LanguageAwareNav links={links} />
+        <LanguageAwareNav links={visibleLinks} />
 
         <Link
           href="/api/download/android"
@@ -93,7 +95,7 @@ export async function Navbar() {
           >
             <Settings className="h-5 w-5" aria-hidden="true" />
           </Link>
-          <MobileNav isAuthenticated={Boolean(user)} />
+          <MobileNav isAuthenticated={Boolean(user)} hiddenHrefs={hiddenHrefs} />
           <AuthNavActions initialUser={user} initialIsAdmin={isAdmin} />
         </div>
       </Container>
