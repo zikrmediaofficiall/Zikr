@@ -14,6 +14,11 @@ on:
         required: true
         default: "false"
         type: boolean
+      source_commit:
+        description: "Exact immutable tag-target SHA for owner-authorized recovery dispatched from main"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -68,6 +73,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT_INPUT: ${{ inputs.source_commit }}
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
@@ -103,14 +109,42 @@ jobs:
             exit 1
           fi
           if [[ "${GITHUB_REF_TYPE}" == "tag" || "${GITHUB_REF_NAME}" =~ ^android-release-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            if [[ "$TAG_TARGET_SHA" != "$GITHUB_SHA" ]]; then
+            if [[ "$TAG_TARGET_SHA" != "${GITHUB_SHA}" ]]; then
               echo "::error title=Android release tag/source mismatch::Tag ${TAG} points to ${TAG_TARGET_SHA}, but this run is checking out ${GITHUB_SHA}. Rebuild from the exact tag commit; do not publish recovery-branch binaries under an older immutable tag." >&2
               exit 1
             fi
+            if [[ -n "${SOURCE_COMMIT_INPUT}" ]]; then
+              echo "::error title=Unexpected source commit input::source_commit is accepted only for the owner-authorized main recovery path." >&2
+              exit 1
+            fi
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            if [[ ! "${SOURCE_COMMIT_INPUT}" =~ ^[0-9a-f]{40}$ || "${SOURCE_COMMIT_INPUT}" != "$TAG_TARGET_SHA" ]]; then
+              echo "::error title=Android recovery source mismatch::main recovery must provide the exact immutable tag target SHA." >&2
+              exit 1
+            fi
+            git fetch --no-tags origin "$TAG_TARGET_SHA" --depth=1
+            RELEASE_SOURCE_PATHS=(
+              package.json
+              .release-tag
+              "docs/releases/${TAG#v}.md"
+              android/app/build.gradle
+              src/components/layout/footer.tsx
+              ios/App/App.xcodeproj/project.pbxproj
+              ios/App/App/Info.plist
+            )
+            if ! git diff --quiet "$TAG_TARGET_SHA" -- "${RELEASE_SOURCE_PATHS[@]}"; then
+              echo "::error title=Android recovery metadata drift::The current main tree differs from the exact tag target in release identity/version files. Refusing to publish assets built from the tag." >&2
+              exit 1
+            fi
+            echo "Verified release identity files on main are byte-for-byte identical to immutable source $TAG_TARGET_SHA."
+          else
+            echo "::error title=Unsupported Android recovery ref::Publisher must run from the exact tag/recovery branch or the guarded main source_commit path." >&2
+            exit 1
           fi
 
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "TAG_TARGET_SHA=$TAG_TARGET_SHA" >> "$GITHUB_ENV"
+          echo "RELEASE_SOURCE_SHA=$TAG_TARGET_SHA" >> "$GITHUB_ENV"
           echo "tag_target_sha=$TAG_TARGET_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Verify GitHub cryptographic tag signature and exact commit target
@@ -177,7 +211,12 @@ jobs:
             echo "::error title=Android recovery release state is not eligible::Manual publisher dispatch requires a draft, non-prerelease GitHub Release for ${TAG}." >&2
             exit 1
           fi
-          if [[ "${TAG_TARGET_SHA}" != "${GITHUB_SHA}" ]]; then
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            if [[ "${SOURCE_COMMIT_INPUT:-}" != "${TAG_TARGET_SHA}" || "${RELEASE_SOURCE_SHA:-}" != "${TAG_TARGET_SHA}" ]]; then
+              echo "::error title=Android recovery source mismatch::main dispatch must provide and validate the exact immutable tag target commit." >&2
+              exit 1
+            fi
+          elif [[ "${TAG_TARGET_SHA}" != "${GITHUB_SHA}" ]]; then
             echo "::error title=Android recovery source mismatch::Manual publisher dispatch must run from the exact immutable tag target; tag target ${TAG_TARGET_SHA}, dispatch SHA ${GITHUB_SHA}." >&2
             exit 1
           fi
