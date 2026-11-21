@@ -23,8 +23,12 @@ assert.match(adminProbe, /finally \{\s*clearTimeout\(timeout\);\s*\}/,
   "the service-role schema probe must always clear its timeout");
 assert.match(adminProbe, /admin_rate_limits\?select=actor_id&limit=0/,
   "the production schema probe must remain a zero-row, read-only query");
+assert.ok(adminProbe.includes("site_audio_upload_intents?select=storage_path&limit=0"),
+  "the production probe must use the table's canonical storage_path primary key");
+assert.doesNotMatch(adminProbe, /site_audio_upload_intents\\?select=id(?:&|")/,
+  "the production probe must not assume site_audio_upload_intents has an id column");
 for (const path of [
-  "site_audio_upload_intents?select=id&limit=0",
+  "site_audio_upload_intents?select=storage_path&limit=0",
   "background_reminder_preferences?select=timezone&limit=0",
   "youtube_sync_state?select=playlists&limit=0",
   "social_publish_queue?select=target_platforms&limit=0",
