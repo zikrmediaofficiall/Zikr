@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 const editorial = readFileSync("src/components/content/editorial-depth.tsx", "utf8");
 const expansion = readFileSync("src/components/content/content-expansion.tsx", "utf8");
 
+assert.match(editorial, /normalized === '\/about' \|\| normalized === '\/contact'/);
+assert.match(expansion, /'\/about'.*'\/privacy'.*'\/terms'/);
 assert.match(editorial, /const specializedDetailPrefixes = \[/);
 assert.match(editorial, /if \(hasSpecializedDetailGuide && !staticKidsRoutes\.has\(normalized\)\) return null/);
 assert.match(editorial, /'\/kids\/games'/, "static Kids landing pages retain the generic Kids guide");
