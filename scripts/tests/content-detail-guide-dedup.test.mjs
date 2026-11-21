@@ -5,6 +5,8 @@ const editorial = readFileSync("src/components/content/editorial-depth.tsx", "ut
 const expansion = readFileSync("src/components/content/content-expansion.tsx", "utf8");
 
 assert.match(editorial, /normalized === '\/about' \|\| normalized === '\/contact'/);
+assert.ok(editorial.includes("if (normalized === '/' || normalized === '/about' || normalized === '/contact') return null;"), "the homepage must not render duplicate editorial guide blocks");
+assert.ok(expansion.includes("  '/': page("), "the homepage retains its focused ContentExpansion guide");
 assert.match(expansion, /'\/about'.*'\/privacy'.*'\/terms'/);
 assert.match(editorial, /const specializedDetailPrefixes = \[/);
 assert.match(editorial, /if \(hasSpecializedDetailGuide && !staticKidsRoutes\.has\(normalized\)\) return null/);
