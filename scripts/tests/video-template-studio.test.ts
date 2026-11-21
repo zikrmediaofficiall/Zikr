@@ -85,6 +85,13 @@ assert.equal(videoTemplateScene("midnight-skyline"), "night");
 assert.equal(videoTemplateScene("oasis-dawn"), "dawn");
 
 const read = (path: string) => readFileSync(path, "utf8");
+const expandedAssetMigration = read("supabase/migrations/20261121070000_expand_video_template_assets.sql");
+assert.match(expandedAssetMigration, /'andalusian-arch'[\\s\\S]*'midnight-skyline'[\\s\\S]*'oasis-dawn'/);
+assert.match(expandedAssetMigration, /FROM public\\.profiles AS actor/);
+assert.doesNotMatch(expandedAssetMigration, /FROM auth\\.users/);
+assert.match(expandedAssetMigration, /CREATE OR REPLACE FUNCTION public\\.admin_create_video_template_version/);
+assert.match(expandedAssetMigration, /video_templates_asset_key_check/);
+
 const migration = read("supabase/migrations/20261106010000_admin_video_template_studio.sql");
 const blockerFixMigration = read("supabase/migrations/20261106090800_production_blockers_and_social_insights.sql");
 const api = read("src/app/api/admin/video/templates/route.ts");
