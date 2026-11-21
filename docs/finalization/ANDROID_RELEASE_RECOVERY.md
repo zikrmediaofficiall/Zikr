@@ -10,3 +10,15 @@ For a tag whose APK/AAB assets are missing or whose prior Android build failed:
 4. Do not manually mark a release complete before the signed binaries, checksum file, and metadata pass validation.
 
 The normal semantic tag trigger remains supported. The branch recovery path exists specifically for release tags that already exist but previously failed to publish Android assets.
+
+
+## Recovering a stuck Admin Release
+
+Use **Admin → Release Center** when the current Android release operation has been stuck for at least six hours, or when the protected tag-signing dispatch is explicitly recorded as failed.
+
+1. Open the recovery panel for the exact recorded tag and commit.
+2. Confirm the checkbox and choose **Delete stuck release and recreate it**.
+3. The server cancels active signing/publishing GitHub Actions runs for that exact commit, rechecks the release/tag identity, deletes only an unpublished draft release and its matching tag only when the tag resolves to the exact recorded commit (a failed signature can therefore be repaired), then dispatches the protected signing workflow again with the same tag and commit.
+4. Follow the new signing workflow and CircleCI Android build. The release remains a draft until the signed APK/AAB and checksum verification complete.
+
+The action requires the `release.manage` permission and step-up authentication. It refuses to run against a recent operation, a changed `main` commit, a published/immutable Release, a tag whose resolved target cannot be verified against the exact recorded commit. It never increments the app version or creates a replacement source commit. If the Release is already published, use a new semantic version instead; immutable published releases are never deleted or retargeted.

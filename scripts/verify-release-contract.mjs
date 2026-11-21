@@ -29,6 +29,20 @@ assert.ok(releaseAction.includes("prepareAndroidRelease"), "Android release acti
 assert.ok(releaseAction.includes("getAndroidReleaseSigningPreflightStatus"), "Android release action must enforce the signing preflight");
 assert.ok(releaseAction.includes("requestAndroidReleaseSigningPreflight"), "Android release action must expose a no-mutation preflight action");
 assert.ok(releaseAction.includes("recordAdminAuditEventSafely"), "Android release preparation must be audited after commit");
+
+const releaseAdminRecoveryPage = read("src/app/admin/release/page.tsx");
+assert.ok(releaseManager.includes("recreateStuckAndroidRelease"), "Android release manager must expose guarded stuck-release recovery");
+assert.ok(releaseManager.includes('method: "DELETE"'), "Stuck-release recovery must remove the exact draft release and tag before retrying");
+assert.ok(releaseManager.includes("release.draft !== true") && releaseManager.includes("release.immutable === true"), "Stuck Android recovery must refuse published or immutable GitHub Releases");
+assert.ok(releaseManager.includes('tagRef.object?.type === "tag"') && releaseManager.includes("tagObject.object.sha !== commitSha"), "Stuck Android recovery must verify the annotated tag target before deleting it, even when signature verification is what failed");
+assert.ok(releaseManager.includes("tagObject.object.sha !== commitSha") && releaseManager.includes("currentMainSha !== commitSha"), "Stuck Android recovery must bind deletion and recreation to the exact current main commit");
+assert.ok(releaseManager.includes("cancelWorkflowRunsForReleaseCommit"), "Stuck Android recovery must stop in-flight signing/publishing workflows before cleanup");
+assert.ok(releaseManager.includes("dispatch-android-release-recovery.yml"), "Stuck Android recovery must cancel a stale publisher dispatcher before re-creating the tag");
+assert.ok(releaseAction.includes("formData.get(\"confirmCleanup\") !== \"yes\""), "Destructive release recovery must require explicit confirmation");
+assert.ok(releaseAction.includes("Number.isFinite(startedAt)") && releaseAction.includes("Date.now() - startedAt >= 6 * 60 * 60 * 1000"), "Release cleanup must require a valid timestamp older than six hours or a known dispatch failure");
+assert.ok(releaseAction.includes('action: "android.release.recreate.retry"'), "Release cleanup and retry must be recorded in the admin audit log");
+assert.ok(releaseAdminRecoveryPage.includes("operationCanRecover") && releaseAdminRecoveryPage.includes('name="confirmCleanup"'), "Admin Release Center must expose a confirmation-gated recovery button");
+assert.ok(releaseAdminRecoveryPage.includes("لن يتم حذف أي Release منشور"), "Admin Release Center must explain that published releases are protected");
 assert.ok(releaseAction.includes('requireAdminStepUp("release.manage", "/admin/release")'), "Android release preparation must honor step-up authentication");
 assert.ok(releaseAction.includes("assertNoActiveReleaseOperation"), "Android release action must prevent overlapping operations");
 const androidAdminAction = read("src/app/admin/android/actions.ts");
