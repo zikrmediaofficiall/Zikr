@@ -217,7 +217,7 @@ assert.equal(packageJson.scripts["sync:quran:en"], "tsx scripts/sync-quran-engli
 assert.ok(circleEnglishSync.includes("pnpm sync:quran:en") && circleEnglishSync.includes("quran_status"));
 assert.ok(circleWorkflow.includes("pnpm sync:quran:en") && circleWorkflow.includes("quran_status"));
 assert.ok(quranSync.includes('const EDITION = "en.pickthall"'));
-assert.ok(quranSync.includes("api.alquran.cloud/v1") && quranSync.includes("/" + EDITION));
+assert.ok(quranSync.includes("api.alquran.cloud/v1") && quranSync.includes('"/" + EDITION'));
 assert.ok(quranSync.includes("source.text_ar") && quranSync.includes("admin_sync_quran_english_batch"));
 assert.ok(quranSync.includes("PAGE_SIZE = 1_000") && quranSync.includes("offset="));
 assert.ok(!quranSync.includes("generateGeminiText") && !quranSync.includes("GEMINI_API_KEY"));
