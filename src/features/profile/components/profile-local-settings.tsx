@@ -37,7 +37,7 @@ function normalizeReminder(value: unknown): ReminderPreferences | null {
   const message = typeof record.quran_message === "string" ? record.quran_message.slice(0, 240) : "";
   if (
     typeof record.quran_enabled !== "boolean" ||
-    !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)
+    !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)
   ) return null;
   return { quran_enabled: record.quran_enabled, quran_time: time, quran_message: message };
 }
