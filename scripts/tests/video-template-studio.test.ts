@@ -157,6 +157,9 @@ for (const asset of VIDEO_TEMPLATE_ASSETS) {
 assert.match(studioClient, /ASSET_LABELS_EN/, "Template Studio must provide English scene names");
 assert.match(studioClient, /Video Template Studio/, "Template Studio must support the English locale");
 assert.match(studioClient, /dir=\{direction\}/, "Template Studio layout direction must follow the selected locale");
+assert.doesNotMatch(studioClient, /"\{t\(/,
+  "Localized fallback messages must remain valid JSX expressions, not quoted strings");
+
 const studioCreateClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
 const types = read("src/lib/types/supabase.ts");
 
