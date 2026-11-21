@@ -255,5 +255,12 @@ assert.ok(circleWorkflow.includes("environment: production"),
   "the scheduled translation backup must use protected production environment credentials");
 assert.ok(circleWorkflow.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}"),
   "the scheduled backup must receive Gemini credentials only through the protected GitHub environment");
-assert.ok(circleWorkflow.includes('test -n "${GEMINI_API_KEY:-}"'),
-  "the backup must reject a missing Gemini credential before running translation writes");
+const githubSyncWorker = circleWorkflow.slice(
+  circleWorkflow.indexOf("name: Run one bounded article batch and one bounded Hadith batch"),
+);
+const githubGeminiBranch = githubSyncWorker.indexOf('if [[ -n "${GEMINI_API_KEY:-}" ]]');
+assert.ok(githubGeminiBranch > githubSyncWorker.indexOf("pnpm sync:quran:en") &&
+  githubGeminiBranch > githubSyncWorker.indexOf("pnpm sync:hadith:en"),
+  "the backup must run source-backed Quran and Hadith sync before checking the optional Gemini credential");
+assert.ok(githubSyncWorker.includes("article_status=1") && githubSyncWorker.includes("content_status=1"),
+  "missing Gemini must fail only the Gemini-backed article/content part while preserving the independent source-sync attempts");
