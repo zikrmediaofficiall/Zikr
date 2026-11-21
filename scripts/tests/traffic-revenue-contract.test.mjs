@@ -38,7 +38,7 @@ assert.doesNotMatch(panel, /facebook|instagram|tiktok|pinterest|whatsapp|مرك�
 assert.match(panel, /api\/admin\/social\/youtube\/connect/);
 assert.match(panel, /canManageYouTubeConnection\s*\?/);
 assert.match(panel, /ربط YouTube للنشر والتحليلات/);
-assert.match(panel, /Google رفض تجديد جلسة OAuth الحالية/);
+assert.match(panel, /YouTube Analytics لم تسمح بقراءة التقرير/);
 assert.match(youtubeConnect, /https:\/\/www\.googleapis\.com\/auth\/youtube\.upload/);
 assert.match(youtubeConnect, /https:\/\/www\.googleapis\.com\/auth\/youtube\.readonly/);
 assert.match(youtubeConnect, /https:\/\/www\.googleapis\.com\/auth\/yt-analytics\.readonly/);
