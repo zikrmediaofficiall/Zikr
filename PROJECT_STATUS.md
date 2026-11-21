@@ -1,5 +1,14 @@
 # ZIKR Project Status
 
+## Current project control — 2026-11-21
+
+- Canonical source repository: `zikrofficial-X/Zikr`; the authenticated GitHub identity is `zikrofficial-X` and has repository Admin permission.
+- Vercel is authenticated as `zikrofficial-x` under the same verified account email, and the `zikr` project in team `zikr3` is linked to this exact GitHub repository. Production domain: `zikrmediaofficial.vercel.app`.
+- CODEOWNERS-based review enforcement has been removed from the active release gate. Release workflows instead verify that the originating merged PR was created by the canonical repository-owner account from a branch in the canonical repository, then verify exact-commit CI and deployment status.
+- Historical audit records below may retain references to the former CODEOWNERS setup as historical evidence; they do not define current project access or release policy.
+- Application RBAC, MFA/step-up, Supabase RLS, server-only credentials, protected production environments, exact-commit checks and Android signing gates remain in place.
+
+
 ## Final verification — 2026-11-16
 
 **State: VERIFIED / DEPLOYED.** The exact source head is `26ae58fdd2220897511544e9475eab28979f88f5`. The complete review record is in [`docs/audits/FINAL_REVIEW_2026-11-16.md`](docs/audits/FINAL_REVIEW_2026-11-16.md).
