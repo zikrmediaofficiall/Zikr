@@ -10,6 +10,8 @@ export interface VideoGenerationRequest {
   content: unknown;
   duration?: number | null;
   thumbnail_url?: string | null;
+  /** Original database pointer; unlike thumbnail_url this is never synthesized for display. */
+  stored_thumbnail_url?: string | null;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'retry_wait' | 'cancelled';
   generation_attempts?: number | null;
   provider_job_id?: string | null;

@@ -285,8 +285,14 @@ const socialClient = read("src/app/admin/social/social-client.tsx");
 if (socialClient.includes('href="/admin/video-requests"') || socialClient.includes('href="/admin/videos"')) {
   failures.push("Video review links must target the canonical /admin/video/requests page, not a missing route");
 }
-if (!socialClient.includes('href="/admin/video/requests"') || !socialClient.includes("مراجعة الفيديوهات")) {
-  failures.push("Publishing video-review actions must link to the canonical protected video queue");
+const hasVideoReviewShortcut =
+  socialClient.includes("طلبات تحتاج مراجعة") || socialClient.includes("مراجعة الفيديوهات");
+if (
+  !socialClient.includes('href="/admin/video/requests"') ||
+  !socialClient.includes('href="/admin/video/review"') ||
+  !hasVideoReviewShortcut
+) {
+  failures.push("Publishing video-review actions must link to the canonical protected review queue and all video requests");
 }
 
 for (const adminPage of [

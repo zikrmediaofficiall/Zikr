@@ -1,7 +1,7 @@
 "use client";
 
 import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video-publication";
-import { isKidsVideoContentMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
+import { isKidsVideoContentMarker, normalizeVideoMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -33,6 +33,48 @@ function isContentApproved(content: unknown): boolean {
     : record.approvalStatus === "approved";
 }
 
+function isReadyForHumanApproval(content: unknown): boolean {
+  if (!content || typeof content !== "object" || Array.isArray(content)) return false;
+  const record = content as Record<string, unknown>;
+  const audience = resolveVideoRequestAudience(record);
+  const qa = record.automatedVideoQa && typeof record.automatedVideoQa === "object" && !Array.isArray(record.automatedVideoQa)
+    ? record.automatedVideoQa as Record<string, unknown> : null;
+  const review = record.qualityReview && typeof record.qualityReview === "object" && !Array.isArray(record.qualityReview)
+    ? record.qualityReview as Record<string, unknown> : null;
+  const qaChecks = qa?.checks && typeof qa.checks === "object" && !Array.isArray(qa.checks)
+    ? qa.checks as Record<string, unknown> : null;
+  const reviewAt = typeof record.approvalReviewedAt === "string" ? record.approvalReviewedAt : "";
+  const snapshotHash = typeof record.approvalSnapshotHash === "string" ? record.approvalSnapshotHash : "";
+  const requiredChecks: ApprovalCheckKey[] = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"];
+  const hasCompleteSeries =
+    normalizeVideoMarker(record.contentFormat) === "series_episode" &&
+    normalizeVideoMarker(record.aiMode) === "original_kids_story" &&
+    normalizeVideoMarker(record.sourceType) === "original_kids_fiction" &&
+    typeof record.seriesId === "string" && Boolean(record.seriesId.trim()) &&
+    typeof record.seriesTitle === "string" && Boolean(record.seriesTitle.trim()) &&
+    typeof record.learningObjective === "string" && Boolean(record.learningObjective.trim()) &&
+    Number.isInteger(Number(record.seasonNumber)) && Number(record.seasonNumber) > 0 &&
+    Number.isInteger(Number(record.episodeNumber)) && Number(record.episodeNumber) > 0;
+  return audience.ok &&
+    hasCompleteSeries &&
+    audience.audience === "kids" &&
+    record.approvalStatus === "approved" &&
+    record.approvalReviewerId === "system:zikr-video-factory" &&
+    /^[a-f0-9]{64}$/i.test(snapshotHash) &&
+    record.kidsVideoQaStatus === "passed" &&
+    qa?.status === "passed" &&
+    qa.snapshotHash === snapshotHash &&
+    qa.engine === "zikr_video_factory" &&
+    qa.engineVersion === "2026-11-07-auto-qa-v1" &&
+    review?.mode === "automated" &&
+    review.engine === "zikr_video_factory" &&
+    review.engineVersion === "2026-11-07-auto-qa-v1" &&
+    review.snapshotHash === snapshotHash &&
+    review.reviewedAt === reviewAt &&
+    Number.isFinite(Date.parse(reviewAt)) &&
+    requiredChecks.every((key) => qaChecks?.[key] === true && review[key] === true);
+}
+
 function isKidsVideoContent(content: unknown): boolean {
   return isKidsVideoContentMarker(content);
 }
@@ -50,8 +92,11 @@ function isSafeGeneratedAssetDeletionCandidate(request: VideoGenerationRequest, 
     ? request.content as Record<string, unknown> : {};
   const duplicate = request.status === "cancelled" && Boolean(getDuplicateCanonicalRequestId(request));
   const qaFailed = request.status === "completed" && content.approvalStatus === "qa_failed";
-  if ((!duplicate && !qaFailed) || !request.video_url ||
-    request.thumbnail_url || request.youtube_id || request.facebook_id ||
+  const pendingReview = request.status === "completed" && content.approvalStatus === "awaiting_human_review";
+  const terminalWithAsset = (request.status === "failed" || request.status === "cancelled") && Boolean(request.video_url);
+  const storedThumbnail = request.stored_thumbnail_url;
+  if ((!duplicate && !qaFailed && !pendingReview && !terminalWithAsset) || !request.video_url ||
+    storedThumbnail !== null || request.youtube_id || request.facebook_id ||
     request.heygen_video_id || request.provider_job_id) return false;
   const retainedContentKeys = ["audioUrl", "humanAudioUrl", "audioMediaAssetId", "audioMediaAssetOwnerId", "videoUrl", "generatedVideoUrl", "thumbnailUrl"];
   if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim()) ||
@@ -212,11 +257,19 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   async function deleteRequest(request: VideoGenerationRequest) {
     const generatedAsset = isSafeGeneratedAssetDeletionCandidate(request, canManageKids);
     const qaFailedAsset = isQaFailedGeneratedVideo(request);
+    const duplicateRender = request.status === "cancelled" && Boolean(getDuplicateCanonicalRequestId(request));
+    const requestContent = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+      ? request.content as Record<string, unknown> : {};
+    const pendingReview = request.status === "completed" && requestContent.approvalStatus === "awaiting_human_review";
     if (!canDelete || (!isSafelyDeletable(request, canManageKids) && !generatedAsset)) return;
     const confirmation = generatedAsset
       ? qaFailedAsset
         ? `هذا الفيديو مكتمل تقنيًا لكنه رُفض في فحص الجودة ولم يُنشر. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب بعد التأكد من عدم ارتباطه بأي منشور أو مكتبة. لا يمكن استعادته بعد الحذف. متابعة؟`
-        : `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
+        : pendingReview
+          ? `هذا الفيديو مكتمل لكنه لم يحصل على اعتماد بشري بعد. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب فقط بعد إثبات ملكية الملف وخلوه من أي رابط للمكتبة أو النشر. لا يمكن التراجع عن الحذف. متابعة؟`
+          : duplicateRender
+            ? `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
+            : `الطلب ${request.status === "failed" ? "فشل" : "أُلغي"} وما زال له ملف مولّد غير مرتبط بالنشر. سيُحذف الملف من Cloudinary وسجل الطلب بعد فحص الملكية والمراجع. متابعة؟`
       : `تأكيد حذف سجل الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`;
     if (!window.confirm(confirmation)) return;
     setBusyId(request.id); setError(""); setMessage("");
@@ -234,7 +287,11 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
         setMessage(generatedAsset
           ? qaFailedAsset
             ? "تم حذف ملف الفيديو المرفوض في فحص الجودة وسجل طلبه بعد التحقق من عدم وجود أي مراجع. لم يتأثر أي فيديو منشور."
-            : "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
+            : pendingReview
+              ? "تم حذف ملف الفيديو غير المعتمد وسجل طلبه بعد إثبات الملكية وخلوه من مراجع المكتبة والنشر."
+              : duplicateRender
+                ? "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
+                : "تم حذف ملف الفيديو الفاشل أو الملغى وسجل طلبه بعد التحقق من الملكية وخلوه من مراجع النشر."
           : "حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
       }
       await load();
@@ -306,7 +363,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
           <a href="#voices" className="rounded-xl border border-brand-gold/10 px-4 py-2 text-sm text-brand-cream/65 hover:border-brand-gold/25 hover:text-brand-gold">الأصوات</a>
           <span className="mx-1 h-6 w-px bg-brand-gold/10" aria-hidden="true" />
           <Link href="/admin/video/studio" className="rounded-xl border border-brand-gold/20 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">استوديو الإنشاء</Link>
-          <Link href="/admin/video/review" className="rounded-xl border border-brand-gold/20 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">مراجعة الفيديوهات المتوقفة</Link>
+          <Link href="/admin/video/review" className="rounded-xl border border-brand-gold/20 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">المراجعة والاعتماد</Link>
           <Link href="/admin/social" className="rounded-xl border border-brand-gold/10 px-4 py-2 text-sm text-brand-cream/65 hover:border-brand-gold/25 hover:text-brand-gold">النشر الاجتماعي</Link>
           <Link href="/admin/automation" className="rounded-xl border border-brand-gold/10 px-4 py-2 text-sm text-brand-cream/65 hover:border-brand-gold/25 hover:text-brand-gold">التشغيل الآلي</Link>
         </div>
@@ -315,10 +372,14 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
         <div>
           <p className="text-xs tracking-[0.2em] text-brand-cream/30">{reviewOnly ? "مراجعة الفيديو" : "طابور الفيديو"}</p>
           <h1 className="mt-2 text-3xl font-bold text-brand-gold">{reviewOnly ? "مراجعة الفيديوهات المتوقفة والجاهزة للنشر" : "طابور توليد الفيديو"}</h1>
-          <p className="mt-2 text-sm leading-7 text-brand-cream/50">هذه الصفحة للمراقبة وإعادة المحاولة والتفاصيل فقط. إنشاء الطلبات موجود في استوديو الفيديو حتى لا تتكرر أدوات الإنشاء.</p>
+          <p className="mt-2 text-sm leading-7 text-brand-cream/50">تابع طلبات التوليد، وافتح الفيديو لمراجعته واعتماده، أو احذف الملف غير المعتمد عندما يجتاز فحوص الحذف الآمن. إنشاء الطلبات من الاستوديو فقط.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/video/studio" className="rounded-xl border border-brand-gold/25 bg-brand-gold/10 px-4 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/20">استوديو إنشاء الفيديو</Link>
+          <Link href="/admin/social" className="rounded-xl border border-emerald-400/20 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-400/10">مركز النشر</Link>
+          <Link href={reviewOnly ? "/admin/video/requests" : "/admin/video/review"} className="rounded-xl border border-amber-400/20 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-400/10">
+            {reviewOnly ? "كل طلبات الفيديو" : "طلبات تحتاج مراجعة"}
+          </Link>
           <Button variant="outline" onClick={() => void load()} disabled={loading}>تحديث</Button>
         </div>
       </header>
@@ -433,6 +494,12 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>التفاصيل</Button>
+                  {request.status === "completed" && request.video_url && !isContentApproved(request.content) &&
+                    isReadyForHumanApproval(request.content) && (
+                      <Button variant="primary" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>
+                        مراجعة واعتماد
+                      </Button>
+                    )}
                   {request.status === "failed" && (() => {
                     const retryAudience = resolveVideoRequestAudience(request.content);
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
@@ -441,7 +508,15 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                   {canDelete && (isSafelyDeletable(request, canManageKids) || isSafeGeneratedAssetDeletionCandidate(request, canManageKids)) && (
                     <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>
                       {isSafeGeneratedAssetDeletionCandidate(request, canManageKids)
-                        ? isQaFailedGeneratedVideo(request) ? "حذف فيديو فشل فحص الجودة وملفه نهائيًا" : "حذف الفيديو المكرر وملفه نهائيًا"
+                        ? isQaFailedGeneratedVideo(request)
+                          ? "حذف فيديو فشل فحص الجودة وملفه نهائيًا"
+                          : request.status === "completed" && (request.content as Record<string, unknown> | null)?.approvalStatus === "awaiting_human_review"
+                            ? "حذف الفيديو غير المعتمد وملفه نهائيًا"
+                            : getDuplicateCanonicalRequestId(request)
+                              ? "حذف الفيديو المكرر وملفه نهائيًا"
+                              : request.status === "failed"
+                                ? "حذف الفيديو الفاشل وملفه نهائيًا"
+                                : "حذف الفيديو الملغى وملفه نهائيًا"
                         : "حذف سجل الطلب"}
                     </Button>
                   )}
@@ -536,6 +611,10 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
               <section className="mt-6 space-y-4 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-5">
                 {isContentApproved(details.content) ? (
                   <div role="status" className="font-semibold text-emerald-200">تم تسجيل الاعتماد البشري؛ سيُعاد التحقق من الفيديو قبل أي نشر مجدول.</div>
+                ) : !isReadyForHumanApproval(details.content) ? (
+                  <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
+                    لا يمكن تسجيل اعتماد بشري قبل نجاح فحص الجودة الآلي ووجود بصمة مصدر وفيديو مطابقة. لم يتم تجاوز أي فحص؛ أعد تجهيز الطلب أو أصلح سبب توقف فحص الجودة أولًا.
+                  </div>
                 ) : isKidsVideoContent(details.content) && !canManageKids ? (
                   <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
                     اعتماد فيديوهات الأطفال يتطلب صلاحية إدارة محتوى الأطفال بالإضافة إلى صلاحية إدارة الفيديوهات. يمكنك مراجعة التفاصيل، لكن لا يمكنك تسجيل الاعتماد.

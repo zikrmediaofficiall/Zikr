@@ -222,7 +222,7 @@ function facebookReelsInsightsSummary(item: QueueItem, permissionGranted: boolea
   ].filter(Boolean).join(" · ") || "لا توجد إحصاءات Reels متاحة";
 }
 
-export default function AdminSocialClient({ canPublish }: { canPublish: boolean }) {
+export default function AdminSocialClient({ canPublish, canReviewVideos = false }: { canPublish: boolean; canReviewVideos?: boolean }) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [health, setHealth] = useState<Health>({
     youtubeConfigured: false,
@@ -765,12 +765,22 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
                 اعتماد توكن الخادم
               </Button>
             )}
-            <Link
-              href="/admin/video/requests"
-              className="inline-flex items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-400/15"
-            >
-              مراجعة الفيديوهات ({readiness.approvalPending})
-            </Link>
+            {canReviewVideos && (
+              <>
+                <Link
+                  href="/admin/video/review"
+                  className="inline-flex items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-400/15"
+                >
+                  طلبات تحتاج مراجعة ({readiness.approvalPending})
+                </Link>
+                <Link
+                  href="/admin/video/requests"
+                  className="inline-flex items-center justify-center rounded-xl border border-brand-gold/20 px-3 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/10"
+                >
+                  كل طلبات الفيديو
+                </Link>
+              </>
+            )}
             <Link
               href="/admin/social/written-studio"
               className="inline-flex items-center justify-center rounded-xl border border-brand-gold/25 bg-brand-gold/10 px-3 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/15"

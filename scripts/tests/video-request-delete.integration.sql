@@ -30,6 +30,20 @@ VALUES (
   'failed',
   'https://media.example/retained-thumbnail.jpg'
 );
+INSERT INTO public.video_generation_requests (id, updated_at, status, content)
+VALUES (
+  '10000000-0000-4000-8000-000000000011',
+  '2026-11-01T00:00:00Z',
+  'completed',
+  '{"approvalStatus":"awaiting_human_review"}'::jsonb
+);
+INSERT INTO public.video_generation_requests (id, updated_at, status, content)
+VALUES (
+  '10000000-0000-4000-8000-000000000012',
+  '2026-11-01T00:00:00Z',
+  'completed',
+  '{"approvalStatus":"approved"}'::jsonb
+);
 
 -- Only service_role can execute this privileged RPC.
 SET ROLE anon;
@@ -59,6 +73,34 @@ BEGIN
   IF deleted IS DISTINCT FROM '10000000-0000-4000-8000-000000000001'::uuid THEN
     RAISE EXCEPTION 'safe failed request was not deleted';
   END IF;
+END;
+$$;
+
+-- A completed request awaiting human review may be deleted after the API clears its media pointer.
+DO $$
+DECLARE deleted uuid;
+BEGIN
+  SELECT deleted_id INTO deleted
+  FROM public.admin_delete_unreferenced_video_generation_request(
+    '10000000-0000-4000-8000-000000000011', '2026-11-01T00:00:00Z'
+  );
+  IF deleted IS DISTINCT FROM '10000000-0000-4000-8000-000000000011'::uuid THEN
+    RAISE EXCEPTION 'unapproved review request was not deleted';
+  END IF;
+END;
+$$;
+
+-- A completed request with any other approval state remains protected.
+DO $$
+BEGIN
+  BEGIN
+    PERFORM * FROM public.admin_delete_unreferenced_video_generation_request(
+      '10000000-0000-4000-8000-000000000012', '2026-11-01T00:00:00Z'
+    );
+    RAISE EXCEPTION 'already-approved completed request unexpectedly deleted';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
 END;
 $$;
 
@@ -168,9 +210,11 @@ BEGIN
     '10000000-0000-4000-8000-000000000005',
     '10000000-0000-4000-8000-000000000006',
     '10000000-0000-4000-8000-000000000007',
-    '10000000-0000-4000-8000-000000000008'
+    '10000000-0000-4000-8000-000000000008',
+    '10000000-0000-4000-8000-000000000011',
+    '10000000-0000-4000-8000-000000000012'
   );
-  IF remaining <> 7 THEN
+  IF remaining <> 8 THEN
     RAISE EXCEPTION 'expected exactly one safe request deletion; found % remaining', remaining;
   END IF;
 END;

@@ -31,6 +31,8 @@ psql=(docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U postgres -d zi
 "${psql[@]}" -f /workspace/scripts/tests/video-request-delete.integration-setup.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261116090000_admin_delete_unreferenced_video_generation_request.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261120170000_preserve_video_request_media_references.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261121080000_enable_safe_qa_failed_video_asset_deletion.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261121110000_allow_safe_unapproved_review_video_deletion.sql
 "${psql[@]}" -f /workspace/scripts/tests/video-request-delete.integration.sql
 
 # A queue reference that commits first must make the waiting deletion fail.

@@ -86,6 +86,14 @@ const socialRoute = readFileSync(
   resolve(process.cwd(), "src/app/api/admin/social/route.ts"),
   "utf8",
 );
+const socialAdminPage = readFileSync(
+  resolve(process.cwd(), "src/app/admin/social/page.tsx"),
+  "utf8",
+);
+const socialAdminClient = readFileSync(
+  resolve(process.cwd(), "src/app/admin/social/social-client.tsx"),
+  "utf8",
+);
 const writtenSocialRoute = readFileSync(
   resolve(process.cwd(), "src/app/api/admin/social/written/route.ts"),
   "utf8",
@@ -532,6 +540,16 @@ assert.ok(videoManagerPermissions?.[1].includes("'video.manage'"));
 assert.equal(videoManagerPermissions?.[1].includes("'social.publish'"), false);
 assert.equal(videoManagerPermissions?.[1].includes("'social.manage'"), false);
 assert.equal(videoManagerPermissions?.[1].includes("'system.manage'"), false);
+assert.match(socialAdminPage, /hasAdminPermission\(admin\.role,\s*"video\.manage"\)/,
+  "the publishing center must derive video-review visibility from the effective admin role");
+assert.match(socialAdminPage, /canReviewVideos=\{canReviewVideos\}/,
+  "the server-computed video permission must be passed to the publishing client");
+assert.match(socialAdminClient, /canReviewVideos &&/i,
+  "video review links must not be rendered for social-only managers without video.manage");
+assert.match(socialAdminClient, /href="\/admin\/video\/review"/,
+  "video managers must have a direct link to the video review queue");
+assert.match(socialAdminClient, /href="\/admin\/video\/requests"/,
+  "video managers must have a direct link to all generated-video requests");
 
 const customSpacesAction = systemActions.match(
   /export async function saveCustomVideoSpacesAction[\s\S]*?(?=\nexport async function |$)/,

@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function AdminSocialPage() {
   const admin = await requireAdminPermission("social.manage");
   const canPublish = hasAdminPermission(admin.role, "social.publish");
+  const canReviewVideos = hasAdminPermission(admin.role, "video.manage");
   return (
     <Container className="py-8">
-      <AdminSocialClient canPublish={canPublish} />
+      <AdminSocialClient canPublish={canPublish} canReviewVideos={canReviewVideos} />
     </Container>
   );
 }
