@@ -219,6 +219,7 @@ assert.ok(
     englishSyncCommand.includes('if [[ -n "${GEMINI_API_KEY:-}" ]]') &&
     englishSyncCommand.includes("pnpm translate:articles:en || article_status=$?") &&
     englishSyncCommand.includes("pnpm sync:hadith:en || hadith_status=$?") &&
+    englishSyncCommand.includes("pnpm sync:quran:en || quran_status=$?") &&
     englishSyncCommand.includes("English sync incomplete"),
   "Daily English sync must attempt Hadith even when article translation lacks Gemini or fails.",
 );
@@ -314,15 +315,33 @@ assert.ok(
     !insightsService.includes("processSocialPublishItem"),
   "The analytics-only service must update published-post insights without claiming or publishing queue rows",
 );
+const englishCredentialStart = english.indexOf("name: Validate Supabase credentials before installing dependencies");
+const englishCredentialEnd = english.indexOf("- uses: pnpm/action-setup", englishCredentialStart);
+const englishCredentialBlock = english.slice(englishCredentialStart, englishCredentialEnd);
+const englishWorkerStart = english.indexOf("name: Run one bounded article batch and one bounded Hadith batch");
+const englishWorker = english.slice(englishWorkerStart);
+const englishQuranSyncPosition = englishWorker.indexOf("pnpm sync:quran:en");
+const englishHadithSyncPosition = englishWorker.indexOf("pnpm sync:hadith:en");
+const englishGeminiBranchPosition = englishWorker.indexOf('if [[ -n "${GEMINI_API_KEY:-}" ]]');
+const englishArticlePosition = englishWorker.indexOf("pnpm translate:articles:en");
+const englishContentPosition = englishWorker.indexOf("pnpm translate:content:en");
 assert.ok(
-  !english.includes("\n  schedule:") ||
-    (
-      english.includes('cron: "15 7 * * *"') &&
-      english.includes("environment: production") &&
-      english.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}") &&
-      english.includes('test -n "${GEMINI_API_KEY:-}"')
-    ),
-  "GitHub English sync may only own the protected 07:15 UTC backup after CircleCI; it must verify Gemini and Supabase credentials before translation writes",
+  english.includes('cron: "15 7 * * *"') &&
+    english.includes("environment: production") &&
+    english.includes("SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}") &&
+    english.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}") &&
+    englishCredentialStart >= 0 && englishCredentialEnd > englishCredentialStart &&
+    !englishCredentialBlock.includes('test -n "${GEMINI_API_KEY:-}"') &&
+    english.includes('workflows: ["ZIKR Finalization Controlled Release"]') &&
+    english.includes("types: [completed]") &&
+    english.includes("github.event.workflow_run.conclusion == 'success'") &&
+    english.includes("github.event.workflow_run.head_branch == 'main'") &&
+    !english.split(/\r?\n/).some((line) => line.trim() === "push:") &&
+    englishQuranSyncPosition >= 0 && englishHadithSyncPosition > englishQuranSyncPosition &&
+    englishGeminiBranchPosition > englishHadithSyncPosition &&
+    englishArticlePosition > englishGeminiBranchPosition &&
+    englishContentPosition > englishGeminiBranchPosition,
+  "GitHub English sync must wait for successful controlled production release, then run Quran/Hadith before optional Gemini batches",
 );
 assert.ok(english.includes("environment: production"), "English sync must use protected production environment");
 assert.ok(english.includes("github.ref == 'refs/heads/main'"), "English sync must be main-only");

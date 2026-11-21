@@ -111,7 +111,7 @@ for (const token of [
   if (!worker.includes(token)) failures.push(`worker missing quality enhancement: ${token}`);
 }
 const rendererVersion = read("src/features/videos/services/video-template-version.ts");
-if (!rendererVersion.includes('CURRENT_VIDEO_RENDERER_VERSION = "2026-11-21-template-scenes-v11"')) {
+if (!rendererVersion.includes('CURRENT_VIDEO_RENDERER_VERSION = "2026-11-21-visual-catalog-v12"')) {
   failures.push("central video renderer version must match the validated template worker version");
 }
 

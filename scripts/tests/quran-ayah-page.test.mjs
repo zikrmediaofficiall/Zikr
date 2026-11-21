@@ -12,6 +12,8 @@ const routeParams = read("src/lib/route-params.ts");
 const searchService = read("src/features/search/services/search.ts");
 const quranTypes = read("src/features/quran/types/quran.ts");
 const quranService = read("src/features/quran/services/quran.ts");
+const quranServer = read("src/features/quran/services/quran-server.ts");
+const surahPage = read("src/app/quran/[surah]/page.tsx");
 const siteShell = read("src/components/layout/site-shell.tsx");
 const hadithFallback = read("src/features/hadith/data/fallback.ts");
 
@@ -41,6 +43,15 @@ assert.doesNotMatch(quranPage, /Number\(p\.surah\)|Number\(p\.ayah\)/, "Quran ro
 assert.match(quranPage, /<ShareButton/, "Quran ayah page must use the functional share control");
 assert.doesNotMatch(quranPage, /Share2|جاري تحميل التفسير/, "Quran ayah page must not retain inert share or permanent loading UI");
 assert.match(quranPage, /لا يتوفر تفسير مسجل لهذه الآية حالياً/, "a completed missing-tafsir read must render an empty state");
+assert.match(quranPage, /getRequestLocale\(\)/, "individual ayah pages must respect the selected language");
+assert.match(quranPage, /textEn/, "English ayah pages must render their attributed English translation");
+assert.match(quranPage, /en\.pickthall/, "English Quran must identify its translation edition");
+assert.match(quranPage, /translationAvailable/, "missing English translations must not render as empty text");
+assert.match(surahPage, /getSurahFromDb\(id, locale\)/, "Surah pages must request the selected language");
+assert.match(surahPage, /English translation is not available/, "Surah pages must render a clear fallback for untranslated verses");
+assert.match(quranService, /translationAvailable: Boolean\(ayah\.text_en\?\.trim\(\)\)/, "Quran data mapping must expose translation availability");
+assert.match(quranService, /text_en\.ilike/, "Quran search must include the English translation");
+assert.match(quranServer, /text_en_edition/, "Quran data mapping must preserve edition provenance");
 
 assert.match(hadithPage, /<ShareButton/, "Hadith detail page must use the functional share control");
 assert.doesNotMatch(hadithPage, /Share2/, "Hadith detail page must not retain an inert share button");
@@ -60,4 +71,15 @@ for (const verifiedRef of ["muslim:2699a", "bukhari:5027", "muslim:55a"]) {
   assert.ok(hadithFallback.includes(`ref:'${verifiedRef}'`), `Hadith fallback must cite verified reference ${verifiedRef}`);
 }
 
+assert.match(quranPage, /getRequestLocale\(\)/, "English Quran verse routes must respect the selected site language");
+assert.match(quranPage, /textEn/, "English ayah details must expose the selected translation text");
+assert.match(quranPage, /translationAvailable/, "untranslated verses must not render as blank");
+assert.match(quranPage, /en\.pickthall|Marmaduke Pickthall/, "English Quran must show its translation edition");
+assert.match(surahPage, /getSurahFromDb\(id, locale\)/, "Surah reading must request the current locale");
+assert.match(surahPage, /English translation is not available/, "untranslated verses must show a helpful fallback");
+assert.match(quranService, /text_en_edition/, "the Quran service must preserve translation provenance");
+assert.match(quranService, /translationAvailable: Boolean\(ayah\.text_en\?\.trim\(\)\)/, "Quran mapping must expose translation availability");
+assert.match(quranService, /text_en\.ilike/, "Quran search must include English translations");
+assert.match(quranServer, /text_en_edition/, "server Quran reads must select the translation edition");
+assert.match(quranServer, /if \(locale !== "en"\)/, "English reading must bypass the Arabic-only local corpus");
 console.log("Quran/Hadith routes, exact verse search links, skip navigation, verified references, share controls, and tafsir empty-state contracts passed.");

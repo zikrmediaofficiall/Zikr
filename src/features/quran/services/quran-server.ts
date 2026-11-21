@@ -55,6 +55,7 @@ type LocalQuranRow = {
   ayah_number: number;
   text_ar: string;
   text_en: string | null;
+  text_en_edition?: string | null;
   text_uthmani: string | null;
   text_simple: string | null;
   page: number | null;
@@ -115,6 +116,7 @@ function mapLocalAyah(
       ayah_number: row.ayah_number,
       text_ar: displayArabic,
       text_en: row.text_en,
+      text_en_edition: row.text_en_edition ?? null,
       text_uthmani: displayArabic,
       text_simple: row.text_simple,
       page: row.page,
@@ -222,17 +224,19 @@ export async function getSurahFromDb(
   surahId: number,
   locale: Locale = "ar"
 ): Promise<{ surah: Surah; ayahs: Ayah[] } | null> {
-  try {
-    const rows = await getLocalSurahRows(surahId);
-    const fallback = getFallbackSurahs(locale).find((surah) => surah.number === surahId) ?? null;
-    if (fallback && rows.length === fallback.numberOfAyahs) {
-      return {
-        surah: { ...fallback, numberOfAyahs: rows.length },
-        ayahs: rows.map((row) => mapLocalAyah(row, locale)),
-      };
+  if (locale !== "en") {
+    try {
+      const rows = await getLocalSurahRows(surahId);
+      const fallback = getFallbackSurahs(locale).find((surah) => surah.number === surahId) ?? null;
+      if (fallback && rows.length === fallback.numberOfAyahs) {
+        return {
+          surah: { ...fallback, numberOfAyahs: rows.length },
+          ayahs: rows.map((row) => mapLocalAyah(row, locale)),
+        };
+      }
+    } catch (error) {
+      console.error(`[quran-server] local Quran surah ${surahId} unavailable:`, error);
     }
-  } catch (error) {
-    console.error(`[quran-server] local Quran surah ${surahId} unavailable:`, error);
   }
 
   try {
@@ -242,7 +246,7 @@ export async function getSurahFromDb(
     if (!dbSurahs?.[0]) return null;
 
     const dbAyahs = await quranDbRequest<DbAyah[]>(
-      `/rest/v1/quran_ayahs?surah_id=eq.${surahId}&select=id,surah_id,ayah_number,text_ar,text_en,text_uthmani,text_simple,page,juz,hizb,rub,sajda&order=ayah_number.asc`
+      `/rest/v1/quran_ayahs?surah_id=eq.${surahId}&select=id,surah_id,ayah_number,text_ar,text_en,text_en_edition,text_uthmani,text_simple,page,juz,hizb,rub,sajda&order=ayah_number.asc`
     );
 
     return {
@@ -261,6 +265,19 @@ export async function searchLocalQuran(
 ): Promise<Ayah[]> {
   const cleanQuery = normalizeArabicSearchText(query);
   if (!cleanQuery) return [];
+
+  if (locale === "en") {
+    try {
+      const encoded = encodeURIComponent(query.trim().replace(/[%_*]/g, " "));
+      const rows = await quranDbRequest<DbAyah[]>(
+        `/rest/v1/quran_ayahs?and=(text_en.not.is.null,text_en.ilike.*${encoded}*)&limit=50&order=surah_id.asc,ayah_number.asc&select=id,surah_id,ayah_number,text_ar,text_en,text_en_edition,text_uthmani,text_simple,page,juz,hizb,rub,sajda`,
+      );
+      return (rows ?? []).map((row) => mapDbAyah(row, "en"));
+    } catch (error) {
+      console.error("[quran-server] English Quran search unavailable:", error);
+      return [];
+    }
+  }
 
   try {
     const corpus = await loadLocalQuranCorpus();
@@ -290,20 +307,22 @@ export async function getAyahFromDb(
   ayahNumber: number,
   locale: Locale = "ar"
 ): Promise<Ayah | null> {
-  try {
-    const rows = await getLocalSurahRows(surahId);
-    const local = rows.find((row) => row.ayah_number === ayahNumber);
-    if (local) return mapLocalAyah(local, locale);
-  } catch (error) {
-    console.error(
-      `[quran-server] local Quran ayah ${surahId}:${ayahNumber} unavailable:`,
-      error
-    );
+  if (locale !== "en") {
+    try {
+      const rows = await getLocalSurahRows(surahId);
+      const local = rows.find((row) => row.ayah_number === ayahNumber);
+      if (local) return mapLocalAyah(local, locale);
+    } catch (error) {
+      console.error(
+        `[quran-server] local Quran ayah ${surahId}:${ayahNumber} unavailable:`,
+        error
+      );
+    }
   }
 
   try {
     const result = await quranDbRequest<DbAyah[]>(
-      `/rest/v1/quran_ayahs?surah_id=eq.${surahId}&ayah_number=eq.${ayahNumber}&limit=1&select=id,surah_id,ayah_number,text_ar,text_en,text_uthmani,text_simple,page,juz,hizb,rub,sajda`
+      `/rest/v1/quran_ayahs?surah_id=eq.${surahId}&ayah_number=eq.${ayahNumber}&limit=1&select=id,surah_id,ayah_number,text_ar,text_en,text_en_edition,text_uthmani,text_simple,page,juz,hizb,rub,sajda`
     );
 
     if (!result?.[0]) return null;

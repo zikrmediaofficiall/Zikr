@@ -197,14 +197,14 @@ Current production roles:
 - `publish-social.yml`: recurring + manual YouTube/Facebook publishing through `social_publish_queue`
 - `supabase-production-health.yml`: production Supabase health probe
 - `urgent-video-dispatcher.yml`: deliberate video dispatch recovery only
-- `english-content-sync.yml`: manual bounded synchronization; recurring execution remains in CircleCI
+- `english-content-sync.yml`: protected, bounded English synchronization. CircleCI remains the primary daily run; GitHub provides a scheduled backup and a path-filtered `main` trigger for the Quran/English-sync importer and provenance migration.
 - `global-localization-verify.yml`: retired; its checks remain in the quality gate
 
 GitHub Actions production secrets for video/social are bound through the protected `production` environment. Secret values are not stored in Git.
 
 ### CircleCI
 
-CircleCI owns the production web application build artifact, build/release documentation artifact, Android release builds, Supabase release gates, and recurring English content sync. It does not own video generation or social publishing.
+CircleCI owns the primary production web application build artifact, build/release documentation artifact, Android release builds, Supabase release gates, and daily English content sync. The protected GitHub English workflow is a bounded backup (scheduled and path-filtered to reviewed translation changes on `main`). Neither CI lane owns video generation or social publishing.
 
 Android release additionally requires:
 
@@ -278,7 +278,7 @@ The current production contract is aligned around:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` as the browser-facing key;
 - `SUPABASE_SERVICE_ROLE_KEY` as the server-only key;
 - GitHub Actions as the sole owner of video generation and social publishing;
-- CircleCI as the application build/documentation, Android release, Supabase gate, and English-sync lane.
+- CircleCI as the primary application build/documentation, Android release, Supabase gate, and English-sync lane, with the protected GitHub English workflow as a scheduled and path-filtered backup.
 
 A read-only check against that target passed for Auth settings, `quran_surahs`, `kids_games`, and `kids_content`. It found two schema gaps: `content_library.summary_en` is missing, and `public.content_translation_queue` is absent. Treat schema reconciliation as incomplete until these are reviewed and migrated.
 

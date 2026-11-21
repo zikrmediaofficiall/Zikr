@@ -27,6 +27,10 @@ VOICE_PROFILES = {
     "documentary": {"voice": "ar-SA-HamedNeural", "rate": "-8%", "pitch": "-1Hz"},
     "egyptian": {"voice": "ar-EG-ShakirNeural", "rate": "-6%", "pitch": "0Hz"},
     "kids": {"voice": "ar-EG-ShakirNeural", "rate": "-6%", "pitch": "0Hz"},
+    "documentary_female_msa": {"voice": "ar-SA-ZariyahNeural", "rate": "-8%", "pitch": "0Hz"},
+    "egyptian_female_story": {"voice": "ar-EG-SalmaNeural", "rate": "-6%", "pitch": "0Hz"},
+    "egyptian_male_story": {"voice": "ar-EG-ShakirNeural", "rate": "-7%", "pitch": "0Hz"},
+    "levant_male_story": {"voice": "ar-JO-TaimNeural", "rate": "-8%", "pitch": "-1Hz"},
 }
 DEFAULT_PROFILE = "msa"
 

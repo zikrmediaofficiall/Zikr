@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   isVideoTemplateAssetAllowedForAudience,
   parseVideoTemplateConfig,
+  VIDEO_TEMPLATE_ASSETS,
   videoTemplateAssetPath,
   videoTemplateScene,
 } from "../../src/features/videos/services/template-config";
 import { resolveVideoComposition } from "../../src/features/videos/services/video-composition";
 import { CURRENT_VIDEO_RENDERER_VERSION } from "../../src/features/videos/services/video-template-version";
+import { isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoScene, resolveDeterministicVideoVisualTheme } from "../../src/features/videos/services/video-creative-variation";
 
 const general = parseVideoTemplateConfig({
   assetKey: "emerald",
@@ -64,7 +66,42 @@ assert.ok(customComposition.panelLeft > standardComposition.panelLeft);
 assert.ok(customComposition.lineChars < standardComposition.lineChars);
 assert.equal(customComposition.captionStyle, "boxed");
 assert.equal(customComposition.sourceCardStyle, "compact");
-assert.equal(CURRENT_VIDEO_RENDERER_VERSION, "2026-11-21-template-scenes-v11");
+assert.equal(CURRENT_VIDEO_RENDERER_VERSION, "2026-11-21-visual-catalog-v12");
+assert.equal(VIDEO_TEMPLATE_ASSETS.length, 50);
+assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => !asset.startsWith("kids-")).length, 36);
+assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => asset.startsWith("kids-")).length, 14);
+for (const asset of VIDEO_TEMPLATE_ASSETS) {
+  const audience = asset.startsWith("kids-") ? "kids" : "general";
+  assert.equal(isVideoTemplateAssetAllowedForAudience(asset, audience), true, asset);
+  assert.equal(videoTemplateAssetPath(asset, audience), `public/video/templates/${asset}.svg`);
+  assert.equal(parseVideoTemplateConfig({ assetKey: asset, defaultFormat: "vertical", motion: "slow" })?.assetKey, asset);
+}
+const generalScene = resolveDeterministicVideoScene({ id: "visual-general-01", category: "story" });
+const kidsScene = resolveDeterministicVideoScene({ id: "visual-kids-01", category: "story", audience: "kids" });
+assert.equal(isVideoSceneAllowedForAudience(generalScene, "general"), true);
+assert.equal(isVideoSceneAllowedForAudience(kidsScene, "kids"), true);
+assert.equal(isVideoSceneAllowedForAudience(kidsScene, "general"), true);
+assert.ok(resolveDeterministicVideoHook({ id: "hook-story-01", category: "story" }).length > 12);
+assert.ok(resolveDeterministicVideoHook({ id: "hook-kids-01", category: "story", audience: "kids" }).length > 12);
+const addedAssets = [
+  "watercolor-sky", "old-city", "desert-rose", "mosaic-blue", "satin-night", "sunlit-arch", "olive-branch", "minimal-cream",
+  "kids-jungle", "kids-robotics", "kids-animals", "kids-weather",
+] as const;
+for (const asset of addedAssets) {
+  const audience = asset.startsWith("kids-") ? "kids" : "general";
+  assert.equal(isVideoTemplateAssetAllowedForAudience(asset, audience), true);
+  assert.equal(isVideoTemplateAssetAllowedForAudience(asset, audience === "kids" ? "general" : "kids"), false);
+  assert.equal(videoTemplateAssetPath(asset, audience), `public/video/templates/${asset}.svg`);
+  assert.ok(readFileSync(videoTemplateAssetPath(asset, audience)!, "utf8").includes("<svg"));
+}
+for (const id of ["theme-01", "theme-02", "theme-03", "theme-04", "theme-05", "theme-06", "theme-07", "theme-08", "theme-09", "theme-10", "theme-11", "theme-12", "theme-13", "theme-14", "theme-15", "theme-16"]) {
+  const generalTheme = resolveDeterministicVideoVisualTheme({ id, category: "story" });
+  const kidsTheme = resolveDeterministicVideoVisualTheme({ id, category: "story", audience: "kids" });
+  assert.equal(isVideoTemplateAssetAllowedForAudience(generalTheme, "general"), true);
+  assert.equal(isVideoTemplateAssetAllowedForAudience(generalTheme, "kids"), false);
+  assert.equal(isVideoTemplateAssetAllowedForAudience(kidsTheme, "kids"), true);
+  assert.equal(isVideoTemplateAssetAllowedForAudience(kidsTheme, "general"), false);
+}
 assert.equal(parseVideoTemplateConfig({ assetKey: "../../secrets", defaultFormat: "vertical", motion: "slow" }), null);
 assert.equal(parseVideoTemplateConfig({ assetKey: "gold", defaultFormat: "square", motion: "slow" }), null);
 assert.equal(isVideoTemplateAssetAllowedForAudience("kids-garden", "kids"), true);
@@ -74,48 +111,49 @@ assert.equal(videoTemplateAssetPath("kids-garden", "kids"), "public/video/templa
 assert.equal(videoTemplateAssetPath("kids-garden", "general"), null);
 assert.equal(videoTemplateScene("kids-garden"), "calm");
 assert.equal(videoTemplateScene("emerald"), "emerald");
-const sceneAssets = [
-  "andalusian-arch", "midnight-skyline", "oasis-dawn",
-  "lantern-glow", "geometric-mosaic", "moonlit-sea", "desert-caravan", "olive-grove", "manuscript-library",
-] as const;
-const sceneBuckets = {
-  "lantern-glow": "gold",
-  "geometric-mosaic": "emerald",
-  "moonlit-sea": "night",
-  "desert-caravan": "dawn",
-  "olive-grove": "emerald",
-  "manuscript-library": "paper",
-} as const;
-for (const asset of sceneAssets) {
+for (const asset of ["andalusian-arch", "midnight-skyline", "oasis-dawn"] as const) {
   assert.equal(isVideoTemplateAssetAllowedForAudience(asset, "general"), true);
   assert.equal(isVideoTemplateAssetAllowedForAudience(asset, "kids"), false);
-  const path = videoTemplateAssetPath(asset, "general");
-  assert.equal(path, `public/video/templates/${asset}.svg`);
-  assert.ok(readFileSync(path!, "utf8").includes("<svg"), `scene SVG must exist for ${asset}`);
+  assert.equal(videoTemplateAssetPath(asset, "general"), `public/video/templates/${asset}.svg`);
   assert.equal(parseVideoTemplateConfig({ assetKey: asset, defaultFormat: "vertical", motion: "slow" })?.assetKey, asset);
 }
 assert.equal(videoTemplateScene("andalusian-arch"), "emerald");
 assert.equal(videoTemplateScene("midnight-skyline"), "night");
 assert.equal(videoTemplateScene("oasis-dawn"), "dawn");
-for (const [asset, scene] of Object.entries(sceneBuckets)) {
-  assert.equal(videoTemplateScene(asset as keyof typeof sceneBuckets), scene);
-}
 
 const read = (path: string) => readFileSync(path, "utf8");
-const expandedAssetMigration = read("supabase/migrations/20261121070000_expand_video_template_assets.sql");
-for (const asset of sceneAssets) {
-  assert.ok(expandedAssetMigration.includes("'" + asset + "'"), "new visual asset must be allowed in the database migration: " + asset);
-}
-assert.ok(expandedAssetMigration.includes("FROM public.profiles AS actor"));
-assert.ok(!expandedAssetMigration.includes("FROM auth.users"));
-assert.ok(expandedAssetMigration.includes("CREATE OR REPLACE FUNCTION public.admin_create_video_template_version"));
-assert.ok(expandedAssetMigration.includes("video_templates_asset_key_check"));
-const templateStudioAssetRegistry = read("src/features/admin/video-templates/components/template-studio-client.tsx");
-for (const asset of sceneAssets) {
-  assert.ok(templateStudioAssetRegistry.includes(asset), `Template Studio must expose ${asset}`);
-}
+const videoQaVerifier = read("scripts/verify-video-qa.mjs");
+assert.ok(
+  videoQaVerifier.includes(`CURRENT_VIDEO_RENDERER_VERSION = "${CURRENT_VIDEO_RENDERER_VERSION}"`),
+  "Video QA must validate the same renderer version as the template engine",
+);
+
+const migrationFiles = readdirSync("supabase/migrations").filter((filename) => filename.endsWith(".sql"));
+const migrationVersions = migrationFiles
+  .map((filename) => filename.slice(0, 14))
+  .filter((version) => /^\d{14}$/.test(version));
+assert.equal(
+  new Set(migrationVersions).size,
+  migrationVersions.length,
+  "Supabase migration version prefixes must be unique across the entire repository",
+);
+const videoTemplateSeedIds = migrationFiles.flatMap((filename) => {
+  const source = read("supabase/migrations/" + filename);
+  const insertBlocks = [...source.matchAll(/INSERT INTO public\.video_templates\b[\s\S]*?\bVALUES([\s\S]*?)ON CONFLICT/gi)];
+  return insertBlocks.flatMap(([, values]) =>
+    [...(values ?? "").matchAll(/\('([0-9a-f-]{36})',/gi)].map((match) => match[1]),
+  );
+});
+assert.equal(
+  new Set(videoTemplateSeedIds).size,
+  videoTemplateSeedIds.length,
+  "fixed video template seed IDs must be unique across all migrations",
+);
+
 
 const migration = read("supabase/migrations/20261106010000_admin_video_template_studio.sql");
+const visualCatalogMigration = read("supabase/migrations/20261121090000_expand_video_template_visual_catalog.sql");
+const visualCatalogBridgeMigration = read("supabase/migrations/20261121085000_expand_video_template_visual_catalog.sql");
 const blockerFixMigration = read("supabase/migrations/20261106090800_production_blockers_and_social_insights.sql");
 const api = read("src/app/api/admin/video/templates/route.ts");
 const createApi = read("src/app/api/admin/videos/create/route.ts");
@@ -123,6 +161,35 @@ const worker = read("scripts/jobs/template-video-automation.ts");
 const automation = read("src/features/videos/services/video-automation.ts");
 const adminPage = read("src/app/admin/video/templates/page.tsx");
 const studioClient = read("src/features/admin/video-templates/components/template-studio-client.tsx");
+const templateStudioPage = read("src/app/admin/video/templates/page.tsx");
+const englishLabels = studioClient.slice(studioClient.indexOf("const ASSET_LABELS_EN:"), studioClient.indexOf("const getAssetLabel"));
+assert.match(templateStudioPage, /getRequestLocale/,
+  "Template Studio page must resolve the same locale selected by the visitor");
+assert.match(templateStudioPage, /TemplateStudioClient locale=\{locale\}/,
+  "Template Studio page must pass the selected locale to its client UI");
+for (const asset of VIDEO_TEMPLATE_ASSETS) {
+  assert.ok(
+    englishLabels.includes(`"${asset}":`) || englishLabels.includes(`${asset}:`),
+    `Template Studio must provide an English label for ${asset}`,
+  );
+}
+
+const studioGeneralAssets = studioClient.match(/const GENERAL_ASSETS = \[(.*?)\];/)?.[1] ?? "";
+const studioKidsAssets = studioClient.match(/const KIDS_ASSETS = \[(.*?)\];/)?.[1] ?? "";
+assert.equal((studioGeneralAssets.match(/"[^"]+"/g) ?? []).length, 36,
+  "Template Studio must expose all 36 general visual scenes");
+assert.equal((studioKidsAssets.match(/"[^"]+"/g) ?? []).length, 14,
+  "Template Studio must expose all 14 Kids visual scenes");
+for (const asset of VIDEO_TEMPLATE_ASSETS) {
+  const registry = asset.startsWith("kids-") ? studioKidsAssets : studioGeneralAssets;
+  assert.ok(registry.includes(`"${asset}"`), `Template Studio must expose registered visual scene ${asset}`);
+}
+assert.match(studioClient, /ASSET_LABELS_EN/, "Template Studio must provide English scene names");
+assert.match(studioClient, /Video Template Studio/, "Template Studio must support the English locale");
+assert.match(studioClient, /dir=\{direction\}/, "Template Studio layout direction must follow the selected locale");
+assert.doesNotMatch(studioClient, /"\{t\(/,
+  "Localized fallback messages must remain valid JSX expressions, not quoted strings");
+
 const studioCreateClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
 const types = read("src/lib/types/supabase.ts");
 
@@ -135,6 +202,20 @@ assert.match(migration, /activate_video_template_version/i);
 assert.match(blockerFixMigration, /FROM public\.profiles AS actor WHERE actor\.id = p_actor_user_id/i);
 assert.doesNotMatch(blockerFixMigration, /FROM auth\.users/i);
 assert.match(migration, /video_template_versions_one_active_per_template/i);
+for (const asset of addedAssets) {
+  assert.ok(visualCatalogMigration.includes("'" + asset + "'"), "Visual catalog migration must allow and seed " + asset);
+}
+for (const previouslyRegisteredAsset of [
+  "lantern-glow", "geometric-mosaic", "moonlit-sea",
+  "desert-caravan", "olive-grove", "manuscript-library",
+]) {
+  assert.ok(
+    visualCatalogBridgeMigration.includes("'" + previouslyRegisteredAsset + "'"),
+    "Intermediate catalog migration must preserve previously registered asset " + previouslyRegisteredAsset,
+  );
+}
+assert.match(visualCatalogMigration, /REVOKE ALL ON FUNCTION public\.admin_create_video_template_version/);
+assert.match(visualCatalogMigration, /GRANT EXECUTE ON FUNCTION public\.admin_create_video_template_version/);
 
 assert.match(api, /requireAdminApi\("video\.manage"\)/);
 const templateGetHandler = api.slice(api.indexOf("export async function GET"), api.indexOf("export async function POST"));

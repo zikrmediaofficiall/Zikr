@@ -16,10 +16,14 @@ if (!router.includes('Provider " + name + " threw for')) failures.push("provider
 if (!router.includes("!templateAttempted")) failures.push("template provider must not be executed twice in one router pass");
 
 const template = read("scripts/jobs/template-video-automation.ts");
+const templateConfig = read("src/features/videos/services/template-config.ts");
 const durationService = read("src/features/videos/services/render-duration.ts");
 for (const scene of ["emerald", "paper", "rose"]) {
   read(`public/video/templates/${scene}.svg`);
-  if (!template.includes(`public/video/templates/${scene}.svg`)) failures.push(`new visual template is not wired: ${scene}`);
+  if (!templateConfig.includes('"'+scene+'"')) failures.push(`legacy visual template is not registered: ${scene}`);
+}
+if (!template.includes("legacySceneAssets") || !template.includes("videoTemplateAssetPath")) {
+  failures.push("renderer must resolve legacy scene classes through the shared audience-safe visual asset registry");
 }
 if (!durationService.includes("MAX_AUTO_VIDEO_SECONDS = 60")) failures.push("automated video duration policy must support narrated shorts up to 60 seconds");
 if (!template.includes("resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS)")) failures.push("video renderer must use the shared tested render-duration policy");
@@ -53,7 +57,14 @@ if (!template.includes("assertAudibleAudio")) failures.push("rendered videos mus
 if (!template.includes("Rendered output resolution mismatch")) failures.push("rendered video resolution must be validated");
 if (!template.includes("Rendered output video bitrate is too low")) failures.push("rendered video bitrate must be validated");
 if (!template.includes("deterministicScene(request)")) failures.push("template selection must provide deterministic visual variety");
-if (!template.includes("resolveDeterministicVideoHook") || !template.includes("resolveDeterministicVideoScene")) failures.push("template fallback must vary scene and opening hook deterministically by content ID");
+if (!template.includes("resolveDeterministicVideoHook") || !template.includes("resolveDeterministicVideoScene") || !template.includes("resolveDeterministicVideoVisualTheme")) failures.push("template fallback must vary renderer scene, local visual theme and opening hook deterministically by content ID");
+for (const asset of ["calm","dawn","emerald","gold","night","paper","rose","andalusian-arch","midnight-skyline","oasis-dawn","desert-caravan","geometric-mosaic","lantern-glow","manuscript-library","moonlit-sea","olive-grove","desert-dusk","coastal-blue","botanical","library","geometric","marble","cinematic","starfield","mountain-dawn","heritage","minimal-studio","rainy-window","watercolor-sky","old-city","desert-rose","mosaic-blue","satin-night","sunlit-arch","olive-branch","minimal-cream","kids-garden","kids-nature","kids-neighborhood","kids-workshop","kids-space","kids-ocean","kids-forest","kids-playground","kids-classroom","kids-adventure","kids-jungle","kids-robotics","kids-animals","kids-weather"]) {
+  if (!templateConfig.includes('"'+asset+'"')) failures.push("template registry is missing asset: " + asset);
+  if (!read(`public/video/templates/${asset}.svg`).includes("<svg")) failures.push("missing/invalid local SVG scene: " + asset);
+}
+if (!template.includes("visualThemeReviewed")) failures.push("automated QA must validate audience-specific visual theme approval");
+if (!template.includes("const visualTheme = boundTemplate?.config.assetKey")) failures.push("renderer must persist the exact immutable or deterministic theme");
+
 if (!template.includes('persistedAi?.provider === "google-gemini"')) failures.push("deterministic fallback must not override per-content visual variation with the default calm Gemini placeholder");
 const composition = read("src/features/videos/services/video-composition.ts");
 for (const token of ["resolveVideoComposition", "paginateCaptionText", "quran:", "hadith:", "dua:", "adhkar:", "story:", "kids:", "cameraPath"]) {

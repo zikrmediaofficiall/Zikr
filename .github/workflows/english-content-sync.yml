@@ -1,8 +1,11 @@
 name: ZIKR English Content Sync
 
 on:
-  # CircleCI remains the primary daily run. This later, bounded run is a backup
-  # using the protected GitHub production environment when CircleCI credentials or jobs fail.
+  # Run only after the protected production release has applied and verified migrations.
+  # CircleCI remains the primary daily run; this is its protected GitHub fallback.
+  workflow_run:
+    workflows: ["ZIKR Finalization Controlled Release"]
+    types: [completed]
   schedule:
     - cron: "15 7 * * *"
   workflow_dispatch:
@@ -31,7 +34,7 @@ jobs:
   sync:
     name: Bounded English content sync
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'))
     environment: production
     timeout-minutes: 100
     env:
@@ -46,13 +49,11 @@ jobs:
         shell: bash
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           set -euo pipefail
           test -n "${SUPABASE_URL:-}" || { echo "Missing canonical Supabase URL configuration." >&2; exit 1; }
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "Missing production environment secret: SUPABASE_SERVICE_ROLE_KEY" >&2; exit 1; }
-          test -n "${GEMINI_API_KEY:-}" || { echo "Missing production environment secret: GEMINI_API_KEY" >&2; exit 1; }
-          echo "Production Supabase and Gemini credentials are present." >> "$GITHUB_STEP_SUMMARY"
+          echo "Production Supabase credentials are present; Gemini is optional for source-backed Quran and Hadith sync." >> "$GITHUB_STEP_SUMMARY"
       - uses: pnpm/action-setup@v6
         with:
           version: 9.15.0
@@ -74,6 +75,15 @@ jobs:
           article_status=0
           content_status=0
           hadith_status=0
+          quran_status=0
+
+          # Source-backed Quran and Hadith imports do not depend on Gemini.
+          # Run them first so optional article/content generation cannot delay them.
+          echo "Importing the named English Quran edition from the verified upstream source."
+          timeout --signal=TERM --kill-after=60s 15m pnpm sync:quran:en || quran_status=$?
+
+          echo "Synchronizing at most ${HADITH_TRANSLATION_BATCH_SIZE} Hadith records."
+          timeout --signal=TERM --kill-after=60s 15m pnpm sync:hadith:en || hadith_status=$?
 
           if [[ -n "${GEMINI_API_KEY:-}" ]]; then
             echo "Translating at most ${TRANSLATION_BATCH_SIZE} published articles."
@@ -82,15 +92,12 @@ jobs:
             echo "Translating at most ${CONTENT_TRANSLATION_BATCH_SIZE} records per additional content category."
             timeout --signal=TERM --kill-after=60s 40m pnpm translate:content:en || content_status=$?
           else
-            echo "Missing production environment secret: GEMINI_API_KEY; article and additional content translation cannot run." >&2
+            echo "Missing production environment secret: GEMINI_API_KEY; source-backed Quran and Hadith sync continue, but article/content translation is skipped." >&2
             article_status=1
             content_status=1
           fi
 
-          echo "Synchronizing at most ${HADITH_TRANSLATION_BATCH_SIZE} Hadith records."
-          timeout --signal=TERM --kill-after=60s 15m pnpm sync:hadith:en || hadith_status=$?
-
-          if (( article_status != 0 || content_status != 0 || hadith_status != 0 )); then
-            echo "English sync incomplete (articles=${article_status}, other-content=${content_status}, hadith=${hadith_status})." >&2
+          if (( article_status != 0 || content_status != 0 || quran_status != 0 || hadith_status != 0 )); then
+            echo "English sync incomplete (articles=${article_status}, other-content=${content_status}, Quran=${quran_status}, hadith=${hadith_status})." >&2
             exit 1
           fi

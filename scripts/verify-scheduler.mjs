@@ -53,20 +53,42 @@ if (prayerPushCronReconcileMigration.includes("nmdeazfmtncelykzxkhs.supabase.co"
 
 const contentSync = read(".github/workflows/english-content-sync.yml");
 const circleciConfig = read(".circleci/config.yml");
+const githubCredentialStart = contentSync.indexOf("name: Validate Supabase credentials before installing dependencies");
+const githubCredentialEnd = contentSync.indexOf("- uses: pnpm/action-setup", githubCredentialStart);
+const githubCredentialBlock = contentSync.slice(githubCredentialStart, githubCredentialEnd);
+const githubWorkerStart = contentSync.indexOf("name: Run one bounded article batch and one bounded Hadith batch");
+const githubWorker = contentSync.slice(githubWorkerStart);
+const githubQuranPosition = githubWorker.indexOf("pnpm sync:quran:en");
+const githubHadithPosition = githubWorker.indexOf("pnpm sync:hadith:en");
+const githubGeminiPosition = githubWorker.indexOf('if [[ -n "${GEMINI_API_KEY:-}" ]]');
+const hasSuccessfulReleaseTrigger =
+  contentSync.includes('workflows: ["ZIKR Finalization Controlled Release"]') &&
+  contentSync.includes("types: [completed]") &&
+  contentSync.includes("github.event.workflow_run.conclusion == 'success'") &&
+  contentSync.includes("github.event.workflow_run.head_branch == 'main'") &&
+  !contentSync.split(/\r?\n/).some((line) => line.trim() === "push:");
 const hasProtectedEnglishBackup =
   contentSync.includes('cron: "15 7 * * *"') &&
   contentSync.includes("environment: production") &&
+  contentSync.includes("SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}") &&
   contentSync.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}") &&
-  contentSync.includes('test -n "${GEMINI_API_KEY:-}"') &&
   contentSync.includes("if: github.ref == 'refs/heads/main'") &&
+  githubCredentialStart >= 0 &&
+  githubCredentialEnd > githubCredentialStart &&
+  !githubCredentialBlock.includes('test -n "${GEMINI_API_KEY:-}"') &&
+  githubQuranPosition >= 0 &&
+  githubHadithPosition > githubQuranPosition &&
+  githubGeminiPosition > githubHadithPosition &&
+  hasSuccessfulReleaseTrigger &&
   circleciConfig.includes('cron: "17 4 * * *"');
 if (contentSync.includes("\n  schedule:") && !hasProtectedEnglishBackup) {
-  failures.push("GitHub English sync may only be the protected 07:15 UTC backup; CircleCI must retain the primary 04:17 UTC schedule and Gemini/Supabase credentials must be checked before writes");
+  failures.push("GitHub English sync must retain its protected 07:15 UTC backup, validate Supabase before source writes, and run Quran/Hadith independently of the optional Gemini batches");
 }
-if (!contentSync.includes("pnpm translate:articles:en") || !contentSync.includes("pnpm sync:hadith:en")) failures.push("English article/Hadith sync commands are incomplete");
+if (!contentSync.includes("pnpm translate:articles:en") || !contentSync.includes("pnpm sync:hadith:en") || !contentSync.includes("pnpm sync:quran:en")) failures.push("English article, Quran and Hadith sync commands are incomplete");
+if (!circleciConfig.includes("pnpm sync:quran:en") || !circleciConfig.includes("quran_status")) failures.push("primary CircleCI must run and report the source-attributed Quran translation worker");
 if (contentSync.includes("seq 1 10")) failures.push("article translation must not rerun the same bounded batch ten times");
 if (!contentSync.includes("environment: production") || !contentSync.includes("if: github.ref == 'refs/heads/main'")) failures.push("English content sync must use production secrets on main only");
-if (contentSync.includes("\n  push:")) failures.push("English content sync must not write to production on every source push");
+if (contentSync.split(/\r?\n/).some((line) => line.trim() === "push:")) failures.push("English production sync must wait for the controlled release to apply and verify migrations");
 if (!contentSync.includes("workflow_dispatch:")) failures.push("English content sync must retain deliberate manual dispatch");
 const articleTranslator = read("scripts/translate-published-articles-en.ts");
 if (articleTranslator.includes("GEMINI_API_KEY_")) failures.push("article translation must not rotate through quota-pooling Gemini keys");

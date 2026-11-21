@@ -194,7 +194,8 @@ export default async function HomePage() {
         aria-label={isEnglish ? 'Home page' : 'الصفحة الرئيسية'}
       >
         <Container className="relative z-10 pb-8 pt-8 sm:pb-12 sm:pt-12">
-          <div className="mx-auto max-w-5xl text-center" dir={dir}>
+          <div className="mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)]" dir={dir}>
+            <div className="text-center lg:text-right">
             <p className="text-xs font-semibold tracking-[0.22em] text-brand-gold/50">
               {isEnglish ? 'ZIKR PLATFORM' : 'منصة ذِكر'}
             </p>
@@ -242,10 +243,24 @@ export default async function HomePage() {
                 {isEnglish ? 'Start a daily routine' : 'ابدأ وردك اليومي'}
               </Link>
             </div>
-            <div className="mt-5 flex flex-wrap justify-center gap-2 text-[11px] text-brand-cream/50">
+            <div className="mt-5 flex flex-wrap justify-center gap-2 text-[11px] text-brand-cream/50 lg:justify-start">
               {[isEnglish ? 'Quran and verified references' : 'قرآن ومراجع قابلة للتحقق', isEnglish ? 'Reading, audio and daily tools' : 'قراءة وصوت وأدوات يومية', isEnglish ? 'A focused Kids experience' : 'تجربة مخصصة للأطفال'].map((item) => (
                 <span key={item} className="rounded-full border border-brand-gold/10 bg-black/15 px-3 py-1.5">{item}</span>
               ))}
+            </div>
+            </div>
+            <div className="relative mx-auto w-full max-w-[440px]">
+              <div aria-hidden="true" className="aspect-[5/4] rounded-[2rem] border border-brand-gold/20 bg-[#0b251d] bg-cover bg-center shadow-[0_28px_90px_rgba(0,0,0,.36)] sm:aspect-[4/3] lg:aspect-[4/5]" style={{ backgroundImage: "linear-gradient(180deg,rgba(4,18,13,.02),rgba(4,18,13,.4)),url('/banners/homepage/home-visual.svg')" }} />
+              <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-brand-gold/25 bg-[#061610]/85 p-4 shadow-xl backdrop-blur-sm sm:inset-x-6 sm:bottom-6">
+                <p className="text-[10px] font-semibold tracking-[0.2em] text-brand-gold/60">{isEnglish ? "A CALMER WAY TO LEARN" : "معرفة وذكر في تجربة واحدة"}</p>
+                <p className="mt-2 text-lg font-bold leading-8 text-brand-cream sm:text-xl">{isEnglish ? "Read, listen, reflect and keep your daily practice close." : "اقرأ، واستمع، وتدبّر، واجعل وردك اليومي أقرب إليك."}</p>
+                <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-brand-cream/70">
+                  <span className="rounded-full border border-brand-gold/20 px-3 py-1.5">{isEnglish ? "Quran" : "القرآن"}</span>
+                  <span className="rounded-full border border-brand-gold/20 px-3 py-1.5">{isEnglish ? "Knowledge" : "المعرفة"}</span>
+                  <span className="rounded-full border border-brand-gold/20 px-3 py-1.5">{isEnglish ? "Daily practice" : "الورد اليومي"}</span>
+                </div>
+              </div>
+              <div className="absolute -top-3 left-5 rounded-xl border border-brand-gold/25 bg-[#0b2b22]/95 px-4 py-2 text-xs font-semibold text-brand-gold shadow-lg sm:left-8">{isEnglish ? "Explore at your own pace" : "اكتشف على مهل"}</div>
             </div>
           </div>
         </Container>
@@ -283,7 +298,7 @@ export default async function HomePage() {
                 <Link
                   key={action.href}
                   href={action.href}
-                  className="group rounded-2xl border border-brand-gold/12 bg-black/15 p-4 text-center transition hover:-translate-y-0.5 hover:border-brand-gold/35"
+                  className="group min-h-40 rounded-2xl border border-brand-gold/15 bg-gradient-to-br from-white/[.035] to-black/25 p-4 text-center shadow-[0_12px_32px_rgba(0,0,0,.12)] transition duration-200 hover:-translate-y-1 hover:border-brand-gold/40 hover:shadow-[0_18px_42px_rgba(0,0,0,.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-gold"
                   dir={dir}
                 >
                   {(() => {
@@ -328,7 +343,7 @@ export default async function HomePage() {
                 const thumbnail = safeThumbnailBackground(video.thumbnailUrl);
                 const duration = formatVideoDuration(video.duration);
                 return (
-                  <Link key={video.id} href={'/videos/' + video.slug} className="group overflow-hidden rounded-2xl border border-brand-gold/15 bg-black/25 transition hover:-translate-y-1 hover:border-brand-gold/40" dir={dir}>
+                  <Link key={video.id} href={'/videos/' + video.slug} className="group overflow-hidden rounded-2xl border border-brand-gold/15 bg-black/25 shadow-[0_16px_42px_rgba(0,0,0,.2)] transition duration-200 hover:-translate-y-1 hover:border-brand-gold/45 hover:shadow-[0_22px_54px_rgba(0,0,0,.28)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-gold" dir={dir}>
                     <div className="relative aspect-[9/12] overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(199,168,107,.22),transparent_35%),linear-gradient(145deg,#10372d,#07140f)]" style={thumbnail ? { backgroundImage: `linear-gradient(180deg,rgba(3,15,11,.02)_15%,rgba(3,15,11,.92)_100%),url("${thumbnail}")`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/5 transition group-hover:from-black/65" />
                       <span className="absolute right-3 top-3 rounded-full border border-brand-gold/25 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-brand-gold/90">{isEnglish ? 'Published' : 'منشور'}</span>

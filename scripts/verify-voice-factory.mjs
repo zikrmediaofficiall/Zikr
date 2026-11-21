@@ -16,9 +16,20 @@ if (!tts.includes("text[:5000]")) failures.push("Arabic TTS must enforce the 500
 if (!tts.includes('"hadith": {"voice": "ar-SA-HamedNeural"')) failures.push("Hadith Arabic TTS profile must use a male MSA voice");
 if (!tts.includes('"rate": "-10%"')) failures.push("Hadith/default Arabic voice rate must be human-like and configurable");
 if (!tts.includes("output.stat().st_size < 1024")) failures.push("Arabic TTS must reject empty/tiny outputs");
+const canonicalProfiles = read("src/features/videos/services/voice-profiles.ts");
+const worker = read("scripts/jobs/template-video-automation.ts");
+for (const [profile, voice] of [
+  ["documentary_female_msa", "ar-SA-ZariyahNeural"],
+  ["egyptian_female_story", "ar-EG-SalmaNeural"],
+  ["egyptian_male_story", "ar-EG-ShakirNeural"],
+  ["levant_male_story", "ar-JO-TaimNeural"],
+]) {
+  if (!tts.includes(profile) || !tts.includes(voice)) failures.push("TTS runtime is missing " + profile);
+  if (!canonicalProfiles.includes(profile) || !canonicalProfiles.includes(voice)) failures.push("Voice Factory registry is missing " + profile);
+  if (!worker.includes(profile)) failures.push("automated QA allowlist is missing " + profile);
+}
 for (const token of ["ARABIC_TTS_VOICE", "ARABIC_TTS_RATE", "ARABIC_TTS_PITCH"]) if (!tts.includes(token)) failures.push(`Arabic TTS configuration missing: ${token}`);
 
-const worker = read("scripts/jobs/template-video-automation.ts");
 if (!worker.includes("scripts/generate-arabic-voice.py")) failures.push("production video worker must use the canonical Arabic TTS helper");
 if (!worker.includes("getDefaultVideoVoiceProfile")) failures.push("production video worker must resolve canonical voice profiles");
 if (!worker.includes("ARABIC_TTS_VOICE")) failures.push("production video worker must expose the canonical TTS voice setting");

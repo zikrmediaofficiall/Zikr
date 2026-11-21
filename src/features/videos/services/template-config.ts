@@ -1,8 +1,54 @@
 export const VIDEO_TEMPLATE_ASSETS = [
-  "calm", "dawn", "emerald", "gold", "night", "paper", "rose",
-  "andalusian-arch", "midnight-skyline", "oasis-dawn",
-  "lantern-glow", "geometric-mosaic", "moonlit-sea", "desert-caravan", "olive-grove", "manuscript-library",
-  "kids-garden", "kids-nature", "kids-neighborhood", "kids-workshop",
+  "calm",
+  "dawn",
+  "emerald",
+  "gold",
+  "night",
+  "paper",
+  "rose",
+  "andalusian-arch",
+  "midnight-skyline",
+  "oasis-dawn",
+  "desert-caravan",
+  "geometric-mosaic",
+  "lantern-glow",
+  "manuscript-library",
+  "moonlit-sea",
+  "olive-grove",
+  "desert-dusk",
+  "coastal-blue",
+  "botanical",
+  "library",
+  "geometric",
+  "marble",
+  "cinematic",
+  "starfield",
+  "mountain-dawn",
+  "heritage",
+  "minimal-studio",
+  "rainy-window",
+  "watercolor-sky",
+  "old-city",
+  "desert-rose",
+  "mosaic-blue",
+  "satin-night",
+  "sunlit-arch",
+  "olive-branch",
+  "minimal-cream",
+  "kids-garden",
+  "kids-nature",
+  "kids-neighborhood",
+  "kids-workshop",
+  "kids-space",
+  "kids-ocean",
+  "kids-forest",
+  "kids-playground",
+  "kids-classroom",
+  "kids-adventure",
+  "kids-jungle",
+  "kids-robotics",
+  "kids-animals",
+  "kids-weather"
 ] as const;
 
 export type VideoTemplateAsset = (typeof VIDEO_TEMPLATE_ASSETS)[number];
@@ -27,12 +73,58 @@ export type VideoTemplateConfig = {
 };
 
 const GENERAL_ASSETS = new Set<VideoTemplateAsset>([
-  "calm", "dawn", "emerald", "gold", "night", "paper", "rose",
-  "andalusian-arch", "midnight-skyline", "oasis-dawn",
-  "lantern-glow", "geometric-mosaic", "moonlit-sea", "desert-caravan", "olive-grove", "manuscript-library",
+  "calm",
+  "dawn",
+  "emerald",
+  "gold",
+  "night",
+  "paper",
+  "rose",
+  "andalusian-arch",
+  "midnight-skyline",
+  "oasis-dawn",
+  "desert-caravan",
+  "geometric-mosaic",
+  "lantern-glow",
+  "manuscript-library",
+  "moonlit-sea",
+  "olive-grove",
+  "desert-dusk",
+  "coastal-blue",
+  "botanical",
+  "library",
+  "geometric",
+  "marble",
+  "cinematic",
+  "starfield",
+  "mountain-dawn",
+  "heritage",
+  "minimal-studio",
+  "rainy-window",
+  "watercolor-sky",
+  "old-city",
+  "desert-rose",
+  "mosaic-blue",
+  "satin-night",
+  "sunlit-arch",
+  "olive-branch",
+  "minimal-cream"
 ]);
 const KIDS_ASSETS = new Set<VideoTemplateAsset>([
-  "kids-garden", "kids-nature", "kids-neighborhood", "kids-workshop",
+  "kids-garden",
+  "kids-nature",
+  "kids-neighborhood",
+  "kids-workshop",
+  "kids-space",
+  "kids-ocean",
+  "kids-forest",
+  "kids-playground",
+  "kids-classroom",
+  "kids-adventure",
+  "kids-jungle",
+  "kids-robotics",
+  "kids-animals",
+  "kids-weather"
 ]);
 
 const DEFAULT_TEMPLATE_OPTIONS = {
@@ -93,13 +185,16 @@ export function videoTemplateAssetPath(
   return `public/video/templates/${assetKey}.svg`;
 }
 
+const TEMPLATE_SCENE_BY_ASSET: Partial<Record<VideoTemplateAsset, "calm" | "dawn" | "emerald" | "gold" | "night" | "paper" | "rose">> = {
+  "andalusian-arch": "emerald", "midnight-skyline": "night", "oasis-dawn": "dawn",
+  "desert-caravan": "dawn", "geometric-mosaic": "gold", "lantern-glow": "gold",
+  "manuscript-library": "paper", "moonlit-sea": "night", "olive-grove": "emerald",
+  "desert-dusk": "night", "coastal-blue": "dawn", botanical: "emerald", library: "paper",
+  geometric: "gold", marble: "paper", cinematic: "night", starfield: "night",
+  "mountain-dawn": "dawn", heritage: "emerald", "minimal-studio": "calm", "rainy-window": "night",
+  "watercolor-sky": "dawn", "old-city": "emerald", "desert-rose": "rose", "mosaic-blue": "gold",
+  "satin-night": "night", "sunlit-arch": "dawn", "olive-branch": "emerald", "minimal-cream": "calm",
+};
 export function videoTemplateScene(assetKey: VideoTemplateAsset): "calm" | "dawn" | "emerald" | "gold" | "night" | "paper" | "rose" {
-  if (assetKey === "andalusian-arch") return "emerald";
-  if (assetKey === "midnight-skyline") return "night";
-  if (assetKey === "oasis-dawn" || assetKey === "desert-caravan") return "dawn";
-  if (assetKey === "lantern-glow") return "gold";
-  if (assetKey === "geometric-mosaic" || assetKey === "olive-grove") return "emerald";
-  if (assetKey === "moonlit-sea") return "night";
-  if (assetKey === "manuscript-library") return "paper";
-  return GENERAL_ASSETS.has(assetKey) ? assetKey as ReturnType<typeof videoTemplateScene> : "calm";
+  return TEMPLATE_SCENE_BY_ASSET[assetKey] ?? (GENERAL_ASSETS.has(assetKey) ? assetKey as ReturnType<typeof videoTemplateScene> : "calm");
 }
