@@ -147,7 +147,7 @@ jobs:
           test "$(tr -d '\r\n' < docs/finalization/PRODUCTION_RELEASE.flag)" = "RELEASE"
           test "${{ github.ref }}" = "refs/heads/main"
 
-      - name: Verify current PR CODEOWNER approval before production changes
+      - name: Verify canonical GitHub owner identity before production changes
         env:
           GITHUB_TOKEN: ${{ github.token }}
           REQUIRE_VERCEL_STATUS: "false"
