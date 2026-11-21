@@ -60,7 +60,7 @@ The current GitHub connector does not expose branch-protection or ruleset write 
 GitHub REST's annotated-tag creation endpoint cannot create a cryptographic signature. ZIKR uses two protected GitHub Actions workflows and never labels a REST-created tag as signed.
 
 1. From the Admin Release Center, run the read-only Android signing preflight on the exact current `main` SHA.
-2. The preflight runs in the protected `android-release-signing` Environment, imports the owner-managed GPG private key, checks its exact fingerprint, verifies a signed test payload, and confirms the public key and signer email are registered on the GitHub owner account.
+2. The preflight runs in the protected `android-release-signing` Environment, imports the owner-managed GPG private key, checks its exact fingerprint, verifies a signed test payload, and confirms the public key and signer email are registered on the GitHub account configured by `ANDROID_RELEASE_SIGNING_GITHUB_USER`.
 3. Only after that exact-SHA preflight passes does the Admin Release action create the atomic version metadata commit on `main`.
 4. The Admin Release service dispatches `sign-android-release-tag.yml` with the semantic tag and exact prepared commit SHA.
 5. The protected signing runner creates an annotated tag using `git tag -s`, verifies it locally with `git verify-tag`, pushes it, then requires GitHub API verification `verified=true`, `reason=valid`, and the exact expected target SHA.
