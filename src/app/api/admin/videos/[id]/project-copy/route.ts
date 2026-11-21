@@ -8,7 +8,7 @@ import { runPostCommitAudit } from "@/features/admin/services/post-commit-audit"
 import { createAdminClient, supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { verifyGeneratedCloudinaryVideo, deleteVerifiedGeneratedCloudinaryVideo } from "@/features/videos/services/generated-cloudinary-asset";
 import { getConfirmedYoutubeFallbackId, shouldKeepPublishedVideoAfterMediaPurge, wasPublishedBeforeMediaPurge } from "@/features/videos/services/video-media-contract";
-import { isKidsVideoContentMarker } from "@/features/videos/services/video-audience-visibility";
+import { resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -71,11 +71,10 @@ function catalogReferencesTargetedMedia(
   ];
   const referencesCloudinary = Boolean(assetUrl) &&
     (mediaUrls.includes(assetUrl) || deletion.assetUrl === assetUrl);
-  const ownStoragePath = managedVideoStoragePath(getStorageRetention(metadata));
   const markerPaths = Array.isArray(deletion.storagePaths)
     ? deletion.storagePaths.map((value) => managedVideoStoragePath({ bucket: "videos", path: value })).filter(Boolean)
     : [];
-  const referencesStorage = Boolean(ownStoragePath && storagePaths.includes(ownStoragePath)) ||
+  const referencesStorage = mediaUrls.some((value) => isTargetedStorageUrl(value, storagePaths)) ||
     markerPaths.some((path) => typeof path === "string" && storagePaths.includes(path));
   return referencesCloudinary || referencesStorage;
 }
@@ -92,6 +91,40 @@ function managedVideoStoragePath(value: unknown): string | null {
     segments.some((part) => !part || part === "." || part === ".." || part.includes("\\"))
   ) return null;
   return path;
+}
+
+function isConfiguredSupabaseOrigin(value: string): boolean {
+  try {
+    const candidate = new URL(value);
+    const configured = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    if (!configured) return false;
+    const base = new URL(configured);
+    return candidate.protocol === "https:" &&
+      candidate.origin === base.origin &&
+      !candidate.username &&
+      !candidate.password;
+  } catch {
+    return false;
+  }
+}
+
+function managedVideoStoragePathFromUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !isConfiguredSupabaseOrigin(value)) return null;
+  const url = new URL(value);
+  const match = url.pathname.match(/\\/storage\\/v1\\/object\\/(?:public|sign|authenticated)\\/videos\\/(.+)$/i);
+  if (!match) return null;
+  let path: string;
+  try {
+    path = match[1].split("/").map((part) => decodeURIComponent(part)).join("/");
+  } catch {
+    return null;
+  }
+  return managedVideoStoragePath({ bucket: "videos", path });
+}
+
+function isTargetedStorageUrl(value: unknown, storagePaths: string[]): boolean {
+  const path = managedVideoStoragePathFromUrl(value);
+  return path !== null && storagePaths.includes(path);
 }
 
 function clearExactVideoAliases(contentValue: unknown, videoUrl: string): Record<string, unknown> {
@@ -332,12 +365,17 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const contentUrl = [currentContent.generatedVideoUrl, currentContent.videoUrl, currentContent.video_url]
       .find((value): value is string => typeof value === "string" && value.trim().length > 0) ?? null;
     const assetUrl = current.video_url || pendingUrl || contentUrl;
-    const targetStoragePath = managedVideoStoragePath(getStorageRetention(current.content));
+    const currentRetention = getStorageRetention(current.content);
+    const targetStoragePath = currentRetention.state === "purged" ? null : managedVideoStoragePath(currentRetention);
     if (!assetUrl && !targetStoragePath && currentDeletion.state !== "purging") {
       return NextResponse.json({ error: "لا توجد نسخة فيديو أو عملية تنظيف معلقة لهذا الطلب." }, { status: 409, headers: { "Cache-Control": "no-store" } });
     }
 
-    if (isKidsVideoContentMarker(current.content)) {
+    const audience = resolveVideoRequestAudience(current.content);
+    if (!audience.ok) {
+      return NextResponse.json({ error: "بيانات جمهور الفيديو غير صالحة؛ لم يتم حذف أي ملف." }, { status: 409, headers: { "Cache-Control": "no-store" } });
+    }
+    if (audience.audience === "kids") {
       const kidsAuth = await requireAdminApi("kids.manage");
       if (!kidsAuth.ok || kidsAuth.profile.id !== auth.profile.id) {
         return NextResponse.json(
@@ -347,8 +385,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       }
     }
 
+    const isSupabaseStorageAsset = assetUrl ? isConfiguredSupabaseOrigin(assetUrl) : false;
+    const urlStoragePath = assetUrl ? managedVideoStoragePathFromUrl(assetUrl) : null;
+    if (isSupabaseStorageAsset && !urlStoragePath) {
+      return NextResponse.json({ error: "رابط Supabase لا يشير إلى MP4 مولّد داخل videos/automated؛ لم يتم حذف أي ملف." }, { status: 409, headers: { "Cache-Control": "no-store" } });
+    }
     let verifiedAsset: Awaited<ReturnType<typeof verifyGeneratedCloudinaryVideo>> | null = null;
-    if (assetUrl) verifiedAsset = await verifyGeneratedCloudinaryVideo(assetUrl);
+    if (assetUrl && !isSupabaseStorageAsset) {
+      verifiedAsset = await verifyGeneratedCloudinaryVideo(assetUrl, process.env, fetch, { allowProjectReference: true });
+    }
 
     const assetLinkedRequests = assetUrl ? await loadRequestsForAsset(assetUrl) : [];
     const priorLinkedIds = Array.isArray(currentDeletion.linkedRequestIds)
@@ -360,7 +405,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const linkedRequests = [...byId.values()];
     const requestIds = allKnownRequestIds;
     const queueRows = await loadQueuesForRequests(requestIds);
-    const storagePaths = storagePathsFromRows(linkedRequests, queueRows);
+    const knownStoragePaths = storagePathsFromRows(linkedRequests, queueRows);
+    const storagePaths = [...new Set([...knownStoragePaths, ...(urlStoragePath ? [urlStoragePath] : [])])];
     const requestedAt = new Date().toISOString();
     const requestedBy = auth.profile.id;
 
@@ -421,11 +467,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         const previousMetadata = asRecord(catalog.metadata);
         const fallbackId = getConfirmedYoutubeFallbackId(catalog);
         const keepPublishedFallback = shouldKeepPublishedVideoAfterMediaPurge(catalog, true);
+        const clearedMediaMetadata = { ...previousMetadata };
+        for (const key of ["generatedVideoUrl", "videoUrl", "video_url", "sourceVideoUrl"] as const) {
+          const value = previousMetadata[key];
+          if ((assetUrl !== null && value === assetUrl) || isTargetedStorageUrl(value, storagePaths)) {
+            clearedMediaMetadata[key] = null;
+          }
+        }
         const metadata = {
-          ...previousMetadata,
-          generatedVideoUrl: null,
-          videoUrl: null,
-          video_url: null,
+          ...clearedMediaMetadata,
           mediaState: "purged",
           mediaFallbackAvailable: fallbackId !== null,
           mediaPurgedFromPublished: wasPublishedBeforeMediaPurge(catalog),

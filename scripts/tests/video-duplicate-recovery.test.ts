@@ -436,7 +436,9 @@ assert.ok(projectCopyDeleteRoute.includes("deleteVerifiedGeneratedCloudinaryVide
 assert.ok(projectCopyDeleteRoute.includes('createAdminClient().storage.from("videos")'), "project-only media deletion must remove its managed Supabase staging object");
 assert.ok(projectCopyDeleteRoute.includes("video_url: row.video_url === assetUrl && assetUrl !== null ? null : row.video_url"), "deletion must only clear the exact targeted request URL");
 assert.ok(projectCopyDeleteRoute.includes("matchesVideoAsset && assetUrl !== null && row.video_url === assetUrl ? null : row.video_url"), "staging-copy cleanup must preserve unrelated queue video URLs");
-assert.ok(projectCopyDeleteRoute.includes("isKidsVideoContentMarker(current.content)"), "Kids content markers must require the dedicated Kids permission before deletion");
+assert.ok(projectCopyDeleteRoute.includes("resolveVideoRequestAudience(current.content)"), "unknown or conflicting audience markers must fail closed before deletion");
+assert.ok(projectCopyDeleteRoute.includes("allowProjectReference: true"), "legacy generated Cloudinary assets may be deleted only when their exact URL is linked to a project request");
+assert.ok(projectCopyDeleteRoute.includes("managedVideoStoragePathFromUrl(assetUrl)"), "legacy Supabase video URLs must map to their exact automated Storage object");
 assert.ok(projectCopyDeleteRoute.includes("catalogReferencesTargetedMedia(catalog, assetUrl, storagePaths)"), "catalog media pointers must be matched to the exact asset before being cleared");
 assert.ok(projectCopyDeleteRoute.includes('row.status === "published"'), "published social queue history must remain published");
 assert.ok(projectCopyDeleteRoute.includes("externalSocialPostsDeleted: false"), "external social posts must never be deleted by project-only cleanup");

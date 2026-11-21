@@ -45,6 +45,27 @@ test("deletes only a Cloudinary MP4 that is tagged as an automated ZIKR-generate
   assert.match(String(calls[1].init?.body), /public_id=auto-episode-123/);
 });
 
+test("allows an untagged legacy asset only when its exact generated URL belongs to a project request", async () => {
+  const calls: string[] = [];
+  const fetcher: typeof fetch = async (input) => {
+    const url = String(input);
+    calls.push(url);
+    if (url.endsWith("/resources/search")) {
+      return new Response(JSON.stringify({ resources: [{
+        public_id: "auto-episode-123",
+        resource_type: "video",
+        type: "upload",
+        format: "mp4",
+        tags: [],
+      }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    throw new Error("Unexpected Cloudinary endpoint: " + url);
+  };
+  const asset = await verifyGeneratedCloudinaryVideo(videoUrl, env, fetcher, { allowProjectReference: true });
+  assert.equal(asset.publicId, "auto-episode-123");
+  assert.equal(calls.length, 1);
+});
+
 test("allows a retry to finalize when the exact generated Cloudinary asset is already absent", async () => {
   const calls: string[] = [];
   const fetcher: typeof fetch = async (input, init) => {

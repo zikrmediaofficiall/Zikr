@@ -169,7 +169,7 @@ function hasProjectVideoCopyForUi(request: VideoGenerationRequest): boolean {
       typeof marker.assetUrl === "string" ||
       (Array.isArray(marker.storagePaths) && marker.storagePaths.length > 0)
     )) ||
-    (retention.bucket === "videos" && typeof retention.path === "string" && retention.path.startsWith("automated/"));
+    (retention.state !== "purged" && retention.bucket === "videos" && typeof retention.path === "string" && retention.path.startsWith("automated/"));
 }
 
 type AdminVideoRequestsClientProps = { canManageKids: boolean; canDelete?: boolean; reviewOnly?: boolean };

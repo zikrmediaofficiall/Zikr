@@ -84,6 +84,7 @@ export async function verifyGeneratedCloudinaryVideo(
   videoUrl: string,
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch,
+  options: { allowProjectReference?: boolean } = {},
 ): Promise<VerifiedGeneratedCloudinaryVideo> {
   const cloudName = env.CLOUDINARY_CLOUD_NAME?.trim() ?? "";
   const apiKey = env.CLOUDINARY_API_KEY?.trim() ?? "";
@@ -99,7 +100,7 @@ export async function verifyGeneratedCloudinaryVideo(
     method: "POST",
     headers: { Authorization: authorization, "Content-Type": "application/json" },
     body: JSON.stringify({
-      expression: `resource_type:video AND type:upload AND tags=automated AND public_id=${publicId}`,
+      expression: `resource_type:video AND type:upload AND public_id=${publicId}`,
       max_results: 10,
       with_field: ["tags"],
     }),
@@ -125,7 +126,17 @@ export async function verifyGeneratedCloudinaryVideo(
     }
     throw new Error("لم يثبت أن ملف Cloudinary يخص مولّد ZIKR؛ تم إيقاف الحذف لحماية الملف.");
   }
-  if (matches.length !== 1 || !isOwnedGeneratedVideo(matches[0], publicId)) {
+  const projectReferenceMatchesAsset = (asset: CloudinaryAsset) =>
+    asset.public_id === publicId &&
+    asset.resource_type === "video" &&
+    asset.type === "upload" &&
+    asset.format === "mp4" &&
+    publicId.startsWith("auto-");
+  const verified = matches.length === 1 && (
+    isOwnedGeneratedVideo(matches[0], publicId) ||
+    (options.allowProjectReference === true && projectReferenceMatchesAsset(matches[0]))
+  );
+  if (!verified) {
     throw new Error("لم يثبت أن ملف Cloudinary يخص مولّد ZIKR؛ تم إيقاف الحذف لحماية الملف.");
   }
 
