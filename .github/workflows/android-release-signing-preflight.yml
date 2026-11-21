@@ -1,6 +1,9 @@
 name: Android tag signing preflight
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       target_sha:
@@ -25,7 +28,7 @@ jobs:
       - name: Checkout exact main snapshot
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.target_sha }}
+          ref: ${{ inputs.target_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -38,7 +41,7 @@ jobs:
           SIGNING_EMAIL: ${{ vars.ANDROID_RELEASE_SIGNING_EMAIL }}
           SIGNING_NAME: ${{ vars.ANDROID_RELEASE_SIGNING_NAME }}
           SIGNING_GITHUB_USER: ${{ vars.ANDROID_RELEASE_SIGNING_GITHUB_USER }}
-          TARGET_SHA: ${{ inputs.target_sha }}
+          TARGET_SHA: ${{ inputs.target_sha || github.sha }}
         run: |
           set -euo pipefail
           : "${GPG_PRIVATE_KEY:?Missing GitHub Environment secret ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY}"
