@@ -38,7 +38,7 @@ function isKidsVideoContent(content: unknown): boolean {
 
 function getDuplicateCanonicalRequestId(request: VideoGenerationRequest): string | null {
   if (request.status !== "cancelled" || !/duplicate generated content/i.test(request.error_message ?? "")) return null;
-  const match = (request.error_details ?? "").match(/belongs to request\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  const match = (request.error_details ?? "").match(/belongs to request\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
   return match?.[1] ?? null;
 }
 
