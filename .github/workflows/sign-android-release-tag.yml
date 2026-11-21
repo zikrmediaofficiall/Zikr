@@ -111,7 +111,7 @@ jobs:
           git config user.signingkey "$EXPECTED_FINGERPRINT"
           git tag -s -u "$EXPECTED_FINGERPRINT" "$TAG" "$COMMIT_SHA" -m "ZIKR Android $TAG"
           git verify-tag --raw "$TAG" > "$TMP_DIR/verify-tag.txt" 2>&1
-          VERIFIED_PRIMARY_FINGERPRINT="$(awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print toupper(NF >= 11 ? $NF : $3); exit }' "$TMP_DIR/verify-tag.txt")"
+          VERIFIED_PRIMARY_FINGERPRINT="$(awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print toupper(NF >= 12 ? $NF : $3); exit }' "$TMP_DIR/verify-tag.txt")"
           test "$VERIFIED_PRIMARY_FINGERPRINT" = "$EXPECTED_FINGERPRINT" || {
             echo "::error::Local tag signature does not match the trusted primary fingerprint"; cat "$TMP_DIR/verify-tag.txt"; exit 1;
           }
