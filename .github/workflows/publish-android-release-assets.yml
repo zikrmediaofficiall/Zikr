@@ -210,14 +210,18 @@ jobs:
             echo "::error title=Android release notes are not canonical::Manual publisher dispatch requires release notes declaring the exact canonical tag." >&2
             exit 1
           fi
-          if ! release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" 2>/dev/null)"; then
-            echo "::error title=Android recovery release draft is missing::Manual publisher dispatch requires the existing GitHub draft for ${TAG}." >&2
+          releases_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
+          matching_releases="$(jq -c --arg tag "${TAG}" '[.[]? | select(.tag_name == $tag)]' <<< "${releases_json}")"
+          matching_count="$(jq -r 'length' <<< "${matching_releases}")"
+          if [[ "${matching_count}" != "1" ]]; then
+            echo "::error title=Android recovery release draft is missing or ambiguous::Manual publisher dispatch requires exactly one GitHub Release record for ${TAG}; found ${matching_count}." >&2
             exit 1
           fi
+          release_json="$(jq -c '.[0]' <<< "${matching_releases}")"
           release_draft="$(jq -r '.draft // false' <<< "${release_json}")"
           release_prerelease="$(jq -r '.prerelease // false' <<< "${release_json}")"
           if [[ "${release_draft}" != "true" || "${release_prerelease}" != "false" ]]; then
-            echo "::error title=Android recovery release state is not eligible::Manual publisher dispatch requires a draft, non-prerelease GitHub Release for ${TAG}." >&2
+            echo "::error title=Android recovery release state is not eligible::Manual publisher dispatch requires a single draft, non-prerelease GitHub Release for ${TAG}." >&2
             exit 1
           fi
           if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then

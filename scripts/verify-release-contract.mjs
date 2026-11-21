@@ -123,6 +123,9 @@ assert.ok(releaseManager.includes("Preparation base commit"), "New release notes
 assert.ok(publish.includes("github.ref_type == 'tag'"), "Android publisher must support semantic release tags");
 assert.ok(publish.includes("inputs.retry == true"), "Android publisher must support an explicit guarded recovery retry");
 assert.ok(publish.includes("docs/finalization/RELEASE_RETRY.flag"), "Android publisher retry must require the repository release guard");
+assert.ok(publish.includes('matching_releases="$(jq -c --arg tag "${TAG}" \'[.[]? | select(.tag_name == $tag)]\'') && publish.includes('matching_count="$(jq -r \'length\''), "Manual Android publisher recovery must resolve the private draft through the authenticated release list endpoint");
+assert.ok(publish.includes('if [[ "${matching_count}" != "1" ]]') && publish.includes("Android recovery release draft is missing or ambiguous"), "Manual Android publisher recovery must require exactly one matching release before upload");
+
 assert.ok(publish.includes("seq 1 120") && publish.includes("sleep 30"), "Android publisher must wait long enough for CircleCI's signed build to finish");
 assert.ok(publish.includes('group: android-release-publish-global'), "Android publisher must serialize all tag/branch retries with a single release-wide concurrency lock");
 assert.ok(publish.includes('gh release upload "$TAG" "$asset"') && publish.includes("--clobber"), "Android publisher must use the idempotent GitHub CLI upload path for same-named assets");
