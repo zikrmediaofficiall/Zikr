@@ -847,6 +847,24 @@ function getGenericEditorialPage(pathname: string): EditorialPage | null {
   if (NON_EDITORIAL_PREFIXES.some((prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`))) {
     return null;
   }
+
+  // Dynamic detail routes now have their own page-specific guide in
+  // ContentExpansion. Keep generic guides for the static Kids landing pages,
+  // but do not stack a second generic article under a detailed item page.
+  const specializedDetailPrefixes = [
+    '/quran', '/hadith', '/dua', '/prophets', '/companions', '/scholars',
+    '/articles', '/stories', '/videos', '/kids', '/battles', '/conquests',
+    '/reciters', '/content',
+  ];
+  const staticKidsRoutes = new Set([
+    '/kids/games', '/kids/audio', '/kids/adventures', '/kids/achievements',
+    '/kids/progress', '/kids/puzzle', '/kids/parent-dashboard',
+  ]);
+  const hasSpecializedDetailGuide = specializedDetailPrefixes.some(
+    (prefix) => normalized.startsWith(`${prefix}/`),
+  );
+  if (hasSpecializedDetailGuide && !staticKidsRoutes.has(normalized)) return null;
+
   const label = PUBLIC_PAGE_LABELS[normalized] ??
     (normalized.startsWith('/quran/') ? 'دليل الآية والسورة' :
       normalized.startsWith('/hadith/') ? 'دليل الحديث والكتاب' :
