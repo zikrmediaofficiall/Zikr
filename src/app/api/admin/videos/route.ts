@@ -22,7 +22,7 @@ export async function GET() {
         // Requests created by earlier renderer versions did not persist thumbnail_url.
         // Recover the real Cloudinary first-frame poster without mutating stored data.
         // Keep the persisted pointer distinct from the poster URL derived for display.
-        stored_thumbnail_url: request.thumbnail_url ?? null,
+        stored_thumbnail_url: request.thumbnail_url?.trim() ? request.thumbnail_url : null,
         thumbnail_url: request.thumbnail_url || resolveCloudinaryVideoPoster(request.video_url),
         stale_processing: request.status === 'processing' && Date.parse(request.updated_at) < staleBefore,
       }));
