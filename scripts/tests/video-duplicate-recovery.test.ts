@@ -239,6 +239,7 @@ assert.ok(projectCopyDeleteRoute.includes("resolveVideoRequestAudience(current.c
 assert.ok(projectCopyDeleteRoute.includes("allowProjectReference: true"), "legacy generated Cloudinary assets may be deleted only when their exact URL is linked to a project request");
 assert.ok(projectCopyDeleteRoute.includes("managedVideoStoragePathFromUrl(assetUrl)"), "legacy Supabase video URLs must map to exact project Storage objects");
 assert.ok(projectCopyDeleteRoute.includes("catalogReferencesTargetedMedia(catalog, assetUrl, storagePaths)"), "catalog media pointers must be matched to the exact asset");
+assert.ok(projectCopyDeleteRoute.includes("storagePathsFromRows(linkedRequests, queueRows, assetUrl, current.id)"), "only storage paths linked to the selected video or its retry marker may be purged");
 
 assert.ok(adminVideoDeleteRoute.includes("terminalGeneratedAsset"), "verified failed and cancelled generated assets must use the same reference-checked deletion preflight");
 assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.qa_failed"));

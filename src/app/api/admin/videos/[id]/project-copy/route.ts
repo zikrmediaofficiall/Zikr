@@ -217,13 +217,26 @@ function finalizeDeletionRecord<T extends Record<string, unknown>>(value: T, key
   };
 }
 
-function storagePathsFromRows(requests: RequestRow[], queues: QueueRow[]): string[] {
+function storagePathsFromRows(
+  requests: RequestRow[],
+  queues: QueueRow[],
+  assetUrl: string | null,
+  primaryRequestId: string,
+): string[] {
   const paths = new Set<string>();
+  const targetRequestIds = new Set<string>();
   for (const row of requests) {
     const content = asRecord(row.content);
-    const path = managedVideoStoragePath(content.storageRetention);
+    const deletion = getProjectDeletion(content);
+    const aliases = [content.generatedVideoUrl, content.videoUrl, content.video_url];
+    const matchesTarget = assetUrl !== null
+      ? row.video_url === assetUrl || aliases.includes(assetUrl) || deletion.assetUrl === assetUrl
+      : row.id === primaryRequestId && deletion.state === "purging";
+    if (!matchesTarget) continue;
+    targetRequestIds.add(row.id);
+    const path = managedVideoStoragePath(getStorageRetention(content));
     if (path) paths.add(path);
-    const markerPaths = getProjectDeletion(content).storagePaths;
+    const markerPaths = deletion.storagePaths;
     if (Array.isArray(markerPaths)) {
       for (const candidate of markerPaths) {
         const safe = managedVideoStoragePath({ bucket: "videos", path: candidate });
@@ -231,11 +244,20 @@ function storagePathsFromRows(requests: RequestRow[], queues: QueueRow[]): strin
       }
     }
   }
+
   for (const row of queues) {
     const metadata = asRecord(row.metadata);
-    const path = managedVideoStoragePath(metadata.storageRetention);
+    const deletion = getProjectDeletion(metadata);
+    const queueMatchesTarget = assetUrl !== null &&
+      (row.video_url === assetUrl || deletion.assetUrl === assetUrl);
+    const deletionLinkedToTargetRequest = Array.isArray(deletion.linkedRequestIds) &&
+      deletion.linkedRequestIds.some((value) => typeof value === "string" && targetRequestIds.has(value));
+    const sameRequestStagingCopy = targetRequestIds.has(row.content_id) && row.video_url === null;
+    if (!queueMatchesTarget && !deletionLinkedToTargetRequest && !sameRequestStagingCopy) continue;
+
+    const path = managedVideoStoragePath(getStorageRetention(metadata));
     if (path) paths.add(path);
-    const markerPaths = getProjectDeletion(metadata).storagePaths;
+    const markerPaths = deletion.storagePaths;
     if (Array.isArray(markerPaths)) {
       for (const candidate of markerPaths) {
         const safe = managedVideoStoragePath({ bucket: "videos", path: candidate });
@@ -409,7 +431,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const linkedRequests = [...byId.values()];
     const requestIds = allKnownRequestIds;
     const queueRows = await loadQueuesForRequests(requestIds);
-    const knownStoragePaths = storagePathsFromRows(linkedRequests, queueRows);
+    const knownStoragePaths = storagePathsFromRows(linkedRequests, queueRows, assetUrl, current.id);
     const storagePaths = [...new Set([...knownStoragePaths, ...(urlStoragePath ? [urlStoragePath] : [])])];
     const requestedAt = new Date().toISOString();
     const requestedBy = auth.profile.id;
