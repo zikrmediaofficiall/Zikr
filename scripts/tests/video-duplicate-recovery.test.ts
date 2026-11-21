@@ -178,6 +178,24 @@ assert.deepEqual(
   "terminal duplicate/failure rows must be replaced using a fresh slot rather than consuming the daily quota",
 );
 
+
+const adminVideoDeleteRoute = readFileSync("src/app/api/admin/videos/[id]/route.ts", "utf8");
+const generatedCloudinaryAsset = readFileSync("src/features/videos/services/generated-cloudinary-asset.ts", "utf8");
+const adminReviewClient = readFileSync("src/features/admin/video-requests/components/admin-video-requests-client.tsx", "utf8");
+assert.match(adminVideoDeleteRoute, /requireAdminStepUpApi\('video\\.delete'/);
+assert.match(adminVideoDeleteRoute, /duplicateCanonicalId\(current\)/);
+assert.match(adminVideoDeleteRoute, /metadata->>videoGenerationRequestId/);
+assert.match(adminVideoDeleteRoute, /social_publish_queue/);
+assert.match(adminVideoDeleteRoute, /media_assets/);
+assert.match(adminVideoDeleteRoute, /admin_delete_unreferenced_video_generation_request/);
+assert.match(generatedCloudinaryAsset, /tags\.has\("automated"\)/);
+assert.match(generatedCloudinaryAsset, /tags\.has\("zikr-generated"\)/);
+assert.match(generatedCloudinaryAsset, /video\/destroy/);
+assert.match(adminReviewClient, /isSafeDuplicateAssetCandidate/);
+assert.match(adminReviewClient, /حذف الفيديو المكرر وملفه نهائيًا/);
+assert.match(adminReviewClient, /request\.thumbnail_url/);
+assert.match(adminReviewClient, /فتح الطلب الأصلي للمراجعة/);
+
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 const videoAutomationService = readFileSync("src/features/videos/services/video-automation.ts", "utf8");
 const videoRetryRoute = readFileSync("src/app/api/admin/videos/[id]/retry/route.ts", "utf8");
