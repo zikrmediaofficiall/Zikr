@@ -191,7 +191,9 @@ jobs:
               owner,
               repo,
               workflow_id: "publish-android-release-assets.yml",
-              ref: isTagDispatch ? tag : recoveryBranch,
-              inputs: { retry: "true" },
+              ref: isPushRecoveryTrigger ? "main" : (isTagDispatch ? tag : recoveryBranch),
+              inputs: isPushRecoveryTrigger
+                ? { retry: "true", source_commit: sourceSha }
+                : { retry: "true" },
             });
             core.info("Dispatched guarded Android asset verification/publication for " + tag + " from " + sourceSha + ".");
