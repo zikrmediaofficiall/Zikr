@@ -927,6 +927,32 @@ function getGenericEditorialPage(pathname: string): EditorialPage | null {
   };
 }
 
+const ENGLISH_REFERENCE_TITLES: Record<string, string> = {
+  "القرآن الكريم": "The Quran",
+  "القرآن الكريم — البقرة 185": "Quran 2:185",
+  "القرآن الكريم — ص 29": "Quran 38:29",
+  "القرآن الكريم — محمد 24": "Quran 47:24",
+  "القرآن الكريم — الأحزاب 41-42": "Quran 33:41–42",
+  "القرآن الكريم — غافر 60": "Quran 40:60",
+  "القرآن الكريم — البقرة 186": "Quran 2:186",
+  "القرآن الكريم — يوسف 3": "Quran 12:3",
+  "القرآن الكريم — طه 99": "Quran 20:99",
+  "القرآن الكريم — هود 120": "Quran 11:120",
+  "القرآن الكريم — التوبة 100": "Quran 9:100",
+  "القرآن الكريم — الفتح 18": "Quran 48:18",
+  "القرآن الكريم — الأنفال 1": "Quran 8:1",
+  "القرآن الكريم — آل عمران 121": "Quran 3:121",
+  "Sunnah.com — مكتبة الحديث": "Sunnah.com — Hadith library",
+  "حصن المسلم — مرجع أذكار مشهور": "Hisn al-Muslim — Adhkar reference",
+  "المكتبة الشاملة": "Al-Maktaba al-Shamela",
+  "الموسوعة الفقهية الكويتية — وزارة الأوقاف": "Kuwaiti Encyclopedia of Fiqh — Ministry of Awqaf",
+  "صفحة معايير التحرير والمصادر في ذِكرٌ": "ZIKR editorial and source standards",
+  "معايير التحرير والمصادر": "Editorial and source standards",
+  "الأسئلة الشائعة": "Frequently asked questions",
+  "تواصل معنا": "Contact ZIKR",
+  "تواصل معنا للإبلاغ عن خطأ": "Report a content issue",
+};
+
 export function getEditorialPage(pathname: string, locale: Locale = "ar"): EditorialPage | null {
   const normalized = normalizePath(pathname);
   if (locale === "en") {
