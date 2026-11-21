@@ -196,7 +196,7 @@ if (!androidTagSigning.includes("name: android-release-signing") ||
   failures.push("Android tag signing must create, locally verify, and remotely verify a signed tag before creating its draft release");
 }
 const androidPublish = read(".github/workflows/publish-android-release-assets.yml");
-if (androidPublish.includes("branches:\\n      - main")) failures.push("Android release publishing must not trigger directly from main");
+if (androidPublish.includes("branches:\n      - main")) failures.push("Android release publishing must not trigger directly from main");
 if (!androidPublish.includes("workflow_dispatch:")) failures.push("Android release publishing must retain explicit manual recovery");
 if (!androidPublish.includes("inputs.retry")) failures.push("Android manual recovery must require an explicit retry input");
 if (!androidPublish.includes("docs/finalization/RELEASE_RETRY.flag")) failures.push("Android asset retries must remain tied to an explicit release flag");
