@@ -7,7 +7,12 @@ import { getAdminHealth } from "@/features/admin/services/platform";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { getLatestStableAndroidRelease } from "@/features/releases/services/github-android-release";
 import { getAndroidReleaseSigningPreflightStatus } from "@/features/releases/services/github-release-manager";
-import { createAndroidReleaseAction, recreateStuckAndroidReleaseAction, retryAndroidReleaseSigningAction, runAndroidReleaseSigningPreflightAction } from "./actions";
+import {
+  createAndroidReleaseAction,
+  recreateStuckAndroidReleaseAction,
+  retryAndroidReleaseSigningAction,
+  runAndroidReleaseSigningPreflightAction,
+} from "./actions";
 
 export const metadata: Metadata = { title: "مركز الإصدار | الأدمن" };
 
@@ -71,7 +76,7 @@ export default async function AdminReleasePage({
   const operationCanRecover = Boolean(
     operation?.status === "signing_dispatch_failed" ||
       ((operation?.status === "building" || operation?.status === "signing") &&
-        (!Number.isFinite(operationStartedAt) || Date.now() - operationStartedAt >= 6 * 60 * 60 * 1000)),
+        (Number.isFinite(operationStartedAt) && Date.now() - operationStartedAt >= 6 * 60 * 60 * 1000)),
   );
 
   const releaseError = typeof params.android_release_error === "string" ? params.android_release_error.slice(0, 300) : null;
@@ -166,7 +171,7 @@ export default async function AdminReleasePage({
         <section role="alert" className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] p-5 text-sm leading-7 text-amber-100">
           <h2 className="font-bold text-amber-200">استرداد إصدار Android العالق</h2>
           <p className="mt-2 text-amber-100/80">
-            سيوقف النظام تشغيلات التوقيع والنشر العالقة المرتبطة بنفس commit، ثم يحذف مسودة GitHub Release والـTag غير المنشورين لهذا الإصدار فقط، ويعيد إنشاء نفس الـTag الموقّع وإرسال البناء مرة أخرى.
+            سيوقف النظام تشغيلات GitHub Actions للتوقيع والنشر العالقة المرتبطة بنفس commit، ثم يحذف مسودة GitHub Release والـTag غير المنشورين لهذا الإصدار فقط، ويعيد إنشاء نفس الـTag الموقّع وإرسال البناء مرة أخرى.
             لن يتم حذف أي Release منشور أو غير قابل للتغيير، ولن يتم إنشاء رقم إصدار أو commit جديد.
           </p>
           <p className="mt-2 break-all font-mono text-xs text-amber-100/60">
