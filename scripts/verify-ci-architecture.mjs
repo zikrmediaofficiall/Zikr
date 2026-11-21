@@ -442,10 +442,24 @@ assert.ok(androidPublish.includes("docs/finalization/RELEASE_RETRY.flag"), "Andr
 assert.ok(!circle.includes("main-source-verification:"), "CircleCI must not duplicate main source verification");
 assert.ok(!circle.includes("android-release-on-build-tag:"), "CircleCI must not retain the redundant Android build-tag workflow");
 const androidReleaseManager = read("src/features/releases/services/github-release-manager.ts");
-assert.ok(androidReleaseManager.includes("/git/tags"), "Admin Android release manager must create the tag object");
-assert.ok(androidReleaseManager.includes("/git/refs"), "Admin Android release manager must create the tag ref");
-assert.ok(androidReleaseManager.includes("/releases"), "Admin Android release manager must create the draft GitHub release");
-assert.ok(androidReleaseManager.includes("draft: true"), "Admin Android release manager must create a draft release before artifact verification");
+const androidSigningPreflight = read(".github/workflows/android-release-signing-preflight.yml");
+const androidTagSigning = read(".github/workflows/sign-android-release-tag.yml");
+assert.ok(androidReleaseManager.includes("getAndroidReleaseSigningPreflightStatus"), "Admin Android release manager must check protected GPG signing readiness");
+assert.ok(androidReleaseManager.includes("dispatchPreparedAndroidReleaseTagSigning"), "Admin Android release manager must dispatch signing for the exact prepared release commit");
+assert.ok(androidReleaseManager.includes("sign-android-release-tag.yml"), "Admin Android release manager must hand tag creation to the protected signing workflow");
+assert.ok(androidReleaseManager.includes("createAtomicMainCommit"), "Admin Android release metadata must be committed atomically to main");
+assert.ok(!androidReleaseManager.includes('"/git/tags"') && !androidReleaseManager.includes('"/git/refs"'), "Admin Android release manager must never create an unsigned tag through the REST API");
+assert.ok(
+  androidSigningPreflight.includes("android-release-signing") &&
+    androidTagSigning.includes("android-release-signing"),
+  "Android signing readiness and tag signing must target the protected GitHub Environment",
+);
+assert.ok(androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY") && androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_FINGERPRINT"), "Android signing preflight must validate owner-managed key material and fingerprint");
+assert.ok(androidTagSigning.includes("git tag -s -u") && androidTagSigning.includes("git verify-tag --raw"), "Protected Android signer must create and locally verify a GPG-signed annotated tag");
+assert.ok(androidTagSigning.includes("NF >= 12 ? $NF : $3"), "Protected Android signer must extract the primary GPG fingerprint safely from VALIDSIG output");
+assert.ok(androidTagSigning.includes(".verification.verified") && androidTagSigning.includes("reason"), "Protected Android signer must require GitHub's cryptographic signature verification");
+assert.ok(androidTagSigning.includes("Create the draft release only after GitHub tag verification"), "Android Draft Release must be created only after GitHub verifies the tag");
+assert.ok(androidPublish.includes("GitHub cryptographic tag signature and exact commit target"), "Android asset publisher must independently verify the signed tag before upload");
 assert.ok(!androidReleaseManager.includes("buildTag"), "Admin Android release manager must not create a redundant -build tag");
 assert.ok(circle.includes("  source-verify:"), "CircleCI source verification job name must be explicit");
 assert.ok(circle.includes("  application-build-docs:"), "CircleCI must own the application build/documentation artifact job");

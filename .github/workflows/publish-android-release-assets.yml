@@ -113,6 +113,37 @@ jobs:
           echo "TAG_TARGET_SHA=$TAG_TARGET_SHA" >> "$GITHUB_ENV"
           echo "tag_target_sha=$TAG_TARGET_SHA" >> "$GITHUB_OUTPUT"
 
+      - name: Verify GitHub cryptographic tag signature and exact commit target
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          verified=false
+          for attempt in $(seq 1 10); do
+            ref_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/$TAG")"
+            if [[ "$(jq -r '.object.type' <<< "$ref_json")" != "tag" ]]; then
+              echo "::error title=Android release tag is not annotated::The release tag must be an annotated signed tag."
+              exit 1
+            fi
+            tag_object="$(jq -r '.object.sha' <<< "$ref_json")"
+            tag_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/$tag_object")"
+            signature_verified="$(jq -r '.verification.verified // false' <<< "$tag_json")"
+            signature_reason="$(jq -r '.verification.reason // ""' <<< "$tag_json")"
+            signed_target="$(jq -r '.object.sha // ""' <<< "$tag_json")"
+            if [[ "$signature_verified" == "true" && "$signature_reason" == "valid" && "$signed_target" == "$TAG_TARGET_SHA" ]]; then
+              verified=true
+              break
+            fi
+            sleep 3
+          done
+          if [[ "$verified" != "true" ]]; then
+            echo "::error title=Android Git tag signature is unverified::GitHub must report verification.verified=true, reason=valid, and the exact immutable target SHA before any asset is uploaded."
+            exit 1
+          fi
+          echo "PASS: GitHub cryptographically verified $TAG -> $TAG_TARGET_SHA."
+
       - name: Verify explicit recovery guard for manual dispatch
         if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.publish == 'true'
         shell: bash

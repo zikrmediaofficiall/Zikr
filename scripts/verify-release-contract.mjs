@@ -17,25 +17,20 @@ assert.ok(read(`docs/releases/${version}.md`).includes(`Release tag: \`v${versio
 
 const releaseManager = read("src/features/releases/services/github-release-manager.ts");
 const releaseAction = read("src/app/admin/release/actions.ts");
-assert.ok(releaseManager.includes("/git/tags"), "Admin release manager must create the annotated Android Git tag object");
-assert.ok(releaseManager.includes("/git/refs"), "Admin release manager must publish the canonical Android tag ref");
-assert.ok(releaseManager.includes("/releases"), "Admin release manager must create the draft GitHub Release");
-assert.ok(releaseManager.includes("draft: true"), "Admin release manager must create Android releases as drafts until artifacts are verified");
+assert.ok(releaseManager.includes("getAndroidReleaseSigningPreflightStatus"), "Admin release manager must check protected GPG readiness");
+assert.ok(releaseManager.includes("requestAndroidReleaseSigningPreflight"), "Admin release manager must expose the protected no-mutation signing preflight");
+assert.ok(releaseManager.includes("sign-android-release-tag.yml"), "Admin release manager must delegate signed tag creation to the protected runner");
+assert.ok(!releaseManager.includes('"/git/tags"'), "Admin release manager must never create an unsigned tag through the REST API");
+assert.ok(!releaseManager.includes('"/git/refs"'), "Admin release manager must never publish a tag ref directly");
+assert.ok(!releaseManager.includes('"/releases"'), "Admin release manager must not create a draft before signature verification");
 assert.ok(releaseManager.includes('const REPO = process.env.GITHUB_REPOSITORY?.trim() || "zikrofficial-X/Zikr";'), "Admin release manager must use the canonical repository");
-const releaseActionIsFailClosed = releaseAction.includes("SIGNED_RELEASE_BLOCKER");
-if (releaseActionIsFailClosed) {
-  assert.ok(releaseAction.includes('await requireAdminPermission("release.manage")'), "a blocked release action must still enforce the release permission");
-  assert.ok(releaseAction.includes('await requireAdminStepUp("release.manage", "/admin/release")'), "a blocked release action must still enforce step-up authentication");
-  assert.ok(releaseAction.includes("Fail closed: do not create commits, tags, drafts, or alter download metadata"), "a blocked release action must explicitly fail closed before side effects");
-  assert.ok(releaseAction.includes("redirect(") && releaseAction.includes("SIGNED_RELEASE_BLOCKER"), "a blocked release action must report the signing blocker");
-  assert.ok(!releaseAction.includes("prepareAndroidRelease"), "a blocked release action must not invoke the unsigned release manager");
-  assert.doesNotMatch(releaseAction, /supabaseServerAdminRequest|recordAdminAuditEvent|runPostCommitAudit/, "a blocked release action must not write release state or audit data");
-} else {
-  assert.ok(releaseAction.includes("prepareAndroidRelease"), "an active Admin release action must use the canonical Android release manager");
-  assert.ok(releaseAction.includes('requireAdminStepUp("release.manage", "/admin/release")'), "Android release preparation must honor the destructive-action step-up policy");
-  assert.ok(!releaseAction.includes(".catch(() => [])"), "Android release preparation must fail closed when the operation-state read fails");
-  assert.ok(releaseAction.includes("تعذر التحقق من حالة الإصدار الحالية"), "Android release preparation must stop before GitHub side effects when operation state cannot be verified");
-}
+assert.equal(releaseAction.includes("SIGNED_RELEASE_BLOCKER"), false, "Admin release action must no longer contain the permanent hard-coded blocker");
+assert.ok(releaseAction.includes("prepareAndroidRelease"), "Android release action must invoke the canonical release manager");
+assert.ok(releaseAction.includes("getAndroidReleaseSigningPreflightStatus"), "Android release action must enforce the signing preflight");
+assert.ok(releaseAction.includes("requestAndroidReleaseSigningPreflight"), "Android release action must expose a no-mutation preflight action");
+assert.ok(releaseAction.includes("recordAdminAuditEventSafely"), "Android release preparation must be audited after commit");
+assert.ok(releaseAction.includes('requireAdminStepUp("release.manage", "/admin/release")'), "Android release preparation must honor step-up authentication");
+assert.ok(releaseAction.includes("assertNoActiveReleaseOperation"), "Android release action must prevent overlapping operations");
 const androidAdminAction = read("src/app/admin/android/actions.ts");
 assert.ok(androidAdminAction.includes('requireAdminStepUp("android.manage", "/admin/android")'), "Android release-setting changes must honor the destructive-action step-up policy");
 assert.ok(androidAdminAction.includes("getStableReleaseByTag"), "Pinned Android releases must be validated against a published stable GitHub release");
@@ -43,6 +38,9 @@ assert.ok(androidAdminAction.includes("لا يمكن تثبيت إصدار غي�
 const androidAdminPage = read("src/app/admin/android/page.tsx");
 assert.ok(androidAdminPage.includes('endsWith(".apk")') && androidAdminPage.includes('endsWith(".aab")'), "Admin Android release choices must contain both APK and AAB artifacts");
 assert.ok(!releaseManager.includes("buildTag"), "Android release manager must not create a redundant -build tag");
+const androidTagSigningWorkflow = read(".github/workflows/sign-android-release-tag.yml");
+const expectedNotesGuard = 'grep -Fq "Release tag: \\`$TAG\\`" "$NOTES"';
+assert.ok(androidTagSigningWorkflow.includes(expectedNotesGuard), "Signed release workflow must compare literal backtick-delimited notes without shell command substitution");
 
 const androidCircle = read(".circleci/config.yml");
 const androidDraftJob = androidCircle.split("  android-release-draft:")[1]?.split("\n  android-rebuild:")[0] ?? "";
@@ -307,14 +305,31 @@ assert.ok(footer.includes('href="/api/download/android"') && footer.includes("Do
 assert.ok(homePage.includes("AndroidReleaseCard"), "The homepage must surface the Android release card");
 
 const releaseAdminPage = read("src/app/admin/release/page.tsx");
-assert.ok(releaseAdminPage.includes("operationIsStale") && releaseAdminPage.includes("operationNeedsReview"), "The release center must distinguish stale and unverified prior operations");
-if (releaseAdminPage.includes("SIGNED_RELEASE_BLOCKER")) {
-  assert.ok(releaseAdminPage.includes("aria-describedby=\"android-release-blocker\"") && releaseAdminPage.includes("disabled"), "The release center must keep its action disabled while cryptographic tag signing is unavailable");
-  assert.ok(releaseAdminPage.includes("android-release-blocker") && releaseAdminPage.includes("توقيعًا تشفيريًا"), "The release center must explain the cryptographic signing blocker");
-} else {
-  assert.ok(releaseAdminPage.includes("disabled={operationIsActive || operationNeedsReview}"), "The release action must remain disabled while a prior operation cannot be verified");
+assert.ok(releaseAdminPage.includes("operationIsStale") && releaseAdminPage.includes("operationNeedsReview"), "Release center must distinguish stale and unverified prior operations");
+assert.ok(releaseAdminPage.includes("android-signing-preflight") && releaseAdminPage.includes("getAndroidReleaseSigningPreflightStatus"), "Release center must display exact-SHA signing preflight status");
+assert.ok(releaseAdminPage.includes("disabled={!signingPreflight?.ready || operationIsActive || operationNeedsReview}"), "Release action must remain disabled until protected GPG preflight succeeds");
+assert.equal(releaseAdminPage.includes("SIGNED_RELEASE_BLOCKER"), false, "Release page must not retain the permanent signing blocker");
+const signingPreflightWorkflow = read(".github/workflows/android-release-signing-preflight.yml");
+const signingWorkflow = read(".github/workflows/sign-android-release-tag.yml");
+for (const workflow of [signingPreflightWorkflow, signingWorkflow]) {
+  assert.ok(
+    workflow.split("\n").some((line, index, lines) =>
+      line.trim() === "environment:" && lines[index + 1]?.trim() === "name: android-release-signing",
+    ),
+    "GPG workflows must use the protected signing environment",
+  );
+  for (const secret of ["ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY", "ANDROID_RELEASE_TAG_GPG_PASSPHRASE"]) {
+    assert.ok(workflow.includes("secrets." + secret), "GPG workflows must use protected secret " + secret);
+  }
+  for (const variable of ["ANDROID_RELEASE_TAG_GPG_FINGERPRINT", "ANDROID_RELEASE_SIGNING_EMAIL", "ANDROID_RELEASE_SIGNING_NAME", "ANDROID_RELEASE_SIGNING_GITHUB_USER"]) {
+    assert.ok(workflow.includes("vars." + variable), "GPG workflows must use protected variable " + variable);
+  }
 }
-
+assert.ok(signingWorkflow.includes("git tag -s -u"), "Protected runner must create a cryptographically signed annotated tag");
+assert.ok(signingWorkflow.includes("git verify-tag --raw"), "Protected runner must verify the tag locally");
+assert.ok(signingWorkflow.includes(".verification.verified") && signingWorkflow.includes("reason"), "Protected runner must require GitHub cryptographic verification");
+assert.ok(signingWorkflow.includes("Create the draft release only after GitHub tag verification"), "Draft Release creation must follow GitHub signature verification");
+assert.ok(publish.includes("GitHub cryptographic tag signature and exact commit target"), "Publisher must re-check the signed tag before uploading APK/AAB");
 
 const applicationBuildDocsJob = releaseWorkflow.split("- application-build-docs:")[1]?.split("\n      - ")[0] ?? "";
 assert.ok(applicationBuildDocsJob.includes("branches:\n              only:\n                - main"), "Application build/docs verification must remain required for main");
