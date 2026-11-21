@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { SITE_CATALOG } from "@/lib/navigation/catalog";
 import { useLanguage } from "./language-provider";
 
-type MobileNavProps = { isAuthenticated?: boolean };
+type MobileNavProps = { isAuthenticated?: boolean; hiddenHrefs?: string[] };
 
 type IconName = string;
 
@@ -44,7 +44,7 @@ function isCurrentPath(pathname: string, href: string) {
   return pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
 }
 
-export function MobileNav({ isAuthenticated = false }: MobileNavProps) {
+export function MobileNav({ isAuthenticated = false, hiddenHrefs = [] }: MobileNavProps) {
   const pathname = usePathname() ?? "/";
   const { isEnglish, dir } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -53,21 +53,26 @@ export function MobileNav({ isAuthenticated = false }: MobileNavProps) {
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const hiddenHrefSet = useMemo(() => new Set(hiddenHrefs), [hiddenHrefs]);
+  const catalogGroups = useMemo(() => SITE_CATALOG.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !hiddenHrefSet.has(item.href)),
+  })).filter((group) => group.items.length > 0), [hiddenHrefSet]);
   const [user, setUser] = useState<User | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
 
   const activeGroupId = useMemo(
     () =>
-      SITE_CATALOG.find((group) =>
+      catalogGroups.find((group) =>
         group.items.some((item) => isCurrentPath(pathname, item.href)),
       )?.id ?? null,
-    [pathname],
+    [catalogGroups, pathname],
   );
 
   const searchNeedle = menuQuery.trim().toLocaleLowerCase(isEnglish ? "en" : "ar");
   const filteredGroups = useMemo(
     () =>
-      SITE_CATALOG.map((group) => {
+      catalogGroups.map((group) => {
         const groupMatches = [
           group.ar,
           group.en,
@@ -82,7 +87,7 @@ export function MobileNav({ isAuthenticated = false }: MobileNavProps) {
             );
         return { ...group, visibleItems };
       }).filter((group) => !searchNeedle || group.visibleItems.length > 0),
-    [isEnglish, searchNeedle],
+    [catalogGroups, isEnglish, searchNeedle],
   );
   const filteredUtilityLinks = useMemo(
     () => utilityLinks.filter((item) =>
