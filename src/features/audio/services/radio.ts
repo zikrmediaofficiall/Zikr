@@ -21,7 +21,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
   {
     id: "quran-afasy",
     name: "إذاعة القرآن - مشاري العفاسي",
-    streamUrl: "https://qurango.net/radio/mishary_alafasy",
+    streamUrl: "https://qurango.net/radio/mishary_alafasi",
     description: "تلاوات الشيخ مشاري العفاسي عبر البث الصوتي المدرج.",
     category: "reciter",
     tags: ["قرآن", "مشاري العفاسي", "مباشر"],
