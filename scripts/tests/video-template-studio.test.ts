@@ -131,6 +131,19 @@ const worker = read("scripts/jobs/template-video-automation.ts");
 const automation = read("src/features/videos/services/video-automation.ts");
 const adminPage = read("src/app/admin/video/templates/page.tsx");
 const studioClient = read("src/features/admin/video-templates/components/template-studio-client.tsx");
+const templateStudioPage = read("src/app/admin/video/templates/page.tsx");
+const englishLabels = studioClient.slice(studioClient.indexOf("const ASSET_LABELS_EN:"), studioClient.indexOf("const getAssetLabel"));
+assert.match(templateStudioPage, /getRequestLocale/,
+  "Template Studio page must resolve the same locale selected by the visitor");
+assert.match(templateStudioPage, /TemplateStudioClient locale=\{locale\}/,
+  "Template Studio page must pass the selected locale to its client UI");
+for (const asset of VIDEO_TEMPLATE_ASSETS) {
+  assert.ok(
+    englishLabels.includes(`"${asset}":`) || englishLabels.includes(`${asset}:`),
+    `Template Studio must provide an English label for ${asset}`,
+  );
+}
+
 const studioGeneralAssets = studioClient.match(/const GENERAL_ASSETS = \[(.*?)\];/)?.[1] ?? "";
 const studioKidsAssets = studioClient.match(/const KIDS_ASSETS = \[(.*?)\];/)?.[1] ?? "";
 assert.equal((studioGeneralAssets.match(/"[^"]+"/g) ?? []).length, 36,
