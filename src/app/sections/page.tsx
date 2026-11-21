@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
-import { ArrowLeft, ArrowUpLeft, ChevronLeft, type LucideIcon } from "lucide-react";
+import { ChevronLeft, type LucideIcon } from "lucide-react";
 import * as Icons from "lucide-react";
 import { SITE_CATALOG, getCatalogItemKey } from "@/lib/navigation/catalog";
 import { getSectionVisibility, getSectionDisplayOrder } from "@/features/site-content/services/site-content";
