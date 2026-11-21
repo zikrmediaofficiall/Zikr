@@ -4,6 +4,7 @@ import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video
 import { isKidsVideoContentMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Container } from "@/components/ui/container";
 import { Card } from "@/components/ui/card";
@@ -389,11 +390,13 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
             <Card key={request.id} className="border-brand-gold/10 p-5">
               {request.thumbnail_url && (
                 <div className="mb-4 flex items-center gap-4 rounded-xl border border-brand-gold/10 bg-black/20 p-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={request.thumbnail_url}
                     alt={`معاينة ${request.title}`}
-                    loading="lazy"
+                    width={80}
+                    height={112}
+                    sizes="80px"
+                    unoptimized
                     className="h-28 w-20 rounded-lg bg-black object-cover"
                   />
                   <div className="min-w-0">
