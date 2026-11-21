@@ -65,7 +65,7 @@ assert.ok(!androidRebuildJob.includes("Upload verified Android assets to Supabas
 const siteContentService = read("src/features/site-content/services/site-content.ts");
 assert.ok(siteContentService.includes("supabaseServerAnonRequest"), "Public site settings must use the shared server-side REST cache");
 assert.ok(siteContentService.includes("key=eq.${encodeURIComponent(key)}&limit=1"), "Public site-setting lookup must filter to the requested key and a single row");
-assert.ok(siteContentService.includes('["seo", "social", "homepage"].includes(key) ? 86400 : 300'), "Public editorial settings must use the one-day cache while Android release metadata keeps its short TTL");
+assert.ok(siteContentService.includes('["seo", "social", "homepage", "section_visibility"].includes(key) ? 86400 : 300'), "Public editorial settings must use the one-day cache while Android release metadata keeps its short TTL");
 assert.ok(siteContentService.includes("tags: [`site-setting:${key}`]"), "Cached site settings must remain immediately invalidatable by admin writes");
 assert.ok(siteContentService.includes("rows?.[0]?.value"), "Optional site settings must return null when the filtered REST response contains no row");
 
