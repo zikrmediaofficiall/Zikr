@@ -297,6 +297,17 @@ if (!catalogEntry.includes("isKidsCatalogReconciliationEnabled(process.env)") ||
     processSocialBody.indexOf("processSocialPublishQueue(batchSize)") < publishingGate) {
   failures.push("catalog-only Kids reconciliation must run behind its own opt-in and purge lock before the external publishing gate; provider queue claims must remain gated");
 }
+if (
+  socialWorkflow.includes("page_id=not.is.null&page_id=") ||
+  socialWorkflow.includes("page_access_token=not.is.null&page_access_token=") ||
+  socialWorkflow.includes("refresh_token=not.is.null&refresh_token=") ||
+  socialWorkflow.includes("channel_id=not.is.null&channel_id=") ||
+  !socialWorkflow.includes("page_access_token=not.is.null") ||
+  !socialWorkflow.includes("refresh_token=not.is.null") ||
+  !socialWorkflow.includes("channel_id=not.is.null")
+) {
+  failures.push("social preflight must use unique PostgREST filters and verify non-null Facebook and YouTube credential fields");
+}
 if (!socialWorkflow.includes("cloudinary_ready=false") ||
     !socialWorkflow.includes('if [[ "$cloudinary_ready" != "true" ]]') ||
     !socialWorkflow.includes("catalog-only Kids reconciliation may still run") ||
