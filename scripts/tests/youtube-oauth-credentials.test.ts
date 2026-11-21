@@ -386,13 +386,18 @@ const trafficRevenuePanel = readFileSync(
   new URL("../../src/features/admin/components/traffic-revenue-panel.tsx", import.meta.url),
   "utf8",
 );
+const youtubeConnect = readFileSync(
+  new URL("../../src/app/api/admin/social/youtube/connect/route.ts", import.meta.url),
+  "utf8",
+);
 assert.doesNotMatch(
   trafficRevenuePanel,
   /YOUTUBE_REFRESH_TOKEN/,
   "the Analytics UI must not tell owners to configure an ignored environment refresh token",
 );
-assert.match(trafficRevenuePanel, /youtube\.readonly/);
-assert.match(trafficRevenuePanel, /yt-analytics\.readonly/);
+assert.match(youtubeConnect, /youtube\.upload/);
+assert.match(youtubeConnect, /youtube\.readonly/);
+assert.match(youtubeConnect, /yt-analytics\.readonly/);
 
 const deploymentValidator = readFileSync(
   new URL("../../scripts/validate-deployment-env.mjs", import.meta.url),
