@@ -131,6 +131,19 @@ const worker = read("scripts/jobs/template-video-automation.ts");
 const automation = read("src/features/videos/services/video-automation.ts");
 const adminPage = read("src/app/admin/video/templates/page.tsx");
 const studioClient = read("src/features/admin/video-templates/components/template-studio-client.tsx");
+const studioGeneralAssets = studioClient.match(/const GENERAL_ASSETS = \[(.*?)\];/)?.[1] ?? "";
+const studioKidsAssets = studioClient.match(/const KIDS_ASSETS = \[(.*?)\];/)?.[1] ?? "";
+assert.equal((studioGeneralAssets.match(/"[^"]+"/g) ?? []).length, 36,
+  "Template Studio must expose all 36 general visual scenes");
+assert.equal((studioKidsAssets.match(/"[^"]+"/g) ?? []).length, 14,
+  "Template Studio must expose all 14 Kids visual scenes");
+for (const asset of VIDEO_TEMPLATE_ASSETS) {
+  const registry = asset.startsWith("kids-") ? studioKidsAssets : studioGeneralAssets;
+  assert.ok(registry.includes(`"${asset}"`), `Template Studio must expose registered visual scene ${asset}`);
+}
+assert.match(studioClient, /ASSET_LABELS_EN/, "Template Studio must provide English scene names");
+assert.match(studioClient, /Video Template Studio/, "Template Studio must support the English locale");
+assert.match(studioClient, /dir=\{direction\}/, "Template Studio layout direction must follow the selected locale");
 const studioCreateClient = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
 const types = read("src/lib/types/supabase.ts");
 
