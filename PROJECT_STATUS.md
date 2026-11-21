@@ -2,14 +2,14 @@
 
 ## Production and release verification — 2026-11-21
 
-**State: Web production is READY on current `main`; smoke is blocked only by missing iOS App ID configuration.**
+**State: Current `main` is deployed and healthy, but the requested follow-up release is pending owner review and merge. No new production deployment or Supabase mutation has been run.**
 
 - Current `main` commit: `71df2f2e01bca0d19e62569988541ff0c1a39a43`. GitHub Quality Gate run [44821726299](https://github.com/zikrofficial-X/Zikr/actions/runs/44821726299) passed on this exact commit.
 - Vercel production deployment `dpl_FvnR7LdpEs7KXUMeqV2wCcfhyDW6` is `READY`, aliased to `zikrmediaofficial.vercel.app`; `/api/health` returns HTTP 200 and the same commit SHA. No duplicate deployment was triggered because the requested commit is already live.
 - Production `/api/app-version` reports Android `1.1.15`. Immutable GitHub Release [`v1.1.15`](https://github.com/zikrofficial-X/Zikr/releases/tag/v1.1.15) targets `faf16ea2450ab22f44c336161cd841806d97bbe6`; version metadata is aligned at versionCode 69 / target SDK 36. Downloaded APK and AAB SHA-256 values match the published release metadata and `SHA256SUMS`. The source-commit placeholder in the repository release notes has been corrected; the immutable Git tag itself is unsigned.
-- `pnpm release:metadata` and `pnpm release:contract:check` passed. The live production smoke suite passed 77 of 78 checks after correcting stale SSR-only expectations for streamed/client-rendered pages and the current English dua content.
-- Remaining production smoke failure: `/.well-known/apple-app-site-association` returns HTTP 503 because `IOS_ASSOCIATED_DOMAIN_APP_ID` is not configured. The owner must provide the real 10-character Apple Team ID plus `.com.zikr.app`; it must not be guessed.
-- Supabase Production Health run [44807000673](https://github.com/zikrofficial-X/Zikr/actions/runs/44807000673) passed on commit `7eac64b015381dbbcc5dad18f702f5a8cec37130`. No database migration, corpus restore, or Edge Function deployment was run during this verification. The controlled release workflow includes those production mutations, so it was not dispatched as part of a deployment that was already current.
+- `pnpm release:metadata` and `pnpm release:contract:check` passed. The live production smoke suite previously passed 77 of 78 checks; its remaining failure was the Apple App Site Association endpoint. `IOS_ASSOCIATED_DOMAIN_APP_ID` has since been added to project environment settings, but its Production scope/value and the live endpoint have not yet been verified by a post-release smoke run.
+- The release-fix PR [#429](https://github.com/zikrofficial-X/Zikr/pull/429) is still Draft. Its prior Quality Gate failed on a stale architecture assertion; commit `bf913186c540bafb49f45d46a75e1bb7c3de6dd4` updates that assertion to match the production smoke implementation, and exact-head Quality Gate run [44842264751](https://github.com/zikrofficial-X/Zikr/actions/runs/44842264751) passed. The PR still requires owner review and merge to `main` before the controlled production workflow can run.
+- Supabase Production Health run [44807000673](https://github.com/zikrofficial-X/Zikr/actions/runs/44807000673) passed on commit `7eac64b015381dbbcc5dad18f702f5a8cec37130`. No database migration, corpus restore, or Edge Function deployment was run during this verification. The controlled release workflow includes those production mutations and is gated on current `main`, successful required checks, owner approval, and typed `RELEASE` confirmation.
 
 ## Final verification — 2026-11-16
 
