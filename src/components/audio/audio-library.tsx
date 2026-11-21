@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CURATED_AUDIO_LIBRARY } from "@/lib/audio/curated-library";
 import { AudioLines, ExternalLink, Headphones, Mic2, Sparkles } from "lucide-react";
 import {
   getAudioSettingsFromStorage,
@@ -29,6 +30,27 @@ type AudioResponse = {
   library?: AudioAsset[];
 };
 
+const DEFAULT_CURATED_KEYS = new Set([
+  "adhan:beautiful",
+  "salawat:muhammad-pbuh",
+  "dhikr:subhanallah-1",
+]);
+
+function getCuratedFallbackLibrary(): AudioAsset[] {
+  return CURATED_AUDIO_LIBRARY.map(audio => ({
+    id: "curated:" + audio.key,
+    kind: audio.kind,
+    title: audio.title,
+    url: audio.webUrl,
+    isPrimary: DEFAULT_CURATED_KEYS.has(audio.key),
+    isHuman: audio.human,
+    sourceUrl: audio.sourceUrl,
+    sourceName: audio.sourceName,
+    license: audio.license,
+    attribution: audio.attribution ?? null,
+  }));
+}
+
 const slotFor = (kind: AudioKind): AudioSlot => kind === "adhan" ? "prayer" : kind;
 
 function toChoice(asset: AudioAsset): AudioChoice {
@@ -51,7 +73,7 @@ const GROUPS = [
 ];
 
 export function AudioLibrary() {
-  const [library, setLibrary] = useState<AudioAsset[]>([]);
+  const [library, setLibrary] = useState<AudioAsset[]>(() => getCuratedFallbackLibrary());
   const [selected, setSelected] = useState<Record<AudioSlot, string>>(() => getAudioSettingsFromStorage());
   const [failedAssets, setFailedAssets] = useState<Record<string, boolean>>({});
 
@@ -64,13 +86,18 @@ export function AudioLibrary() {
       })
       .then(payload => {
         if (!active) return;
-        const choices = (payload.library ?? []).map(toChoice);
-        registerAudioChoices(choices);
-        setLibrary(payload.library ?? []);
+        const nextLibrary = payload.library?.length
+          ? payload.library
+          : getCuratedFallbackLibrary();
+        registerAudioChoices(nextLibrary.map(toChoice));
+        setLibrary(nextLibrary);
         setSelected(getAudioSettingsFromStorage());
       })
       .catch(() => {
-        if (active) setLibrary([]);
+        if (!active) return;
+        const fallback = getCuratedFallbackLibrary();
+        registerAudioChoices(fallback.map(toChoice));
+        setLibrary(fallback);
       });
     return () => { active = false; };
   }, []);
