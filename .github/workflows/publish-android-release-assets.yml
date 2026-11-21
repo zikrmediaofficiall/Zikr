@@ -36,12 +36,14 @@ concurrency:
 jobs:
   publish:
     name: Verify and publish Android release
+    # Main recovery is reachable only from the owner-only dispatcher:
+    # its GITHUB_TOKEN workflow_dispatch actor is github-actions[bot].
     if: >-
       (github.event_name == 'push' && github.ref_type == 'tag') ||
       (github.event_name == 'workflow_dispatch' &&
        inputs.retry == true &&
        (github.ref_type == 'tag' ||
-        (github.ref == 'refs/heads/main' && github.actor == 'zikrofficial-X') ||
+        (github.ref == 'refs/heads/main' && github.actor == 'github-actions[bot]') ||
         startsWith(github.ref_name, 'android-release-v')))
     runs-on: ubuntu-24.04
     steps:
@@ -62,7 +64,7 @@ jobs:
             PUBLISH=true
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.retry }}" == "true" && "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" =~ ^android-release-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             PUBLISH=true
-          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.retry }}" == "true" && "${GITHUB_REF}" == "refs/heads/main" && "${GITHUB_ACTOR}" == "zikrofficial-X" && -f docs/finalization/RELEASE_RETRY.flag ]]; then
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.retry }}" == "true" && "${GITHUB_REF}" == "refs/heads/main" && "${GITHUB_ACTOR}" == "github-actions[bot]" && -f docs/finalization/RELEASE_RETRY.flag ]]; then
             PUBLISH=true
           fi
           echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"

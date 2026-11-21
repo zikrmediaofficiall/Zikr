@@ -108,6 +108,7 @@ assert.ok(recoveryDispatch.includes("  statuses: read"), "Android recovery must 
 assert.ok(recoveryDispatch.includes("  actions: write"), "Android recovery must have permission to dispatch the guarded publisher");
 assert.ok(recoveryDispatch.includes("  contents: write"), "owner-only Android recovery must have push visibility to inspect the private draft release");
 assert.ok(recoveryDispatch.includes("github.actor == 'zikrofficial-X'"), "Android recovery write visibility must be restricted to the canonical repository owner");
+assert.ok(recoveryDispatch.includes("isPushRecoveryTrigger") && recoveryDispatch.includes("source_commit: sourceSha"), "only the owner-restricted dispatcher may invoke main publisher with the exact signed tag SHA");
 assert.ok(recoveryDispatch.includes("android-release-dispatch-v*"), "Android recovery must retain an owner-only push fallback for an already-built exact release");
 assert.ok(recoveryDispatch.includes("sourceSha !== eventSha") && recoveryDispatch.includes("isPushRecoveryTrigger"), "manual and push recovery paths must bind publication to the immutable tag target rather than the trigger commit");
 
@@ -156,7 +157,7 @@ assert.ok(publish.includes("SOURCE_COMMIT_INPUT") && publish.includes('GITHUB_RE
 assert.ok(publish.includes("contents/${release_path}?ref=${TAG_TARGET_SHA}") && publish.includes("base64 --decode") && publish.includes("cmp -s") && publish.includes("RELEASE_SOURCE_PATHS"), "main recovery must compare every release identity/version file with GitHub contents at the immutable tag target before publishing");
 assert.ok(publish.includes("RELEASE_SOURCE_SHA=$TAG_TARGET_SHA"), "release provenance must remain bound to the tag target, not the newer workflow dispatch commit");
 const manualPublisherGuard = publish.split("      - name: Verify explicit recovery guard for manual dispatch")[1]?.split("      - name: Verify canonical GitHub owner identity before publishing Android assets")[0] ?? "";
-assert.ok(publish.includes("github.actor == 'zikrofficial-X'") && publish.includes('GITHUB_ACTOR}" == "zikrofficial-X"'), "main publisher recovery must be restricted to the repository owner in both the job condition and runtime gate");
+assert.ok(publish.includes("github.actor == 'github-actions[bot]'") && publish.includes('GITHUB_ACTOR}" == "github-actions[bot]"'), "main publisher recovery must only accept the GITHUB_TOKEN dispatch identity from the owner-restricted dispatcher");
 assert.ok(manualPublisherGuard.includes('RELEASE_SOURCE_SHA:-') && manualPublisherGuard.includes('RELEASE_SOURCE_SHA:-}" != "${TAG_TARGET_SHA}"') && !manualPublisherGuard.includes("SOURCE_COMMIT_INPUT"), "manual release verification must use the tag SHA resolved in the previous step, not an unavailable cross-step input environment variable");
 
 
