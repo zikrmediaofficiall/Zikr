@@ -16,6 +16,8 @@ type GitHubRelease = {
   prerelease?: boolean;
   published_at?: string | null;
   html_url?: string;
+  target_commitish?: string;
+  immutable?: boolean;
 };
 
 type GitHubRef = { object?: { sha?: string; type?: string } };
@@ -82,6 +84,15 @@ function encodeBase64(content: string) {
 
 function repositoryPath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
+}
+
+async function getOptionalJson<T>(path: string): Promise<T | null> {
+  try {
+    return await githubJson<T>(path);
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404) return null;
+    throw error;
+  }
 }
 
 async function getTextFile(path: string, ref: string) {
@@ -309,6 +320,195 @@ export async function dispatchPreparedAndroidReleaseTagSigning(tag: string, comm
     tag,
     commitSha,
     workflowUrl: "https://github.com/" + REPO + "/actions/workflows/sign-android-release-tag.yml",
+  };
+}
+
+
+type GitHubTagObject = {
+  tag?: string;
+  object?: { sha?: string; type?: string };
+  verification?: { verified?: boolean; reason?: string };
+};
+
+const ACTIVE_WORKFLOW_STATUSES = new Set([
+  "queued",
+  "in_progress",
+  "waiting",
+  "requested",
+  "pending",
+]);
+
+async function cancelWorkflowRunsForReleaseCommit(commitSha: string) {
+  for (const workflow of [
+    "sign-android-release-tag.yml",
+    "publish-android-release-assets.yml",
+  ]) {
+    const result = await githubJson<GitHubWorkflowRuns>(
+      "/repos/" + REPO + "/actions/workflows/" + workflow + "/runs?per_page=100",
+    );
+    const activeRuns = (result.workflow_runs ?? []).filter(
+      run => run.head_sha === commitSha && ACTIVE_WORKFLOW_STATUSES.has(run.status ?? ""),
+    );
+
+    for (const run of activeRuns) {
+      if (!run.id) {
+        throw new Error("تعذر تحديد رقم تشغيل GitHub Actions العالق؛ لم يتم حذف أي Release أو Tag.");
+      }
+
+      try {
+        await githubJson(
+          "/repos/" + REPO + "/actions/runs/" + run.id + "/cancel",
+          { method: "POST" },
+        );
+      } catch (error) {
+        const latest = await getOptionalJson<GitHubWorkflowRun>(
+          "/repos/" + REPO + "/actions/runs/" + run.id,
+        );
+        if (latest?.status !== "completed") {
+          throw new Error(
+            "تعذر إيقاف تشغيل GitHub Actions رقم " + run.id +
+            " بأمان: " + (error instanceof Error ? error.message : "خطأ غير معروف"),
+          );
+        }
+      }
+
+      let completed = false;
+      for (let attempt = 0; attempt < 15; attempt += 1) {
+        const latest = await getOptionalJson<GitHubWorkflowRun>(
+          "/repos/" + REPO + "/actions/runs/" + run.id,
+        );
+        if (latest?.status === "completed") {
+          completed = true;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      if (!completed) {
+        throw new Error(
+          "ما زال تشغيل GitHub Actions رقم " + run.id +
+          " يعمل بعد طلب الإيقاف؛ لم يتم حذف أي Release أو Tag.",
+        );
+      }
+    }
+  }
+}
+
+async function inspectStuckAndroidRelease(tag: string, commitSha: string) {
+  const encodedTag = encodeURIComponent(tag);
+  const [release, tagRef] = await Promise.all([
+    getOptionalJson<GitHubRelease>(
+      "/repos/" + REPO + "/releases/tags/" + encodedTag,
+    ),
+    getOptionalJson<GitHubRef>(
+      "/repos/" + REPO + "/git/ref/tags/" + encodedTag,
+    ),
+  ]);
+
+  if (release) {
+    if (release.tag_name !== tag) {
+      throw new Error("رفض الحذف لأن GitHub أعاد Release بوسم مختلف عن العملية المحددة.");
+    }
+    if (release.draft !== true || release.prerelease === true || release.immutable === true) {
+      throw new Error("هذا Release منشور أو غير قابل للحذف؛ لن يتم حذف Release أو Tag منشور.");
+    }
+    if (
+      release.target_commitish !== commitSha &&
+      release.target_commitish !== "main"
+    ) {
+      throw new Error("رفض حذف Draft Release لأن مصدره لا يطابق commit الإصدار المسجل.");
+    }
+    if (!release.id) {
+      throw new Error("تعذر تحديد معرّف Draft Release؛ لم يتم حذف أي عنصر.");
+    }
+  }
+
+  if (tagRef) {
+    const tagObjectSha = tagRef.object?.sha;
+    if (tagRef.object?.type !== "tag" || !tagObjectSha) {
+      throw new Error("رفض حذف Tag غير مشروح أو غير مكتمل؛ الوسم يجب أن يكون Annotated GPG Tag.");
+    }
+    const tagObject = await githubJson<GitHubTagObject>(
+      "/repos/" + REPO + "/git/tags/" + encodeURIComponent(tagObjectSha),
+    );
+    if (
+      (tagObject.tag && tagObject.tag !== tag) ||
+      tagObject.verification?.verified !== true ||
+      tagObject.verification.reason !== "valid" ||
+      tagObject.object?.type !== "commit" ||
+      tagObject.object.sha !== commitSha
+    ) {
+      throw new Error("رفض حذف Tag لأن توقيعه أو commit الهدف لا يطابق بيانات الإصدار المسجلة.");
+    }
+  }
+
+  return { release, tagRef };
+}
+
+/**
+ * Recover only a stale, unpublished Android release for the exact operation
+ * recorded by the admin control plane. Published/immutable releases and tags
+ * with a different or unverifiable target are never removed.
+ */
+export async function recreateStuckAndroidRelease(tag: string, commitSha: string) {
+  if (!/^v\\d+\\.\\d+\\.\\d+$/.test(tag) || !/^[0-9a-f]{40}$/.test(commitSha)) {
+    throw new Error("بيانات استرداد إصدار Android غير صالحة.");
+  }
+
+  const currentMainSha = await getCurrentMainSha();
+  if (currentMainSha !== commitSha) {
+    throw new Error(
+      "تغير main عن commit الإصدار المسجل؛ لن يتم حذف أو إعادة إنشاء إصدار قديم على مصدر مختلف.",
+    );
+  }
+
+  // Inspect once before stopping runners so an immutable published release is
+  // rejected without affecting any in-flight production job.
+  await inspectStuckAndroidRelease(tag, commitSha);
+  await cancelWorkflowRunsForReleaseCommit(commitSha);
+
+  // Re-read after cancellation to guard against a concurrent release update.
+  const { release, tagRef } = await inspectStuckAndroidRelease(tag, commitSha);
+
+  if (release?.id) {
+    await githubJson(
+      "/repos/" + REPO + "/releases/" + release.id,
+      { method: "DELETE" },
+    );
+    const remainingRelease = await getOptionalJson<GitHubRelease>(
+      "/repos/" + REPO + "/releases/tags/" + encodeURIComponent(tag),
+    );
+    if (remainingRelease) {
+      throw new Error("لم يؤكد GitHub حذف Draft Release؛ تم إيقاف الاسترداد قبل حذف الـTag.");
+    }
+  }
+
+  if (tagRef) {
+    await githubJson(
+      "/repos/" + REPO + "/git/refs/tags/" + encodeURIComponent(tag),
+      { method: "DELETE" },
+    );
+    const remainingTag = await getOptionalJson<GitHubRef>(
+      "/repos/" + REPO + "/git/ref/tags/" + encodeURIComponent(tag),
+    );
+    if (remainingTag) {
+      throw new Error("لم يؤكد GitHub حذف الـTag؛ لم تتم إعادة إنشاء الإصدار.");
+    }
+  }
+
+  let dispatchError: string | null = null;
+  try {
+    await dispatchPreparedAndroidReleaseTagSigning(tag, commitSha);
+  } catch (error) {
+    dispatchError = error instanceof Error ? error.message.slice(0, 300) : "تعذر إعادة إرسال مهمة توقيع الإصدار.";
+  }
+
+  return {
+    tag,
+    commitSha,
+    deletedRelease: Boolean(release),
+    deletedTag: Boolean(tagRef),
+    workflowUrl: "https://github.com/" + REPO + "/actions/workflows/sign-android-release-tag.yml",
+    dispatchError,
   };
 }
 
