@@ -74,7 +74,9 @@ const categories = latestConstraintValues("video_generation_requests_category_ch
 assert.ok(categories.includes("other"), "category 'other' must be allowed by the DB constraint");
 
 const voice = readFileSync("scripts/generate-arabic-voice.py", "utf8");
-assert.ok(!voice.includes("ZariyahNeural"), "default Arabic TTS voice must be male (Zariyah is female)");
+assert.match(voice, /DEFAULT_PROFILE = "msa"/, "the default Arabic TTS profile must remain MSA");
+assert.match(voice, /"msa": \{ "voice": "ar-SA-HamedNeural"/, "default Arabic TTS must use the male MSA neural voice");
+assert.match(voice, /"documentary_female_msa": \{ "voice": "ar-SA-ZariyahNeural"/, "female narration must be available only through its explicit profile");
 assert.ok(voice.includes("ar-SA-HamedNeural"), "male MSA profile required");
 
 const videoAutomation = readFileSync("src/features/videos/services/video-automation.ts", "utf8");
