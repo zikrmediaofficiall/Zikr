@@ -11,5 +11,8 @@ assert.match(home, /المجموعات الثماني ظاهرة هنا/, "Arabi
 assert.match(home, /group\.items\.slice\(0,\s*3\)/, "Home must keep each group preview compact and link to the full directory");
 assert.equal((catalog.match(/id:\s*['"](?:revelation|remembrance|daily|history|knowledge|audio|kids|platform)['"]/g) ?? []).length, 8,
   "the eight expected top-level section groups must remain in the canonical catalogue");
+const historyGroup = catalog.slice(catalog.indexOf("id: 'history'"), catalog.indexOf("id: 'knowledge'"));
+assert.ok(historyGroup.indexOf("href: '/stories'") < historyGroup.indexOf("href: '/scholars'"),
+  "stories must appear in the first three Home preview entries for Seerah and History");
 
 console.log("Homepage section visibility contract passed.");
