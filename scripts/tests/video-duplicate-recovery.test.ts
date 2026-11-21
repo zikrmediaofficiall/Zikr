@@ -225,6 +225,7 @@ assert.ok(adminReviewClient.includes("isReadyForHumanApproval(request.content)")
 assert.ok(adminReviewClient.includes('record.approvalReviewerId === "system:zikr-video-factory"'), "manual Kids approval must upgrade only a verified system-QA approval, never override failed or incomplete QA");
 assert.ok(adminReviewClient.includes('qa.engine === "zikr_video_factory"') && adminReviewClient.includes('qa.engineVersion === "2026-11-07-auto-qa-v1"'), "human approval must be exposed only for the current automated QA engine/version");
 assert.ok(adminReviewClient.includes('record.kidsVideoQaStatus === "passed"'), "Kids approval must require a passed Kids-specific QA result before showing the button");
+assert.ok(adminReviewClient.includes('normalizeVideoMarker(record.contentFormat) === "series_episode"') && adminReviewClient.includes('normalizeVideoMarker(record.aiMode) === "original_kids_story"') && adminReviewClient.includes('normalizeVideoMarker(record.sourceType) === "original_kids_fiction"'), "Kids approval button must be hidden unless the canonical Kids series provenance is complete");
 assert.ok(adminReviewClient.includes("لا يمكن تسجيل اعتماد بشري قبل نجاح فحص الجودة الآلي"), "the details panel must explain why requests without verified automated QA cannot be approved");
 assert.ok(adminReviewClient.includes("فتح الطلب الأصلي للمراجعة"));
 
