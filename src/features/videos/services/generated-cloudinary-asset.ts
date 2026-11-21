@@ -67,16 +67,23 @@ function isOwnedGeneratedVideo(asset: CloudinaryAsset, publicId: string): boolea
     hasZikrTag;
 }
 
+export type VerifiedGeneratedCloudinaryVideo = {
+  publicId: string;
+  cloudName: string;
+  apiKey: string;
+  apiSecret: string;
+};
+
 /**
- * Deletes exactly one verified, tagged, ZIKR-generated Cloudinary MP4.
- * It intentionally rejects transformed URLs, folders, untagged uploads and
- * non-ZIKR files. The caller must complete a database reference preflight first.
+ * Verifies ownership with Cloudinary before the database mutation begins.
+ * Keep this separate from destruction so the DB can atomically delete the
+ * request under its advisory lock before the external asset is removed.
  */
-export async function deleteVerifiedGeneratedCloudinaryVideo(
+export async function verifyGeneratedCloudinaryVideo(
   videoUrl: string,
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch,
-): Promise<{ publicId: string }> {
+): Promise<VerifiedGeneratedCloudinaryVideo> {
   const cloudName = env.CLOUDINARY_CLOUD_NAME?.trim() ?? "";
   const apiKey = env.CLOUDINARY_API_KEY?.trim() ?? "";
   const apiSecret = env.CLOUDINARY_API_SECRET?.trim() ?? "";
@@ -107,6 +114,14 @@ export async function deleteVerifiedGeneratedCloudinaryVideo(
     throw new Error("لم يثبت أن ملف Cloudinary يخص مولّد ZIKR؛ تم إيقاف الحذف لحماية الملف.");
   }
 
+  return { publicId, cloudName, apiKey, apiSecret };
+}
+
+export async function deleteVerifiedGeneratedCloudinaryVideo(
+  asset: VerifiedGeneratedCloudinaryVideo,
+  fetcher: typeof fetch = fetch,
+): Promise<{ publicId: string }> {
+  const { publicId, cloudName, apiKey, apiSecret } = asset;
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const signatureBase = `invalidate=true&public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
   const signature = createHash("sha1").update(signatureBase).digest("hex");
