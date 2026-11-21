@@ -8,6 +8,7 @@ ALTER TABLE public.video_templates
     asset_key = ANY (ARRAY[
       'calm', 'dawn', 'emerald', 'gold', 'night', 'paper', 'rose',
       'andalusian-arch', 'midnight-skyline', 'oasis-dawn',
+      'lantern-glow', 'geometric-mosaic', 'moonlit-sea', 'desert-caravan', 'olive-grove', 'manuscript-library',
       'kids-garden', 'kids-nature', 'kids-neighborhood', 'kids-workshop'
     ]::text[])
   );
@@ -58,7 +59,8 @@ BEGIN
     ]::text[])))
      OR (v_audience = 'general' AND NOT (v_asset = ANY (ARRAY[
       'calm', 'dawn', 'emerald', 'gold', 'night', 'paper', 'rose',
-      'andalusian-arch', 'midnight-skyline', 'oasis-dawn'
+      'andalusian-arch', 'midnight-skyline', 'oasis-dawn',
+      'lantern-glow', 'geometric-mosaic', 'moonlit-sea', 'desert-caravan', 'olive-grove', 'manuscript-library'
     ]::text[]))) THEN
     RAISE EXCEPTION 'asset does not match template audience' USING ERRCODE = '22023';
   END IF;
@@ -86,7 +88,13 @@ INSERT INTO public.video_templates (id, slug, title, description, audience, asse
 VALUES
   ('10000000-0000-4000-8000-000000000012', 'andalusian-arch', 'القوس الأندلسي', 'مشهد معماري بزخارف هندسية وأقواس متداخلة للمحتوى التأملي والقصصي.', 'general', 'andalusian-arch'),
   ('10000000-0000-4000-8000-000000000013', 'midnight-skyline', 'أفق منتصف الليل', 'مشهد ليلي بسماء مرصعة بالنجوم وأفق مدينة هادئ لمقاطع الذكر والتدبر.', 'general', 'midnight-skyline'),
-  ('10000000-0000-4000-8000-000000000014', 'oasis-dawn', 'واحة الفجر', 'مشهد شروق دافئ بواحة ونخيل وكثبان رملية للمحتوى الصباحي.', 'general', 'oasis-dawn')
+  ('10000000-0000-4000-8000-000000000014', 'oasis-dawn', 'واحة الفجر', 'مشهد شروق دافئ بواحة ونخيل وكثبان رملية للمحتوى الصباحي.', 'general', 'oasis-dawn'),
+  ('10000000-0000-4000-8000-000000000015', 'lantern-glow', 'فوانيس مضيئة', 'إضاءة فوانيس دافئة وأقواس شرقية لمقاطع التدبر والذكر الهادئة.', 'general', 'lantern-glow'),
+  ('10000000-0000-4000-8000-000000000016', 'geometric-mosaic', 'فسيفساء هندسية', 'طبقات زخارف هندسية متداخلة وألوان زمردية وذهبية للمحتوى المعرفي.', 'general', 'geometric-mosaic'),
+  ('10000000-0000-4000-8000-000000000017', 'moonlit-sea', 'بحر تحت القمر', 'سماء ليلية وبحر متدرج وانعكاس قمري للمقاطع التأملية.', 'general', 'moonlit-sea'),
+  ('10000000-0000-4000-8000-000000000018', 'desert-caravan', 'قافلة الصحراء', 'كثبان دافئة وقافلة بعيدة لقصص الرحلات والتاريخ والعبر.', 'general', 'desert-caravan'),
+  ('10000000-0000-4000-8000-000000000019', 'olive-grove', 'بستان الزيتون', 'تلال زيتون هادئة وضوء صباحي للمحتوى الطبيعي والروحي.', 'general', 'olive-grove'),
+  ('10000000-0000-4000-8000-000000000020', 'manuscript-library', 'مكتبة المخطوطات', 'مكتبة تراثية وكتاب مفتوح لمقاطع العلم والقراءة والقصص.', 'general', 'manuscript-library')
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.video_template_versions (
@@ -99,7 +107,7 @@ SELECT
   'active',
   true
 FROM public.video_templates AS template
-WHERE template.slug IN ('andalusian-arch', 'midnight-skyline', 'oasis-dawn')
+WHERE template.slug IN ('andalusian-arch', 'midnight-skyline', 'oasis-dawn', 'lantern-glow', 'geometric-mosaic', 'moonlit-sea', 'desert-caravan', 'olive-grove', 'manuscript-library')
 ON CONFLICT (template_id, version) DO NOTHING;
 
 COMMENT ON CONSTRAINT video_templates_asset_key_check ON public.video_templates IS
