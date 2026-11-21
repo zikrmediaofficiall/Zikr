@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { redirectToAdminStepUp } from "@/features/admin/utils/step-up-client";
+import { VIDEO_VOICE_PROFILES, getDefaultVideoVoiceProfile } from "@/features/videos/services/voice-profiles";
 
 type Category = "quran" | "hadith" | "story" | "dua" | "adhkar" | "other";
 type Format = "horizontal" | "vertical";
@@ -86,6 +87,7 @@ export default function AdminVideoStudioClient() {
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [activeTemplates, setActiveTemplates] = useState<ActiveTemplateOption[]>([]);
   const [templateVersionId, setTemplateVersionId] = useState("");
+  const [voiceProfile, setVoiceProfile] = useState("documentary_male_msa");
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [surahId, setSurahId] = useState("1");
   const [ayahNumber, setAyahNumber] = useState("1");
@@ -104,12 +106,23 @@ export default function AdminVideoStudioClient() {
   const selectedSource = sources.find((source) => source.id === sourceId);
   const selectedAudience = selectedSource?.audience === "kids" ? "kids" : "general";
   const compatibleTemplates = activeTemplates.filter((template) => template.audience === selectedAudience);
+  const voiceOptions = useMemo(
+    () => VIDEO_VOICE_PROFILES.filter((profile) =>
+      profile.mode === "tts" && (selectedAudience === "kids" ? profile.style === "kids" : profile.style !== "kids"),
+    ),
+    [selectedAudience],
+  );
 
   useEffect(() => {
     if (templateVersionId && !compatibleTemplates.some((template) => template.versionId === templateVersionId)) {
       setTemplateVersionId("");
     }
   }, [templateVersionId, compatibleTemplates]);
+
+  useEffect(() => {
+    const fallback = getDefaultVideoVoiceProfile(selectedAudience === "kids" ? "kids" : category);
+    setVoiceProfile(fallback.mode === "tts" ? fallback.id : "documentary_male_msa");
+  }, [category, selectedAudience]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -309,6 +322,7 @@ export default function AdminVideoStudioClient() {
             workflow: "ai-video-studio",
             videoFormat: format,
             templateVersionId: templateVersionId || undefined,
+            voiceProfile: category === "quran" ? "quran_reciter" : voiceProfile,
             language: "ar",
             resolution: format === "vertical" ? "1080x1920" : "1920x1080",
           },
@@ -462,6 +476,31 @@ export default function AdminVideoStudioClient() {
           </select>
           <p className="mt-1 text-xs leading-6 text-brand-cream/45">يمكن اختيار إصدار نشط ومعتمد فقط. الإصدار المختار يُثبّت داخل الطلب ولا يتغير إذا تم تفعيل نسخة أخرى لاحقًا.</p>
         </div>
+        {category !== "quran" ? (
+          <div>
+            <label htmlFor="video-voice-profile" className="mb-2 block text-sm text-brand-cream/70">صوت الراوي</label>
+            <select
+              id="video-voice-profile"
+              value={voiceProfile}
+              onChange={(event) => setVoiceProfile(event.target.value)}
+              disabled={loading || voiceOptions.length === 0}
+              className="w-full rounded-lg border border-brand-gold/20 bg-black/30 px-4 py-3 text-brand-cream disabled:opacity-50"
+            >
+              {voiceOptions.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.labelAr} — {profile.voice}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs leading-6 text-brand-cream/45">
+              يُستخدم الصوت المختار للسرد فقط؛ نصوص القرآن والحديث والمصادر المقفلة لا يعاد تأليفها أو تغييرها.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-brand-gold/15 bg-black/15 p-4 text-sm leading-6 text-brand-cream/60">
+            القرآن يستخدم التلاوة البشرية الموثقة المرتبطة بالآية، ولا يستخدم تحويل النص إلى كلام اصطناعي.
+          </div>
+        )}
         {category === "quran" ? (
           <div className="rounded-xl border border-brand-gold/15 bg-black/15 p-4">
             <p className="font-semibold text-brand-gold">

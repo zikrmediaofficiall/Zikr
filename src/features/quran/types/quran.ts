@@ -10,6 +10,10 @@ export interface Surah {
 export interface Ayah {
   number: number;
   text: string;
+  textAr?: string;
+  textEn?: string | null;
+  textEnEdition?: string | null;
+  translationAvailable?: boolean;
   surahNumber?: number;
   numberInSurah: number;
   juz: number;

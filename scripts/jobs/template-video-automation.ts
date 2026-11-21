@@ -36,7 +36,7 @@ import { createSerializedLeaseMutation, getVideoRequestLeaseHeartbeatIntervalMs,
 import { getVideoEngineConfig, isVideoAiPlanningEnabled } from "../../src/features/videos/providers/types";
 import { isVideoAutomationEnabled, isVideoPurgeInProgress } from "../../src/features/videos/services/background-job-settings";
 import { getServerEnv } from "../../src/lib/env";
-import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig, videoTemplateAssetPath, videoTemplateScene, type VideoTemplateAudience } from "../../src/features/videos/services/template-config";
+import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig, videoTemplateAssetPath, videoTemplateScene, type VideoTemplateAudience, type VideoTemplateAsset } from "../../src/features/videos/services/template-config";
 import { CURRENT_VIDEO_RENDERER_VERSION, versionedTemplateLabel } from "../../src/features/videos/services/video-template-version";
 import { AI_VISUAL_POLICY_VERSION, aiVisualPolicyPromptLine } from "../../src/features/videos/providers/ai-visual-policy";
 import { createVideoProviderRouter } from "../../src/features/videos/providers/provider-router";
@@ -45,7 +45,7 @@ import { resolveFreeVideoProviderDownloadUrl } from "../../src/features/videos/p
 import { getDefaultVideoVoiceProfile, getVideoVoiceProfile } from "../../src/features/videos/services/voice-profiles";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
 import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
-import { GENERAL_VIDEO_SCENES, KIDS_VIDEO_SCENES, isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene, type VideoScene } from "../../src/features/videos/services/video-creative-variation";
+import { GENERAL_VIDEO_SCENES, KIDS_VIDEO_SCENES, isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene, resolveDeterministicVideoVisualTheme, type VideoScene } from "../../src/features/videos/services/video-creative-variation";
 import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
@@ -307,6 +307,7 @@ async function bindTemplateVersion(request: GeneratedRequest): Promise<BoundTemp
 
 function backgroundAsset(scene: AiVideoPlan["scene"], content?: Record<string, unknown>) {
   const pinnedConfig = parseVideoTemplateConfig(content?.templateConfigSnapshot);
+  const audience: VideoTemplateAudience = content?.audience === "kids" ? "kids" : "general";
   const pinnedAudience: VideoTemplateAudience | null =
     content?.templateAudience === "kids" ? "kids" :
     content?.templateAudience === "general" ? "general" : null;
@@ -314,28 +315,18 @@ function backgroundAsset(scene: AiVideoPlan["scene"], content?: Record<string, u
     const assetPath = videoTemplateAssetPath(pinnedConfig.assetKey, pinnedAudience);
     if (assetPath) return assetPath;
   }
-  if (content?.audience === "kids") {
-    if (scene.startsWith("kids-")) return `public/video/templates/${scene}.svg`;
-    const kidThemes: Record<string, string> = {
-      "kids-garden": "public/video/templates/kids-garden.svg",
-      "kids-neighborhood": "public/video/templates/kids-neighborhood.svg",
-      "kids-workshop": "public/video/templates/kids-workshop.svg",
-      "kids-nature": "public/video/templates/kids-nature.svg",
-    };
-    const theme = typeof content.visualTheme === "string" ? content.visualTheme : "";
-    if (kidThemes[theme]) return kidThemes[theme];
+  const requestedTheme = typeof content?.visualTheme === "string" ? content.visualTheme : "";
+  if (requestedTheme && isVideoTemplateAssetAllowedForAudience(requestedTheme as VideoTemplateAsset, audience)) {
+    const assetPath = videoTemplateAssetPath(requestedTheme as VideoTemplateAsset, audience);
+    if (assetPath) return assetPath;
   }
-  const map: Record<AiVideoPlan["scene"], string> = {
-    calm:"public/video/templates/calm.svg",dawn:"public/video/templates/dawn.svg",night:"public/video/templates/night.svg",
-    gold:"public/video/templates/gold.svg",emerald:"public/video/templates/emerald.svg",paper:"public/video/templates/paper.svg",rose:"public/video/templates/rose.svg",
-    desert:"public/video/templates/desert-dusk.svg",coastal:"public/video/templates/coastal-blue.svg",botanical:"public/video/templates/botanical.svg",
-    library:"public/video/templates/library.svg",geometric:"public/video/templates/geometric.svg",marble:"public/video/templates/marble.svg",
-    cinematic:"public/video/templates/cinematic.svg",starfield:"public/video/templates/starfield.svg",mountain:"public/video/templates/mountain-dawn.svg",
-    heritage:"public/video/templates/heritage.svg",minimal:"public/video/templates/minimal-studio.svg",rainy:"public/video/templates/rainy-window.svg",
-    "kids-space":"public/video/templates/kids-space.svg","kids-ocean":"public/video/templates/kids-ocean.svg","kids-forest":"public/video/templates/kids-forest.svg",
-    "kids-playground":"public/video/templates/kids-playground.svg","kids-classroom":"public/video/templates/kids-classroom.svg","kids-adventure":"public/video/templates/kids-adventure.svg",
+  const legacySceneAssets: Record<AiVideoPlan["scene"], VideoTemplateAsset> = {
+    calm: "calm", dawn: "dawn", night: "night", gold: "gold",
+    emerald: "emerald", paper: "paper", rose: "rose",
   };
-  return map[scene] || map.calm;
+  const fallbackAsset = legacySceneAssets[scene] ?? "calm";
+  const fallbackPath = videoTemplateAssetPath(fallbackAsset, audience);
+  return fallbackPath ?? "public/video/templates/calm.svg";
 }
 
 async function renderBackground(temp: string, scene: AiVideoPlan["scene"], width: number, height: number, content?: Record<string, unknown>, signal?: AbortSignal) {
@@ -1413,9 +1404,17 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       : hasGeminiCreativePlan && (persistedAi?.motion === "fade" || persistedAi?.motion === "slow")
         ? persistedAi.motion
         : resolveDeterministicVideoMotion(request.id);
-    if (persistedAi) {
-      request.content = { ...request.content, ai: { ...persistedAi, scene, motion } };
-    }
+    const audience: VideoTemplateAudience = request.content?.audience === "kids" ? "kids" : "general";
+    const visualTheme = boundTemplate?.config.assetKey ?? resolveDeterministicVideoVisualTheme({
+      id: request.id,
+      category: request.category,
+      audience,
+    });
+    request.content = {
+      ...request.content,
+      visualTheme,
+      ...(persistedAi ? { ai: { ...persistedAi, scene, motion } } : {}),
+    };
     const isVertical = height >= width;
 
     const narrationProfile = narrationProfileForRequest(request);
@@ -1774,7 +1773,10 @@ export function buildAutomatedVideoQaChecklist(
 
   const audioKind = typeof audio.kind === "string" ? audio.kind : "";
   const voiceProfile = typeof audio.voiceProfile === "string" ? audio.voiceProfile : "";
-  const approvedVoiceProfiles = new Set(["quran_reciter", "hadith_male_msa", "documentary_male_msa", "kids_friendly"]);
+  const approvedVoiceProfiles = new Set([
+    "quran_reciter", "hadith_male_msa", "documentary_male_msa", "kids_friendly",
+    "documentary_female_msa", "egyptian_female_story", "egyptian_male_story", "levant_male_story",
+  ]);
   const audioReviewed = approvedVoiceProfiles.has(voiceProfile) &&
     (category === "quran"
       ? audioKind === "verified_quran_recitation"
@@ -1797,7 +1799,13 @@ export function buildAutomatedVideoQaChecklist(
     Number(media.bytes) >= 1024;
   const renderDuration = Number(render.durationSeconds);
   const resolutionValid = render.resolution === "1080x1920" || render.resolution === "1920x1080";
-  const visualsReviewed = allowedScenes.has(rendered.scene) &&
+  const visualAudience: VideoTemplateAudience = content.audience === "kids" ? "kids" : "general";
+  const visualTheme = typeof content.visualTheme === "string" ? content.visualTheme : "";
+  const visualThemeReviewed = visualTheme
+    ? isVideoTemplateAssetAllowedForAudience(visualTheme as VideoTemplateAsset, visualAudience)
+    : allowedScenes.has(rendered.scene);
+  const visualsReviewed = visualThemeReviewed &&
+    allowedScenes.has(rendered.scene) &&
     allowedMotions.has(String(render.motion)) &&
     render.aiVisualPolicyVersion === AI_VISUAL_POLICY_VERSION &&
     typeof render.composition === "string" && Boolean(render.composition.trim()) &&

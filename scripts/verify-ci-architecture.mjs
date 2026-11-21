@@ -219,6 +219,7 @@ assert.ok(
     englishSyncCommand.includes('if [[ -n "${GEMINI_API_KEY:-}" ]]') &&
     englishSyncCommand.includes("pnpm translate:articles:en || article_status=$?") &&
     englishSyncCommand.includes("pnpm sync:hadith:en || hadith_status=$?") &&
+    englishSyncCommand.includes("pnpm sync:quran:en || quran_status=$?") &&
     englishSyncCommand.includes("English sync incomplete"),
   "Daily English sync must attempt Hadith even when article translation lacks Gemini or fails.",
 );

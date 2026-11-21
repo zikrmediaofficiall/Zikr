@@ -75,7 +75,7 @@ for (const token of ['VIDEO_FREE_ONLY: "true"', 'VIDEO_PROVIDER_ORDER: "hf_ltx_f
   if (!workflow.includes(token)) failures.push("production workflow missing free/QC setting: " + token);
 }
 if (workflow.includes("GEMINI_API_KEY:")) failures.push("free-only workflow must not inject a Gemini credential");
-for (const name of ["kids-garden", "kids-neighborhood", "kids-workshop", "kids-nature"]) {
+for (const name of ["kids-garden","kids-nature","kids-neighborhood","kids-workshop","kids-space","kids-ocean","kids-forest","kids-playground","kids-classroom","kids-adventure","kids-jungle","kids-robotics","kids-animals","kids-weather"]) {
   const path = "public/video/templates/" + name + ".svg";
   if (!read(path).includes("<svg")) failures.push("missing SVG background: " + path);
   if (!workflow.includes(path)) failures.push("workflow must rasterize-check SVG background: " + path);

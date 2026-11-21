@@ -9,7 +9,7 @@ import {
 } from "../../src/features/videos/services/template-config";
 import { resolveVideoComposition } from "../../src/features/videos/services/video-composition";
 import { CURRENT_VIDEO_RENDERER_VERSION } from "../../src/features/videos/services/video-template-version";
-import { isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoScene } from "../../src/features/videos/services/video-creative-variation";
+import { isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoScene, resolveDeterministicVideoVisualTheme } from "../../src/features/videos/services/video-creative-variation";
 
 const general = parseVideoTemplateConfig({
   assetKey: "emerald",
@@ -66,10 +66,10 @@ assert.ok(customComposition.panelLeft > standardComposition.panelLeft);
 assert.ok(customComposition.lineChars < standardComposition.lineChars);
 assert.equal(customComposition.captionStyle, "boxed");
 assert.equal(customComposition.sourceCardStyle, "compact");
-assert.equal(CURRENT_VIDEO_RENDERER_VERSION, "2026-11-21-visual-catalog-v11");
-assert.equal(VIDEO_TEMPLATE_ASSETS.length, 32);
-assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => !asset.startsWith("kids-")).length, 22);
-assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => asset.startsWith("kids-")).length, 10);
+assert.equal(CURRENT_VIDEO_RENDERER_VERSION, "2026-11-21-visual-catalog-v12");
+assert.equal(VIDEO_TEMPLATE_ASSETS.length, 50);
+assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => !asset.startsWith("kids-")).length, 36);
+assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => asset.startsWith("kids-")).length, 14);
 for (const asset of VIDEO_TEMPLATE_ASSETS) {
   const audience = asset.startsWith("kids-") ? "kids" : "general";
   assert.equal(isVideoTemplateAssetAllowedForAudience(asset, audience), true, asset);
@@ -80,9 +80,28 @@ const generalScene = resolveDeterministicVideoScene({ id: "visual-general-01", c
 const kidsScene = resolveDeterministicVideoScene({ id: "visual-kids-01", category: "story", audience: "kids" });
 assert.equal(isVideoSceneAllowedForAudience(generalScene, "general"), true);
 assert.equal(isVideoSceneAllowedForAudience(kidsScene, "kids"), true);
-assert.equal(isVideoSceneAllowedForAudience(kidsScene, "general"), false);
+assert.equal(isVideoSceneAllowedForAudience(kidsScene, "general"), true);
 assert.ok(resolveDeterministicVideoHook({ id: "hook-story-01", category: "story" }).length > 12);
 assert.ok(resolveDeterministicVideoHook({ id: "hook-kids-01", category: "story", audience: "kids" }).length > 12);
+const addedAssets = [
+  "watercolor-sky", "old-city", "desert-rose", "mosaic-blue", "satin-night", "sunlit-arch", "olive-branch", "minimal-cream",
+  "kids-jungle", "kids-robotics", "kids-animals", "kids-weather",
+] as const;
+for (const asset of addedAssets) {
+  const audience = asset.startsWith("kids-") ? "kids" : "general";
+  assert.equal(isVideoTemplateAssetAllowedForAudience(asset, audience), true);
+  assert.equal(isVideoTemplateAssetAllowedForAudience(asset, audience === "kids" ? "general" : "kids"), false);
+  assert.equal(videoTemplateAssetPath(asset, audience), `public/video/templates/${asset}.svg`);
+  assert.ok(readFileSync(videoTemplateAssetPath(asset, audience)!, "utf8").includes("<svg"));
+}
+for (const id of ["theme-01", "theme-02", "theme-03", "theme-04", "theme-05", "theme-06", "theme-07", "theme-08", "theme-09", "theme-10", "theme-11", "theme-12", "theme-13", "theme-14", "theme-15", "theme-16"]) {
+  const generalTheme = resolveDeterministicVideoVisualTheme({ id, category: "story" });
+  const kidsTheme = resolveDeterministicVideoVisualTheme({ id, category: "story", audience: "kids" });
+  assert.equal(isVideoTemplateAssetAllowedForAudience(generalTheme, "general"), true);
+  assert.equal(isVideoTemplateAssetAllowedForAudience(generalTheme, "kids"), false);
+  assert.equal(isVideoTemplateAssetAllowedForAudience(kidsTheme, "kids"), true);
+  assert.equal(isVideoTemplateAssetAllowedForAudience(kidsTheme, "general"), false);
+}
 assert.equal(parseVideoTemplateConfig({ assetKey: "../../secrets", defaultFormat: "vertical", motion: "slow" }), null);
 assert.equal(parseVideoTemplateConfig({ assetKey: "gold", defaultFormat: "square", motion: "slow" }), null);
 assert.equal(isVideoTemplateAssetAllowedForAudience("kids-garden", "kids"), true);
@@ -104,6 +123,7 @@ assert.equal(videoTemplateScene("oasis-dawn"), "dawn");
 
 const read = (path: string) => readFileSync(path, "utf8");
 const migration = read("supabase/migrations/20261106010000_admin_video_template_studio.sql");
+const visualCatalogMigration = read("supabase/migrations/20261121090000_expand_video_template_visual_catalog.sql");
 const blockerFixMigration = read("supabase/migrations/20261106090800_production_blockers_and_social_insights.sql");
 const api = read("src/app/api/admin/video/templates/route.ts");
 const createApi = read("src/app/api/admin/videos/create/route.ts");
@@ -123,6 +143,11 @@ assert.match(migration, /activate_video_template_version/i);
 assert.match(blockerFixMigration, /FROM public\.profiles AS actor WHERE actor\.id = p_actor_user_id/i);
 assert.doesNotMatch(blockerFixMigration, /FROM auth\.users/i);
 assert.match(migration, /video_template_versions_one_active_per_template/i);
+for (const asset of addedAssets) {
+  assert.ok(visualCatalogMigration.includes("'" + asset + "'"), "Visual catalog migration must allow and seed " + asset);
+}
+assert.match(visualCatalogMigration, /REVOKE ALL ON FUNCTION public\.admin_create_video_template_version/);
+assert.match(visualCatalogMigration, /GRANT EXECUTE ON FUNCTION public\.admin_create_video_template_version/);
 
 assert.match(api, /requireAdminApi\("video\.manage"\)/);
 const templateGetHandler = api.slice(api.indexOf("export async function GET"), api.indexOf("export async function POST"));

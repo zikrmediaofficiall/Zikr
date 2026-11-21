@@ -7,6 +7,8 @@ const articleSync = readFileSync("scripts/translate-published-articles-en.ts", "
 const contentSync = readFileSync("scripts/translate-published-content-en.ts", "utf8");
 const circleWorkflow = readFileSync(".github/workflows/english-content-sync.yml", "utf8");
 const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+const quranSync = readFileSync("scripts/sync-quran-english.ts", "utf8");
+const quranTranslationMigration = readFileSync("supabase/migrations/20261121100000_quran_english_translation_provenance.sql", "utf8");
 
 const canonicalSupabaseUrl = "https://zqtssvlvmkzeeyqghqfk.supabase.co";
 assert.equal(assertCanonicalSupabaseProjectUrl(canonicalSupabaseUrl), canonicalSupabaseUrl);
@@ -209,7 +211,20 @@ assert.ok(circleWorkflow.includes('default: "10"') && circleWorkflow.includes('d
 assert.ok(circleWorkflow.includes("pnpm translate:content:en") && circleWorkflow.includes("content_status"),
   "manual English sync must run and report the additional content worker independently");
 
-console.log("English content sync concurrency and retry contracts passed.");
+assert.equal(packageJson.scripts["sync:quran:en"], "tsx scripts/sync-quran-english.ts");
+assert.ok(circleEnglishSync.includes("pnpm sync:quran:en") && circleEnglishSync.includes("quran_status"));
+assert.ok(circleWorkflow.includes("pnpm sync:quran:en") && circleWorkflow.includes("quran_status"));
+assert.ok(quranSync.includes('const EDITION = "en.pickthall"'));
+assert.ok(quranSync.includes("api.alquran.cloud/v1") && quranSync.includes("/" + EDITION));
+assert.ok(quranSync.includes("source.text_ar") && quranSync.includes("admin_sync_quran_english_batch"));
+assert.ok(quranSync.includes("PAGE_SIZE = 1_000") && quranSync.includes("offset="));
+assert.ok(!quranSync.includes("generateGeminiText") && !quranSync.includes("GEMINI_API_KEY"));
+assert.ok(quranTranslationMigration.includes("SECURITY INVOKER"));
+assert.ok(quranTranslationMigration.includes("target.text_ar = incoming.text_ar"));
+assert.ok(quranTranslationMigration.includes("NULLIF(pg_catalog.btrim(target.text_en), '') IS NULL"));
+assert.ok(quranTranslationMigration.includes("text_en_edition = p_edition"));
+assert.ok(quranTranslationMigration.includes("GRANT EXECUTE ON FUNCTION public.admin_sync_quran_english_batch"));
+console.log("English content sync concurrency, Hadith and source-attributed Quran contracts passed.");
 
 assert.ok(
   circleWorkflow.includes('schedule:\n    - cron: "15 7 * * *"'),

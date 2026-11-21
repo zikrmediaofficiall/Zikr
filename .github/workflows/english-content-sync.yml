@@ -74,6 +74,7 @@ jobs:
           article_status=0
           content_status=0
           hadith_status=0
+          quran_status=0
 
           if [[ -n "${GEMINI_API_KEY:-}" ]]; then
             echo "Translating at most ${TRANSLATION_BATCH_SIZE} published articles."
@@ -87,10 +88,13 @@ jobs:
             content_status=1
           fi
 
+          echo "Importing the named English Quran edition from the verified upstream source."
+          timeout --signal=TERM --kill-after=60s 15m pnpm sync:quran:en || quran_status=$?
+
           echo "Synchronizing at most ${HADITH_TRANSLATION_BATCH_SIZE} Hadith records."
           timeout --signal=TERM --kill-after=60s 15m pnpm sync:hadith:en || hadith_status=$?
 
-          if (( article_status != 0 || content_status != 0 || hadith_status != 0 )); then
-            echo "English sync incomplete (articles=${article_status}, other-content=${content_status}, hadith=${hadith_status})." >&2
+          if (( article_status != 0 || content_status != 0 || quran_status != 0 || hadith_status != 0 )); then
+            echo "English sync incomplete (articles=${article_status}, other-content=${content_status}, Quran=${quran_status}, hadith=${hadith_status})." >&2
             exit 1
           fi

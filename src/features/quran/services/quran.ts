@@ -31,6 +31,7 @@ export type DbAyah = {
   ayah_number: number;
   text_ar: string;
   text_en: string | null;
+  text_en_edition?: string | null;
   text_uthmani: string | null;
   text_simple: string | null;
   page: number | null;
@@ -83,7 +84,11 @@ export function mapDbSurah(surah: DbSurah, locale: Locale): Surah {
 export function mapDbAyah(ayah: DbAyah, locale: Locale): Ayah {
   return {
     number: ayah.ayah_number,
-    text: locale === "en" ? ayah.text_en ?? "" : ayah.text_ar,
+    text: locale === "en" ? ayah.text_en?.trim() || ayah.text_ar : ayah.text_ar,
+    textAr: ayah.text_ar,
+    textEn: ayah.text_en,
+    textEnEdition: ayah.text_en_edition ?? null,
+    translationAvailable: Boolean(ayah.text_en?.trim()),
     surahNumber: ayah.surah_id,
     numberInSurah: ayah.ayah_number,
     juz: ayah.juz ?? 0,
@@ -264,7 +269,7 @@ export async function searchQuran(
   try {
     const encoded = encodeURIComponent(cleanQuery.replace(/[%_]/g, " "));
     const rows = await supabasePublicFetch<DbAyah[]>(
-      `/rest/v1/quran_ayahs?or=(text_ar.ilike.*${encoded}*,text_uthmani.ilike.*${encoded}*,text_simple.ilike.*${encoded}*)&limit=50&order=surah_id.asc,ayah_number.asc&select=id,surah_id,ayah_number,text_ar,text_en,text_uthmani,text_simple,page,juz,hizb,rub,sajda`,
+      `/rest/v1/quran_ayahs?or=(text_ar.ilike.*${encoded}*,text_uthmani.ilike.*${encoded}*,text_simple.ilike.*${encoded}*,text_en.ilike.*${encoded}*)&limit=50&order=surah_id.asc,ayah_number.asc&select=id,surah_id,ayah_number,text_ar,text_en,text_en_edition,text_uthmani,text_simple,page,juz,hizb,rub,sajda`,
     );
     return rows.map(row => mapDbAyah(row, locale));
   } catch (error) {

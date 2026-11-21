@@ -1,10 +1,17 @@
+import {
+  VIDEO_TEMPLATE_ASSETS,
+  isVideoTemplateAssetAllowedForAudience,
+  type VideoTemplateAsset,
+  type VideoTemplateAudience,
+} from "./template-config";
+
 const LEGACY_VIDEO_SCENES = ["calm", "dawn", "night", "gold", "emerald", "paper", "rose"] as const;
-export const GENERAL_VIDEO_SCENES = [...LEGACY_VIDEO_SCENES, "desert", "coastal", "botanical", "library", "geometric", "marble", "cinematic", "starfield", "mountain", "heritage", "minimal", "rainy"] as const;
-export const KIDS_VIDEO_SCENES = ["kids-space", "kids-ocean", "kids-forest", "kids-playground", "kids-classroom", "kids-adventure"] as const;
-export type VideoScene = (typeof GENERAL_VIDEO_SCENES)[number] | (typeof KIDS_VIDEO_SCENES)[number];
-export function isVideoSceneAllowedForAudience(scene: unknown, audience: unknown): scene is VideoScene {
-  const allowed: readonly string[] = audience === "kids" ? KIDS_VIDEO_SCENES : GENERAL_VIDEO_SCENES;
-  return typeof scene === "string" && allowed.includes(scene);
+export const GENERAL_VIDEO_SCENES = LEGACY_VIDEO_SCENES;
+export const KIDS_VIDEO_SCENES = LEGACY_VIDEO_SCENES;
+export type VideoScene = (typeof LEGACY_VIDEO_SCENES)[number];
+
+export function isVideoSceneAllowedForAudience(scene: unknown, _audience: unknown): scene is VideoScene {
+  return typeof scene === "string" && (LEGACY_VIDEO_SCENES as readonly string[]).includes(scene);
 }
 
 function stableIndex(seed: string, length: number): number {
@@ -15,17 +22,6 @@ function stableIndex(seed: string, length: number): number {
   }
   return (hash >>> 0) % Math.max(1, length);
 }
-
-const SCENES: Record<string, readonly VideoScene[]> = {
-  quran: ["night", "dawn", "paper", "gold", "emerald", "starfield", "library", "heritage", "geometric"],
-  hadith: ["paper", "gold", "night", "dawn", "calm", "library", "marble", "geometric"],
-  dua: ["rose", "dawn", "emerald", "gold", "calm", "botanical", "coastal", "desert"],
-  adhkar: ["emerald", "rose", "night", "dawn", "paper", "botanical", "starfield", "rainy"],
-  story: ["dawn", "gold", "night", "paper", "emerald", "cinematic", "mountain", "desert", "heritage"],
-  stories: ["dawn", "gold", "night", "paper", "emerald", "cinematic", "mountain", "desert", "heritage"],
-  other: ["calm", "gold", "emerald", "night", "paper", "minimal", "rainy", "cinematic", "marble"],
-  video: GENERAL_VIDEO_SCENES,
-};
 
 const OPENING_HOOKS: Record<string, string[]> = {
  quran:["قف لحظة مع هذه الآية، ولا تستعجل معناها.","ما المعنى الذي يمكن أن يصحبك بعد هذه القراءة؟","اقرأ الآية، ثم لاحظ الكلمة التي تستوقفك.","تأمل هذا المعنى بهدوء قبل أن تتابع يومك.","آية نقرؤها كثيرًا، وفي معناها ما يستحق التأمل.","دع هذه القراءة تمنحك لحظة مراجعة صادقة.","ابدأ من النص، ثم خذ وقتك مع المعنى.","ما الفكرة التي ستبقى معك بعد هذه الآية؟"],
@@ -45,11 +41,30 @@ export function resolveDeterministicVideoScene(input: {
   audience?: unknown;
 }): VideoScene {
   const category = input.category.trim().toLowerCase();
-  if (input.audience === "kids") {
-    return KIDS_VIDEO_SCENES[stableIndex(input.id, KIDS_VIDEO_SCENES.length)];
-  }
-  const choices = SCENES[category] ?? SCENES.other;
-  return choices[stableIndex(input.id, choices.length)];
+  const choices: Record<string, readonly VideoScene[]> = {
+    quran: ["night", "dawn", "paper", "gold", "emerald"],
+    hadith: ["paper", "gold", "night", "dawn", "emerald"],
+    dua: ["rose", "dawn", "emerald", "gold", "calm"],
+    adhkar: ["emerald", "rose", "night", "dawn", "paper"],
+    story: ["dawn", "gold", "night", "paper", "emerald"],
+    stories: ["dawn", "gold", "night", "paper", "emerald"],
+    other: LEGACY_VIDEO_SCENES,
+  };
+  const bucket = choices[category] ?? choices.other;
+  return bucket[stableIndex(input.id, bucket.length)];
+}
+
+export function resolveDeterministicVideoVisualTheme(input: {
+  id: string;
+  category: string;
+  audience?: unknown;
+}): VideoTemplateAsset {
+  const audience: VideoTemplateAudience = input.audience === "kids" ? "kids" : "general";
+  const candidates = VIDEO_TEMPLATE_ASSETS.filter((asset) =>
+    isVideoTemplateAssetAllowedForAudience(asset, audience),
+  );
+  if (!candidates.length) throw new Error("No approved local video scene exists for the requested audience.");
+  return candidates[stableIndex(input.id + ":" + input.category.trim().toLowerCase(), candidates.length)];
 }
 
 export function resolveDeterministicVideoHook(input: {

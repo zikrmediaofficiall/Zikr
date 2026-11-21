@@ -2939,6 +2939,7 @@ export type Database = {
           surah_id: number
           text_ar: string
           text_en: string | null
+          text_en_edition: string | null
           text_simple: string | null
           text_uthmani: string | null
           updated_at: string
@@ -2958,6 +2959,7 @@ export type Database = {
           surah_id: number
           text_ar: string
           text_en?: string | null
+          text_en_edition?: string | null
           text_simple?: string | null
           text_uthmani?: string | null
           updated_at?: string
@@ -2977,6 +2979,7 @@ export type Database = {
           surah_id?: number
           text_ar?: string
           text_en?: string | null
+          text_en_edition?: string | null
           text_simple?: string | null
           text_uthmani?: string | null
           updated_at?: string
