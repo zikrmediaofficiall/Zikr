@@ -174,6 +174,14 @@ assert.equal(CURATED_AUDIO_LIBRARY.filter(asset => asset.kind === "salawat").len
 assert.equal(CURATED_AUDIO_LIBRARY.filter(asset => asset.kind === "dhikr").length, 10);
 assert.match(siteAudioServiceSource, /const missingKindFallbacks = getCuratedFallbackLibrary\(\)\.filter/);
 assert.match(siteAudioServiceSource, /return \[\.\.\.databaseAssets, \.\.\.missingKindFallbacks\]/);
+assert.match(audioLibrarySource, /import \{ CURATED_AUDIO_LIBRARY \} from "@\/lib\/audio\/curated-library"/,
+  "the browser audio library must import the reviewed public catalogue for a first-render fallback");
+assert.match(audioLibrarySource, /useState<AudioAsset\[]>\(\(\) => getCuratedFallbackLibrary\(\)\)/,
+  "public audio cards must render immediately instead of waiting for a successful API request");
+assert.match(audioLibrarySource, /const nextLibrary = payload\.library\?\.length[\s\S]*?getCuratedFallbackLibrary\(\)/,
+  "an empty successful API response must not leave all audio categories blank");
+assert.match(audioLibrarySource, /\.catch\(\(\) => \{[\s\S]*?registerAudioChoices\(fallback\.map\(toChoice\)\)/,
+  "an unavailable API must register and display the bundled audio choices");
 assert.ok(audioConfigSource.includes("if (audioResponse.ok) registerAudioChoices(remote)"),
   "a failed site-audio response must not clear the last known-good remote audio snapshot");
 assert.ok(audioLibrarySource.includes("asset.attribution"), "the public audio library must display the creator attribution supplied by the catalog");
