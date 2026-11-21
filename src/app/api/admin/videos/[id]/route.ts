@@ -109,20 +109,6 @@ async function deleteUnreferencedDuplicateAsset(
     throw new Error('DUPLICATE_FILE_DELETED_ROW_CLEANUP_PENDING');
   }
 
-  const deletedRows = await supabaseServerAdminRequest<Array<{ deleted_id: string }>>(
-    '/rest/v1/rpc/admin_delete_unreferenced_video_generation_request',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-      body: JSON.stringify({
-        p_request_id: requestId,
-        p_expected_updated_at: clearedRows[0].updated_at,
-      }),
-    },
-  );
-  if (deletedRows?.length !== 1 || deletedRows[0]?.deleted_id !== requestId) {
-    throw new Error('DUPLICATE_FILE_DELETED_ROW_CLEANUP_PENDING');
-  }
   return deletedAsset;
 }
 
