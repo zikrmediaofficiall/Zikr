@@ -71,11 +71,15 @@ function catalogReferencesTargetedMedia(
   ];
   const referencesCloudinary = Boolean(assetUrl) &&
     (mediaUrls.includes(assetUrl) || deletion.assetUrl === assetUrl);
+  const hasOtherLiveMediaPointer = mediaUrls.some((value) =>
+    typeof value === "string" && value.trim().length > 0 &&
+    value !== assetUrl && !isTargetedStorageUrl(value, storagePaths)
+  );
   const markerPaths = Array.isArray(deletion.storagePaths)
     ? deletion.storagePaths.map((value) => managedVideoStoragePath({ bucket: "videos", path: value })).filter(Boolean)
     : [];
   const referencesStorage = mediaUrls.some((value) => isTargetedStorageUrl(value, storagePaths)) ||
-    markerPaths.some((path) => typeof path === "string" && storagePaths.includes(path));
+    (!hasOtherLiveMediaPointer && markerPaths.some((path) => typeof path === "string" && storagePaths.includes(path)));
   return referencesCloudinary || referencesStorage;
 }
 
@@ -291,7 +295,7 @@ async function loadCatalogForRequest(requestId: string): Promise<CatalogRow[]> {
       `/rest/v1/videos?slug=eq.${encodeURIComponent("zikr-" + requestId)}&select=id,slug,metadata,published,youtube_id,updated_at&limit=10`,
     ),
   ]);
-  if (!Array.isArray(byMetadata) || !Array.isArray(bySlug)) {
+  if (!Array.isArray(byMetadata) || !Array.isArray(bySlug) || byMetadata.length >= 10 || bySlug.length >= 10) {
     throw new Error("VIDEO_PROJECT_DELETE_CATALOG_INVENTORY_INVALID");
   }
   const unique = new Map<string, CatalogRow>();
@@ -418,7 +422,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       const rowDeletion = getProjectDeletion(row.content);
       const rowStoragePath = managedVideoStoragePath(getStorageRetention(row.content));
       const matchesVideoAsset = assetUrl !== null &&
-        (row.video_url === assetUrl || rowDeletion.assetUrl === assetUrl ||
+        (row.video_url === assetUrl ||
           [asRecord(row.content).generatedVideoUrl, asRecord(row.content).videoUrl, asRecord(row.content).video_url].includes(assetUrl));
       const matchesStorageCopy = rowStoragePath !== null && storagePaths.includes(rowStoragePath);
       const nextStatus = (matchesVideoAsset || matchesStorageCopy) &&
@@ -446,7 +450,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       const metadata = queueMetadataForDeletion(row, relatedVideoUrl, storagePaths, requestIds, requestedAt, requestedBy);
       const nextStatus = row.status === "published"
         ? "published"
-        : matchesVideoAsset && ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
+        : row.video_url === assetUrl && assetUrl !== null && ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
           ? "failed"
           : row.status;
       const queueFilter = `id=eq.${encodeURIComponent(row.id)}${row.updated_at ? `&updated_at=eq.${encodeURIComponent(row.updated_at)}` : ""}`;
