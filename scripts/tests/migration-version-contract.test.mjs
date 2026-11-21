@@ -48,6 +48,21 @@ for (const filename of remoteHistoryMarkers) {
   assert.match(marker, /^\s*(?:--[^\n]*\n)*SELECT\s+1\s*;\s*$/i);
 }
 
+const appliedRemoteVideoDeletionMigration = readFileSync(
+  "supabase/migrations/20261121095418_allow_safe_unapproved_review_video_deletion.sql",
+  "utf8",
+);
+assert.match(
+  appliedRemoteVideoDeletionMigration,
+  /COALESCE\(request_row\.content ->> 'approvalStatus', ''\)/,
+  "the tracked local filename must retain the exact remote-applied safe deletion contract",
+);
+assert.match(
+  appliedRemoteVideoDeletionMigration,
+  /'awaiting_human_review'/,
+  "the tracked local migration must preserve the pending-review deletion state",
+);
+
 const validator = readFileSync("scripts/validate-migrations.mjs", "utf8");
 assert.match(validator, /findDuplicateMigrationVersions\(files\)/);
 assert.match(validator, /DUPLICATE_MIGRATION_VERSIONS/);
