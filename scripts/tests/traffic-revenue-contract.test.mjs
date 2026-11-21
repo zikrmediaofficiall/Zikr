@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 const service = readFileSync("src/features/admin/services/traffic-revenue.ts", "utf8");
 const panel = readFileSync("src/features/admin/components/traffic-revenue-panel.tsx", "utf8");
+const youtubeConnect = readFileSync("src/app/api/admin/social/youtube/connect/route.ts", "utf8");
 const page = readFileSync("src/app/admin/analytics/page.tsx", "utf8");
 const metricsHelper = readFileSync("src/features/admin/services/traffic-revenue-metrics.ts", "utf8");
 const permissions = readFileSync("src/features/admin/services/permissions.ts", "utf8");
@@ -37,7 +38,10 @@ assert.doesNotMatch(panel, /facebook|instagram|tiktok|pinterest|whatsapp|مرك�
 assert.match(panel, /api\/admin\/social\/youtube\/connect/);
 assert.match(panel, /canManageYouTubeConnection\s*\?/);
 assert.match(panel, /ربط YouTube للنشر والتحليلات/);
-assert.match(panel, /youtube\.upload/);
+assert.match(panel, /YouTube Analytics لم تسمح بقراءة التقرير/);
+assert.match(youtubeConnect, /https:\/\/www\.googleapis\.com\/auth\/youtube\.upload/);
+assert.match(youtubeConnect, /https:\/\/www\.googleapis\.com\/auth\/youtube\.readonly/);
+assert.match(youtubeConnect, /https:\/\/www\.googleapis\.com\/auth\/yt-analytics\.readonly/);
 assert.doesNotMatch(panel, /قراءة فقط|إعادة ربط القراءة/);
 assert.match(page, /requireAdminPermission\("analytics\.read"\)/);
 assert.match(page, /hasAdminPermission\(admin\.role, "social\.manage"\)/);

@@ -331,3 +331,13 @@ These optional settings must refer to the same human reciter:
 - `QURAN_AYAH_AUDIO_BASE_URL`: per-ayah MP3 base URL for that reciter; default is the Alafasy endpoint.
 
 The code defaults both reciter identifiers to `alafasy` and rejects a mismatch before a Quran video source can be accepted. Do not change only one variable. The `quran_audio` table currently stores full-surah records, so the per-ayah endpoint is a separate provider and must be verified as the same reciter.
+
+
+## Social publishing readiness flags
+
+The production Admin Social connection/readiness check reads these explicit server-only flags through `getServerEnv()`:
+
+- `SOCIAL_PUBLISH_FACEBOOK_ENABLED=true` enables Facebook Page and Reels readiness.
+- `SOCIAL_PUBLISH_YOUTUBE_ENABLED=true` enables YouTube upload readiness.
+
+Set these only in the intended environment after the platform credentials and channel/page connection have been verified. Missing values default to `false`; this prevents the dashboard from claiming a platform is ready when its publishing gate is off. GitHub Actions publishing workflows still apply their own environment-level provider readiness checks.

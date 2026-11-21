@@ -23,3 +23,6 @@ assert.match(panel, /إعادة تفويض/);
 assert.match(panel, /مصادر الزيارات إلى فيديوهات القناة/);
 assert.match(panel, /متوسط مدة المشاهدة/);
 console.log("✅ YouTube Analytics authorization and reporting contracts passed.");
+
+assert.match(panel, /YouTube Analytics لم تسمح بقراءة التقرير/);
+assert.doesNotMatch(panel, /يحتاج إلى youtube\.upload/);
