@@ -157,7 +157,7 @@ assert.ok(publish.includes("contents/${release_path}?ref=${TAG_TARGET_SHA}") && 
 assert.ok(publish.includes("RELEASE_SOURCE_SHA=$TAG_TARGET_SHA"), "release provenance must remain bound to the tag target, not the newer workflow dispatch commit");
 const manualPublisherGuard = publish.split("      - name: Verify explicit recovery guard for manual dispatch")[1]?.split("      - name: Verify canonical GitHub owner identity before publishing Android assets")[0] ?? "";
 assert.ok(publish.includes("github.actor == 'zikrofficial-X'") && publish.includes('GITHUB_ACTOR}" == "zikrofficial-X"'), "main publisher recovery must be restricted to the repository owner in both the job condition and runtime gate");
-assert.ok(manualPublisherGuard.includes('RELEASE_SOURCE_SHA:-') && manualPublisherGuard.includes('RELEASE_SOURCE_SHA}" != "${TAG_TARGET_SHA}"') && !manualPublisherGuard.includes("SOURCE_COMMIT_INPUT"), "manual release verification must use the tag SHA resolved in the previous step, not an unavailable cross-step input environment variable");
+assert.ok(manualPublisherGuard.includes('RELEASE_SOURCE_SHA:-') && manualPublisherGuard.includes('RELEASE_SOURCE_SHA:-}" != "${TAG_TARGET_SHA}"') && !manualPublisherGuard.includes("SOURCE_COMMIT_INPUT"), "manual release verification must use the tag SHA resolved in the previous step, not an unavailable cross-step input environment variable");
 
 
 assert.ok(publish.includes(".sourceCommit"), "Android publisher must validate the artifact source commit");
