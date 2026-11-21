@@ -35,7 +35,7 @@ BEGIN
   IF request_row.status NOT IN ('failed', 'cancelled', 'completed')
      OR (
        request_row.status = 'completed'
-       AND request_row.content ->> 'approvalStatus'
+       AND COALESCE(request_row.content ->> 'approvalStatus', '')
          NOT IN ('qa_failed', 'awaiting_human_review')
      ) THEN
     RAISE EXCEPTION 'VIDEO_REQUEST_DELETE_NOT_TERMINAL' USING ERRCODE = '42501';
