@@ -341,7 +341,7 @@ export default function TemplateStudioClient({ locale }: { locale: "ar" | "en" }
         </div>
         <div className="rounded-2xl border border-brand-gold/15 bg-black/15 p-5">
           <h2 className="text-lg font-bold text-brand-gold">{t("قواعد الاعتماد", "Review and activation rules")}</h2>
-          <ol className="mt-3 list-decimal space-y-2 pr-5 text-sm leading-6 text-brand-cream/65">
+          <ol className="mt-3 list-decimal space-y-2 ps-5 text-sm leading-6 text-brand-cream/65">
             <li>{t("أنشئ نسخة جديدة؛ النسخ السابقة لا تُعدَّل.", "Create a new version; previous versions are immutable.")}</li>
             <li>{t("ولّد معاينة من نفس محرك FFmpeg المستخدم في الإنتاج.", "Generate a preview with the same FFmpeg renderer used in production.")}</li>
             <li>{t("راجع الصوت والنص والخلفية والمقاس.", "Review the audio, text, background and dimensions.")}</li>
@@ -420,7 +420,7 @@ export default function TemplateStudioClient({ locale }: { locale: "ar" | "en" }
                 </div>
                 {preview.video_url ? (
                   <video className="w-full rounded-xl bg-black" controls playsInline preload="metadata" src={preview.video_url} />
-                ) : <p className="text-xs text-brand-cream/45">{preview.error_message || "{t("المعاينة قيد التجهيز. حدّث القائمة لاحقًا.", "The preview is being prepared. Refresh the list shortly.")}"}</p>}
+                ) : <p className="text-xs text-brand-cream/45">{preview.error_message || t("المعاينة قيد التجهيز. حدّث القائمة لاحقًا.", "The preview is being prepared. Refresh the list shortly.")}</p>}
                 <p className="text-[10px] text-brand-cream/30" dir="ltr">{preview.id}</p>
               </article>
             ))}
