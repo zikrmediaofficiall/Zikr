@@ -256,7 +256,7 @@ assert.ok(
     circleWorkflow.includes("types: [completed]") &&
     circleWorkflow.includes("github.event.workflow_run.conclusion == 'success'") &&
     circleWorkflow.includes("github.event.workflow_run.head_branch == 'main'") &&
-    !circleWorkflow.includes("\\\\n  push:"),
+    !circleWorkflow.split(/\r?\n/).some((line) => line.trim() === "push:"),
   "English sync must wait for the successful controlled release before source-backed writes",
 );
 assert.ok(circleWorkflow.includes("environment: production"),
