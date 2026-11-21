@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DEFAULT_AUDIO_SETTINGS, getAudioChoice, getNativeAudio, normalizeAudioSettings, registerAudioChoices } from "../../src/lib/audio/config";
+import { CURATED_AUDIO_LIBRARY } from "../../src/lib/audio/curated-library";
 import { ensureNativeNotificationChannels } from "../../src/features/notifications/services/native-notification-channels";
 import { getNotificationPermission, requestNotificationPermission } from "../../src/features/notifications/services/notifications";
 import { hasDismissedNotificationBanner, persistNotificationBannerDismissal } from "../../src/features/notifications/services/notification-banner-storage";
@@ -167,6 +168,12 @@ assert.equal(iosChannelCount, 0);
 
 const audioConfigSource = readFileSync(resolve(process.cwd(), "src/lib/audio/config.ts"), "utf8");
 const audioLibrarySource = readFileSync(resolve(process.cwd(), "src/components/audio/audio-library.tsx"), "utf8");
+const siteAudioServiceSource = readFileSync(resolve(process.cwd(), "src/features/audio/services/site-audio.ts"), "utf8");
+assert.equal(CURATED_AUDIO_LIBRARY.filter(asset => asset.kind === "adhan").length, 10);
+assert.equal(CURATED_AUDIO_LIBRARY.filter(asset => asset.kind === "salawat").length, 10);
+assert.equal(CURATED_AUDIO_LIBRARY.filter(asset => asset.kind === "dhikr").length, 10);
+assert.match(siteAudioServiceSource, /const missingKindFallbacks = getCuratedFallbackLibrary\(\)\.filter/);
+assert.match(siteAudioServiceSource, /return \[\.\.\.databaseAssets, \.\.\.missingKindFallbacks\]/);
 assert.ok(audioConfigSource.includes("if (audioResponse.ok) registerAudioChoices(remote)"),
   "a failed site-audio response must not clear the last known-good remote audio snapshot");
 assert.ok(audioLibrarySource.includes("asset.attribution"), "the public audio library must display the creator attribution supplied by the catalog");
