@@ -22,3 +22,8 @@ Use **Admin → Release Center** when the current Android release operation has 
 4. Follow the new signing workflow and CircleCI Android build. The release remains a draft until the signed APK/AAB and checksum verification complete.
 
 The action requires the `release.manage` permission and step-up authentication. It refuses to run against a recent operation, a changed `main` commit, a published/immutable Release, a tag whose resolved target cannot be verified against the exact recorded commit. It never increments the app version or creates a replacement source commit. If the Release is already published, use a new semantic version instead; immutable published releases are never deleted or retargeted.
+
+
+## Owner-triggered signed-tag fallback
+
+When the Admin Release Center is unavailable but the release metadata is already merged to `main`, the repository owner can trigger the same protected signer by pushing a commit to a branch named `android-release-sign-vX.Y.Z`. The signer accepts only the repository owner for this push path, resolves the source from the current `main` head (not the request branch), requires the matching canonical package version and `.release-tag`, and waits for a successful protected GPG preflight on that exact `main` commit. It then creates the annotated GPG tag and draft Release itself; it never accepts a commit or release body from the trigger branch. The ordinary Admin `workflow_dispatch` path remains available.
