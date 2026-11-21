@@ -251,6 +251,14 @@ assert.ok(
   circleWorkflow.includes('schedule:\n    - cron: "15 7 * * *"'),
   "the protected GitHub workflow must provide a daily backup after the primary CircleCI translation schedule",
 );
+assert.ok(
+  circleWorkflow.includes('workflows: ["ZIKR Finalization Controlled Release"]') &&
+    circleWorkflow.includes("types: [completed]") &&
+    circleWorkflow.includes("github.event.workflow_run.conclusion == 'success'") &&
+    circleWorkflow.includes("github.event.workflow_run.head_branch == 'main'") &&
+    !circleWorkflow.includes("\\\\n  push:"),
+  "English sync must wait for the successful controlled release before source-backed writes",
+);
 assert.ok(circleWorkflow.includes("environment: production"),
   "the scheduled translation backup must use protected production environment credentials");
 assert.ok(circleWorkflow.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}"),
