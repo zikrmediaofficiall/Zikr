@@ -16,6 +16,7 @@ if (!router.includes('Provider " + name + " threw for')) failures.push("provider
 if (!router.includes("!templateAttempted")) failures.push("template provider must not be executed twice in one router pass");
 
 const template = read("scripts/jobs/template-video-automation.ts");
+const templateConfig = read("src/features/videos/services/template-config.ts");
 const durationService = read("src/features/videos/services/render-duration.ts");
 for (const scene of ["emerald", "paper", "rose"]) {
   read(`public/video/templates/${scene}.svg`);
@@ -57,7 +58,6 @@ if (!template.includes("Rendered output resolution mismatch")) failures.push("re
 if (!template.includes("Rendered output video bitrate is too low")) failures.push("rendered video bitrate must be validated");
 if (!template.includes("deterministicScene(request)")) failures.push("template selection must provide deterministic visual variety");
 if (!template.includes("resolveDeterministicVideoHook") || !template.includes("resolveDeterministicVideoScene") || !template.includes("resolveDeterministicVideoVisualTheme")) failures.push("template fallback must vary renderer scene, local visual theme and opening hook deterministically by content ID");
-const templateConfig = read("src/features/videos/services/template-config.ts");
 for (const asset of ["calm","dawn","emerald","gold","night","paper","rose","andalusian-arch","midnight-skyline","oasis-dawn","desert-caravan","geometric-mosaic","lantern-glow","manuscript-library","moonlit-sea","olive-grove","desert-dusk","coastal-blue","botanical","library","geometric","marble","cinematic","starfield","mountain-dawn","heritage","minimal-studio","rainy-window","watercolor-sky","old-city","desert-rose","mosaic-blue","satin-night","sunlit-arch","olive-branch","minimal-cream","kids-garden","kids-nature","kids-neighborhood","kids-workshop","kids-space","kids-ocean","kids-forest","kids-playground","kids-classroom","kids-adventure","kids-jungle","kids-robotics","kids-animals","kids-weather"]) {
   if (!templateConfig.includes('"'+asset+'"')) failures.push("template registry is missing asset: " + asset);
   if (!read(`public/video/templates/${asset}.svg`).includes("<svg")) failures.push("missing/invalid local SVG scene: " + asset);
