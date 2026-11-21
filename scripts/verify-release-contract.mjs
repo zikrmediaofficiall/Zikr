@@ -105,8 +105,10 @@ assert.ok(recoveryDispatch.includes("github.event_name == 'workflow_dispatch'"),
 assert.ok(recoveryDispatch.includes("getCombinedStatusForRef"), "Dispatched recovery must confirm success of the exact CircleCI Android build");
 assert.ok(recoveryDispatch.includes("  statuses: read"), "Android recovery must have read permission for CircleCI commit statuses");
 assert.ok(recoveryDispatch.includes("  actions: write"), "Android recovery must have permission to dispatch the guarded publisher");
-assert.ok(recoveryDispatch.includes("  contents: read"), "Android recovery must use read-only repository contents permission");
-assert.ok(!recoveryDispatch.includes("  contents: write"), "Android recovery must not receive unnecessary repository write permission");
+assert.ok(recoveryDispatch.includes("  contents: write"), "owner-only Android recovery must have push visibility to inspect the private draft release");
+assert.ok(recoveryDispatch.includes("github.actor == 'zikrofficial-X'"), "Android recovery write visibility must be restricted to the canonical repository owner");
+assert.ok(recoveryDispatch.includes("android-release-dispatch-v*"), "Android recovery must retain an owner-only push fallback for an already-built exact release");
+assert.ok(recoveryDispatch.includes("sourceSha !== eventSha") && recoveryDispatch.includes("isPushRecoveryTrigger"), "manual and push recovery paths must bind publication to the immutable tag target rather than the trigger commit");
 
 assert.ok(!recoveryDispatch.includes('const core = require("@actions/core")'), "github-script must not redeclare its built-in core binding");
 assert.ok(recoveryDispatch.includes("getRef") && recoveryDispatch.includes("getTag"), "Android recovery must resolve annotated tags to their target commits");
