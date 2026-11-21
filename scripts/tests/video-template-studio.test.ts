@@ -125,12 +125,25 @@ const read = (path: string) => readFileSync(path, "utf8");
 const migrationFiles = readdirSync("supabase/migrations").filter((filename) => filename.endsWith(".sql"));
 const migrationVersions = migrationFiles
   .map((filename) => filename.slice(0, 14))
-  .filter((version) => /^\\d{14}$/.test(version));
+  .filter((version) => /^\d{14}$/.test(version));
 assert.equal(
   new Set(migrationVersions).size,
   migrationVersions.length,
   "Supabase migration version prefixes must be unique across the entire repository",
 );
+const videoTemplateSeedIds = migrationFiles.flatMap((filename) => {
+  const source = read("supabase/migrations/" + filename);
+  const insertBlocks = [...source.matchAll(/INSERT INTO public\.video_templates\b[\s\S]*?\bVALUES([\s\S]*?)ON CONFLICT/gi)];
+  return insertBlocks.flatMap(([, values]) =>
+    [...(values ?? "").matchAll(/\('([0-9a-f-]{36})',/gi)].map((match) => match[1]),
+  );
+});
+assert.equal(
+  new Set(videoTemplateSeedIds).size,
+  videoTemplateSeedIds.length,
+  "fixed video template seed IDs must be unique across all migrations",
+);
+
 
 const migration = read("supabase/migrations/20261106010000_admin_video_template_studio.sql");
 const visualCatalogMigration = read("supabase/migrations/20261121090000_expand_video_template_visual_catalog.sql");
