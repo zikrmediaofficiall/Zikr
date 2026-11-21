@@ -16,12 +16,12 @@ assert.ok(sidebar.includes("matchesAdminSearch(query") && sidebar.includes("matc
 assert.ok(sidebar.includes("searchInputRef.current.getClientRects().length === 0") && sidebar.includes("mobileSearchInputRef.current.getClientRects().length === 0"), "Slash shortcut must not focus a hidden responsive search field");
 assert.ok(commandPalette.includes("matchesAdminSearch(query"), "Command palette must use shared search normalization");
 assert.ok(!moduleDirectory.includes('event.key.toLowerCase() === "k"') && !moduleDirectory.includes('event.key === "/"'), "Module directory must not register colliding global search shortcuts");
-assert.ok(releasePage.includes("disabled") && releasePage.includes("android-release-blocker"), "Release start control must be visibly disabled with an explicit signing blocker");
-assert.ok(!releasePage.includes("Git tag موثقًا") && !releasePage.includes("تم إطلاق عملية الإصدار"), "Release UI must not claim an unsigned tag was verified or started based on query parameters");
-const hardStop = releaseAction.indexOf("SIGNED_RELEASE_BLOCKER");
-const stopRedirect = releaseAction.indexOf("redirect(\"/admin/release?android_release_error=\"");
-assert.ok(hardStop >= 0 && stopRedirect >= 0, "Server action must redirect with an explicit signed-tag blocker");
-assert.ok(!releaseAction.includes("prepareAndroidRelease") && !releaseAction.includes("supabaseServerAdminRequest"), "Blocked server action must not retain any callable release-creation or metadata-write path");
+assert.ok(releasePage.includes("android-signing-preflight") && releasePage.includes("runAndroidReleaseSigningPreflightAction"), "Release center must offer a protected GPG preflight action");
+assert.ok(releasePage.includes("disabled={!signingPreflight?.ready || operationIsActive || operationNeedsReview}"), "Release action must remain disabled until the exact-main GPG preflight passes");
+assert.ok(releasePage.includes("ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY") && releasePage.includes("ANDROID_RELEASE_TAG_GPG_FINGERPRINT"), "Release UI must list owner-managed protected signing settings");
+assert.ok(!releasePage.includes("SIGNED_RELEASE_BLOCKER") && !releaseAction.includes("SIGNED_RELEASE_BLOCKER"), "Release UI and action must not hard-code a permanent signing blocker");
+assert.ok(releaseAction.includes("prepareAndroidRelease") && releaseAction.includes("assertNoActiveReleaseOperation"), "Release action must prepare canonical metadata and prevent overlapping operations");
+assert.ok(releaseAction.includes("recordAdminAuditEventSafely"), "Release preparation must preserve the admin audit trail");
 
 for (const route of ["/admin/video", "/admin/social", "/admin/sections", "/admin/queues", "/admin/audio", "/admin/sources"]) {
   assert.ok(adminCommandCenter.includes(route), `admin command center quick actions must include ${route}`);

@@ -309,3 +309,8 @@ assert.equal(
 );
 assert.match(gate, /getPullRequestLookupCommitSha\(commitSha, sourceCommit\)/);
 assert.match(gate, /findMergedMainPullRequest\(pullRequests, pullRequestLookupSha\)/);
+
+
+const androidPublisher = readFileSync(".github/workflows/publish-android-release-assets.yml", "utf8");
+assert.ok(androidPublisher.includes("GitHub cryptographic tag signature and exact commit target"), "Android asset publisher must verify the signed Git tag before asset upload");
+assert.ok(androidPublisher.includes("verification.verified // false") && androidPublisher.includes('signature_reason == "valid"'), "Android asset publisher must require GitHub's valid GPG signature result");

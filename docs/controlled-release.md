@@ -57,14 +57,24 @@ The current GitHub connector does not expose branch-protection or ruleset write 
 
 ## Cryptographically signed Git tags
 
-GitHub REST's annotated-tag creation endpoint does not accept a detached or embedded signing signature. The release manager must not claim that an API-created annotated tag is signed.
+GitHub REST's annotated-tag creation endpoint cannot create a cryptographic signature. ZIKR uses two protected GitHub Actions workflows and never labels a REST-created tag as signed.
 
-For each future semantic release:
-1. Prepare all release metadata in one atomic source commit.
-2. In a protected signing runner, import the owner-managed GPG or SSH private signing key from a CI secret.
-3. Create the annotated tag with `git tag -s` (GPG) or the configured SSH signing mode, targeting the exact prepared commit.
-4. Run `git verify-tag` and require a valid signature from the expected signing key/fingerprint.
-5. Push the signed tag and verify GitHub's tag object reports a valid signature before creating/publishing the release.
-6. Only then publish the immutable release and artifacts.
+1. From the Admin Release Center, run the read-only Android signing preflight on the exact current `main` SHA.
+2. The preflight runs in the protected `android-release-signing` Environment, imports the owner-managed GPG private key, checks its exact fingerprint, verifies a signed test payload, and confirms the public key and signer email are registered on the GitHub owner account.
+3. Only after that exact-SHA preflight passes does the Admin Release action create the atomic version metadata commit on `main`.
+4. The Admin Release service dispatches `sign-android-release-tag.yml` with the semantic tag and exact prepared commit SHA.
+5. The protected signing runner creates an annotated tag using `git tag -s`, verifies it locally with `git verify-tag`, pushes it, then requires GitHub API verification `verified=true`, `reason=valid`, and the exact expected target SHA.
+6. Only then is the Draft Release created. The tag push starts the existing CircleCI signed Android build. The GitHub asset publisher independently verifies the cryptographic signature and source SHA before upload/publication.
 
-The signing key must be provisioned by the repository owner as a protected CI secret. The release must fail closed if the key is missing, invalid, expired, or does not match the trusted fingerprint. Never delete or move an existing immutable release tag to retrofit a signature.
+### GitHub Environment `android-release-signing`
+
+Required secrets:
+- `ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY`: ASCII-armored GPG private key.
+- `ANDROID_RELEASE_TAG_GPG_PASSPHRASE`: GPG passphrase (may be empty only for an unencrypted key).
+
+Required environment variables:
+- `ANDROID_RELEASE_TAG_GPG_FINGERPRINT`: trusted 40-character primary key fingerprint.
+- `ANDROID_RELEASE_SIGNING_EMAIL`: email registered on the GitHub owner's GPG key.
+- `ANDROID_RELEASE_SIGNING_NAME`: tagger display name.
+
+The public key must be uploaded to the repository owner's GitHub account with the same email and fingerprint. If any setting is absent or mismatched, the preflight fails without creating a version commit or tag. Never delete or retarget an existing immutable release to retrofit a signature.
