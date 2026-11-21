@@ -36,7 +36,7 @@ export async function Navbar({ hiddenHrefs = [], sectionOrder = [] }: { hiddenHr
   const isEnglish = locale === "en";
   const hidden = new Set(hiddenHrefs);
   const orderIndex = new Map(sectionOrder.map((key, index) => [key, index]));
-  const visibleLinks = links.filter((link) => !hidden.has(link.href)).sort((a, b) => (orderIndex.get(a.href.replace(/^\\/+|\\/+$/g, '').replaceAll('/', '-')) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(b.href.replace(/^\\/+|\\/+$/g, '').replaceAll('/', '-')) ?? Number.MAX_SAFE_INTEGER));
+  const visibleLinks = links.filter((link) => !hidden.has(link.href)).sort((a, b) => (orderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER));
   let user = null;
   let isAdmin = false;
 
