@@ -1041,10 +1041,23 @@ function normalizePath(pathname: string): string {
   return clean || '/';
 }
 
+// These top-level routes already have a dedicated editorial guide in
+// EditorialDepth or EditorialUtilityDepth. Their detail routes still receive
+// the more focused guides below; suppressing the base expansion avoids a
+// second long guide repeating the same subject immediately underneath it.
+const EXISTING_DEDICATED_GUIDE_ROUTES = new Set([
+  '/quran', '/hadith', '/adhkar', '/dua', '/prophets', '/companions',
+  '/scholars', '/stories', '/articles', '/tafsir', '/battles', '/conquests',
+  '/mushaf', '/reciters', '/kids', '/poetry', '/tawasheeh', '/videos',
+  '/platform', '/faq', '/prayer-times', '/qibla', '/tasbeeh',
+  '/memorization', '/wird', '/zakat', '/spiritual-ai', '/radio',
+  '/youtube', '/search', '/offline-library',
+]);
+
 function resolvePage(pathname: string): Page | null {
   const path = normalizePath(pathname);
   const exact = PAGE_CONTENT[path];
-  if (exact) return exact;
+  if (exact) return EXISTING_DEDICATED_GUIDE_ROUTES.has(path) ? null : exact;
 
   const detailPrefix = Object.keys(DETAIL_CONTENT)
     .filter((prefix) => path.startsWith(prefix + '/'))
