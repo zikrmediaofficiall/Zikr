@@ -82,8 +82,9 @@ function isSafeGeneratedAssetDeletionCandidate(request: VideoGenerationRequest, 
   const duplicate = request.status === "cancelled" && Boolean(getDuplicateCanonicalRequestId(request));
   const qaFailed = request.status === "completed" && content.approvalStatus === "qa_failed";
   const pendingReview = request.status === "completed" && content.approvalStatus === "awaiting_human_review";
+  const terminalWithAsset = (request.status === "failed" || request.status === "cancelled") && Boolean(request.video_url);
   const storedThumbnail = request.stored_thumbnail_url;
-  if ((!duplicate && !qaFailed && !pendingReview) || !request.video_url ||
+  if ((!duplicate && !qaFailed && !pendingReview && !terminalWithAsset) || !request.video_url ||
     storedThumbnail !== null || request.youtube_id || request.facebook_id ||
     request.heygen_video_id || request.provider_job_id) return false;
   const retainedContentKeys = ["audioUrl", "humanAudioUrl", "audioMediaAssetId", "audioMediaAssetOwnerId", "videoUrl", "generatedVideoUrl", "thumbnailUrl"];
@@ -245,6 +246,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   async function deleteRequest(request: VideoGenerationRequest) {
     const generatedAsset = isSafeGeneratedAssetDeletionCandidate(request, canManageKids);
     const qaFailedAsset = isQaFailedGeneratedVideo(request);
+    const duplicateRender = request.status === "cancelled" && Boolean(getDuplicateCanonicalRequestId(request));
     const requestContent = request.content && typeof request.content === "object" && !Array.isArray(request.content)
       ? request.content as Record<string, unknown> : {};
     const pendingReview = request.status === "completed" && requestContent.approvalStatus === "awaiting_human_review";
@@ -254,7 +256,9 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
         ? `هذا الفيديو مكتمل تقنيًا لكنه رُفض في فحص الجودة ولم يُنشر. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب بعد التأكد من عدم ارتباطه بأي منشور أو مكتبة. لا يمكن استعادته بعد الحذف. متابعة؟`
         : pendingReview
           ? `هذا الفيديو مكتمل لكنه لم يحصل على اعتماد بشري بعد. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب فقط بعد إثبات ملكية الملف وخلوه من أي رابط للمكتبة أو النشر. لا يمكن التراجع عن الحذف. متابعة؟`
-          : `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
+          : duplicateRender
+            ? `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
+            : `الطلب ${request.status === "failed" ? "فشل" : "أُلغي"} وما زال له ملف مولّد غير مرتبط بالنشر. سيُحذف الملف من Cloudinary وسجل الطلب بعد فحص الملكية والمراجع. متابعة؟`
       : `تأكيد حذف سجل الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`;
     if (!window.confirm(confirmation)) return;
     setBusyId(request.id); setError(""); setMessage("");
@@ -274,7 +278,9 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
             ? "تم حذف ملف الفيديو المرفوض في فحص الجودة وسجل طلبه بعد التحقق من عدم وجود أي مراجع. لم يتأثر أي فيديو منشور."
             : pendingReview
               ? "تم حذف ملف الفيديو غير المعتمد وسجل طلبه بعد إثبات الملكية وخلوه من مراجع المكتبة والنشر."
-              : "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
+              : duplicateRender
+                ? "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
+                : "تم حذف ملف الفيديو الفاشل أو الملغى وسجل طلبه بعد التحقق من الملكية وخلوه من مراجع النشر."
           : "حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
       }
       await load();
@@ -495,7 +501,11 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                           ? "حذف فيديو فشل فحص الجودة وملفه نهائيًا"
                           : request.status === "completed" && (request.content as Record<string, unknown> | null)?.approvalStatus === "awaiting_human_review"
                             ? "حذف الفيديو غير المعتمد وملفه نهائيًا"
-                            : "حذف الفيديو المكرر وملفه نهائيًا"
+                            : getDuplicateCanonicalRequestId(request)
+                              ? "حذف الفيديو المكرر وملفه نهائيًا"
+                              : request.status === "failed"
+                                ? "حذف الفيديو الفاشل وملفه نهائيًا"
+                                : "حذف الفيديو الملغى وملفه نهائيًا"
                         : "حذف سجل الطلب"}
                     </Button>
                   )}
