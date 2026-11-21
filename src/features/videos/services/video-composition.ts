@@ -180,6 +180,27 @@ export function resolveVideoComposition(input: {
   const height = Math.max(1, Math.floor(input.height));
   const preset = { ...PRESETS[compositionKey(input.category, input.audience)] };
   const template = input.template ?? {};
+  const layoutVariant = stableIndex(`${input.seed}:layout`, 4);
+  if (layoutVariant === 1) {
+    preset.panelX = Math.min(0.12, preset.panelX + 0.012);
+    preset.panelWidth = Math.max(0.74, preset.panelWidth - 0.024);
+    preset.panelY = Math.min(0.38, preset.panelY + 0.012);
+    preset.panelHeight = Math.max(0.34, preset.panelHeight - 0.02);
+    preset.bodyY = Math.min(0.57, preset.bodyY + 0.012);
+  } else if (layoutVariant === 2) {
+    preset.panelX = Math.max(0.065, preset.panelX - 0.012);
+    preset.panelWidth = Math.min(0.87, preset.panelWidth + 0.024);
+    preset.panelY = Math.max(0.275, preset.panelY - 0.012);
+    preset.panelHeight = Math.min(0.46, preset.panelHeight + 0.02);
+    preset.bodyY = Math.max(0.49, preset.bodyY - 0.012);
+  } else if (layoutVariant === 3) {
+    preset.panelX = Math.min(0.14, preset.panelX + 0.02);
+    preset.panelWidth = Math.max(0.72, preset.panelWidth - 0.04);
+    preset.panelY = Math.min(0.40, preset.panelY + 0.02);
+    preset.panelHeight = Math.max(0.33, preset.panelHeight - 0.035);
+    preset.bodyY = Math.min(0.58, preset.bodyY + 0.018);
+    preset.panelOpacity = Math.min(0.76, preset.panelOpacity + 0.025);
+  }
   const palette = template.palette ?? "template";
   if (palette === "gold") {
     preset.accentHex = "EFD39A";
@@ -210,7 +231,7 @@ export function resolveVideoComposition(input: {
     "top-to-bottom",
     "bottom-to-top",
   ];
-  const cameraPath = cameraPaths[stableIndex(input.seed, cameraPaths.length)];
+  const cameraPath = cameraPaths[stableIndex(`${input.seed}:camera`, cameraPaths.length)];
   const fontPreset = template.fontPreset ?? "auto";
   const fontFamily = fontPreset === "naskh" || (fontPreset === "auto" && input.audience !== "kids")
     ? "Noto Naskh Arabic"
@@ -234,10 +255,10 @@ export function resolveVideoComposition(input: {
     titleFontSize: isVertical ? preset.titleSizeVertical : preset.titleSizeHorizontal,
     bodyFontSize: isVertical ? preset.bodySizeVertical : preset.bodySizeHorizontal,
     cameraPath,
-    zoomIncrement: cameraPath === "center" ? 0.00016 : 0.0002,
+    zoomIncrement: 0.00012 + stableIndex(`${input.seed}:zoom`, 5) * 0.000022,
     fontFamily,
-    captionStyle: template.captionStyle ?? "classic",
-    sourceCardStyle: template.sourceCardStyle ?? "standard",
+    captionStyle: template.captionStyle ?? (layoutVariant === 2 ? "minimal" : layoutVariant === 3 ? "boxed" : "classic"),
+    sourceCardStyle: template.sourceCardStyle ?? (layoutVariant === 3 ? "compact" : "standard"),
   };
 }
 
