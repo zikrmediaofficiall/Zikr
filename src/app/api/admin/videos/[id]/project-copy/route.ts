@@ -231,7 +231,7 @@ function storagePathsFromRows(
     const aliases = [content.generatedVideoUrl, content.videoUrl, content.video_url];
     const matchesTarget = assetUrl !== null
       ? row.video_url === assetUrl || aliases.includes(assetUrl) || deletion.assetUrl === assetUrl
-      : row.id === primaryRequestId && deletion.state === "purging";
+      : row.id === primaryRequestId;
     if (!matchesTarget) continue;
     targetRequestIds.add(row.id);
     const path = managedVideoStoragePath(getStorageRetention(content));
