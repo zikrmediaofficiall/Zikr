@@ -25,6 +25,12 @@ function isQaFailedGeneratedVideo(request: VideoGenerationRequest): boolean {
   return request.status === 'completed' && content.approvalStatus === 'qa_failed';
 }
 
+function isPendingHumanReviewGeneratedVideo(request: VideoGenerationRequest): boolean {
+  const content = request.content && typeof request.content === 'object' && !Array.isArray(request.content)
+    ? request.content as Record<string, unknown> : {};
+  return request.status === 'completed' && content.approvalStatus === 'awaiting_human_review';
+}
+
 function hasRetainedMediaInContent(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return true;
   const content = value as Record<string, unknown>;
@@ -41,6 +47,7 @@ type PreparedGeneratedAssetDeletion = {
   clearedUpdatedAt: string;
   expectedStatus: VideoGenerationRequest["status"];
   qaFailed: boolean;
+  pendingHumanReview: boolean;
 };
 
 async function prepareGeneratedCloudinaryAssetDeletion(
@@ -50,11 +57,12 @@ async function prepareGeneratedCloudinaryAssetDeletion(
 ): Promise<PreparedGeneratedAssetDeletion> {
   const canonicalId = duplicateCanonicalId(requestRow);
   const qaFailed = isQaFailedGeneratedVideo(requestRow);
+  const pendingHumanReview = isPendingHumanReviewGeneratedVideo(requestRow);
   const duplicate = requestRow.status === 'cancelled' &&
     Boolean(canonicalId) &&
     /duplicate generated content; publication skipped/i.test(requestRow.error_message ?? '');
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim() ?? '';
-  if ((!duplicate && !qaFailed) || !requestRow.video_url || !cloudName) {
+  if ((!duplicate && !qaFailed && !pendingHumanReview) || !requestRow.video_url || !cloudName) {
     throw new Error('GENERATED_ASSET_NOT_ELIGIBLE');
   }
   if (
@@ -114,7 +122,9 @@ async function prepareGeneratedCloudinaryAssetDeletion(
     throw new Error('GENERATED_ASSET_STILL_REFERENCED');
   }
 
-  const approvalFilter = qaFailed ? '&content->>approvalStatus=eq.qa_failed' : '';
+  const approvalFilter = qaFailed
+    ? '&content->>approvalStatus=eq.qa_failed'
+    : pendingHumanReview ? '&content->>approvalStatus=eq.awaiting_human_review' : '';
   const clearedRows = await supabaseServerAdminRequest<Array<{ id: string; updated_at: string }>>(
     `/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(requestId)}&status=eq.${encodeURIComponent(requestRow.status)}&updated_at=eq.${encodeURIComponent(expectedUpdatedAt)}${approvalFilter}`,
     {
@@ -132,11 +142,14 @@ async function prepareGeneratedCloudinaryAssetDeletion(
     clearedUpdatedAt: clearedRows[0].updated_at,
     expectedStatus: requestRow.status,
     qaFailed,
+    pendingHumanReview,
   };
 }
 
 async function restoreGeneratedAssetPointer(requestId: string, prepared: PreparedGeneratedAssetDeletion) {
-  const approvalFilter = prepared.qaFailed ? '&content->>approvalStatus=eq.qa_failed' : '';
+  const approvalFilter = prepared.qaFailed
+    ? '&content->>approvalStatus=eq.qa_failed'
+    : prepared.pendingHumanReview ? '&content->>approvalStatus=eq.awaiting_human_review' : '';
   const restoredRows = await supabaseServerAdminRequest<Array<{ id: string }>>(
     `/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(requestId)}&status=eq.${encodeURIComponent(prepared.expectedStatus)}&updated_at=eq.${encodeURIComponent(prepared.clearedUpdatedAt)}&video_url=is.null${approvalFilter}`,
     {
@@ -282,7 +295,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     if (current.updated_at !== body.expectedUpdatedAt) return NextResponse.json({ error: 'تغير الطلب بعد تحميله؛ حدّث القائمة قبل الحذف.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
     const canonicalDuplicateId = duplicateCanonicalId(current);
     const canDeleteGeneratedAsset = Boolean(current.video_url) &&
-      (Boolean(canonicalDuplicateId) || isQaFailedGeneratedVideo(current));
+      (Boolean(canonicalDuplicateId) || isQaFailedGeneratedVideo(current) || isPendingHumanReviewGeneratedVideo(current));
     const preparedGeneratedAsset = canDeleteGeneratedAsset
       ? await prepareGeneratedCloudinaryAssetDeletion(current, id, body.expectedUpdatedAt)
       : null;
@@ -334,6 +347,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
           mediaAndReferencesVerifiedAbsent: true,
           duplicateCanonicalRequestId: canonicalDuplicateId,
           qaFailedGeneratedVideo: preparedGeneratedAsset?.qaFailed ?? false,
+          pendingHumanReviewVideo: preparedGeneratedAsset?.pendingHumanReview ?? false,
           cloudinaryPublicId: preparedGeneratedAsset?.verifiedAsset.publicId ?? null,
           cloudinaryCleanupStatus: preparedGeneratedAsset ? (cloudinaryCleanupPending ? 'pending' : 'deleted') : 'not_applicable',
         },
