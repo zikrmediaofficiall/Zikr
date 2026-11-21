@@ -237,7 +237,7 @@ export async function TrafficRevenuePanel({
           <Card className="p-5">
             <p className="text-sm leading-7 text-brand-cream/65">
               {snapshot.youtubeAnalytics.status === "authorization_required"
-                ? "بيانات YouTube العامة تعمل، لكن اتصال OAuth المخزن يحتاج إلى youtube.upload وyoutube.readonly وyt-analytics.readonly. أعد ربط القناة من إدارة السوشيال؛ يتم حفظ الصلاحيات والرمز على Supabase ولا تحتاج إلى وضع رمز في Vercel."
+                ? "تم حفظ صلاحيات YouTube المطلوبة في Supabase، لكن Google رفض تجديد جلسة OAuth الحالية. أعد ربط القناة من هنا لتجديد التفويض؛ لا تضع أي رمز يدويًا في Vercel."
                 : snapshot.youtubeAnalytics.status === "not_configured"
                   ? "يلزم ضبط YOUTUBE_CLIENT_ID وYOUTUBE_CLIENT_SECRET ثم ربط القناة من إدارة السوشيال لحفظ اعتماد OAuth موثّق الصلاحيات على Supabase."
                   : "تعذر الوصول إلى تقارير YouTube Analytics حاليًا. لم يتم استبدال البيانات المفقودة بأصفار."}
