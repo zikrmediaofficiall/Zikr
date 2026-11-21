@@ -29,6 +29,7 @@ const expected = [
 ];
 
 assert.match(type, /sourceUrl\?: string/);
+assert.equal((fallback.match(/\\{id:'fd\\d+'/g) ?? []).length, 20, "the emergency fallback catalogue should contain 20 reviewed supplications");
 for (const [slug, url] of expected) {
   assert.ok(service.includes('"' + slug + '": "' + url + '"'), "verified source mapping is missing for " + slug);
 }
