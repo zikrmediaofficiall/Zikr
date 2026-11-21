@@ -13,7 +13,7 @@ assert.match(home, /isSectionVisible\(item\.href\)/, "Home category previews mus
 assert.match(home, /showPrayerTimes !== false && isSectionVisible\('\/prayer-times'\)/, "Prayer times must respect both homepage settings and section visibility");
 assert.match(home, /social-heading/, "Home must provide an official social-channel discovery section");
 assert.match(home, /safeSocialUrl/, "Homepage external social links must be HTTPS and host-validated");
-assert.match(home, /group\.items\.filter/, "Home must only render enabled catalogue routes");
+assert.match(home, /group\.items\s*\.filter/, "Home must only render enabled catalogue routes");
 assert.match(home, /group\.items\.slice\(0,\s*3\)/, "Home must keep each group preview compact and link to the full directory");
 assert.match(catalog, /id: 'community'/, "The canonical catalogue must include community and support routes");
 assert.match(sections, /getSectionVisibility/, "The section directory must honor administrator visibility");
