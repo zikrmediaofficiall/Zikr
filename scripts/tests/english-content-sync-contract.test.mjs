@@ -157,10 +157,20 @@ const githubCredentialBlock = circleWorkflow.slice(githubCredentialStart, github
 assert.ok(githubCredentialStart >= 0 && githubCredentialEnd > githubCredentialStart);
 assert.ok(!githubCredentialBlock.includes("GEMINI_API_KEY"),
   "the protected GitHub workflow must not require Gemini credentials for source-backed Quran and Hadith imports");
-assert.ok(circleWorkflow.includes("push:") && circleWorkflow.includes("branches: [main]") &&
-  circleWorkflow.includes("supabase/migrations/20261121100000_quran_english_translation_provenance.sql") &&
-  circleWorkflow.includes("scripts/sync-quran-english.ts"),
-  "the protected English sync fallback must run when the Quran provenance migration and importer reach main");
+assert.ok(
+  circleWorkflow.includes("workflow_run:") &&
+    circleWorkflow.includes('workflows: ["ZIKR Finalization Controlled Release"]') &&
+    circleWorkflow.includes("schedule:") &&
+    circleWorkflow.includes("if: github.ref == 'refs/heads/main'") &&
+    circleWorkflow.includes("pnpm sync:quran:en"),
+  "the protected English sync fallback must run after the successful production release and on its bounded schedule, only on main",
+);
+assert.ok(
+  quranTranslationMigration.includes("CREATE TABLE IF NOT EXISTS public.quran_english_translations") &&
+    quranTranslationMigration.includes("translation_source") &&
+    packageJson.scripts["sync:quran:en"] === "tsx scripts/sync-quran-english.ts",
+  "the Quran provenance migration and source-backed importer must be present and registered",
+);
 const githubWorkerStart = circleWorkflow.indexOf("name: Run one bounded article batch and one bounded Hadith batch");
 const githubWorker = circleWorkflow.slice(githubWorkerStart);
 const githubQuranPosition = githubWorker.indexOf("pnpm sync:quran:en");
