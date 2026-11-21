@@ -853,6 +853,14 @@ function getGenericEditorialPage(pathname: string): EditorialPage | null {
   // Suppress this generic block there to avoid two long guides stacked together.
   if (normalized === '/' || normalized === '/about' || normalized === '/contact') return null;
 
+  // Utility pages render a dedicated guide through EditorialUtilityDepth.
+  // Do not stack a second generic editorial guide above those instructions.
+  const dedicatedUtilityGuideRoutes = new Set([
+    '/prayer-times', '/qibla', '/tasbeeh', '/memorization', '/wird',
+    '/zakat', '/spiritual-ai', '/radio', '/youtube', '/search', '/offline-library',
+  ]);
+  if (dedicatedUtilityGuideRoutes.has(normalized)) return null;
+
   // Dynamic detail routes now have their own page-specific guide in
   // ContentExpansion. Keep generic guides for the static Kids landing pages,
   // but do not stack a second generic article under a detailed item page.
