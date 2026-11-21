@@ -72,6 +72,7 @@ export type VerifiedGeneratedCloudinaryVideo = {
   cloudName: string;
   apiKey: string;
   apiSecret: string;
+  alreadyMissing?: boolean;
 };
 
 /**
@@ -110,6 +111,20 @@ export async function verifyGeneratedCloudinaryVideo(
     throw new Error(searchPayload.error?.message || "تعذر التحقق من ملكية ملف الفيديو في Cloudinary.");
   }
   const matches = (searchPayload.resources ?? []).filter((asset) => asset.public_id === publicId);
+  if (matches.length === 0) {
+    // A previous owner-requested deletion may have completed before its DB
+    // marker was finalized. Confirm the exact public URL is now absent so a
+    // retry can safely finish the metadata cleanup without destroying anything.
+    const deliveryProbe = await fetcher(videoUrl, {
+      method: "HEAD",
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (deliveryProbe.status === 404) {
+      return { publicId, cloudName, apiKey, apiSecret, alreadyMissing: true };
+    }
+    throw new Error("لم يثبت أن ملف Cloudinary يخص مولّد ZIKR؛ تم إيقاف الحذف لحماية الملف.");
+  }
   if (matches.length !== 1 || !isOwnedGeneratedVideo(matches[0], publicId)) {
     throw new Error("لم يثبت أن ملف Cloudinary يخص مولّد ZIKR؛ تم إيقاف الحذف لحماية الملف.");
   }
@@ -122,6 +137,7 @@ export async function deleteVerifiedGeneratedCloudinaryVideo(
   fetcher: typeof fetch = fetch,
 ): Promise<{ publicId: string }> {
   const { publicId, cloudName, apiKey, apiSecret } = asset;
+  if (asset.alreadyMissing) return { publicId };
   let lastError: Error | null = null;
 
   // Cloudinary destroy is idempotent ("not found" is success). Retry transient

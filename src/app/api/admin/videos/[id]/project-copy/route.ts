@@ -1,0 +1,511 @@
+import { revalidatePath } from "next/cache";
+import { NextRequest, NextResponse } from "next/server";
+import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
+import { requireAdminApi } from "@/features/admin/services/admin";
+import { requireAdminStepUpApi } from "@/features/admin/services/security";
+import { recordAdminAuditEvent } from "@/features/admin/services/audit";
+import { runPostCommitAudit } from "@/features/admin/services/post-commit-audit";
+import { createAdminClient, supabaseServerAdminRequest } from "@/lib/supabase/server";
+import { verifyGeneratedCloudinaryVideo, deleteVerifiedGeneratedCloudinaryVideo } from "@/features/videos/services/generated-cloudinary-asset";
+import { getConfirmedYoutubeFallbackId, shouldKeepPublishedVideoAfterMediaPurge, wasPublishedBeforeMediaPurge } from "@/features/videos/services/video-media-contract";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const VIDEO_REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type RequestRow = {
+  id: string;
+  status: string;
+  video_url: string | null;
+  content: unknown;
+  updated_at: string;
+};
+
+type QueueRow = {
+  id: string;
+  content_id: string;
+  status: string;
+  video_url: string | null;
+  metadata: Record<string, unknown> | null;
+  updated_at?: string;
+};
+
+type CatalogRow = {
+  id: string;
+  slug?: string | null;
+  metadata: Record<string, unknown> | null;
+  published: boolean | null;
+  youtube_id: string | null;
+  updated_at: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function getProjectDeletion(value: unknown): Record<string, unknown> {
+  return asRecord(asRecord(value).projectMediaDeletion);
+}
+
+function getStorageRetention(value: unknown): Record<string, unknown> {
+  return asRecord(asRecord(value).storageRetention);
+}
+
+function managedVideoStoragePath(value: unknown): string | null {
+  const retention = asRecord(value);
+  if (retention.bucket !== "videos" || typeof retention.path !== "string") return null;
+  const path = retention.path.trim();
+  const segments = path.split("/");
+  if (
+    !path.startsWith("automated/") ||
+    !path.toLowerCase().endsWith(".mp4") ||
+    segments.length < 2 ||
+    segments.some((part) => !part || part === "." || part === ".." || part.includes("\\"))
+  ) return null;
+  return path;
+}
+
+function clearExactVideoAliases(contentValue: unknown, videoUrl: string): Record<string, unknown> {
+  const content = { ...asRecord(contentValue) };
+  for (const key of ["videoUrl", "generatedVideoUrl", "video_url"]) {
+    if (content[key] === videoUrl) delete content[key];
+  }
+  return content;
+}
+
+function requestContentForDeletion(
+  row: RequestRow,
+  videoUrl: string | null,
+  storagePaths: string[],
+  requestedAt: string,
+  requestedBy: string,
+): Record<string, unknown> {
+  const content = videoUrl ? clearExactVideoAliases(row.content, videoUrl) : { ...asRecord(row.content) };
+  const previousRetention = getStorageRetention(content);
+  return {
+    ...content,
+    ...(storagePaths.length && previousRetention.bucket === "videos"
+      ? { storageRetention: { ...previousRetention, state: "purge_pending", ownerRequested: true, requestedAt } }
+      : {}),
+    projectMediaDeletion: {
+      state: "purging",
+      ...(videoUrl ? { assetUrl: videoUrl } : {}),
+      storagePaths,
+      requestedAt,
+      requestedBy,
+    },
+  };
+}
+
+function queueMetadataForDeletion(
+  row: QueueRow,
+  videoUrl: string | null,
+  storagePaths: string[],
+  requestedAt: string,
+  requestedBy: string,
+): Record<string, unknown> {
+  const metadata = { ...asRecord(row.metadata) };
+  const previousRetention = getStorageRetention(metadata);
+  return {
+    ...metadata,
+    ...(storagePaths.length && previousRetention.bucket === "videos"
+      ? { storageRetention: { ...previousRetention, state: "purge_pending", ownerRequested: true, requestedAt } }
+      : {}),
+    projectMediaDeletion: {
+      state: "purging",
+      ...(videoUrl ? { assetUrl: videoUrl } : {}),
+      storagePaths,
+      requestedAt,
+      requestedBy,
+    },
+  };
+}
+
+function finalizeDeletionRecord<T extends Record<string, unknown>>(value: T, key: "content" | "metadata"): T {
+  const source = asRecord(value[key]);
+  const deletion = asRecord(source.projectMediaDeletion);
+  return {
+    ...value,
+    [key]: {
+      ...source,
+      projectMediaDeletion: {
+        state: "purged",
+        ...(typeof deletion.requestedAt === "string" ? { requestedAt: deletion.requestedAt } : {}),
+        ...(typeof deletion.requestedBy === "string" ? { requestedBy: deletion.requestedBy } : {}),
+        deletedAt: new Date().toISOString(),
+      },
+      ...(asRecord(source.storageRetention).ownerRequested === true
+        ? {
+            storageRetention: {
+              ...asRecord(source.storageRetention),
+              state: "purged",
+              purgedAt: new Date().toISOString(),
+            },
+          }
+        : {}),
+    },
+  };
+}
+
+function storagePathsFromRows(requests: RequestRow[], queues: QueueRow[]): string[] {
+  const paths = new Set<string>();
+  for (const row of requests) {
+    const content = asRecord(row.content);
+    const path = managedVideoStoragePath(content.storageRetention);
+    if (path) paths.add(path);
+    const markerPaths = getProjectDeletion(content).storagePaths;
+    if (Array.isArray(markerPaths)) {
+      for (const candidate of markerPaths) {
+        const safe = managedVideoStoragePath({ bucket: "videos", path: candidate });
+        if (safe) paths.add(safe);
+      }
+    }
+  }
+  for (const row of queues) {
+    const metadata = asRecord(row.metadata);
+    const path = managedVideoStoragePath(metadata.storageRetention);
+    if (path) paths.add(path);
+    const markerPaths = getProjectDeletion(metadata).storagePaths;
+    if (Array.isArray(markerPaths)) {
+      for (const candidate of markerPaths) {
+        const safe = managedVideoStoragePath({ bucket: "videos", path: candidate });
+        if (safe) paths.add(safe);
+      }
+    }
+  }
+  return [...paths];
+}
+
+async function loadRequestsForAsset(videoUrl: string): Promise<RequestRow[]> {
+  const rows: RequestRow[] = [];
+  const encodedUrl = encodeURIComponent(videoUrl);
+  for (let offset = 0; offset <= 5000; offset += 500) {
+    const page = await supabaseServerAdminRequest<RequestRow[]>(
+      `/rest/v1/video_generation_requests?video_url=eq.${encodedUrl}&select=id,status,video_url,content,updated_at&order=id.asc&limit=500&offset=${offset}`,
+    );
+    if (!Array.isArray(page)) throw new Error("VIDEO_PROJECT_DELETE_REQUEST_INVENTORY_INVALID");
+    rows.push(...page);
+    if (page.length < 500) return rows;
+  }
+  throw new Error("VIDEO_PROJECT_DELETE_REQUEST_INVENTORY_LIMIT");
+}
+
+async function loadQueuesForRequests(requestIds: string[]): Promise<QueueRow[]> {
+  if (!requestIds.length) return [];
+  const ids = requestIds.map((id) => id.replace(/[^0-9a-f-]/gi, ""));
+  const filter = ids.length === 1 ? `eq.${ids[0]}` : `in.(${ids.join(",")})`;
+  const rows = await supabaseServerAdminRequest<QueueRow[]>(
+    `/rest/v1/social_publish_queue?content_id=${filter}&select=id,content_id,status,video_url,metadata,updated_at&order=id.asc&limit=1000`,
+  );
+  if (!Array.isArray(rows) || rows.length >= 1000) {
+    throw new Error("VIDEO_PROJECT_DELETE_SOCIAL_QUEUE_INVENTORY_INVALID");
+  }
+  return rows;
+}
+
+async function loadCatalogForRequest(requestId: string): Promise<CatalogRow[]> {
+  const [byMetadata, bySlug] = await Promise.all([
+    supabaseServerAdminRequest<CatalogRow[]>(
+      `/rest/v1/videos?metadata->>videoGenerationRequestId=eq.${encodeURIComponent(requestId)}&select=id,slug,metadata,published,youtube_id,updated_at&limit=10`,
+    ),
+    supabaseServerAdminRequest<CatalogRow[]>(
+      `/rest/v1/videos?slug=eq.${encodeURIComponent("zikr-" + requestId)}&select=id,slug,metadata,published,youtube_id,updated_at&limit=10`,
+    ),
+  ]);
+  if (!Array.isArray(byMetadata) || !Array.isArray(bySlug)) {
+    throw new Error("VIDEO_PROJECT_DELETE_CATALOG_INVENTORY_INVALID");
+  }
+  const unique = new Map<string, CatalogRow>();
+  for (const row of [...byMetadata, ...bySlug]) {
+    if (row && typeof row.id === "string") unique.set(row.id, row);
+  }
+  return [...unique.values()];
+}
+
+async function patchRow<T>(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<T[]> {
+  const rows = await supabaseServerAdminRequest<T[]>(path, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+    body: JSON.stringify(body),
+  });
+  if (!Array.isArray(rows)) throw new Error("VIDEO_PROJECT_DELETE_DATABASE_MUTATION_INVALID");
+  return rows;
+}
+
+async function removeStorageObjects(paths: string[]): Promise<number> {
+  if (!paths.length) return 0;
+  const bucket = createAdminClient().storage.from("videos");
+  let removed = 0;
+  for (let offset = 0; offset < paths.length; offset += 100) {
+    const { data, error } = await bucket.remove(paths.slice(offset, offset + 100));
+    if (error) throw new Error("VIDEO_PROJECT_DELETE_SUPABASE_STORAGE_FAILED: " + error.message);
+    removed += data?.length ?? Math.min(100, paths.length - offset);
+  }
+  return removed;
+}
+
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdminStepUpApi("video.delete", "/admin/video/requests");
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error, code: auth.error, nextPath: "nextPath" in auth ? auth.nextPath : undefined },
+      { status: auth.status, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  try {
+    const { id } = await context.params;
+    if (!VIDEO_REQUEST_ID_PATTERN.test(id)) {
+      return NextResponse.json({ error: "معرّف طلب الفيديو غير صالح." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    }
+    const parsed = await readBoundedJsonBody(request);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status, headers: { "Cache-Control": "no-store" } });
+    const body = parsed.value && typeof parsed.value === "object" && !Array.isArray(parsed.value)
+      ? parsed.value as Record<string, unknown>
+      : {};
+    if (body.confirmed !== true || typeof body.expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(body.expectedUpdatedAt))) {
+      return NextResponse.json({ error: "يلزم تأكيد حذف نسخة المشروع وتحديث القائمة قبل التنفيذ." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    }
+
+    const currentRows = await supabaseServerAdminRequest<RequestRow[]>(
+      `/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(id)}&select=id,status,video_url,content,updated_at&limit=1`,
+    );
+    const current = currentRows?.[0];
+    if (!current) return NextResponse.json({ error: "طلب الفيديو غير موجود." }, { status: 404, headers: { "Cache-Control": "no-store" } });
+    if (current.updated_at !== body.expectedUpdatedAt) {
+      return NextResponse.json({ error: "تغير سجل الفيديو؛ حدّث القائمة ثم أعد طلب الحذف." }, { status: 409, headers: { "Cache-Control": "no-store" } });
+    }
+
+    const currentDeletion = getProjectDeletion(current.content);
+    const pendingUrl = typeof currentDeletion.assetUrl === "string" ? currentDeletion.assetUrl : null;
+    const assetUrl = current.video_url || pendingUrl;
+    const targetStoragePath = managedVideoStoragePath(getStorageRetention(current.content));
+    if (!assetUrl && !targetStoragePath && currentDeletion.state !== "purging") {
+      return NextResponse.json({ error: "لا توجد نسخة فيديو أو عملية تنظيف معلقة لهذا الطلب." }, { status: 409, headers: { "Cache-Control": "no-store" } });
+    }
+
+    const audience = asRecord(current.content).audience;
+    if (audience === "kids") {
+      const kidsAuth = await requireAdminApi("kids.manage");
+      if (!kidsAuth.ok || kidsAuth.profile.id !== auth.profile.id) {
+        return NextResponse.json(
+          { error: kidsAuth.ok ? "Unauthorized" : kidsAuth.error },
+          { status: kidsAuth.ok ? 401 : kidsAuth.status, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+    }
+
+    let verifiedAsset: Awaited<ReturnType<typeof verifyGeneratedCloudinaryVideo>> | null = null;
+    if (assetUrl) verifiedAsset = await verifyGeneratedCloudinaryVideo(assetUrl);
+
+    const linkedRequests = assetUrl ? await loadRequestsForAsset(assetUrl) : [];
+    if (!linkedRequests.some((row) => row.id === current.id)) linkedRequests.unshift(current);
+    const requestIds = [...new Set(linkedRequests.map((row) => row.id))];
+    const queueRows = await loadQueuesForRequests(requestIds);
+    const storagePaths = storagePathsFromRows(linkedRequests, queueRows);
+    const requestedAt = new Date().toISOString();
+    const requestedBy = auth.profile.id;
+
+    // Clear project playback pointers first. The request, source, approval history,
+    // and platform IDs remain; only the owner's internal video copy is detached.
+    const updatedRequests: RequestRow[] = [];
+    for (const row of linkedRequests) {
+      const content = requestContentForDeletion(row, assetUrl, storagePaths, requestedAt, requestedBy);
+      const nextStatus = ["pending", "processing", "retry_wait"].includes(row.status) ? "cancelled" : row.status;
+      const filter = `id=eq.${encodeURIComponent(row.id)}&updated_at=eq.${encodeURIComponent(row.updated_at)}`;
+      const updated = await patchRow<RequestRow>(
+        `/rest/v1/video_generation_requests?${filter}&select=id,status,video_url,content,updated_at`,
+        { video_url: null, status: nextStatus, content, updated_at: requestedAt },
+      );
+      if (updated.length !== 1) throw new Error("VIDEO_PROJECT_DELETE_REQUEST_CONFLICT");
+      updatedRequests.push(updated[0]);
+    }
+
+    const updatedQueues: QueueRow[] = [];
+    for (const row of queueRows) {
+      const rowMetadata = asRecord(row.metadata);
+      const pendingQueueDeletion = getProjectDeletion(row.metadata);
+      if (row.video_url !== assetUrl && pendingQueueDeletion.assetUrl !== assetUrl) continue;
+      const metadata = queueMetadataForDeletion(row, assetUrl, storagePaths, requestedAt, requestedBy);
+      const nextStatus = row.status === "published"
+        ? "published"
+        : ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
+          ? "failed"
+          : row.status;
+      const queueFilter = `id=eq.${encodeURIComponent(row.id)}${row.updated_at ? `&updated_at=eq.${encodeURIComponent(row.updated_at)}` : ""}`;
+      const updated = await patchRow<QueueRow>(
+        `/rest/v1/social_publish_queue?${queueFilter}&select=id,content_id,status,video_url,metadata,updated_at`,
+        { video_url: null, status: nextStatus, metadata, updated_at: requestedAt },
+      );
+      if (updated.length !== 1) throw new Error("VIDEO_PROJECT_DELETE_SOCIAL_QUEUE_CONFLICT");
+      updatedQueues.push(updated[0]);
+    }
+
+    const updatedCatalog: CatalogRow[] = [];
+    for (const requestRow of linkedRequests) {
+      const catalogRows = await loadCatalogForRequest(requestRow.id);
+      for (const catalog of catalogRows) {
+        const previousMetadata = asRecord(catalog.metadata);
+        const fallbackId = getConfirmedYoutubeFallbackId(catalog);
+        const keepPublishedFallback = shouldKeepPublishedVideoAfterMediaPurge(catalog, true);
+        const metadata = {
+          ...previousMetadata,
+          generatedVideoUrl: null,
+          videoUrl: null,
+          video_url: null,
+          mediaState: "purged",
+          mediaFallbackAvailable: fallbackId !== null,
+          mediaPurgedFromPublished: wasPublishedBeforeMediaPurge(catalog),
+          mediaPurgedAt: requestedAt,
+          projectMediaDeletion: {
+            state: "purging",
+            ...(assetUrl ? { assetUrl } : {}),
+            storagePaths,
+            requestedAt,
+            requestedBy,
+          },
+        };
+        const catalogFilter = `id=eq.${encodeURIComponent(catalog.id)}&updated_at=eq.${encodeURIComponent(catalog.updated_at)}`;
+        const updated = await patchRow<CatalogRow>(
+          `/rest/v1/videos?${catalogFilter}&select=id,slug,metadata,published,youtube_id,updated_at`,
+          {
+            published: keepPublishedFallback,
+            ...(keepPublishedFallback && fallbackId ? { youtube_id: fallbackId } : {}),
+            metadata,
+            updated_at: requestedAt,
+          },
+        );
+        if (updated.length !== 1) throw new Error("VIDEO_PROJECT_DELETE_CATALOG_CONFLICT");
+        updatedCatalog.push(updated[0]);
+      }
+    }
+
+    let storageObjectsDeleted = 0;
+    let cloudinaryCleanupPending = false;
+    let storageCleanupPending = false;
+    try {
+      storageObjectsDeleted = await removeStorageObjects(storagePaths);
+    } catch (error) {
+      storageCleanupPending = true;
+      console.error("[api/admin/videos/[id]/project-copy] Supabase Storage cleanup pending:", error);
+    }
+
+    if (verifiedAsset) {
+      try {
+        await deleteVerifiedGeneratedCloudinaryVideo(verifiedAsset);
+      } catch (error) {
+        cloudinaryCleanupPending = true;
+        console.error("[api/admin/videos/[id]/project-copy] Cloudinary cleanup pending:", {
+          requestId: id,
+          publicId: verifiedAsset.publicId,
+          error,
+        });
+      }
+    }
+
+    const cleanupPending = cloudinaryCleanupPending || storageCleanupPending;
+    if (!cleanupPending) {
+      for (const row of updatedRequests) {
+        const finalized = finalizeDeletionRecord(row as unknown as Record<string, unknown>, "content");
+        const updated = await patchRow<RequestRow>(
+          `/rest/v1/video_generation_requests?id=eq.${encodeURIComponent(row.id)}&updated_at=eq.${encodeURIComponent(row.updated_at)}&select=id,status,video_url,content,updated_at`,
+          { content: finalized.content, updated_at: new Date().toISOString() },
+        );
+        if (updated.length !== 1) {
+          cloudinaryCleanupPending = true;
+          console.error("[api/admin/videos/[id]/project-copy] request deletion marker finalization pending:", row.id);
+        }
+      }
+      for (const row of updatedQueues) {
+        const finalized = finalizeDeletionRecord(row as unknown as Record<string, unknown>, "metadata");
+        const updated = await patchRow<QueueRow>(
+          `/rest/v1/social_publish_queue?id=eq.${encodeURIComponent(row.id)}&updated_at=eq.${encodeURIComponent(row.updated_at ?? "")}&select=id,content_id,status,video_url,metadata,updated_at`,
+          { metadata: finalized.metadata, updated_at: new Date().toISOString() },
+        );
+        if (updated.length !== 1) {
+          cloudinaryCleanupPending = true;
+          console.error("[api/admin/videos/[id]/project-copy] social queue deletion marker finalization pending:", row.id);
+        }
+      }
+      for (const row of updatedCatalog) {
+        const finalized = finalizeDeletionRecord(row as unknown as Record<string, unknown>, "metadata");
+        const updated = await patchRow<CatalogRow>(
+          `/rest/v1/videos?id=eq.${encodeURIComponent(row.id)}&updated_at=eq.${encodeURIComponent(row.updated_at)}&select=id,slug,metadata,published,youtube_id,updated_at`,
+          { metadata: finalized.metadata, updated_at: new Date().toISOString() },
+        );
+        if (updated.length !== 1) {
+          cloudinaryCleanupPending = true;
+          console.error("[api/admin/videos/[id]/project-copy] catalog deletion marker finalization pending:", row.id);
+        }
+      }
+    }
+
+    const auditRecorded = await runPostCommitAudit(
+      () => recordAdminAuditEvent({
+        action: "video.project_copy.delete",
+        permission: "video.delete",
+        resourceType: "video_generation_requests",
+        resourceId: id,
+        metadata: {
+          projectAssetDeleted: !cloudinaryCleanupPending && !storageCleanupPending,
+          cloudinaryPublicId: verifiedAsset?.publicId ?? null,
+          cloudinaryCleanupPending,
+          storageObjectsDeleted,
+          storageCleanupPending,
+          linkedRequestRowsUpdated: updatedRequests.length,
+          socialQueueRowsPreserved: true,
+          externalSocialPostsDeleted: false,
+          platformPublicationIdsPreserved: true,
+          catalogRowsUpdated: updatedCatalog.length,
+        },
+      }),
+      (auditError) => console.error("[api/admin/videos/[id]/project-copy] audit event failed after media cleanup:", auditError),
+    );
+
+    for (const path of ["/admin/video/requests", "/admin/video/review", "/admin/videos", "/videos"]) revalidatePath(path);
+    return NextResponse.json(
+      {
+        ok: true,
+        projectCopyDeleted: !cloudinaryCleanupPending && !storageCleanupPending,
+        cleanupPending: cloudinaryCleanupPending || storageCleanupPending,
+        cloudinaryCleanupPending,
+        storageCleanupPending,
+        cloudinaryPublicId: verifiedAsset?.publicId ?? null,
+        storageObjectsDeleted,
+        linkedRequestRowsUpdated: updatedRequests.length,
+        socialQueueRowsPreserved: true,
+        platformPublicationIdsPreserved: true,
+        externalSocialPostsDeleted: false,
+        auditRecorded,
+        message: cleanupPending
+          ? "تم فصل نسخة المشروع عن الطابور والمكتبة. بقي تنظيف ملف تخزين واحد أو أكثر معلقًا ويمكن إعادة المحاولة من الطلب نفسه؛ لم تُحذف منشورات السوشيال."
+          : "تم حذف نسخة المشروع من Cloudinary وSupabase Storage. بقيت سجلات المصدر والاعتماد ومعرفات YouTube وFacebook والمنشورات الخارجية دون حذف.",
+      },
+      { status: cleanupPending ? 202 : 200, headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const conflict = /_CONFLICT$/.test(message);
+    const status = conflict ? 409 : 500;
+    console.error("[api/admin/videos/[id]/project-copy] POST:", error);
+    return NextResponse.json(
+      {
+        error: conflict
+          ? "تغير سجل الفيديو أثناء العملية؛ لم يُحذف ملف Cloudinary. حدّث القائمة وأعد المحاولة، وسيستكمل النظام أي تنظيف معلّق."
+          : message.startsWith("VIDEO_PROJECT_DELETE_")
+            ? "تعذر إكمال فحص مراجع نسخة المشروع. لم يبدأ حذف ملف Cloudinary؛ أعد المحاولة بعد تحديث البيانات."
+            : "تعذر حذف نسخة المشروع. لم يتم حذف أي منشور خارجي.",
+        code: message,
+        deletionStarted: false,
+      },
+      { status, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+}

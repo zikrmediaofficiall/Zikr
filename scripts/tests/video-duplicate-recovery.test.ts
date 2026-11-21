@@ -218,6 +218,20 @@ assert.ok(adminReviewClient.includes("eligibleVisible = canDelete") && adminRevi
 
 assert.ok(adminVideoDeleteRoute.includes("isQaFailedGeneratedVideo"));
 assert.ok(adminVideoDeleteRoute.includes("isPendingHumanReviewGeneratedVideo"));
+const projectCopyDeleteRoute = readFileSync("src/app/api/admin/videos/[id]/project-copy/route.ts", "utf8");
+assert.ok(projectCopyDeleteRoute.includes('requireAdminStepUpApi("video.delete"'), "owner project-copy deletion must require video.delete step-up");
+assert.ok(projectCopyDeleteRoute.includes("verifyGeneratedCloudinaryVideo"), "project-copy deletion must verify the exact generated Cloudinary asset");
+assert.ok(projectCopyDeleteRoute.includes("deleteVerifiedGeneratedCloudinaryVideo"), "project-copy deletion must physically remove the verified Cloudinary asset");
+assert.ok(projectCopyDeleteRoute.includes('createAdminClient().storage.from("videos")'), "project-copy deletion must remove the owned Supabase staging copy");
+assert.ok(projectCopyDeleteRoute.includes("video_url: null"), "project-copy deletion must detach the internal playback URL");
+assert.ok(projectCopyDeleteRoute.includes("externalSocialPostsDeleted: false"), "project-copy deletion must preserve external social posts");
+assert.ok(projectCopyDeleteRoute.includes("platformPublicationIdsPreserved: true"), "project-copy deletion must preserve external publication IDs");
+assert.ok(projectCopyDeleteRoute.includes("socialQueueRowsPreserved: true"), "project-copy deletion must preserve historical social queue rows");
+assert.ok(!/youtube\.com\/.*delete|facebook\.com\/.*delete/i.test(projectCopyDeleteRoute), "project-copy deletion must not call social-platform deletion APIs");
+assert.ok(adminReviewClient.includes("approveSelectedForPublishing") && adminReviewClient.includes("selectedReviewIds"), "the review screen must support selecting multiple review-ready videos");
+assert.ok(adminReviewClient.includes('action: "approve_publish"') && adminReviewClient.includes('"/api/admin/video-generation"'), "bulk review must reuse the guarded existing approval API");
+assert.ok(adminReviewClient.includes("batchApprovalChecks") && adminReviewClient.includes("APPROVAL_CHECKS.some"), "bulk review must require the full human checklist");
+
 assert.ok(adminVideoDeleteRoute.includes("terminalGeneratedAsset"), "verified failed and cancelled generated assets must use the same reference-checked deletion preflight");
 assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.qa_failed"));
 assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.awaiting_human_review"));
@@ -251,6 +265,7 @@ assert.ok(adminReviewClient.includes("terminalWithAsset"), "failed and cancelled
 assert.ok(adminReviewClient.includes("request.stored_thumbnail_url"), "derived preview posters must not be treated as persisted media references when checking deletion eligibility");
 assert.ok(adminReviewClient.includes("content.approvalStatus === \"awaiting_human_review\""), "completed unapproved review renders must be available for the guarded deletion action");
 assert.ok(adminReviewClient.includes("مراجعة واعتماد"), "the review queue must provide a direct review-and-approve action");
+assert.ok(adminReviewClient.includes("حذف نسخة المشروع فقط"), "every row with a project video copy must expose an owner-controlled project-only deletion action");
 assert.ok(adminReviewClient.includes("isReadyForHumanApproval(request.content)"), "the visible approval action must require a source-locked QA-passed approval snapshot");
 assert.ok(adminReviewClient.includes('record.approvalReviewerId === "system:zikr-video-factory"'), "manual Kids approval must upgrade only a verified system-QA approval, never override failed or incomplete QA");
 assert.ok(adminReviewClient.includes('qa.engine === "zikr_video_factory"') && adminReviewClient.includes('qa.engineVersion === "2026-11-07-auto-qa-v1"'), "human approval must be exposed only for the current automated QA engine/version");

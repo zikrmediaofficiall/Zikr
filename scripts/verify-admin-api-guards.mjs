@@ -119,6 +119,8 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/videos/[id]/route.ts PATCH": ["video.manage", "kids.manage"],
   // video.delete is unconditional; Kids requests additionally require kids.manage.
   "src/app/api/admin/videos/[id]/route.ts DELETE": ["video.delete", "kids.manage"],
+  // Removing only the generated project copy is step-up protected; Kids rows require the extra Kids permission.
+  "src/app/api/admin/videos/[id]/project-copy/route.ts POST": ["video.delete", "kids.manage"],
   "src/app/api/admin/videos/create/route.ts POST": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/route.ts GET": ["video.manage", "kids.manage"],
   "src/app/api/admin/videos/upload/route.ts POST": ["video.manage"],
