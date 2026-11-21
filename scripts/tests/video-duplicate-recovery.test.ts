@@ -191,6 +191,7 @@ assert.ok(adminVideoDeleteRoute.includes("admin_delete_unreferenced_video_genera
 assert.ok(adminVideoDeleteRoute.includes("prepareGeneratedCloudinaryAssetDeletion"));
 assert.ok(adminVideoDeleteRoute.includes("isQaFailedGeneratedVideo"));
 assert.ok(adminVideoDeleteRoute.includes("isPendingHumanReviewGeneratedVideo"));
+assert.ok(adminVideoDeleteRoute.includes("terminalGeneratedAsset"), "verified failed and cancelled generated assets must use the same reference-checked deletion preflight");
 assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.qa_failed"));
 assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.awaiting_human_review"));
 assert.ok(adminVideoDeleteRoute.includes("GENERATED_ASSET_RESTORE_REQUIRED"));
@@ -216,6 +217,7 @@ assert.ok(adminReviewClient.includes("isQaFailedGeneratedVideo"));
 assert.ok(adminReviewClient.includes("حذف فيديو فشل فحص الجودة وملفه نهائيًا"));
 assert.ok(adminReviewClient.includes("حذف الفيديو المكرر وملفه نهائيًا"));
 assert.ok(adminReviewClient.includes("request.thumbnail_url"));
+assert.ok(adminReviewClient.includes("terminalWithAsset"), "failed and cancelled generated videos must be eligible for guarded per-request deletion");
 assert.ok(adminReviewClient.includes("request.stored_thumbnail_url"), "derived preview posters must not be treated as persisted media references when checking deletion eligibility");
 assert.ok(adminReviewClient.includes("content.approvalStatus === \"awaiting_human_review\""), "completed unapproved review renders must be available for the guarded deletion action");
 assert.ok(adminReviewClient.includes("مراجعة واعتماد"), "the review queue must provide a direct review-and-approve action");
