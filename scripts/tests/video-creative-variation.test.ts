@@ -32,7 +32,7 @@ const kidsScene = resolveDeterministicVideoScene({ id: "kids-1", category: "stor
 assert.equal(isVideoSceneAllowedForAudience(kidsScene, "kids"), true);
 assert.equal(isVideoSceneAllowedForAudience(kidsScene, "general"), false);
 assert.ok(
-  new Set(ids.map((id) => resolveDeterministicVideoScene({ id, category: "story", audience: "kids" })).size >= 3,
+  new Set(ids.map((id) => resolveDeterministicVideoScene({ id, category: "story", audience: "kids" }))).size >= 3,
   "Kids stories should also have varied, child-specific visual scenes.",
 );
 assert.ok(
