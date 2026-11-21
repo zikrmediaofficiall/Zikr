@@ -60,6 +60,7 @@ assert.ok(androidTagSigningWorkflow.includes('GITHUB_REF_NAME#android-release-si
 assert.ok(androidTagSigningWorkflow.includes("Release commit is not the current main HEAD"), "Branch-triggered signing must bind the signed tag to the exact current main commit");
 assert.ok(androidTagSigningWorkflow.includes("Verify protected Android Git-tag signing configuration"), "Tag signing must require a successful preflight for the exact release commit");
 assert.ok(androidTagSigningWorkflow.includes("checks: read"), "Tag signing must have read-only permission to verify the exact-commit preflight result");
+assert.ok(androidTagSigningWorkflow.includes("github.actor == 'zikrofficial-X'"), "Push-triggered signing must be restricted to the repository owner identity");
 
 
 const androidCircle = read(".circleci/config.yml");
