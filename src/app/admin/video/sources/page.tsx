@@ -31,6 +31,18 @@ function safeOrigin(value: string | null): string | null {
   }
 }
 
+function safeEndpointLabel(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    // Never expose query strings or fragments: source URLs may contain signed tokens.
+    return url.origin + url.pathname;
+  } catch {
+    return null;
+  }
+}
+
 function formatDate(value: string | null): string {
   if (!value || !Number.isFinite(Date.parse(value))) return "لم يتم الاختبار بعد";
   return new Date(value).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" });
@@ -56,7 +68,7 @@ export default async function VideoFactorySourcesPage() {
   try {
     sources = await supabaseServerAdminRequest<AgentSource[]>(
       "/rest/v1/content_agent_sources?select=id,name,source_type,base_url,fetch_url,enabled,requires_api_key,last_checked_at,next_run_at&order=source_type.asc,name.asc&limit=100",
-      { method: "GET", timeoutMs: 10000, retries: 1, cache: "no-store" },
+      { method: "GET", cache: "no-store" },
     ) ?? [];
   } catch (error) {
     console.error("[admin/video/sources] source inventory failed:", error);
@@ -105,8 +117,9 @@ export default async function VideoFactorySourcesPage() {
       <section className="grid gap-4 lg:grid-cols-2">
         {sources.map((source) => {
           const origin = safeOrigin(source.base_url);
-          const statusLabel = source.enabled ? "مفعّل" : source.requires_api_key ? "بانتظار مفتاح API" : "غير مفعّل";
+          const statusLabel = source.enabled ? "مفعّل" : source.requires_api_key ? "متوقف — يتطلب مفتاح API" : "غير مفعّل";
           const statusClass = source.enabled ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200" : source.requires_api_key ? "border-amber-500/25 bg-amber-500/10 text-amber-200" : "border-slate-500/25 bg-slate-500/10 text-slate-300";
+          const fetchEndpoint = safeEndpointLabel(source.fetch_url);
           return (
             <article key={source.id} className="rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
               <div className="flex items-start gap-4">
@@ -135,10 +148,10 @@ export default async function VideoFactorySourcesPage() {
                   يتطلب هذا المصدر مفتاح API محفوظًا في إعدادات الخادم. يظل متوقفًا حتى إضافة المفتاح واجتياز اختبار الاتصال.
                 </p>
               )}
-              {source.fetch_url && (
+              {fetchEndpoint && (
                 <details className="mt-4">
                   <summary className="cursor-pointer text-xs text-brand-cream/45 hover:text-brand-gold">تفاصيل نقطة جلب البيانات</summary>
-                  <a href={source.fetch_url} target="_blank" rel="noopener noreferrer" className="mt-2 block break-all text-xs text-brand-cream/55 hover:text-brand-gold" dir="ltr">{source.fetch_url}</a>
+                  <a href={fetchEndpoint} target="_blank" rel="noopener noreferrer" className="mt-2 block break-all text-xs text-brand-cream/55 hover:text-brand-gold" dir="ltr">{fetchEndpoint}</a>
                 </details>
               )}
             </article>
