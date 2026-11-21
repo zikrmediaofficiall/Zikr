@@ -95,7 +95,7 @@ const postCommitActions = [
   ["src/app/admin/categories/actions.ts", 2],
   ["src/app/admin/editorial-actions.ts", 2],
   ["src/app/admin/knowledge/actions.ts", 4],
-  ["src/app/admin/release/actions.ts", 1],
+  ["src/app/admin/release/actions.ts", 2],
   ["src/app/admin/seo/actions.ts", 1],
   ["src/app/admin/system-actions.ts", 8],
 ] as const;
