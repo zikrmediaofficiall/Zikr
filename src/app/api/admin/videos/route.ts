@@ -3,6 +3,7 @@ import { requireAdminApi } from '@/features/admin/services/admin';
 import { getAllVideoRequests } from '@/features/videos/services/video-automation';
 import { canViewVideoRequestRow } from '@/features/videos/services/video-audience-visibility';
 import { getVideoEngineConfig } from '@/features/videos/providers/types';
+import { resolveCloudinaryVideoPoster } from '@/features/videos/services/video-media-url';
 
 export async function GET() {
   try {
@@ -18,6 +19,9 @@ export async function GET() {
       .filter((request) => canViewVideoRequestRow(request, canManageKids))
       .map((request) => ({
         ...request,
+        // Requests created by earlier renderer versions did not persist thumbnail_url.
+        // Recover the real Cloudinary first-frame poster without mutating stored data.
+        thumbnail_url: request.thumbnail_url || resolveCloudinaryVideoPoster(request.video_url),
         stale_processing: request.status === 'processing' && Date.parse(request.updated_at) < staleBefore,
       }));
     return NextResponse.json(visibleRequests, { headers: { 'Cache-Control': 'no-store' } });

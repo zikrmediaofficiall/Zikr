@@ -178,6 +178,36 @@ assert.deepEqual(
   "terminal duplicate/failure rows must be replaced using a fresh slot rather than consuming the daily quota",
 );
 
+
+const adminVideoDeleteRoute = readFileSync("src/app/api/admin/videos/[id]/route.ts", "utf8");
+const generatedCloudinaryAsset = readFileSync("src/features/videos/services/generated-cloudinary-asset.ts", "utf8");
+const adminReviewClient = readFileSync("src/features/admin/video-requests/components/admin-video-requests-client.tsx", "utf8");
+assert.ok(adminVideoDeleteRoute.includes("requireAdminStepUpApi('video.delete'"));
+assert.ok(adminVideoDeleteRoute.includes("duplicateCanonicalId(current)"));
+assert.ok(adminVideoDeleteRoute.includes("metadata->>videoGenerationRequestId"));
+assert.ok(adminVideoDeleteRoute.includes("social_publish_queue"));
+assert.ok(adminVideoDeleteRoute.includes("media_assets"));
+assert.ok(adminVideoDeleteRoute.includes("admin_delete_unreferenced_video_generation_request"));
+assert.ok(adminVideoDeleteRoute.includes("prepareGeneratedCloudinaryAssetDeletion"));
+assert.ok(adminVideoDeleteRoute.includes("isQaFailedGeneratedVideo"));
+assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.qa_failed"));
+assert.ok(adminVideoDeleteRoute.includes("GENERATED_ASSET_RESTORE_REQUIRED"));
+const qaDeletionMigration = readFileSync("supabase/migrations/20261121080000_enable_safe_qa_failed_video_asset_deletion.sql", "utf8");
+assert.ok(qaDeletionMigration.includes("request.status = 'completed'"));
+assert.ok(qaDeletionMigration.includes("request.content ->> 'approvalStatus' = 'qa_failed'"));
+assert.ok(qaDeletionMigration.includes("hashtextextended(p_request_id::text, 741953)"));
+assert.ok(qaDeletionMigration.includes("FROM public.videos AS video"));
+assert.ok(qaDeletionMigration.includes("FROM public.social_publish_queue AS queue_item"));
+assert.ok(generatedCloudinaryAsset.includes('tags.has("automated")'));
+assert.ok(generatedCloudinaryAsset.includes('tags.has("zikr-generated")'));
+assert.ok(generatedCloudinaryAsset.includes("/video/destroy"));
+assert.ok(adminReviewClient.includes("isSafeGeneratedAssetDeletionCandidate"));
+assert.ok(adminReviewClient.includes("isQaFailedGeneratedVideo"));
+assert.ok(adminReviewClient.includes("حذف فيديو فشل فحص الجودة وملفه نهائيًا"));
+assert.ok(adminReviewClient.includes("حذف الفيديو المكرر وملفه نهائيًا"));
+assert.ok(adminReviewClient.includes("request.thumbnail_url"));
+assert.ok(adminReviewClient.includes("فتح الطلب الأصلي للمراجعة"));
+
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 const videoAutomationService = readFileSync("src/features/videos/services/video-automation.ts", "utf8");
 const videoRetryRoute = readFileSync("src/app/api/admin/videos/[id]/retry/route.ts", "utf8");

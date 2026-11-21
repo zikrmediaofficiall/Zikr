@@ -792,6 +792,7 @@ workflows:
                 - /^fix\/quran-tafsir-backfill-release-preflight-20261107$/
                 - /^fix\/quality-gate-full-main-scope-20261107$/
                 - /^codex\/zikr-comprehensive-repair-safety-20261110$/
+                - /^codex\/zikr-video-factory-admin-improvements-20261121$/
                 - /^automation\/offline-content-snapshot$/
                 - /^fix\/offline-snapshot-pr-permission-mainline-20261110$/
                 - /^fix\/android-release-draft-immutable-tag-mainline-5-20261110$/
@@ -823,6 +824,7 @@ workflows:
                 - /^fix\/quran-tafsir-backfill-release-preflight-20261107$/
                 - /^fix\/quality-gate-full-main-scope-20261107$/
                 - /^codex\/zikr-comprehensive-repair-safety-20261110$/
+                - /^codex\/zikr-video-factory-admin-improvements-20261121$/
                 - /^automation\/offline-content-snapshot$/
                 - /^fix\/offline-snapshot-pr-permission-mainline-20261110$/
                 - /^fix\/android-release-draft-immutable-tag-mainline-5-20261110$/

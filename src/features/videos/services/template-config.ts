@@ -1,6 +1,7 @@
 export const VIDEO_TEMPLATE_ASSETS = [
   "calm", "dawn", "emerald", "gold", "night", "paper", "rose",
   "andalusian-arch", "midnight-skyline", "oasis-dawn",
+  "lantern-glow", "geometric-mosaic", "moonlit-sea", "desert-caravan", "olive-grove", "manuscript-library",
   "kids-garden", "kids-nature", "kids-neighborhood", "kids-workshop",
 ] as const;
 
@@ -28,6 +29,7 @@ export type VideoTemplateConfig = {
 const GENERAL_ASSETS = new Set<VideoTemplateAsset>([
   "calm", "dawn", "emerald", "gold", "night", "paper", "rose",
   "andalusian-arch", "midnight-skyline", "oasis-dawn",
+  "lantern-glow", "geometric-mosaic", "moonlit-sea", "desert-caravan", "olive-grove", "manuscript-library",
 ]);
 const KIDS_ASSETS = new Set<VideoTemplateAsset>([
   "kids-garden", "kids-nature", "kids-neighborhood", "kids-workshop",
@@ -94,6 +96,10 @@ export function videoTemplateAssetPath(
 export function videoTemplateScene(assetKey: VideoTemplateAsset): "calm" | "dawn" | "emerald" | "gold" | "night" | "paper" | "rose" {
   if (assetKey === "andalusian-arch") return "emerald";
   if (assetKey === "midnight-skyline") return "night";
-  if (assetKey === "oasis-dawn") return "dawn";
+  if (assetKey === "oasis-dawn" || assetKey === "desert-caravan") return "dawn";
+  if (assetKey === "lantern-glow") return "gold";
+  if (assetKey === "geometric-mosaic" || assetKey === "olive-grove") return "emerald";
+  if (assetKey === "moonlit-sea") return "night";
+  if (assetKey === "manuscript-library") return "paper";
   return GENERAL_ASSETS.has(assetKey) ? assetKey as ReturnType<typeof videoTemplateScene> : "calm";
 }

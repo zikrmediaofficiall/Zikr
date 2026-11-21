@@ -887,7 +887,12 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
             </div>
           </div>
           {health.youtubeConnectionMessage && <p className="text-xs leading-5 text-brand-cream/55">{health.youtubeConnectionMessage}</p>}
-          {health.youtubeConnectionStatus === "connected" && !health.youtubeUploadReady && <p className="text-xs leading-5 text-amber-200/80">قراءة القناة متاحة، لكن صلاحية رفع الفيديو غير مكتملة. أعد ربط YouTube قبل تحرير العناصر المحجوبة.</p>}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-brand-cream/40">
+            <span>مصدر البيانات: {health.youtubeReadSource === "oauth" ? "اتصال OAuth موثّق" : health.youtubeReadSource === "api_key" ? "بيانات عامة عبر API" : "غير متاح"}</span>
+            <span>آخر تحقق: {health.youtubeLastCheckedAt ? new Date(health.youtubeLastCheckedAt).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }) : "لم يتم بعد"}</span>
+            <span>الرفع التلقائي: {health.youtubeUploadReady ? "جاهز" : "غير جاهز"}</span>
+          </div>
+          {health.youtubeConnectionStatus === "connected" && !health.youtubeUploadReady && <p className="text-xs leading-5 text-amber-200/80">قراءة القناة متاحة، لكن صلاحية الرفع أو إعداد النشر غير مكتمل. أعد ربط YouTube أو راجع إعداد النشر قبل تحرير العناصر المحجوبة.</p>}
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" disabled={busy} onClick={() => void connectYouTube()}>
               ربط YouTube للنشر والإحصاءات

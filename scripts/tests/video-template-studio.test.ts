@@ -64,7 +64,7 @@ assert.ok(customComposition.panelLeft > standardComposition.panelLeft);
 assert.ok(customComposition.lineChars < standardComposition.lineChars);
 assert.equal(customComposition.captionStyle, "boxed");
 assert.equal(customComposition.sourceCardStyle, "compact");
-assert.equal(CURRENT_VIDEO_RENDERER_VERSION, "2026-11-07-template-controls-v10");
+assert.equal(CURRENT_VIDEO_RENDERER_VERSION, "2026-11-21-template-scenes-v11");
 assert.equal(parseVideoTemplateConfig({ assetKey: "../../secrets", defaultFormat: "vertical", motion: "slow" }), null);
 assert.equal(parseVideoTemplateConfig({ assetKey: "gold", defaultFormat: "square", motion: "slow" }), null);
 assert.equal(isVideoTemplateAssetAllowedForAudience("kids-garden", "kids"), true);
@@ -74,17 +74,47 @@ assert.equal(videoTemplateAssetPath("kids-garden", "kids"), "public/video/templa
 assert.equal(videoTemplateAssetPath("kids-garden", "general"), null);
 assert.equal(videoTemplateScene("kids-garden"), "calm");
 assert.equal(videoTemplateScene("emerald"), "emerald");
-for (const asset of ["andalusian-arch", "midnight-skyline", "oasis-dawn"] as const) {
+const sceneAssets = [
+  "andalusian-arch", "midnight-skyline", "oasis-dawn",
+  "lantern-glow", "geometric-mosaic", "moonlit-sea", "desert-caravan", "olive-grove", "manuscript-library",
+] as const;
+const sceneBuckets = {
+  "lantern-glow": "gold",
+  "geometric-mosaic": "emerald",
+  "moonlit-sea": "night",
+  "desert-caravan": "dawn",
+  "olive-grove": "emerald",
+  "manuscript-library": "paper",
+} as const;
+for (const asset of sceneAssets) {
   assert.equal(isVideoTemplateAssetAllowedForAudience(asset, "general"), true);
   assert.equal(isVideoTemplateAssetAllowedForAudience(asset, "kids"), false);
-  assert.equal(videoTemplateAssetPath(asset, "general"), `public/video/templates/${asset}.svg`);
+  const path = videoTemplateAssetPath(asset, "general");
+  assert.equal(path, `public/video/templates/${asset}.svg`);
+  assert.ok(readFileSync(path!, "utf8").includes("<svg"), `scene SVG must exist for ${asset}`);
   assert.equal(parseVideoTemplateConfig({ assetKey: asset, defaultFormat: "vertical", motion: "slow" })?.assetKey, asset);
 }
 assert.equal(videoTemplateScene("andalusian-arch"), "emerald");
 assert.equal(videoTemplateScene("midnight-skyline"), "night");
 assert.equal(videoTemplateScene("oasis-dawn"), "dawn");
+for (const [asset, scene] of Object.entries(sceneBuckets)) {
+  assert.equal(videoTemplateScene(asset as keyof typeof sceneBuckets), scene);
+}
 
 const read = (path: string) => readFileSync(path, "utf8");
+const expandedAssetMigration = read("supabase/migrations/20261121070000_expand_video_template_assets.sql");
+for (const asset of sceneAssets) {
+  assert.ok(expandedAssetMigration.includes("'" + asset + "'"), "new visual asset must be allowed in the database migration: " + asset);
+}
+assert.ok(expandedAssetMigration.includes("FROM public.profiles AS actor"));
+assert.ok(!expandedAssetMigration.includes("FROM auth.users"));
+assert.ok(expandedAssetMigration.includes("CREATE OR REPLACE FUNCTION public.admin_create_video_template_version"));
+assert.ok(expandedAssetMigration.includes("video_templates_asset_key_check"));
+const templateStudioAssetRegistry = read("src/features/admin/video-templates/components/template-studio-client.tsx");
+for (const asset of sceneAssets) {
+  assert.ok(templateStudioAssetRegistry.includes(asset), `Template Studio must expose ${asset}`);
+}
+
 const migration = read("supabase/migrations/20261106010000_admin_video_template_studio.sql");
 const blockerFixMigration = read("supabase/migrations/20261106090800_production_blockers_and_social_insights.sql");
 const api = read("src/app/api/admin/video/templates/route.ts");

@@ -4,6 +4,7 @@ import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video
 import { isKidsVideoContentMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Container } from "@/components/ui/container";
 import { Card } from "@/components/ui/card";
@@ -40,6 +41,40 @@ function getDuplicateCanonicalRequestId(request: VideoGenerationRequest): string
   if (request.status !== "cancelled" || !/duplicate generated content/i.test(request.error_message ?? "")) return null;
   const match = (request.error_details ?? "").match(/belongs to request\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
   return match?.[1] ?? null;
+}
+
+function isSafeGeneratedAssetDeletionCandidate(request: VideoGenerationRequest, canManageKids: boolean): boolean {
+  const audience = resolveVideoRequestAudience(request.content);
+  if (!audience.ok || (audience.audience === "kids" && !canManageKids)) return false;
+  const content = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+    ? request.content as Record<string, unknown> : {};
+  const duplicate = request.status === "cancelled" && Boolean(getDuplicateCanonicalRequestId(request));
+  const qaFailed = request.status === "completed" && content.approvalStatus === "qa_failed";
+  if ((!duplicate && !qaFailed) || !request.video_url ||
+    request.thumbnail_url || request.youtube_id || request.facebook_id ||
+    request.heygen_video_id || request.provider_job_id) return false;
+  const retainedContentKeys = ["audioUrl", "humanAudioUrl", "audioMediaAssetId", "audioMediaAssetOwnerId", "videoUrl", "generatedVideoUrl", "thumbnailUrl"];
+  if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim()) ||
+    content.audioSource === "human_recording") return false;
+  try {
+    const url = new URL(request.video_url);
+    const segments = url.pathname.split("/").filter(Boolean);
+    return url.protocol === "https:" &&
+      url.hostname.toLowerCase() === "res.cloudinary.com" &&
+      !url.username && !url.password && !url.search && !url.hash &&
+      segments.length === 5 &&
+      segments[1] === "video" && segments[2] === "upload" &&
+      /^v\d+$/.test(segments[3]) &&
+      /^auto-[a-z0-9-]+\.mp4$/i.test(segments[4]);
+  } catch {
+    return false;
+  }
+}
+
+function isQaFailedGeneratedVideo(request: VideoGenerationRequest): boolean {
+  const content = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+    ? request.content as Record<string, unknown> : {};
+  return request.status === "completed" && content.approvalStatus === "qa_failed";
 }
 
 function isSafelyDeletable(request: VideoGenerationRequest, canManageKids: boolean): boolean {
@@ -175,7 +210,15 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   }
 
   async function deleteRequest(request: VideoGenerationRequest) {
-    if (!canDelete || !isSafelyDeletable(request, canManageKids) || !window.confirm(`تأكيد حذف طلب الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`)) return;
+    const generatedAsset = isSafeGeneratedAssetDeletionCandidate(request, canManageKids);
+    const qaFailedAsset = isQaFailedGeneratedVideo(request);
+    if (!canDelete || (!isSafelyDeletable(request, canManageKids) && !generatedAsset)) return;
+    const confirmation = generatedAsset
+      ? qaFailedAsset
+        ? `هذا الفيديو مكتمل تقنيًا لكنه رُفض في فحص الجودة ولم يُنشر. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب بعد التأكد من عدم ارتباطه بأي منشور أو مكتبة. لا يمكن استعادته بعد الحذف. متابعة؟`
+        : `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
+      : `تأكيد حذف سجل الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`;
+    if (!window.confirm(confirmation)) return;
     setBusyId(request.id); setError(""); setMessage("");
     try {
       const response = await fetch(`/api/admin/videos/${encodeURIComponent(request.id)}`, {
@@ -185,7 +228,15 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       const data = await response.json().catch(() => ({}));
       if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
       if (!response.ok) throw new Error(data.error || "تعذر حذف طلب الفيديو.");
-      setMessage("حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
+      if (generatedAsset && data.cloudinaryCleanupPending === true) {
+        setMessage("حُذف سجل الفيديو بعد فحص المراجع، لكن Cloudinary لم يؤكد حذف الملف. تم تسجيل حالة تحتاج مراجعة؛ لا تعِد محاولة الحذف قبل مراجعة سجل التدقيق.");
+      } else {
+        setMessage(generatedAsset
+          ? qaFailedAsset
+            ? "تم حذف ملف الفيديو المرفوض في فحص الجودة وسجل طلبه بعد التحقق من عدم وجود أي مراجع. لم يتأثر أي فيديو منشور."
+            : "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
+          : "حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
+      }
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر حذف طلب الفيديو.");
@@ -337,6 +388,23 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
           const status = request.status as Status;
           return (
             <Card key={request.id} className="border-brand-gold/10 p-5">
+              {request.thumbnail_url && (
+                <div className="mb-4 flex items-center gap-4 rounded-xl border border-brand-gold/10 bg-black/20 p-2">
+                  <Image
+                    src={request.thumbnail_url}
+                    alt={`معاينة ${request.title}`}
+                    width={80}
+                    height={112}
+                    sizes="80px"
+                    unoptimized
+                    className="h-28 w-20 rounded-lg bg-black object-cover"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs text-brand-cream/40">صورة حقيقية من إطار الفيديو</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-brand-cream/75">{request.title}</p>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -370,7 +438,13 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
                     return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
                   })()}
-                  {canDelete && isSafelyDeletable(request, canManageKids) && <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>حذف سجل الطلب</Button>}
+                  {canDelete && (isSafelyDeletable(request, canManageKids) || isSafeGeneratedAssetDeletionCandidate(request, canManageKids)) && (
+                    <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>
+                      {isSafeGeneratedAssetDeletionCandidate(request, canManageKids)
+                        ? isQaFailedGeneratedVideo(request) ? "حذف فيديو فشل فحص الجودة وملفه نهائيًا" : "حذف الفيديو المكرر وملفه نهائيًا"
+                        : "حذف سجل الطلب"}
+                    </Button>
+                  )}
                 </div>
               </div>
               {request.error_message && (
