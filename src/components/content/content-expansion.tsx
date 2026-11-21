@@ -1084,7 +1084,7 @@ const EXISTING_DEDICATED_GUIDE_ROUTES = new Set([
   '/quran', '/hadith', '/adhkar', '/dua', '/prophets', '/companions',
   '/scholars', '/stories', '/articles', '/tafsir', '/battles', '/conquests',
   '/mushaf', '/reciters', '/kids', '/poetry', '/tawasheeh', '/videos',
-  '/platform', '/faq', '/prayer-times', '/qibla', '/tasbeeh',
+  '/platform', '/faq', '/about', '/privacy', '/terms', '/prayer-times', '/qibla', '/tasbeeh',
   '/memorization', '/wird', '/zakat', '/spiritual-ai', '/radio',
   '/youtube', '/search', '/offline-library',
   // These Kids subpages already receive the dedicated Kids editorial guide.
