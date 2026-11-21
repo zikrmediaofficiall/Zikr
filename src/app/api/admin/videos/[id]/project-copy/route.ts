@@ -230,7 +230,8 @@ function storagePathsFromRows(
     const deletion = getProjectDeletion(content);
     const aliases = [content.generatedVideoUrl, content.videoUrl, content.video_url];
     const matchesTarget = assetUrl !== null
-      ? row.video_url === assetUrl || aliases.includes(assetUrl) || deletion.assetUrl === assetUrl
+      ? row.video_url === assetUrl || aliases.includes(assetUrl) ||
+        (deletion.assetUrl === assetUrl && (!row.video_url || row.video_url === assetUrl))
       : row.id === primaryRequestId;
     if (!matchesTarget) continue;
     targetRequestIds.add(row.id);
@@ -249,7 +250,7 @@ function storagePathsFromRows(
     const metadata = asRecord(row.metadata);
     const deletion = getProjectDeletion(metadata);
     const queueMatchesTarget = assetUrl !== null &&
-      (row.video_url === assetUrl || deletion.assetUrl === assetUrl);
+      (row.video_url === assetUrl || (deletion.assetUrl === assetUrl && (!row.video_url || row.video_url === assetUrl)));
     const deletionLinkedToTargetRequest = Array.isArray(deletion.linkedRequestIds) &&
       deletion.linkedRequestIds.some((value) => typeof value === "string" && targetRequestIds.has(value));
     const sameRequestStagingCopy = targetRequestIds.has(row.content_id) && row.video_url === null;
@@ -465,14 +466,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     for (const row of queueRows) {
       const pendingQueueDeletion = getProjectDeletion(row.metadata);
       const queueStoragePath = managedVideoStoragePath(getStorageRetention(row.metadata));
-      const matchesVideoAsset = assetUrl !== null && (row.video_url === assetUrl || pendingQueueDeletion.assetUrl === assetUrl);
+      const matchesVideoAsset = assetUrl !== null &&
+        (row.video_url === assetUrl || (pendingQueueDeletion.assetUrl === assetUrl && (!row.video_url || row.video_url === assetUrl)));
       const matchesStorageCopy = queueStoragePath !== null && storagePaths.includes(queueStoragePath);
       if (!matchesVideoAsset && !matchesStorageCopy) continue;
       const relatedVideoUrl = matchesVideoAsset && assetUrl !== null && row.video_url === assetUrl ? assetUrl : null;
       const metadata = queueMetadataForDeletion(row, relatedVideoUrl, storagePaths, requestIds, requestedAt, requestedBy);
       const nextStatus = row.status === "published"
         ? "published"
-        : (matchesVideoAsset || matchesStorageCopy) && ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
+        : ((assetUrl !== null && row.video_url === assetUrl) || (matchesStorageCopy && !row.video_url)) &&
+          ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
           ? "failed"
           : row.status;
       const queueFilter = `id=eq.${encodeURIComponent(row.id)}${row.updated_at ? `&updated_at=eq.${encodeURIComponent(row.updated_at)}` : ""}`;

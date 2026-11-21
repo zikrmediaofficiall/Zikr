@@ -233,7 +233,8 @@ assert.ok(adminReviewClient.includes('action: "approve_publish"') && adminReview
 assert.ok(adminReviewClient.includes("batchApprovalChecks") && adminReviewClient.includes("APPROVAL_CHECKS.some"), "bulk review must require the full human checklist");
 
 assert.ok(projectCopyDeleteRoute.includes("matchesVideoAsset && assetUrl !== null && row.video_url === assetUrl ? null : row.video_url"), "staging-copy cleanup must preserve unrelated queue video URLs");
-assert.ok(projectCopyDeleteRoute.includes('row.video_url === assetUrl && assetUrl !== null && ["queued"'), "only queued items whose exact video URL is being deleted may be failed");
+assert.ok(projectCopyDeleteRoute.includes('(matchesStorageCopy && !row.video_url)'), "only queue rows that depend on the removed storage-only copy may be failed when they have no alternate media URL");
+assert.ok(projectCopyDeleteRoute.includes('pendingQueueDeletion.assetUrl === assetUrl && (!row.video_url || row.video_url === assetUrl)'), "a pending marker must not cause an unrelated live queue URL to be changed");
 assert.ok(projectCopyDeleteRoute.includes("byMetadata.length >= 10 || bySlug.length >= 10"), "catalog inventory truncation must stop deletion before mutation");
 assert.ok(projectCopyDeleteRoute.includes("resolveVideoRequestAudience(current.content)"), "unknown or conflicting audience markers must fail closed before deletion");
 assert.ok(projectCopyDeleteRoute.includes("allowProjectReference: true"), "legacy generated Cloudinary assets may be deleted only when their exact URL is linked to a project request");
