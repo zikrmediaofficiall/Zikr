@@ -58,11 +58,12 @@ async function prepareGeneratedCloudinaryAssetDeletion(
   const canonicalId = duplicateCanonicalId(requestRow);
   const qaFailed = isQaFailedGeneratedVideo(requestRow);
   const pendingHumanReview = isPendingHumanReviewGeneratedVideo(requestRow);
+  const terminalGeneratedAsset = requestRow.status === 'failed' || requestRow.status === 'cancelled';
   const duplicate = requestRow.status === 'cancelled' &&
     Boolean(canonicalId) &&
     /duplicate generated content; publication skipped/i.test(requestRow.error_message ?? '');
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim() ?? '';
-  if ((!duplicate && !qaFailed && !pendingHumanReview) || !requestRow.video_url || !cloudName) {
+  if ((!duplicate && !qaFailed && !pendingHumanReview && !terminalGeneratedAsset) || !requestRow.video_url || !cloudName) {
     throw new Error('GENERATED_ASSET_NOT_ELIGIBLE');
   }
   if (
@@ -295,7 +296,8 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     if (current.updated_at !== body.expectedUpdatedAt) return NextResponse.json({ error: 'تغير الطلب بعد تحميله؛ حدّث القائمة قبل الحذف.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
     const canonicalDuplicateId = duplicateCanonicalId(current);
     const canDeleteGeneratedAsset = Boolean(current.video_url) &&
-      (Boolean(canonicalDuplicateId) || isQaFailedGeneratedVideo(current) || isPendingHumanReviewGeneratedVideo(current));
+      (Boolean(canonicalDuplicateId) || isQaFailedGeneratedVideo(current) || isPendingHumanReviewGeneratedVideo(current) ||
+        current.status === 'failed' || current.status === 'cancelled');
     const preparedGeneratedAsset = canDeleteGeneratedAsset
       ? await prepareGeneratedCloudinaryAssetDeletion(current, id, body.expectedUpdatedAt)
       : null;
