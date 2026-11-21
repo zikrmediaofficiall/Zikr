@@ -166,8 +166,8 @@ assert.ok(
   "the protected English sync fallback must run after the successful production release and on its bounded schedule, only on main",
 );
 assert.ok(
-  quranTranslationMigration.includes("CREATE TABLE IF NOT EXISTS public.quran_english_translations") &&
-    quranTranslationMigration.includes("translation_source") &&
+  quranTranslationMigration.includes("ADD COLUMN IF NOT EXISTS text_en_edition") &&
+    quranTranslationMigration.includes("admin_sync_quran_english_batch") &&
     packageJson.scripts["sync:quran:en"] === "tsx scripts/sync-quran-english.ts",
   "the Quran provenance migration and source-backed importer must be present and registered",
 );
