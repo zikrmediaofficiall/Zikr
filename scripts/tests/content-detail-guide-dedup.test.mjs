@@ -18,6 +18,8 @@ for (const prefix of ["/quran", "/hadith", "/dua", "/prophets", "/companions", "
 }
 
 assert.match(expansion, /EXISTING_DEDICATED_GUIDE_ROUTES/);
+assert.match(expansion, /const STATIC_KIDS_GUIDE_ROUTES = new Set\(/);
+assert.match(expansion, /if \(STATIC_KIDS_GUIDE_ROUTES\.has\(path\)\) return null/);
 assert.match(expansion, /'\/kids\/videos': page\(/);
 assert.match(expansion, /'تفاصيل فيديو الأطفال'/);
 
