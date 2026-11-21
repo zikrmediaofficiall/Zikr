@@ -51,13 +51,14 @@ function isReadyForHumanApproval(content: unknown): boolean {
     record.approvalStatus === "approved" &&
     record.approvalReviewerId === "system:zikr-video-factory" &&
     /^[a-f0-9]{64}$/i.test(snapshotHash) &&
+    record.kidsVideoQaStatus === "passed" &&
     qa?.status === "passed" &&
     qa.snapshotHash === snapshotHash &&
-    typeof qa.engine === "string" &&
-    typeof qa.engineVersion === "string" &&
+    qa.engine === "zikr_video_factory" &&
+    qa.engineVersion === "2026-11-07-auto-qa-v1" &&
     review?.mode === "automated" &&
-    review.engine === qa.engine &&
-    review.engineVersion === qa.engineVersion &&
+    review.engine === "zikr_video_factory" &&
+    review.engineVersion === "2026-11-07-auto-qa-v1" &&
     review.snapshotHash === snapshotHash &&
     review.reviewedAt === reviewAt &&
     Number.isFinite(Date.parse(reviewAt)) &&
