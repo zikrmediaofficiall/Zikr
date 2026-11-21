@@ -226,7 +226,7 @@ export default async function HomePage() {
         <section
           className="border-b border-brand-gold/10 px-3 py-8 sm:px-4 sm:py-10"
           aria-labelledby="quick-start-heading"
-          hidden={!showQuickStart}
+          hidden={!showQuickStart || visibleQuickActions.length === 0}
         >
           <Container>
             <div className="mb-5 flex items-end justify-between gap-4" dir={dir}>
@@ -276,7 +276,7 @@ export default async function HomePage() {
         <section
           className="border-b border-brand-gold/10 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="journeys-heading"
-          hidden={!showJourneys}
+          hidden={!showJourneys || visibleGroups.length === 0}
         >
           <Container>
             <div dir={dir}>
@@ -350,7 +350,7 @@ export default async function HomePage() {
         <section
           className="border-b border-brand-gold/10 bg-brand-emerald/6 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="guided-heading"
-          hidden={!showGuidedPaths}
+          hidden={!showGuidedPaths || visibleGuidedPaths.length === 0}
         >
           <Container>
             <div className="flex items-end justify-between gap-4" dir={dir}>
@@ -444,6 +444,7 @@ export default async function HomePage() {
         <section
           className="border-b border-brand-gold/10 bg-[#071d18]/70 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="social-heading"
+          hidden={!isSectionVisible('/videos')}
         >
           <Container>
             <div className="flex flex-wrap items-end justify-between gap-4" dir={dir}>
@@ -497,7 +498,7 @@ export default async function HomePage() {
         <section
           className="border-b border-brand-gold/10 bg-brand-emerald/10 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="tools-heading"
-          hidden={!showDailyTools}
+          hidden={!showDailyTools || visibleDailyTools.length === 0}
           style={{ contentVisibility: 'auto', containIntrinsicSize: '0 420px' }}
         >
           <Container>
