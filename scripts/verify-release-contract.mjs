@@ -134,10 +134,12 @@ assert.ok(
 );
 assert.ok(publish.includes("failure|error|cancelled"), "Android publisher must stop promptly when a required signed build fails or is cancelled");
 assert.ok(
-  publish.includes('case "$combined_state"') &&
-    publish.includes("Combined release status failed") &&
-    publish.includes("quality_conclusion"),
-  "Android publisher must fail immediately on a failing combined status or GitHub Quality Gate",
+  publish.includes("unexpected_failures") &&
+    publish.includes("draft_gate_state") &&
+    publish.includes("non_draft_pending") &&
+    publish.includes("quality_conclusion") &&
+    publish.includes("Unexpected failing commit status(es)"),
+  "Android publisher must block every unexpected failed/pending status while narrowly tolerating only the authenticated private-draft visibility fallback",
 );
 assert.ok(publish.includes("seq 1 240") && publish.includes("sleep 15") && publish.includes("within 60 minutes"), "Android publisher must allow up to 60 minutes for CircleCI status preflight");
 assert.ok(publish.includes('AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"'), "Android publisher must verify the APK manifest with JAXB-independent aapt");
