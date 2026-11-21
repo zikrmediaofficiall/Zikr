@@ -386,3 +386,15 @@ assert.match(prayerTimesRateLimit, /typeof data !== "boolean"/);
 assert.match(prayerTimesRateLimit, /throw new Error/);
 
 console.log("Prayer-time next-prayer, bounded cache, saved-location validation, and push-location contracts passed.");
+
+const prayerPageSource = readFileSync("src/features/prayer/components/prayer-times-page.tsx", "utf8");
+const prayerDeviceCache = readFileSync("src/features/prayer/services/prayer-times-device-cache.ts", "utf8");
+assert.match(prayerPageSource, /saveDevicePrayerTimes\(city, lat, lon, data\)/);
+assert.match(prayerPageSource, /getDevicePrayerTimesForLocation\(saved\.latitude, saved\.longitude\)/);
+assert.match(prayerPageSource, /getDevicePrayerTimesForCity\(city\)/);
+assert.match(prayerDeviceCache, /zikr_prayer_times_today_v1/);
+assert.match(prayerDeviceCache, /formatDateInTimeZone\(new Date\(\), timezone\)/);
+assert.match(prayerDeviceCache, /today === parsed\.dateKey/);
+assert.match(prayerDeviceCache, /Math\.abs\(snapshot\.latitude - latitude\) <= 0\.000001/);
+assert.match(prayerDeviceCache, /Math\.abs\(snapshot\.longitude - longitude\) <= 0\.000001/);
+console.log("Same-day local prayer timing cache and location/date isolation contracts passed.");
