@@ -36,6 +36,8 @@ concurrency:
 jobs:
   publish:
     name: Verify and publish Android release
+    # Main recovery is reachable only from the owner-only dispatcher:
+    # its GITHUB_TOKEN workflow_dispatch actor is github-actions[bot].
     if: >-
       (github.event_name == 'push' && github.ref_type == 'tag') ||
       (github.event_name == 'workflow_dispatch' &&
