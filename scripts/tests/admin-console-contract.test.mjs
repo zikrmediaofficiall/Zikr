@@ -28,7 +28,7 @@ for (const route of ["/admin/video", "/admin/social", "/admin/sections", "/admin
 }
 assert.match(adminCommandCenter, /quickActionCandidates\.filter\(\(\[, href\]\) => availableHrefs\.has\(href\)\)/, "quick actions must remain permission-filtered");
 
-assert.match(videoRequests, /belongs to request\s+\(\[0-9a-f\]/i, "duplicate renders must resolve the canonical request ID from the worker explanation");
+assert.ok(videoRequests.includes(String.raw`belongs to request\s+([0-9a-f]`), "duplicate renders must resolve the canonical request ID from the worker explanation");
 assert.ok(videoRequests.includes("فتح الطلب الأصلي للمراجعة"), "duplicate renders must offer a direct action to review the canonical request");
 
 console.log("Admin console navigation, video duplicate review, and signed-release safety contracts passed.");
