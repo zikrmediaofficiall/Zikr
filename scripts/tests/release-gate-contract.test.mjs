@@ -163,7 +163,12 @@ assert.ok(releaseRestoreIndex > releasePreflightIndex, "release identity preflig
 
 assert.ok(gate.includes("REQUIRE_VERCEL_STATUS"));
 assert.ok(gate.includes('const requireVercelStatus = requireVercelStatusSetting !== "false"'));
-assert.ok(gate.includes('await requireCircleCiStatuses(commitSha, "Merged commit statuses", requireVercelStatus);'));
+assert.ok(gate.includes("ALLOW_PRIVATE_ANDROID_DRAFT_FAILURE"));
+assert.ok(gate.includes('const allowPrivateAndroidDraftFailure = allowPrivateAndroidDraftFailureSetting === "true"'));
+assert.ok(gate.includes('await requireCircleCiStatuses(pullRequest.head.sha, "PR #" + pullRequest.number + " head statuses", false, false, false);'), "PR head checks must require the path-appropriate GitHub checks and config validation, not post-merge application build contexts");
+assert.ok(gate.includes('requireCircleCiStatuses(\n  commitSha,\n  "Merged commit statuses",\n  requireVercelStatus,\n  true,\n  allowPrivateAndroidDraftFailure,\n);'), "merged release commits must still require all source/build statuses and only permit the authenticated private-draft visibility fallback");
+assert.ok(gate.includes('status.context === "ci/circleci: android-release-draft"') && gate.includes("privateDraftVisibilityFailure?.state === \"failure\""), "only an authenticated manual recovery may tolerate the exact private-draft visibility failure");
+assert.ok(androidReleaseWorkflow.includes("ALLOW_PRIVATE_ANDROID_DRAFT_FAILURE: ${{ github.event_name == 'workflow_dispatch' && inputs.retry == true }}"), "only the manually authenticated Android recovery publisher may enable the private-draft visibility fallback");
 assert.ok(!workflow.includes('REQUIRE_VERCEL_STATUS: "false"'), "post-deploy smoke must continue to require Vercel status by default");
 
 
