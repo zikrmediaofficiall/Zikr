@@ -55,7 +55,13 @@ export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOr
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const hiddenHrefSet = useMemo(() => new Set(hiddenHrefs), [hiddenHrefs]);
   const sectionOrderIndex = useMemo(() => new Map(sectionOrder.map((key, index) => [key, index])), [sectionOrder]);
-  const visibleBottomLinks = bottomLinks.filter((item) => !hiddenHrefSet.has(item.href));
+  const visibleBottomLinks = bottomLinks
+    .filter((item) => !hiddenHrefSet.has(item.href))
+    .sort((a, b) => {
+      if (a.href === "/") return -1;
+      if (b.href === "/") return 1;
+      return (sectionOrderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (sectionOrderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER);
+    });
   const catalogGroups = useMemo(() => SITE_CATALOG.map((group) => ({
     ...group,
     items: group.items
