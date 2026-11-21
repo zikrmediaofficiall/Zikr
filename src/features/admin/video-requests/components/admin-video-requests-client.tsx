@@ -210,7 +210,6 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
 
   async function deleteRequest(request: VideoGenerationRequest) {
     const generatedAsset = isSafeGeneratedAssetDeletionCandidate(request, canManageKids);
-    const duplicateAsset = Boolean(getDuplicateCanonicalRequestId(request));
     const qaFailedAsset = isQaFailedGeneratedVideo(request);
     if (!canDelete || (!isSafelyDeletable(request, canManageKids) && !generatedAsset)) return;
     const confirmation = generatedAsset
