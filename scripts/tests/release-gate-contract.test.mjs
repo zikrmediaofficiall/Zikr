@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { hasCurrentCodeOwnerApproval } from "../lib/release-gate-approval.mjs";
 import { ANDROID_DEBUG_PATH_FILTERS, CIRCLECI_VALIDATION_PATH_FILTERS, getRequiredPullRequestCheckNames } from "../lib/release-gate-checks.mjs";
 
 const workflow = readFileSync(".github/workflows/release-vercel.yml", "utf8");
@@ -113,71 +112,27 @@ assert.match(workflow, /pull-requests:\s*read/);
 assert.ok(workflow.includes("node scripts/verify-release-gates.mjs"));
 assert.ok(
   workflow.indexOf("verify-release-gates.mjs") < workflow.indexOf("verify-production-smoke.mjs"),
-  "exact-commit and CODEOWNER checks must run before production smoke requests",
+  "canonical owner identity and exact-commit checks must run before production smoke requests",
 );
 assert.doesNotMatch(workflow, /Quality gate:\s*PASSED/i, "the workflow must not hardcode a successful quality-gate claim");
 
-assert.match(gate, /CODEOWNERS/);
-assert.match(gate, /merge_commit_sha === commitSha/);
-const approval = readFileSync("scripts/lib/release-gate-approval.mjs", "utf8");
-assert.match(approval, /APPROVED/);
-assert.ok(gate.includes("hasCurrentCodeOwnerApproval(reviews, owner, pullRequest.head.sha)"),
-  "release preflight must bind CODEOWNER approval to the exact current PR head");
-assert.ok(gate.includes("owners.find("),
-  "one approved owner from a multi-owner CODEOWNERS rule must be sufficient");
-
-const currentHead = "current-head-sha";
-const staleApproval = [{
-  user: { login: "Zikrmediaofficial" },
-  state: "APPROVED",
-  commit_id: "previous-head-sha",
-  submitted_at: "2026-11-14T09:00:00Z",
-}];
-assert.equal(
-  hasCurrentCodeOwnerApproval(staleApproval, "Zikrmediaofficial", currentHead),
-  false,
-  "an approval tied to an earlier commit must not authorize the current release",
-);
-const currentApproval = [{
-  user: { login: "Zikrmediaofficial" },
-  state: "APPROVED",
-  commit_id: currentHead,
-  submitted_at: "2026-11-14T09:10:00Z",
-}];
-assert.equal(
-  hasCurrentCodeOwnerApproval(currentApproval, "Zikrmediaofficial", currentHead),
-  true,
-  "an approval for the exact current head must be accepted",
-);
-assert.equal(
-  hasCurrentCodeOwnerApproval([
-    ...currentApproval,
-    {
-      user: { login: "Zikrmediaofficial" },
-      state: "COMMENTED",
-      commit_id: currentHead,
-      submitted_at: "2026-11-14T09:11:00Z",
-    },
-  ], "Zikrmediaofficial", currentHead),
-  false,
-  "a later non-approval review must supersede an earlier approval",
-);
-assert.equal(
-  ["Zikrmediaofficial", "another-owner"].some((owner) =>
-    hasCurrentCodeOwnerApproval(currentApproval, owner, currentHead)),
-  true,
-  "one of the listed global CODEOWNERS may approve the release",
-);
+assert.doesNotMatch(gate, /CODEOWNERS|CODEOWNER|hasCurrentCodeOwnerApproval/,
+  "release preflight must not depend on CODEOWNERS or separate reviewer records");
+assert.ok(gate.includes("findMergedMainPullRequest(pullRequests, pullRequestLookupSha)"),
+  "release preflight must delegate exact merged-main PR lookup to its validated helper");
+assert.match(gate, /pullRequest\.user\?\.login/);
+assert.match(gate, /pullRequest\.head\?\.repo\?\.full_name/);
+assert.match(gate, /canonical GitHub repository owner/);
 assert.match(gate, /check-runs/);
 assert.ok(gate.includes("ci/circleci:"));
 assert.match(gate, /required check/);
 assert.match(gate, /pending/);
 
-console.log("Release preflight contract passed: exact commit checks, CODEOWNER approval, and production smoke ordering are enforced.");
+console.log("Release preflight contract passed: canonical GitHub owner identity, exact commit checks, and production smoke ordering are enforced.");
 
 
 assert.ok(releaseWorkflow.includes("pull-requests: read"));
-assert.ok(releaseWorkflow.includes("name: Verify current PR CODEOWNER approval before production changes"));
+assert.ok(releaseWorkflow.includes("name: Verify canonical GitHub owner identity before production changes"));
 assert.ok(releaseWorkflow.includes("GITHUB_TOKEN: ${{ github.token }}"));
 assert.ok(releaseWorkflow.includes('REQUIRE_VERCEL_STATUS: "false"'));
 const releasePreflightIndex = releaseWorkflow.indexOf("node scripts/verify-release-gates.mjs");
@@ -185,9 +140,9 @@ const releaseMigrationIndex = releaseWorkflow.indexOf("supabase db push");
 const releaseFunctionDeployIndex = releaseWorkflow.indexOf("supabase functions deploy");
 const releaseVercelDeployIndex = releaseWorkflow.indexOf("vercel deploy --prebuilt");
 const releaseRestoreIndex = releaseWorkflow.indexOf("Restore source-verified Quran tafsir corpus");
-assert.ok(releasePreflightIndex >= 0, "production deployment must run the CODEOWNER preflight");
-assert.ok(releaseMigrationIndex > releasePreflightIndex, "CODEOWNER preflight must run before database migrations");
-assert.ok(releaseFunctionDeployIndex > releasePreflightIndex, "CODEOWNER preflight must run before Edge Function deployment");
+assert.ok(releasePreflightIndex >= 0, "production deployment must run the release identity preflight");
+assert.ok(releaseMigrationIndex > releasePreflightIndex, "release identity preflight must run before database migrations");
+assert.ok(releaseFunctionDeployIndex > releasePreflightIndex, "release identity preflight must run before Edge Function deployment");
 for (const functionName of [
   "prayer-notification-worker",
   "source-verified-content-agent",
@@ -200,8 +155,8 @@ for (const functionName of [
   );
 }
 
-assert.ok(releaseVercelDeployIndex > releasePreflightIndex, "CODEOWNER preflight must run before Vercel deployment");
-assert.ok(releaseRestoreIndex > releasePreflightIndex, "CODEOWNER preflight must run before production corpus restoration");
+assert.ok(releaseVercelDeployIndex > releasePreflightIndex, "release identity preflight must run before Vercel deployment");
+assert.ok(releaseRestoreIndex > releasePreflightIndex, "release identity preflight must run before production corpus restoration");
 
 assert.ok(gate.includes("REQUIRE_VERCEL_STATUS"));
 assert.ok(gate.includes('const requireVercelStatus = requireVercelStatusSetting !== "false"'));
@@ -214,15 +169,15 @@ assert.ok(androidReleaseWorkflow.includes("id: resolve_tag"));
 assert.ok(androidReleaseWorkflow.includes('echo "tag_target_sha=$TAG_TARGET_SHA" >> "$GITHUB_OUTPUT"'));
 assert.ok(androidReleaseWorkflow.includes("RELEASE_COMMIT_SHA: ${{ steps.resolve_tag.outputs.tag_target_sha }}"));
 assert.ok(androidReleaseWorkflow.includes('REQUIRE_VERCEL_STATUS: "false"'));
-assert.ok(androidReleaseWorkflow.includes("name: Verify current PR CODEOWNER approval before publishing Android assets"));
+assert.ok(androidReleaseWorkflow.includes("name: Verify canonical GitHub owner identity before publishing Android assets"));
 const androidPreflightIndex = androidReleaseWorkflow.indexOf("node scripts/verify-release-gates.mjs");
 const androidPrerequisitesIndex = androidReleaseWorkflow.indexOf("Verify all CircleCI and GitHub release prerequisites before waiting for artifacts");
 const androidUploadIndex = androidReleaseWorkflow.indexOf('gh release upload "$TAG"');
 const androidPublishIndex = androidReleaseWorkflow.indexOf('gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}"');
-assert.ok(androidPreflightIndex >= 0, "Android publisher must run the CODEOWNER preflight");
-assert.ok(androidPrerequisitesIndex > androidPreflightIndex, "CODEOWNER preflight must run before release prerequisite polling");
-assert.ok(androidUploadIndex > androidPreflightIndex, "CODEOWNER preflight must run before uploading release assets");
-assert.ok(androidPublishIndex > androidPreflightIndex, "CODEOWNER preflight must run before publishing a GitHub Release");
+assert.ok(androidPreflightIndex >= 0, "Android publisher must run the release identity preflight");
+assert.ok(androidPrerequisitesIndex > androidPreflightIndex, "release identity preflight must run before release prerequisite polling");
+assert.ok(androidUploadIndex > androidPreflightIndex, "release identity preflight must run before uploading release assets");
+assert.ok(androidPublishIndex > androidPreflightIndex, "release identity preflight must run before publishing a GitHub Release");
 
 assert.ok(gate.includes("process.env.RELEASE_COMMIT_SHA?.trim() || process.env.GITHUB_SHA?.trim()"));
 assert.ok(gate.includes("RELEASE_COMMIT_SHA or GITHUB_SHA"));
@@ -280,9 +235,9 @@ assert.doesNotMatch(
   "a tag ref alone must not authorize manual publisher dispatch",
 );
 const manualRecoveryGuardIndex = androidReleaseWorkflow.indexOf("Verify explicit recovery guard for manual dispatch");
-const androidCodeOwnerPreflightIndex = androidReleaseWorkflow.indexOf("Verify current PR CODEOWNER approval before publishing Android assets");
-assert.ok(manualRecoveryGuardIndex >= 0 && manualRecoveryGuardIndex < androidCodeOwnerPreflightIndex,
-  "manual recovery authorization must run before the CODEOWNER preflight and every release mutation");
+const androidOwnerIdentityPreflightIndex = androidReleaseWorkflow.indexOf("Verify canonical GitHub owner identity before publishing Android assets");
+assert.ok(manualRecoveryGuardIndex >= 0 && manualRecoveryGuardIndex < androidOwnerIdentityPreflightIndex,
+  "manual recovery authorization must run before the release identity preflight and every release mutation");
 for (const required of [
   "docs/finalization/RELEASE_RETRY.flag",
   '"RETRY"',
@@ -303,3 +258,54 @@ assert.ok(androidRecoveryDispatchWorkflow.includes('context.ref === "refs/tags/"
   "the recovery dispatcher must retain exact tag-dispatch handling");
 assert.ok(androidRecoveryDispatchWorkflow.includes('item.context === "ci/circleci: android-rebuild"'),
   "the recovery dispatcher must retain the signed-build status gate");
+
+import {
+  findMergedMainPullRequest,
+  getPullRequestLookupCommitSha,
+} from "../lib/release-gate-pr.mjs";
+
+const releaseSourceSha = "a".repeat(40);
+const approvedMainMergeSha = "b".repeat(40);
+const androidPreparationCommit = {
+  commit: { message: "release: prepare Android v1.1.16 atomically" },
+  parents: [{ sha: approvedMainMergeSha }],
+};
+assert.equal(
+  getPullRequestLookupCommitSha(releaseSourceSha, androidPreparationCommit),
+  approvedMainMergeSha,
+  "Android preparation commits must use their sole merged-main parent to locate the originating PR",
+);
+assert.equal(
+  getPullRequestLookupCommitSha(releaseSourceSha, {
+    commit: { message: "fix(android-release): repair release metadata" },
+    parents: [{ sha: approvedMainMergeSha }],
+  }),
+  releaseSourceSha,
+  "ordinary commits must use their own exact merged-PR commit for source lookup",
+);
+assert.throws(
+  () => getPullRequestLookupCommitSha(releaseSourceSha, {
+    commit: { message: "release: prepare Android v1.1.16 atomically" },
+    parents: [],
+  }),
+  /exactly one parent/,
+  "malformed Android preparation commits must fail closed",
+);
+const approvedParentPullRequest = {
+  number: 999,
+  base: { ref: "main" },
+  merged_at: "2026-11-20T21:00:00Z",
+  merge_commit_sha: approvedMainMergeSha,
+};
+assert.equal(
+  findMergedMainPullRequest([approvedParentPullRequest], approvedMainMergeSha),
+  approvedParentPullRequest,
+  "the exact merged-main parent PR must be selected",
+);
+assert.equal(
+  findMergedMainPullRequest([approvedParentPullRequest], "c".repeat(40)),
+  undefined,
+  "a PR for a different commit must never be accepted as the source PR",
+);
+assert.match(gate, /getPullRequestLookupCommitSha\(commitSha, sourceCommit\)/);
+assert.match(gate, /findMergedMainPullRequest\(pullRequests, pullRequestLookupSha\)/);

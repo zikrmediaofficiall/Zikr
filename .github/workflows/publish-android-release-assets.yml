@@ -158,7 +158,7 @@ jobs:
           fi
           echo "PASS: manual Android recovery has an explicit retry flag, canonical release notes, exact tag SHA, and successful signed rebuild."
           
-      - name: Verify current PR CODEOWNER approval before publishing Android assets
+      - name: Verify canonical GitHub owner identity before publishing Android assets
         if: steps.gate.outputs.publish == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
