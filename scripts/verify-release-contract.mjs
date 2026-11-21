@@ -98,6 +98,7 @@ assert.ok(recoveryDispatch.includes("listReleases"), "Android recovery dispatch 
 assert.ok(recoveryDispatch.includes("release_id: 413815658"), "Android recovery must recover the existing v1.1.4 draft by its verified ID when the list endpoint omits it");
 assert.ok(recoveryDispatch.includes("release.draft !== true"), "Android recovery dispatch must only target an unpublished draft");
 assert.ok(recoveryDispatch.includes("branchData.commit.sha"), "Android recovery dispatch must bind publication to the release branch commit");
+assert.ok(recoveryDispatch.includes("if (!isTagDispatch && !isPushRecoveryTrigger)"), "owner-only recovery trigger must rely on exact tag SHA and signed build status without requiring a release branch to remain present");
 
 assert.ok(recoveryDispatch.includes("RELEASE_RETRY.flag"), "Android recovery dispatch must require the repository release retry guard");
 assert.ok(recoveryDispatch.includes("createWorkflowDispatch"), "Android recovery dispatch must start the guarded publisher workflow");
