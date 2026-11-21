@@ -122,29 +122,52 @@ export async function deleteVerifiedGeneratedCloudinaryVideo(
   fetcher: typeof fetch = fetch,
 ): Promise<{ publicId: string }> {
   const { publicId, cloudName, apiKey, apiSecret } = asset;
-  const timestamp = Math.floor(Date.now() / 1000).toString();
-  const signatureBase = `invalidate=true&public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
-  const signature = createHash("sha1").update(signatureBase).digest("hex");
-  const form = new URLSearchParams({
-    public_id: publicId,
-    timestamp,
-    invalidate: "true",
-    api_key: apiKey,
-    signature,
-  });
-  const destroyResponse = await fetcher(
-    `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/video/destroy`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: form,
-      cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
-    },
-  );
-  const destroyPayload = await destroyResponse.json().catch(() => ({})) as CloudinaryDestroyResponse;
-  if (!destroyResponse.ok || (destroyPayload.result !== "ok" && destroyPayload.result !== "not found")) {
-    throw new Error(destroyPayload.error?.message || "رفض Cloudinary حذف ملف الفيديو المولّد.");
+  let lastError: Error | null = null;
+
+  // Cloudinary destroy is idempotent ("not found" is success). Retry transient
+  // network/5xx/rate-limit failures so a temporary provider interruption does
+  // not leave an orphaned generated file after its request row was deleted.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const signatureBase = `invalidate=true&public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+    const signature = createHash("sha1").update(signatureBase).digest("hex");
+    const form = new URLSearchParams({
+      public_id: publicId,
+      timestamp,
+      invalidate: "true",
+      api_key: apiKey,
+      signature,
+    });
+
+    try {
+      const destroyResponse = await fetcher(
+        `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/video/destroy`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: form,
+          cache: "no-store",
+          signal: AbortSignal.timeout(20_000),
+        },
+      );
+      const destroyPayload = await destroyResponse.json().catch(() => ({})) as CloudinaryDestroyResponse;
+      if (destroyResponse.ok && (destroyPayload.result === "ok" || destroyPayload.result === "not found")) {
+        return { publicId };
+      }
+
+      lastError = new Error(destroyPayload.error?.message || "رفض Cloudinary حذف ملف الفيديو المولّد.");
+      const retryable = destroyResponse.status === 408 ||
+        destroyResponse.status === 425 ||
+        destroyResponse.status === 429 ||
+        destroyResponse.status >= 500;
+      if (!retryable || attempt === 2) throw lastError;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt === 2) throw lastError;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
   }
-  return { publicId };
+
+  throw lastError ?? new Error("تعذر تأكيد حذف ملف الفيديو من Cloudinary.");
 }
