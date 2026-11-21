@@ -332,13 +332,16 @@ assert.ok(
     english.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}") &&
     englishCredentialStart >= 0 && englishCredentialEnd > englishCredentialStart &&
     !englishCredentialBlock.includes('test -n "${GEMINI_API_KEY:-}"') &&
-    english.includes("push:") && english.includes("branches: [main]") &&
-    english.includes("supabase/migrations/20261121100000_quran_english_translation_provenance.sql") &&
+    english.includes('workflows: ["ZIKR Finalization Controlled Release"]') &&
+    english.includes("types: [completed]") &&
+    english.includes("github.event.workflow_run.conclusion == 'success'") &&
+    english.includes("github.event.workflow_run.head_branch == 'main'") &&
+    !english.includes("\\n  push:") &&
     englishQuranSyncPosition >= 0 && englishHadithSyncPosition > englishQuranSyncPosition &&
     englishGeminiBranchPosition > englishHadithSyncPosition &&
     englishArticlePosition > englishGeminiBranchPosition &&
     englishContentPosition > englishGeminiBranchPosition,
-  "GitHub English sync must use protected production Supabase credentials, trigger on the source-sync migration, and run Quran/Hadith before the optional Gemini batches",
+  "GitHub English sync must wait for successful controlled production release, then run Quran/Hadith before optional Gemini batches",
 );
 assert.ok(english.includes("environment: production"), "English sync must use protected production environment");
 assert.ok(english.includes("github.ref == 'refs/heads/main'"), "English sync must be main-only");
