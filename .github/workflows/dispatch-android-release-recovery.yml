@@ -95,7 +95,7 @@ jobs:
             const recoveryBranch = "android-release-" + tag;
             const isTagDispatch = context.ref === "refs/tags/" + tag;
 
-            if (!isTagDispatch) {
+            if (!isTagDispatch && !isPushRecoveryTrigger) {
               try {
                 const { data: branchData } = await github.rest.repos.getBranch({
                   owner, repo, branch: recoveryBranch,
