@@ -136,9 +136,28 @@ export const SITE_CATALOG: CatalogGroup[] = [
       { href: '/platform', ar: 'دليل المنصة', en: 'Platform Guide', descriptionAr: 'شرح متكامل لأقسام ذِكر وطريقة استخدامها.', descriptionEn: 'Guide to ZIKR sections and workflows.', icon: 'CircleHelp', tone: 'tools' },
     ],
   },
+  {
+    id: 'community',
+    ar: 'المجتمع والمساعدة',
+    en: 'Community & Support',
+    descriptionAr: 'المسابقات والمفضلة ومعلومات المنصة وطرق التواصل والمساعدة.',
+    descriptionEn: 'Competitions, saved items, platform information and support.',
+    icon: 'HeartHandshake',
+    items: [
+      { href: '/competitions', ar: 'المسابقات', en: 'Competitions', descriptionAr: 'مسابقات وتحديات معرفية للمشاركة والتعلّم.', descriptionEn: 'Knowledge challenges for participation and learning.', icon: 'Trophy', tone: 'learning' },
+      { href: '/favorites', ar: 'المفضلة', en: 'Favorites', descriptionAr: 'ارجع إلى المواد التي حفظتها في مكان واحد.', descriptionEn: 'Return to the material you saved in one place.', icon: 'Star', tone: 'tools' },
+      { href: '/about', ar: 'عن ذِكر', en: 'About ZIKR', descriptionAr: 'تعرف على رسالة المنصة وأقسامها.', descriptionEn: 'Learn about the platform and its purpose.', icon: 'Info', tone: 'tools' },
+      { href: '/contact', ar: 'تواصل معنا', en: 'Contact', descriptionAr: 'قنوات التواصل وإرسال الاستفسارات.', descriptionEn: 'Contact channels and enquiries.', icon: 'Mail', tone: 'tools' },
+      { href: '/faq', ar: 'الأسئلة الشائعة', en: 'FAQ', descriptionAr: 'إجابات واضحة عن استخدام المنصة.', descriptionEn: 'Clear answers about using the platform.', icon: 'CircleHelp', tone: 'tools' },
+    ],
+  },
 ];
 
 export const CATALOG_ITEMS = SITE_CATALOG.flatMap(group => group.items);
+
+export function getCatalogItemKey(href: string): string {
+  return href.split('/').filter(Boolean).join('-');
+}
 
 export function getCatalogItem(href: string): CatalogItem | undefined {
   return CATALOG_ITEMS.find(item => item.href === href);

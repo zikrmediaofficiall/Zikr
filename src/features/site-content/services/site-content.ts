@@ -3,6 +3,7 @@ import "server-only";
 import { createClient, supabaseServerAnonRequest } from '@/lib/supabase/server';
 import type { Competition } from '@/features/competitions/types';
 import { FALLBACK_COMPETITIONS } from '@/features/competitions/data/fallback';
+import { CATALOG_ITEMS, getCatalogItemKey } from '@/lib/navigation/catalog';
 
 export type SiteSettingValue = {
   title?: string | null;
@@ -34,6 +35,8 @@ export type SiteSettingValue = {
   facebookPageUrl?: string | null;
   twitterUrl?: string | null;
   instagramUrl?: string | null;
+  visibility?: Record<string, boolean>;
+  order?: string[];
   audioSettings?: {
     prayer?: string | null;
     dhikr?: string | null;
@@ -76,7 +79,7 @@ export async function getSiteSetting(key: string): Promise<SiteSettingValue | nu
   // Homepage/SEO/social settings are explicitly invalidated by the admin save action,
   // so a long cache lifetime removes repeated Supabase reads without delaying edits.
   // Android release metadata remains on a short TTL because CircleCI updates it too.
-  const revalidate = ["seo", "social", "homepage"].includes(key) ? 86400 : 300;
+  const revalidate = ["seo", "social", "homepage", "section_visibility"].includes(key) ? 86400 : 300;
   try {
     const rows = await supabaseServerAnonRequest<Array<{ value?: unknown }>>(
       `/rest/v1/site_settings?select=value&key=eq.${encodeURIComponent(key)}&limit=1`,
@@ -89,6 +92,37 @@ export async function getSiteSetting(key: string): Promise<SiteSettingValue | nu
   } catch {
     return null;
   }
+}
+
+
+export async function getSectionVisibility(): Promise<Record<string, boolean>> {
+  const setting = await getSiteSetting("section_visibility");
+  const legacySetting = setting as (SiteSettingValue & Record<string, unknown>) | null;
+  const stored = setting?.visibility && typeof setting.visibility === "object"
+    ? setting.visibility
+    : legacySetting ?? {};
+  const visibility = Object.fromEntries(
+    CATALOG_ITEMS.map((item) => {
+      const key = getCatalogItemKey(item.href);
+      return [key, typeof stored[key] === "boolean" ? stored[key] : true];
+    }),
+  );
+
+  // Preserve the previous /youtube control as an alias of the canonical /videos route.
+  if (stored.youtube === false) visibility.videos = false;
+  return visibility;
+}
+
+
+export async function getSectionDisplayOrder(): Promise<string[]> {
+  const setting = await getSiteSetting("section_visibility");
+  const defaultOrder = CATALOG_ITEMS.map((item) => getCatalogItemKey(item.href));
+  const storedOrder = Array.isArray(setting?.order)
+    ? setting.order.filter((key): key is string => typeof key === "string")
+    : [];
+  const validKeys = new Set(defaultOrder);
+  const uniqueStored = [...new Set(storedOrder)].filter((key) => validKeys.has(key));
+  return [...uniqueStored, ...defaultOrder.filter((key) => !uniqueStored.includes(key))];
 }
 
 export async function getPinnedMessages(limit = 3): Promise<PinnedMessage[]> {

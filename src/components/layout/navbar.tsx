@@ -7,7 +7,7 @@ import { AuthNavActions } from "./auth-nav-actions";
 import { LanguageToggle } from "./language-toggle";
 import { LanguageAwareNav, type NavLink } from "./language-aware-nav";
 import { getRequestLocale } from "@/lib/i18n/server";
-import { getCatalogItem } from "@/lib/navigation/catalog";
+import { getCatalogItem, getCatalogItemKey } from "@/lib/navigation/catalog";
 
 const PRIMARY_NAVIGATION_HREFS = [
   "/quran",
@@ -31,9 +31,12 @@ const links: NavLink[] = [
   { href: "/sections", label: "كل الأقسام", labelEn: "All sections", icon: "Grid3X3" },
 ];
 
-export async function Navbar() {
+export async function Navbar({ hiddenHrefs = [], sectionOrder = [] }: { hiddenHrefs?: string[]; sectionOrder?: string[] }) {
   const locale = await getRequestLocale();
   const isEnglish = locale === "en";
+  const hidden = new Set(hiddenHrefs);
+  const orderIndex = new Map(sectionOrder.map((key, index) => [key, index]));
+  const visibleLinks = links.filter((link) => !hidden.has(link.href)).sort((a, b) => (orderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER));
   let user = null;
   let isAdmin = false;
 
@@ -74,7 +77,7 @@ export async function Navbar() {
           </span>
         </Link>
 
-        <LanguageAwareNav links={links} />
+        <LanguageAwareNav links={visibleLinks} />
 
         <Link
           href="/api/download/android"
@@ -93,7 +96,7 @@ export async function Navbar() {
           >
             <Settings className="h-5 w-5" aria-hidden="true" />
           </Link>
-          <MobileNav isAuthenticated={Boolean(user)} />
+          <MobileNav isAuthenticated={Boolean(user)} hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} />
           <AuthNavActions initialUser={user} initialIsAdmin={isAdmin} />
         </div>
       </Container>

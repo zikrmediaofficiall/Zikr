@@ -14,6 +14,7 @@ import { getFacebookPublishedPosts } from "@/features/social/services/facebook-p
 import { getServerEnv } from "@/lib/env";
 import { pageMetadata } from "@/lib/site";
 import { getRequestLocale } from "@/lib/i18n/server";
+import { getSiteSetting } from "@/features/site-content/services/site-content";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -58,18 +59,44 @@ function resolveFacebookPageUrl(profileUrl: string | null, pageIdValue: string |
     : null;
 }
 
+
+function resolveOfficialSocialUrl(value: string | null | undefined, allowedHosts: readonly string[]): string | null {
+  if (!value?.trim()) return null;
+  try {
+    const parsed = new URL(value.trim());
+    const host = parsed.hostname.toLowerCase();
+    if (
+      parsed.protocol === "https:" &&
+      !parsed.username &&
+      !parsed.password &&
+      allowedHosts.some((allowed) => host === allowed || host.endsWith("." + allowed))
+    ) return parsed.toString();
+  } catch {
+    // Ignore malformed external URLs rather than rendering untrusted destinations.
+  }
+  return null;
+}
+
 export default async function VideosPage() {
   const locale = await getRequestLocale();
   const isEnglish = locale === "en";
-  const [videos, youtubeFeed, facebookProfile, facebookPosts] = await Promise.all([
+  const [videos, youtubeFeed, facebookProfile, facebookPosts, socialSettings] = await Promise.all([
     getInternalGeneratedVideos(60),
     getYoutubeChannelFeed(24),
     getFacebookPublicProfile(),
     getFacebookPublishedPosts(6),
+    getSiteSetting("social"),
   ]);
-  const facebookPageUrl = resolveFacebookPageUrl(facebookProfile?.pageUrl ?? null, getServerEnv().FACEBOOK_PAGE_ID);
+  const facebookPageUrl = resolveFacebookPageUrl(
+    facebookProfile?.pageUrl ?? socialSettings?.facebookPageUrl ?? null,
+    getServerEnv().FACEBOOK_PAGE_ID,
+  );
+  const instagramUrl = resolveOfficialSocialUrl(socialSettings?.instagramUrl, ["instagram.com"]);
+  const xUrl = resolveOfficialSocialUrl(socialSettings?.xUrl ?? socialSettings?.twitterUrl, ["x.com", "twitter.com"]);
   const youtubeChannelUrl = youtubeFeed.channel?.pageUrl
+    ?? resolveOfficialSocialUrl(socialSettings?.youtubeChannelUrl, ["youtube.com", "youtu.be"])
     ?? (youtubeFeed.channelId ? "https://www.youtube.com/channel/" + encodeURIComponent(youtubeFeed.channelId) : null);
+  const hasSocialChannels = Boolean(youtubeChannelUrl || facebookPageUrl || instagramUrl || xUrl);
 
   return (
     <Container className="space-y-10 py-10">
@@ -83,13 +110,13 @@ export default async function VideosPage() {
         </p>
       </header>
 
-      {(youtubeChannelUrl || facebookPageUrl) ? (
+      {hasSocialChannels ? (
         <section className="space-y-5" aria-label={isEnglish ? "Official social channels" : "قنوات ذِكر الرسمية"}>
           <SectionHeader
             title={isEnglish ? "Follow ZIKR" : "تابع ذِكر على منصات التواصل"}
             subtitle={isEnglish ? "Official channels connected to this video library" : "القنوات الرسمية المرتبطة بمكتبة الفيديوهات"}
           />
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {youtubeChannelUrl ? (
               <Card className="space-y-3 p-5">
                 <div className="flex items-center gap-3">
@@ -108,6 +135,35 @@ export default async function VideosPage() {
                 {youtubeFeed.channel?.description ? <p className="line-clamp-3 text-sm leading-6 text-brand-cream/60">{youtubeFeed.channel.description}</p> : null}
                 <a href={youtubeChannelUrl + (youtubeChannelUrl.includes("?") ? "&" : "?") + "sub_confirmation=1"} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-lg border border-brand-gold/40 px-4 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/10">
                   {isEnglish ? "Subscribe to YouTube" : "اشترك في قناة YouTube"}
+                </a>
+              </Card>
+            ) : null}
+
+            {instagramUrl ? (
+              <Card className="flex min-h-40 flex-col justify-between space-y-3 p-5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-fuchsia-500/15 text-2xl font-bold text-fuchsia-300" aria-hidden="true">◎</span>
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-brand-cream">ZIKR on Instagram</h2>
+                    <p className="text-xs text-brand-cream/50">{isEnglish ? "Official photo and short-video channel" : "القناة الرسمية للصور والمقاطع القصيرة"}</p>
+                  </div>
+                </div>
+                <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit rounded-lg border border-brand-gold/40 px-4 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/10">
+                  {isEnglish ? "Open Instagram" : "افتح Instagram"}
+                </a>
+              </Card>
+            ) : null}
+            {xUrl ? (
+              <Card className="flex min-h-40 flex-col justify-between space-y-3 p-5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-400/15 text-2xl font-bold text-slate-200" aria-hidden="true">𝕏</span>
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-brand-cream">ZIKR on X</h2>
+                    <p className="text-xs text-brand-cream/50">{isEnglish ? "Official short updates and announcements" : "الحساب الرسمي للتحديثات والإعلانات"}</p>
+                  </div>
+                </div>
+                <a href={xUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit rounded-lg border border-brand-gold/40 px-4 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/10">
+                  {isEnglish ? "Open X" : "افتح X"}
                 </a>
               </Card>
             ) : null}
@@ -134,6 +190,7 @@ export default async function VideosPage() {
               </Card>
             ) : null}
           </div>
+          {facebookPageUrl ? (
           <Card className="space-y-4 p-4">
             <h2 className="font-semibold text-brand-cream">{isEnglish ? "Latest Facebook Page posts" : "أحدث منشورات صفحة ذِكر على Facebook"}</h2>
             {facebookPosts.length ? (
@@ -163,6 +220,7 @@ export default async function VideosPage() {
               </p>
             )}
           </Card>
+          ) : null}
         </section>
       ) : null}
 

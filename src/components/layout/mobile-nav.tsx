@@ -8,10 +8,10 @@ import * as Icons from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { logoutAction } from "@/app/auth/actions";
 import { createClient } from "@/lib/supabase/client";
-import { SITE_CATALOG } from "@/lib/navigation/catalog";
+import { SITE_CATALOG, getCatalogItemKey } from "@/lib/navigation/catalog";
 import { useLanguage } from "./language-provider";
 
-type MobileNavProps = { isAuthenticated?: boolean };
+type MobileNavProps = { isAuthenticated?: boolean; hiddenHrefs?: string[]; sectionOrder?: string[] };
 
 type IconName = string;
 
@@ -44,7 +44,7 @@ function isCurrentPath(pathname: string, href: string) {
   return pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
 }
 
-export function MobileNav({ isAuthenticated = false }: MobileNavProps) {
+export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOrder = [] }: MobileNavProps) {
   const pathname = usePathname() ?? "/";
   const { isEnglish, dir } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -53,21 +53,40 @@ export function MobileNav({ isAuthenticated = false }: MobileNavProps) {
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const hiddenHrefSet = useMemo(() => new Set(hiddenHrefs), [hiddenHrefs]);
+  const sectionOrderIndex = useMemo(() => new Map(sectionOrder.map((key, index) => [key, index])), [sectionOrder]);
+  const visibleBottomLinks = bottomLinks
+    .filter((item) => !hiddenHrefSet.has(item.href))
+    .sort((a, b) => {
+      if (a.href === "/") return -1;
+      if (b.href === "/") return 1;
+      return (sectionOrderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (sectionOrderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER);
+    });
+  const catalogGroups = useMemo(() => SITE_CATALOG.map((group) => ({
+    ...group,
+    items: group.items
+      .filter((item) => !hiddenHrefSet.has(item.href))
+      .sort((a, b) => (sectionOrderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (sectionOrderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER)),
+  })).filter((group) => group.items.length > 0).sort((a, b) => {
+    const aOrder = Math.min(...a.items.map((item) => sectionOrderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+    const bOrder = Math.min(...b.items.map((item) => sectionOrderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+    return aOrder - bOrder;
+  }), [hiddenHrefSet, sectionOrderIndex]);
   const [user, setUser] = useState<User | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
 
   const activeGroupId = useMemo(
     () =>
-      SITE_CATALOG.find((group) =>
+      catalogGroups.find((group) =>
         group.items.some((item) => isCurrentPath(pathname, item.href)),
       )?.id ?? null,
-    [pathname],
+    [catalogGroups, pathname],
   );
 
   const searchNeedle = menuQuery.trim().toLocaleLowerCase(isEnglish ? "en" : "ar");
   const filteredGroups = useMemo(
     () =>
-      SITE_CATALOG.map((group) => {
+      catalogGroups.map((group) => {
         const groupMatches = [
           group.ar,
           group.en,
@@ -82,7 +101,7 @@ export function MobileNav({ isAuthenticated = false }: MobileNavProps) {
             );
         return { ...group, visibleItems };
       }).filter((group) => !searchNeedle || group.visibleItems.length > 0),
-    [isEnglish, searchNeedle],
+    [catalogGroups, isEnglish, searchNeedle],
   );
   const filteredUtilityLinks = useMemo(
     () => utilityLinks.filter((item) =>
@@ -384,7 +403,7 @@ export function MobileNav({ isAuthenticated = false }: MobileNavProps) {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-gold/20 bg-brand-emeraldDeep/95 shadow-[0_-8px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:hidden"
       >
         <div className="mx-auto grid max-w-xl grid-cols-5 gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          {bottomLinks.map((item) => {
+          {visibleBottomLinks.map((item) => {
             const Icon = resolveIcon(item.icon);
             const current = isCurrentPath(pathname, item.href);
             return (

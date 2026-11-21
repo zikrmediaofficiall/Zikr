@@ -2,44 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { SITE_CATALOG, getCatalogItemKey } from '@/lib/navigation/catalog';
 
 // ─── Full site sections list ──────────────────────────────────────────────────
 const ALL_SECTIONS = [
-  { key: 'quran', label: 'القرآن الكريم', href: '/quran', desc: 'قراءة واستماع للقرآن الكريم', group: 'الأساسيات' },
-  { key: 'hadith', label: 'الأحاديث النبوية', href: '/hadith', desc: 'أحاديث صحيحة موثقة', group: 'الأساسيات' },
-  { key: 'adhkar', label: 'الأذكار اليومية', href: '/adhkar', desc: 'أذكار الصباح والمساء', group: 'الأساسيات' },
-  { key: 'dua', label: 'الأدعية المأثورة', href: '/dua', desc: 'أدعية نبوية لكل المناسبات', group: 'الأساسيات' },
-  { key: 'prayer-times', label: 'مواقيت الصلاة', href: '/prayer-times', desc: 'أوقات الصلاة حسب الموقع', group: 'الأساسيات' },
-  { key: 'qibla', label: 'اتجاه القبلة', href: '/qibla', desc: 'بوصلة القبلة', group: 'الأساسيات' },
-  { key: 'tasbeeh', label: 'عداد التسبيح', href: '/tasbeeh', desc: 'عداد رقمي للتسبيح', group: 'الأساسيات' },
-  { key: 'prophets', label: 'قصص الأنبياء', href: '/prophets', desc: 'سير الأنبياء والمرسلين', group: 'المعرفة' },
-  { key: 'companions', label: 'الصحابة الكرام', href: '/companions', desc: 'تراجم الصحابة', group: 'المعرفة' },
-  { key: 'scholars', label: 'العلماء', href: '/scholars', desc: 'تراجم العلماء', group: 'المعرفة' },
-  { key: 'stories', label: 'القصص الإسلامية', href: '/stories', desc: 'قصص ملهمة من التاريخ', group: 'المعرفة' },
-  { key: 'articles', label: 'المقالات', href: '/articles', desc: 'مقالات دينية وثقافية', group: 'المعرفة' },
-  { key: 'battles', label: 'الغزوات', href: '/battles', desc: 'غزوات النبي ﷺ', group: 'المعرفة' },
-  { key: 'conquests', label: 'الفتوحات الإسلامية', href: '/conquests', desc: 'تاريخ الفتوحات', group: 'المعرفة' },
-  { key: 'memorization', label: 'حفظ القرآن', href: '/memorization', desc: 'خطط وتتبع الحفظ', group: 'تفاعلي' },
-  { key: 'spiritual-ai', label: 'الرفيق الروحاني', href: '/spiritual-ai', desc: 'مساعد AI للأسئلة الدينية', group: 'تفاعلي' },
-  { key: 'kids', label: 'قسم الأطفال', href: '/kids', desc: 'محتوى تعليمي للأطفال', group: 'تفاعلي' },
-  { key: 'competitions', label: 'المسابقات', href: '/competitions', desc: 'مسابقات دينية وإسلامية', group: 'تفاعلي' },
-  { key: 'poetry', label: 'الشعر الإسلامي', href: '/poetry', desc: 'قصائد ومدائح', group: 'الإعلام' },
-  { key: 'tawasheeh', label: 'المداحون والتواشيح', href: '/tawasheeh', desc: 'تواشيح دينية', group: 'الإعلام' },
-  { key: 'reciters', label: 'قراء القرآن', href: '/reciters', desc: 'تلاوات القراء المميزين', group: 'الإعلام' },
-  { key: 'radio', label: 'إذاعة القرآن', href: '/radio', desc: 'بث مباشر للقرآن', group: 'الإعلام' },
-  { key: 'videos', label: 'الفيديوهات', href: '/videos', desc: 'فيديوهات دينية وتعليمية', group: 'الإعلام' },
-  { key: 'tafsir', label: 'التفسير', href: '/tafsir', desc: 'تفسير آيات القرآن', group: 'الأساسيات' },
-  { key: 'favorites', label: 'المفضلة', href: '/favorites', desc: 'المحتوى المحفوظ للمستخدم', group: 'تفاعلي' },
-  { key: 'search', label: 'البحث الشامل', href: '/search', desc: 'بحث في كل محتوى الموقع', group: 'تفاعلي' },
-  { key: 'contact', label: 'تواصل معنا', href: '/contact', desc: 'صفحة التواصل', group: 'عام' },
-  { key: 'about', label: 'عن المنصة', href: '/about', desc: 'معلومات عن ذِكرٌ', group: 'عام' },
-  { key: 'faq', label: 'الأسئلة الشائعة', href: '/faq', desc: 'أجوبة الأسئلة المتكررة', group: 'عام' },
+  ...SITE_CATALOG.flatMap((group) =>
+    group.items.map((item) => ({
+      key: getCatalogItemKey(item.href),
+      label: item.ar,
+      href: item.href,
+      desc: item.descriptionAr,
+      group: group.ar,
+    })),
+  ),
 ];
 
-const GROUPS = ['الكل', 'الأساسيات', 'المعرفة', 'تفاعلي', 'الإعلام', 'عام'];
+const GROUPS = ['الكل', ...SITE_CATALOG.map((group) => group.ar)];
 
 export default function AdminSectionsPage() {
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
+  const [order, setOrder] = useState<string[]>(() => ALL_SECTIONS.map((section) => section.key));
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,14 +33,18 @@ export default function AdminSectionsPage() {
     let cancelled = false;
     fetch('/api/admin/sections', { cache: 'no-store' })
       .then(async (response) => {
-        const payload = await response.json() as { visibility?: Record<string, boolean>; error?: string };
+        const payload = await response.json() as { visibility?: Record<string, boolean>; order?: string[]; error?: string };
         if (!response.ok) throw new Error(payload.error || 'تعذر تحميل إعدادات الأقسام');
         if (!cancelled) {
           const persisted = payload.visibility ?? {};
           setEnabled(Object.fromEntries(ALL_SECTIONS.map((section) => [
             section.key,
-            persisted[section.key] ?? false,
+            persisted[section.key] ?? true,
           ])));
+          const validKeys = new Set(ALL_SECTIONS.map((section) => section.key));
+          const savedOrder = Array.isArray(payload.order) ? payload.order.filter((key) => validKeys.has(key)) : [];
+          const uniqueOrder = [...new Set(savedOrder)];
+          setOrder([...uniqueOrder, ...ALL_SECTIONS.map((section) => section.key).filter((key) => !uniqueOrder.includes(key))]);
         }
       })
       .catch((loadError: unknown) => {
@@ -75,6 +61,18 @@ export default function AdminSectionsPage() {
     setSaved(false);
   };
 
+  const moveSection = (key: string, direction: -1 | 1) => {
+    setOrder((current) => {
+      const index = current.indexOf(key);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+    setSaved(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError('');
@@ -83,11 +81,12 @@ export default function AdminSectionsPage() {
       const response = await fetch('/api/admin/sections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visibility: enabled }),
+        body: JSON.stringify({ visibility: enabled, order }),
       });
-      const payload = await response.json() as { visibility?: Record<string, boolean>; error?: string };
+      const payload = await response.json() as { visibility?: Record<string, boolean>; order?: string[]; error?: string };
       if (!response.ok) throw new Error(payload.error || 'تعذر حفظ إعدادات الأقسام');
       if (payload.visibility) setEnabled((current) => ({ ...current, ...payload.visibility }));
+      if (Array.isArray(payload.order)) setOrder(payload.order);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 3000);
     } catch (saveError: unknown) {
@@ -97,11 +96,13 @@ export default function AdminSectionsPage() {
     }
   };
 
-  const filtered = ALL_SECTIONS.filter((s) => {
-    const matchGroup = activeGroup === 'الكل' || s.group === activeGroup;
-    const matchSearch = !search || s.label.includes(search) || s.desc.includes(search);
-    return matchGroup && matchSearch;
-  });
+  const filtered = [...ALL_SECTIONS]
+    .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+    .filter((s) => {
+      const matchGroup = activeGroup === 'الكل' || s.group === activeGroup;
+      const matchSearch = !search || s.label.includes(search) || s.desc.includes(search) || s.href.includes(search);
+      return matchGroup && matchSearch;
+    });
 
   const enabledCount = ALL_SECTIONS.filter((section) => enabled[section.key] === true).length;
   const disabledCount = ALL_SECTIONS.filter((section) => enabled[section.key] === false).length;
@@ -121,7 +122,7 @@ export default function AdminSectionsPage() {
           </nav>
           <h1 className="text-3xl font-bold text-brand-gold">ترتيب وإظهار الأقسام</h1>
           <p className="text-sm text-brand-cream/45 leading-relaxed">
-            تحكم في ظهور كل قسم في الموقع. الأقسام المخفية لن تظهر في القوائم والصفحة الرئيسية.
+            تحكم في ظهور كل قسم وترتيبه في الموقع. الترتيب المحفوظ ينعكس على دليل الأقسام والتنقل والصفحة الرئيسية.
           </p>
         </section>
 
@@ -225,6 +226,28 @@ export default function AdminSectionsPage() {
                       }`}
                     />
                   </button>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-brand-gold/8 pt-3">
+                  <span className="text-[10px] tabular-nums text-brand-cream/35">
+                    ترتيب الظهور: {order.indexOf(section.key) + 1}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveSection(section.key, -1)}
+                      disabled={order.indexOf(section.key) === 0 || saving}
+                      aria-label={`تقديم ${section.label}`}
+                      className="rounded-lg border border-brand-gold/15 px-2.5 py-1 text-[11px] text-brand-cream/65 transition hover:border-brand-gold/35 hover:text-brand-gold disabled:opacity-30"
+                    >↑ تقديم</button>
+                    <button
+                      type="button"
+                      onClick={() => moveSection(section.key, 1)}
+                      disabled={order.indexOf(section.key) === order.length - 1 || saving}
+                      aria-label={`تأخير ${section.label}`}
+                      className="rounded-lg border border-brand-gold/15 px-2.5 py-1 text-[11px] text-brand-cream/65 transition hover:border-brand-gold/35 hover:text-brand-gold disabled:opacity-30"
+                    >↓ تأخير</button>
+                  </div>
                 </div>
 
                 {/* Preview link */}

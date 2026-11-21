@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { Container } from '@/components/ui/container';
-import { getSiteSetting } from '@/features/site-content/services/site-content';
+import { getSiteSetting, getSectionVisibility, getSectionDisplayOrder } from '@/features/site-content/services/site-content';
 import { getArticles } from '@/features/articles/services/articles';
 import { HomeInteractive } from '@/features/home/components/home-interactive';
-import { SITE_CATALOG, CATALOG_ITEMS } from '@/lib/navigation/catalog';
+import { SITE_CATALOG, CATALOG_ITEMS, getCatalogItemKey } from '@/lib/navigation/catalog';
 import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { SmartLinkPromo } from '@/components/smartlink-promo';
@@ -56,6 +56,20 @@ const GUIDED_PATHS = [
   },
 ] as const;
 
+function safeSocialUrl(value: string | null | undefined, allowedHosts: readonly string[]): string | null {
+  if (!value?.trim()) return null;
+  try {
+    const parsed = new URL(value.trim());
+    const host = parsed.hostname.toLowerCase();
+    if (parsed.protocol !== 'https:' || !allowedHosts.some((allowed) => host === allowed || host.endsWith('.' + allowed))) {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 function resolveIcon(name: string): LucideIcon {
   const candidate = (Icons as unknown as Record<string, unknown>)[name];
   return (typeof candidate === 'function' || (typeof candidate === 'object' && candidate !== null)) ? (candidate as LucideIcon) : Icons.Circle;
@@ -68,14 +82,52 @@ export default async function HomePage() {
   const locale = cookieStore.get('zikr-locale')?.value === 'en' ? 'en' : 'ar';
   const isEnglish = locale === 'en';
   const dir = isEnglish ? 'ltr' : 'rtl';
-  const homepageSetting = await getSiteSetting('homepage');
-  const showPrayerTimes = homepageSetting?.showPrayerTimes !== false;
+  const [homepageSetting, socialSetting, sectionVisibility, sectionOrder] = await Promise.all([
+    getSiteSetting('homepage'),
+    getSiteSetting('social'),
+    getSectionVisibility(),
+    getSectionDisplayOrder(),
+  ]);
+  const isSectionVisible = (href: string) => sectionVisibility[getCatalogItemKey(href)] !== false;
+  const orderIndex = new Map(sectionOrder.map((key, index) => [key, index]));
+  const bySectionOrder = <T extends { href: string }>(items: T[]) => [...items].sort((a, b) => (orderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER));
+  const socialChannels = [
+    {
+      key: 'facebook',
+      label: 'Facebook',
+      url: safeSocialUrl(socialSetting?.facebookPageUrl, ['facebook.com']),
+      descriptionAr: 'تابع المنشورات والتحديثات اليومية.',
+      descriptionEn: 'Follow daily posts and updates.',
+    },
+    {
+      key: 'youtube',
+      label: 'YouTube',
+      url: safeSocialUrl(socialSetting?.youtubeChannelUrl, ['youtube.com', 'youtu.be']),
+      descriptionAr: 'شاهد الفيديوهات والتلاوات والمحتوى المرئي.',
+      descriptionEn: 'Watch videos, recitations and visual content.',
+    },
+    {
+      key: 'instagram',
+      label: 'Instagram',
+      url: safeSocialUrl(socialSetting?.instagramUrl, ['instagram.com']),
+      descriptionAr: 'تابع الصور والمقاطع القصيرة.',
+      descriptionEn: 'Follow photos and short-form updates.',
+    },
+    {
+      key: 'x',
+      label: 'X',
+      url: safeSocialUrl(socialSetting?.xUrl ?? socialSetting?.twitterUrl, ['x.com', 'twitter.com']),
+      descriptionAr: 'تابع الأخبار والتنبيهات المختصرة.',
+      descriptionEn: 'Follow short updates and announcements.',
+    },
+  ].filter((channel): channel is typeof channel & { url: string } => Boolean(channel.url));
+  const showPrayerTimes = homepageSetting?.showPrayerTimes !== false && isSectionVisible('/prayer-times');
   const showQuickStart = homepageSetting?.showQuickStart !== false;
   const showJourneys = homepageSetting?.showJourneys !== false;
   const showGuidedPaths = homepageSetting?.showGuidedPaths !== false;
-  const showEditorialLibrary = homepageSetting?.showEditorialLibrary !== false;
+  const showEditorialLibrary = homepageSetting?.showEditorialLibrary !== false && isSectionVisible('/articles');
   const showDailyTools = homepageSetting?.showDailyTools !== false;
-  const showDailyVerse = homepageSetting?.showDailyVerse !== false;
+  const showDailyVerse = homepageSetting?.showDailyVerse !== false && isSectionVisible('/quran');
   const homeTitle =
     !isEnglish && homepageSetting?.title?.trim()
       ? homepageSetting.title.trim()
@@ -87,15 +139,29 @@ export default async function HomePage() {
         ? 'A focused Islamic knowledge and worship platform.'
         : 'منصة إسلامية مرتبة للقراءة والذكر والتعلّم والعمل.';
 
-  const visibleQuickActions = QUICK_ACTIONS.filter(item => {
+  const visibleQuickActions = bySectionOrder(QUICK_ACTIONS.filter(item => {
+    if (!isSectionVisible(item.href)) return false;
     if (item.href === '/quran') return homepageSetting?.showQuran !== false;
     if (item.href === '/hadith') return homepageSetting?.showHadith !== false;
     return true;
-  });
+  }));
+  const visibleDailyTools = bySectionOrder(DAILY_TOOLS.filter((item) => isSectionVisible(item.href)));
+  const visibleGuidedPaths = bySectionOrder(GUIDED_PATHS.filter((item) => isSectionVisible(item.href)));
 
-  // Show every top-level category on Home; each group still previews a small
-  // number of entry points and links to the full Sections directory.
-  const visibleGroups = SITE_CATALOG;
+  // The public catalog is the same source used by navigation and admin visibility controls.
+  const visibleGroups = SITE_CATALOG
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .filter((item) => isSectionVisible(item.href))
+        .sort((a, b) => (orderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER)),
+    }))
+    .filter((group) => group.items.length > 0)
+    .sort((a, b) => {
+      const aOrder = Math.min(...a.items.map((item) => orderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+      const bOrder = Math.min(...b.items.map((item) => orderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+      return aOrder - bOrder;
+    });
 
   const articles = await getArticles(undefined, 6);
 
@@ -160,7 +226,7 @@ export default async function HomePage() {
         <section
           className="border-b border-brand-gold/10 px-3 py-8 sm:px-4 sm:py-10"
           aria-labelledby="quick-start-heading"
-          hidden={!showQuickStart}
+          hidden={!showQuickStart || visibleQuickActions.length === 0}
         >
           <Container>
             <div className="mb-5 flex items-end justify-between gap-4" dir={dir}>
@@ -210,7 +276,7 @@ export default async function HomePage() {
         <section
           className="border-b border-brand-gold/10 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="journeys-heading"
-          hidden={!showJourneys}
+          hidden={!showJourneys || visibleGroups.length === 0}
         >
           <Container>
             <div dir={dir}>
@@ -284,7 +350,7 @@ export default async function HomePage() {
         <section
           className="border-b border-brand-gold/10 bg-brand-emerald/6 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="guided-heading"
-          hidden={!showGuidedPaths}
+          hidden={!showGuidedPaths || visibleGuidedPaths.length === 0}
         >
           <Container>
             <div className="flex items-end justify-between gap-4" dir={dir}>
@@ -302,7 +368,7 @@ export default async function HomePage() {
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {GUIDED_PATHS.map(path => (
+              {visibleGuidedPaths.map(path => (
                 <Link
                   key={path.href}
                   href={path.href}
@@ -376,9 +442,63 @@ export default async function HomePage() {
         </section>
 
         <section
+          className="border-b border-brand-gold/10 bg-[#071d18]/70 px-3 py-9 sm:px-4 sm:py-12"
+          aria-labelledby="social-heading"
+          hidden={!isSectionVisible('/videos')}
+        >
+          <Container>
+            <div className="flex flex-wrap items-end justify-between gap-4" dir={dir}>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-gold/50">
+                  {isEnglish ? 'Stay connected' : 'ابقَ على تواصل'}
+                </p>
+                <h2 id="social-heading" className="mt-2 text-2xl font-bold text-brand-gold">
+                  {isEnglish ? 'Follow ZIKR beyond the website' : 'تابع ذِكر على منصات التواصل'}
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-brand-cream/55">
+                  {isEnglish
+                    ? 'Choose an official channel, or open the media hub to browse published videos and posts.'
+                    : 'اختر القناة الرسمية التي تفضلها، أو افتح مركز المحتوى المرئي لمشاهدة الفيديوهات والمنشورات المنشورة.'}
+                </p>
+              </div>
+              <Link href="/videos" className="rounded-xl border border-brand-gold/25 px-4 py-2.5 text-sm font-semibold text-brand-gold transition hover:bg-brand-gold/10">
+                {isEnglish ? 'Open media hub' : 'افتح مركز الفيديوهات والسوشيال'}
+              </Link>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {socialChannels.map((channel) => (
+                <a
+                  key={channel.key}
+                  href={channel.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex min-h-32 flex-col justify-between rounded-2xl border border-brand-gold/15 bg-black/20 p-4 transition hover:-translate-y-0.5 hover:border-brand-gold/40 hover:bg-brand-gold/[.04]"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-base font-bold text-brand-cream group-hover:text-brand-gold">{channel.label}</span>
+                    <span className="rounded-full border border-brand-gold/20 px-2 py-1 text-[10px] text-brand-gold/60">{isEnglish ? 'Official' : 'رسمي'}</span>
+                  </span>
+                  <span className="mt-4 text-xs leading-6 text-brand-cream/50">
+                    {isEnglish ? channel.descriptionEn : channel.descriptionAr}
+                  </span>
+                  <span className="mt-3 text-xs font-semibold text-brand-gold/75">
+                    {isEnglish ? 'Open channel ↗' : 'افتح القناة ↗'}
+                  </span>
+                </a>
+              ))}
+              {!socialChannels.length ? (
+                <Link href="/videos" className="col-span-2 rounded-2xl border border-brand-gold/15 bg-black/20 p-5 text-sm leading-7 text-brand-cream/65 transition hover:border-brand-gold/40 lg:col-span-4">
+                  {isEnglish ? 'Browse ZIKR videos and media' : 'تصفح فيديوهات ذِكر والمحتوى المرئي المنشور'}
+                </Link>
+              ) : null}
+            </div>
+          </Container>
+        </section>
+
+        <section
           className="border-b border-brand-gold/10 bg-brand-emerald/10 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="tools-heading"
-          hidden={!showDailyTools}
+          hidden={!showDailyTools || visibleDailyTools.length === 0}
           style={{ contentVisibility: 'auto', containIntrinsicSize: '0 420px' }}
         >
           <Container>
@@ -391,7 +511,7 @@ export default async function HomePage() {
               </h2>
             </div>
             <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-              {DAILY_TOOLS.map(tool => (
+              {visibleDailyTools.map(tool => (
                 <Link
                   key={tool.href}
                   href={tool.href}
