@@ -22,7 +22,8 @@ const FILTERS: Array<{ id: 'all' | RadioCategory; label: string }> = [
 function readRadioPreferences() {
   if (typeof window === 'undefined') return null;
   try {
-    const rawVolume = Number(window.localStorage.getItem(STORAGE_KEYS.volume));
+    const storedVolume = window.localStorage.getItem(STORAGE_KEYS.volume);
+    const rawVolume = storedVolume === null ? Number.NaN : Number(storedVolume);
     const volume = Number.isFinite(rawVolume) ? Math.max(0, Math.min(1, rawVolume)) : 0.8;
     const recentValue = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.recent) || '[]') as unknown;
     const validIds = new Set(stations.map((station) => station.id));
