@@ -150,13 +150,40 @@ const STATUS_CLASSES: Record<Status, string> = {
   cancelled: "border-slate-500/25 bg-slate-500/10 text-slate-300",
 };
 
+function getProjectDeletionForUi(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const marker = (value as Record<string, unknown>).projectMediaDeletion;
+  return marker && typeof marker === "object" && !Array.isArray(marker) ? marker as Record<string, unknown> : {};
+}
+
+function hasProjectVideoCopyForUi(request: VideoGenerationRequest): boolean {
+  const content = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+    ? request.content as Record<string, unknown> : {};
+  const marker = getProjectDeletionForUi(content);
+  const retention = content.storageRetention && typeof content.storageRetention === "object" && !Array.isArray(content.storageRetention)
+    ? content.storageRetention as Record<string, unknown> : {};
+  const embeddedVideoUrl = [content.generatedVideoUrl, content.videoUrl, content.video_url]
+    .some((value) => typeof value === "string" && value.trim().length > 0);
+  return Boolean(request.video_url) || embeddedVideoUrl ||
+    (marker.state === "purging" && (
+      typeof marker.assetUrl === "string" ||
+      (Array.isArray(marker.storagePaths) && marker.storagePaths.length > 0)
+    )) ||
+    (retention.state !== "purged" && retention.bucket === "videos" && typeof retention.path === "string" && retention.path.startsWith("automated/"));
+}
+
 type AdminVideoRequestsClientProps = { canManageKids: boolean; canDelete?: boolean; reviewOnly?: boolean };
 
 export default function AdminVideoRequestsClient({ canManageKids, canDelete = false, reviewOnly = false }: AdminVideoRequestsClientProps) {
   const [requests, setRequests] = useState<VideoGenerationRequest[]>([]);
   const [filter, setFilter] = useState<QueueFilter>(reviewOnly ? "review" : "all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectedReviewIds, setSelectedReviewIds] = useState<Set<string>>(() => new Set());
+  const [batchApprovalChecks, setBatchApprovalChecks] = useState<Record<ApprovalCheckKey, boolean>>({
+    sourceVerified: false, audioReviewed: false, visualsReviewed: false, captionsReviewed: false, rightsReviewed: false,
+  });
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const selectAllReviewRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -169,6 +196,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   const load = useCallback(async () => {
     setLoading(true);
     setSelectedIds(new Set());
+    setSelectedReviewIds(new Set());
     setError("");
     try {
       const response = await fetch("/api/admin/videos", { cache: "no-store" });
@@ -182,6 +210,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       setError(cause instanceof Error ? cause.message : "تعذر تحميل طابور الفيديو.");
       setRequests([]);
       setSelectedIds(new Set());
+      setSelectedReviewIds(new Set());
     } finally {
       setLoading(false);
     }
@@ -215,6 +244,24 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       )
     : [];
   const selectedVisibleCount = eligibleVisible.filter((request) => selectedIds.has(request.id)).length;
+  const reviewEligibleVisible = visible.filter((request) => {
+    const audience = resolveVideoRequestAudience(request.content);
+    return request.status === "completed" &&
+      Boolean(request.video_url) &&
+      !isContentApproved(request.content) &&
+      isReadyForHumanApproval(request.content) &&
+      audience.ok &&
+      (audience.audience !== "kids" || canManageKids);
+  });
+  const reviewEligibleIds = new Set(reviewEligibleVisible.map((request) => request.id));
+  const selectedReviewVisibleCount = reviewEligibleVisible.filter((request) => selectedReviewIds.has(request.id)).length;
+
+  useEffect(() => {
+    if (selectAllReviewRef.current) {
+      selectAllReviewRef.current.indeterminate =
+        selectedReviewVisibleCount > 0 && selectedReviewVisibleCount < reviewEligibleVisible.length;
+    }
+  }, [reviewEligibleVisible.length, selectedReviewVisibleCount]);
 
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < eligibleVisible.length;
@@ -223,6 +270,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   function applyFilter(nextFilter: QueueFilter) {
     setFilter(nextFilter);
     setSelectedIds(new Set());
+    setSelectedReviewIds(new Set());
   }
 
   function toggleSelected(id: string, checked: boolean) {
@@ -318,6 +366,78 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     } finally { setBusyId(null); }
   }
 
+  async function deleteProjectCopy(request: VideoGenerationRequest) {
+    const content = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+      ? request.content as Record<string, unknown> : {};
+    const deletion = content.projectMediaDeletion && typeof content.projectMediaDeletion === "object" && !Array.isArray(content.projectMediaDeletion)
+      ? content.projectMediaDeletion as Record<string, unknown> : {};
+    const retention = content.storageRetention && typeof content.storageRetention === "object" && !Array.isArray(content.storageRetention)
+      ? content.storageRetention as Record<string, unknown> : {};
+    const hasProjectCopy = Boolean(request.video_url) ||
+      (deletion.state === "purging" && (
+        typeof deletion.assetUrl === "string" ||
+        (Array.isArray(deletion.storagePaths) && deletion.storagePaths.length > 0)
+      )) ||
+      (retention.bucket === "videos" && typeof retention.path === "string" && retention.path.startsWith("automated/"));
+    if (!canDelete || !hasProjectCopy || busyId) return;
+    const pendingRetry = deletion.state === "purging";
+    const confirmation = pendingRetry
+      ? `هناك تنظيف سابق لم يكتمل بالكامل للفيديو «${request.title}». أعد المحاولة لإكمال حذف نسخة المشروع فقط. لن يتم حذف منشورات أو فيديوهات YouTube أو Facebook.`
+      : `سيتم حذف ملف الفيديو من ذاكرة ZIKR وCloudinary ونسخة التخزين المؤقتة في Supabase، مع الاحتفاظ بسجل المصدر والاعتماد ومعرفات YouTube وFacebook والمنشورات الخارجية كما هي. تأكيد حذف نسخة المشروع للفيديو «${request.title}»؟`;
+    if (!window.confirm(confirmation)) return;
+    setBusyId(request.id); setError(""); setMessage("");
+    try {
+      const response = await fetch(`/api/admin/videos/${encodeURIComponent(request.id)}/project-copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmed: true, expectedUpdatedAt: request.updated_at }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
+      if (!response.ok && response.status !== 202) throw new Error(data.error || "تعذر حذف نسخة المشروع.");
+      setMessage(data.message || (data.cleanupPending
+        ? "تم فصل نسخة المشروع، ويتبقى تنظيف تخزين يحتاج إعادة محاولة."
+        : "تم حذف نسخة المشروع مع الحفاظ على السوشيال."));
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "تعذر حذف نسخة المشروع.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function approveSelectedForPublishing() {
+    const selected = reviewEligibleVisible.filter((request) => selectedReviewIds.has(request.id));
+    if (!selected.length || busyId || APPROVAL_CHECKS.some((check) => !batchApprovalChecks[check.key])) return;
+    if (!window.confirm(`تأكيد أنك شاهدت وراجعت كل فيديو محدد كاملًا، واستمعت للصوت، وراجعت المصدر والترجمة والحقوق؟ سيتم إرسال ${selected.length} طلب اعتماد فرديًا عبر فحوص الجودة الحالية. لن يتم تجاوز أي فحص آلي أو شرط خاص بفيديوهات الأطفال.`)) return;
+
+    setError(""); setMessage("");
+    const approved: string[] = [];
+    const failures: string[] = [];
+    for (const item of selected) {
+      setBusyId(item.id);
+      try {
+        const response = await fetch("/api/admin/video-generation", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: item.id, action: "approve_publish", qaChecklist: batchApprovalChecks }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
+        if (!response.ok) throw new Error(data.error || "تعذر اعتماد الفيديو.");
+        approved.push(item.title);
+      } catch (cause) {
+        failures.push(`${item.title}: ${cause instanceof Error ? cause.message : "تعذر الاعتماد"}`);
+      }
+    }
+    setBusyId(null);
+    setSelectedReviewIds(new Set());
+    setBatchApprovalChecks({ sourceVerified: false, audioReviewed: false, visualsReviewed: false, captionsReviewed: false, rightsReviewed: false });
+    setMessage(`تم اعتماد ${approved.length} من ${selected.length} فيديو بعد إرسالها منفردة إلى مسار الاعتماد الرسمي.${failures.length ? ` تعذر اعتماد ${failures.length} فيديو؛ راجع التفاصيل أدناه.` : ""}`);
+    if (failures.length) setError(failures.join("\n"));
+    await load();
+  }
+
   async function retry(id: string) {
     setBusyId(id);
     setError("");
@@ -390,7 +510,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
         <div>
           <p className="text-xs tracking-[0.2em] text-brand-cream/30">{reviewOnly ? "مراجعة الفيديو" : "طابور الفيديو"}</p>
           <h1 className="mt-2 text-3xl font-bold text-brand-gold">{reviewOnly ? "مراجعة الفيديوهات المتوقفة والجاهزة للنشر" : "طابور توليد الفيديو"}</h1>
-          <p className="mt-2 text-sm leading-7 text-brand-cream/50">تابع طلبات التوليد، وافتح الفيديو لمراجعته واعتماده، أو احذف الملف غير المعتمد عندما يجتاز فحوص الحذف الآمن. إنشاء الطلبات من الاستوديو فقط.</p>
+          <p className="mt-2 text-sm leading-7 text-brand-cream/50">تابع طلبات التوليد وافتح الفيديو لمراجعته. يمكنك حذف نسخة ZIKR الداخلية في أي مرحلة مع الاحتفاظ بمنشورات YouTube وFacebook وسجلاتها الخارجية، كما يمكنك تحديد عدة فيديوهات جاهزة واعتمادها جماعيًا عبر الفحوص الرسمية.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/video/studio" className="rounded-xl border border-brand-gold/25 bg-brand-gold/10 px-4 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/20">استوديو إنشاء الفيديو</Link>
@@ -424,6 +544,64 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
           </button>
         ))}
       </section>
+
+      {reviewEligibleVisible.length > 0 && (
+        <Card className="space-y-4 border-sky-400/20 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-bold text-sky-200">المراجعة والاعتماد الجماعي</h2>
+              <p className="mt-1 text-xs leading-6 text-brand-cream/55">
+                حدّد كل الفيديوهات التي شاهدتها وراجعتها، ثم أكّد قائمة الفحوص مرة واحدة. سيظل كل فيديو يمر بفحوص المصدر والجودة وصلاحيات الأطفال بشكل مستقل.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-brand-cream/75">
+              <input
+                ref={selectAllReviewRef}
+                type="checkbox"
+                checked={reviewEligibleVisible.length > 0 && reviewEligibleVisible.every((request) => selectedReviewIds.has(request.id))}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  const ids = new Set(reviewEligibleVisible.map((request) => request.id));
+                  setSelectedReviewIds((current) => {
+                    const next = new Set(current);
+                    for (const selectedId of ids) {
+                      if (checked) next.add(selectedId);
+                      else next.delete(selectedId);
+                    }
+                    return next;
+                  });
+                }}
+                className="h-4 w-4 accent-sky-300"
+                aria-label="تحديد كل الفيديوهات الجاهزة للمراجعة"
+              />
+              تحديد كل الجاهز ({reviewEligibleVisible.length})
+            </label>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {APPROVAL_CHECKS.map((check) => (
+              <label key={check.key} className="flex cursor-pointer items-start gap-2 rounded-xl border border-sky-400/10 bg-black/15 p-3 text-xs leading-6 text-brand-cream/75">
+                <input
+                  type="checkbox"
+                  checked={batchApprovalChecks[check.key]}
+                  onChange={(event) => setBatchApprovalChecks((current) => ({ ...current, [check.key]: event.target.checked }))}
+                  className="mt-1 h-4 w-4 accent-sky-300"
+                />
+                <span>{check.label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-brand-cream/45">المحدد للمراجعة: {selectedReviewVisibleCount}</span>
+            <Button
+              variant="primary"
+              disabled={!selectedReviewVisibleCount || busyId !== null || APPROVAL_CHECKS.some((check) => !batchApprovalChecks[check.key])}
+              onClick={() => void approveSelectedForPublishing()}
+            >
+              مراجعة واعتماد المحدد ({selectedReviewVisibleCount})
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <section className="space-y-3">
         {canDelete && eligibleVisible.length > 0 && (
@@ -487,6 +665,23 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
+                    {reviewEligibleIds.has(request.id) && (
+                      <input
+                        type="checkbox"
+                        checked={selectedReviewIds.has(request.id)}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setSelectedReviewIds((current) => {
+                            const next = new Set(current);
+                            if (checked) next.add(request.id); else next.delete(request.id);
+                            return next;
+                          });
+                        }}
+                        disabled={busyId !== null}
+                        className="h-4 w-4 accent-sky-300"
+                        aria-label={`تحديد ${request.title} للمراجعة الجماعية`}
+                      />
+                    )}
                     {canDelete && isSafelyDeletable(request, canManageKids) && (
                       <input
                         type="checkbox"
@@ -523,6 +718,11 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
                     return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
                   })()}
+                  {canDelete && hasProjectVideoCopyForUi(request) && (
+                    <Button variant="outline" disabled={busyId !== null} onClick={() => void deleteProjectCopy(request)}>
+                      حذف نسخة المشروع فقط
+                    </Button>
+                  )}
                   {canDelete && (isSafelyDeletable(request, canManageKids) || isSafeGeneratedAssetDeletionCandidate(request, canManageKids)) && (
                     <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>
                       {isSafeGeneratedAssetDeletionCandidate(request, canManageKids)

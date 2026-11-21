@@ -72,6 +72,7 @@ export type VerifiedGeneratedCloudinaryVideo = {
   cloudName: string;
   apiKey: string;
   apiSecret: string;
+  alreadyMissing?: boolean;
 };
 
 /**
@@ -83,6 +84,7 @@ export async function verifyGeneratedCloudinaryVideo(
   videoUrl: string,
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch,
+  options: { allowProjectReference?: boolean } = {},
 ): Promise<VerifiedGeneratedCloudinaryVideo> {
   const cloudName = env.CLOUDINARY_CLOUD_NAME?.trim() ?? "";
   const apiKey = env.CLOUDINARY_API_KEY?.trim() ?? "";
@@ -98,7 +100,7 @@ export async function verifyGeneratedCloudinaryVideo(
     method: "POST",
     headers: { Authorization: authorization, "Content-Type": "application/json" },
     body: JSON.stringify({
-      expression: `resource_type:video AND type:upload AND tags=automated AND public_id=${publicId}`,
+      expression: `resource_type:video AND type:upload AND public_id=${publicId}`,
       max_results: 10,
       with_field: ["tags"],
     }),
@@ -110,7 +112,31 @@ export async function verifyGeneratedCloudinaryVideo(
     throw new Error(searchPayload.error?.message || "تعذر التحقق من ملكية ملف الفيديو في Cloudinary.");
   }
   const matches = (searchPayload.resources ?? []).filter((asset) => asset.public_id === publicId);
-  if (matches.length !== 1 || !isOwnedGeneratedVideo(matches[0], publicId)) {
+  if (matches.length === 0) {
+    // A previous owner-requested deletion may have completed before its DB
+    // marker was finalized. Confirm the exact public URL is now absent so a
+    // retry can safely finish the metadata cleanup without destroying anything.
+    const deliveryProbe = await fetcher(videoUrl, {
+      method: "HEAD",
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (deliveryProbe.status === 404) {
+      return { publicId, cloudName, apiKey, apiSecret, alreadyMissing: true };
+    }
+    throw new Error("لم يثبت أن ملف Cloudinary يخص مولّد ZIKR؛ تم إيقاف الحذف لحماية الملف.");
+  }
+  const projectReferenceMatchesAsset = (asset: CloudinaryAsset) =>
+    asset.public_id === publicId &&
+    asset.resource_type === "video" &&
+    asset.type === "upload" &&
+    asset.format === "mp4" &&
+    publicId.startsWith("auto-");
+  const verified = matches.length === 1 && (
+    isOwnedGeneratedVideo(matches[0], publicId) ||
+    (options.allowProjectReference === true && projectReferenceMatchesAsset(matches[0]))
+  );
+  if (!verified) {
     throw new Error("لم يثبت أن ملف Cloudinary يخص مولّد ZIKR؛ تم إيقاف الحذف لحماية الملف.");
   }
 
@@ -122,6 +148,7 @@ export async function deleteVerifiedGeneratedCloudinaryVideo(
   fetcher: typeof fetch = fetch,
 ): Promise<{ publicId: string }> {
   const { publicId, cloudName, apiKey, apiSecret } = asset;
+  if (asset.alreadyMissing) return { publicId };
   let lastError: Error | null = null;
 
   // Cloudinary destroy is idempotent ("not found" is success). Retry transient

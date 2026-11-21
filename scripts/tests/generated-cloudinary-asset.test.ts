@@ -45,6 +45,46 @@ test("deletes only a Cloudinary MP4 that is tagged as an automated ZIKR-generate
   assert.match(String(calls[1].init?.body), /public_id=auto-episode-123/);
 });
 
+test("allows an untagged legacy asset only when its exact generated URL belongs to a project request", async () => {
+  const calls: string[] = [];
+  const fetcher: typeof fetch = async (input) => {
+    const url = String(input);
+    calls.push(url);
+    if (url.endsWith("/resources/search")) {
+      return new Response(JSON.stringify({ resources: [{
+        public_id: "auto-episode-123",
+        resource_type: "video",
+        type: "upload",
+        format: "mp4",
+        tags: [],
+      }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    throw new Error("Unexpected Cloudinary endpoint: " + url);
+  };
+  const asset = await verifyGeneratedCloudinaryVideo(videoUrl, env, fetcher, { allowProjectReference: true });
+  assert.equal(asset.publicId, "auto-episode-123");
+  assert.equal(calls.length, 1);
+});
+
+test("allows a retry to finalize when the exact generated Cloudinary asset is already absent", async () => {
+  const calls: string[] = [];
+  const fetcher: typeof fetch = async (input, init) => {
+    calls.push(String(input) + ":" + String(init?.method ?? "GET"));
+    if (String(input).endsWith("/resources/search")) {
+      return new Response(JSON.stringify({ resources: [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    if (String(input) === videoUrl && init?.method === "HEAD") return new Response(null, { status: 404 });
+    throw new Error("Unexpected Cloudinary endpoint: " + String(input));
+  };
+  const asset = await verifyGeneratedCloudinaryVideo(videoUrl, env, fetcher);
+  assert.equal(asset.alreadyMissing, true);
+  assert.deepEqual(await deleteVerifiedGeneratedCloudinaryVideo(asset, fetcher), { publicId: "auto-episode-123" });
+  assert.deepEqual(calls, [
+    "https://api.cloudinary.com/v1_1/zikr/resources/search:POST",
+    videoUrl + ":HEAD",
+  ]);
+});
+
 test("does not delete an untagged, unowned, or non-MP4 asset", async () => {
   for (const asset of [
     { public_id: "auto-episode-123", resource_type: "video", type: "upload", format: "mp4", tags: ["automated"] },

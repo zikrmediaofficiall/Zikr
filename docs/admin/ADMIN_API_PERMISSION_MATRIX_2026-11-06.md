@@ -41,6 +41,7 @@
 | GET | `/api/admin/videos/[id]` | `video.manage`; `kids.manage` for Kids audience |
 | PATCH | `/api/admin/videos/[id]` | `video.manage`; `kids.manage` for Kids audience only |
 | DELETE | `/api/admin/videos/[id]` | `video.delete`؛ و`kids.manage` إضافية لطلبات الأطفال |
+| POST | `/api/admin/videos/[id]/project-copy` | `video.delete` MFA step-up؛ و`kids.manage` إضافية لطلبات الأطفال — حذف نسخة ZIKR فقط مع الحفاظ على المنشورات الخارجية |
 | POST | `/api/admin/videos/create` | `video.manage`, `kids.manage` (Kids audience only) |
 | GET | `/api/admin/videos` | `video.manage`; `kids.manage` for Kids rows |
 | POST | `/api/admin/videos/upload` | `video.manage` |
