@@ -8,8 +8,13 @@ import path from "node:path";
 import { getServerEnv } from "@/lib/env";
 import { safeApiFetch } from "@/lib/services/http";
 import { supabaseServerAnonRequest } from "@/lib/supabase/server";
-import { type Hadith, type HadithBook, type HadithResponse } from "@/features/hadith/types/hadith";
-import { createOfflineHadithBooksLoader, type OfflineHadithBookRow } from "@/features/hadith/services/offline-books-loader";
+import { resolveHadithBookName, type Hadith, type HadithBook, type HadithResponse } from "@/features/hadith/types/hadith";
+import {
+  createOfflineHadithSnapshotLoader,
+  getOfflineHadithRowsForBook,
+  normalizeOfflineHadithSnapshot,
+  type OfflineHadithBookRecord,
+} from "@/features/hadith/services/offline-hadith-loader";
 import { shouldFallbackToExternalHadith } from "@/features/hadith/services/database-fallback-policy";
 import type { Locale } from "@/lib/i18n";
 import type { PaginationMeta } from "@/lib/types/common";
@@ -17,18 +22,21 @@ import type { PaginationMeta } from "@/lib/types/common";
 const HADITH_API_BASE =
   getServerEnv().HADITH_API_BASE_URL || "https://ummahapi.com/api/hadith";
 
-const loadOfflineHadithBooks = createOfflineHadithBooksLoader(async () => {
-  const raw = await readFile(
-    path.join(
-      process.cwd(),
-      "public",
-      "offline-content",
-      "v1",
-      "hadith_books.json",
+const loadOfflineHadithSnapshot = createOfflineHadithSnapshotLoader(async () => {
+  const [booksRaw, hadithsRaw] = await Promise.all([
+    readFile(
+      path.join(process.cwd(), "public", "offline-content", "v1", "hadith_books.json"),
+      "utf8",
     ),
-    "utf8",
-  );
-  return JSON.parse(raw) as OfflineHadithBookRow[];
+    readFile(
+      path.join(process.cwd(), "public", "offline-content", "v1", "hadith.json"),
+      "utf8",
+    ),
+  ]);
+
+  const books = JSON.parse(booksRaw) as unknown;
+  const hadiths = JSON.parse(hadithsRaw) as unknown;
+  return normalizeOfflineHadithSnapshot(books, hadiths);
 });
 
 type DbHadithBook = {
@@ -117,6 +125,94 @@ function mapDbHadith(hadith: DbHadith): Hadith {
     contentLocale: english ? "en" : "ar",
     id: hadith.ref ?? hadith.hadith_number,
   };
+}
+
+async function getOfflineHadithBooks(locale: Locale): Promise<HadithBook[]> {
+  const snapshot = await loadOfflineHadithSnapshot();
+  return snapshot.books
+    .map((book: OfflineHadithBookRecord) => {
+      const available = snapshot.hadiths.filter(row => row.book_id === book.id).length;
+      return {
+        id: book.slug,
+        slug: book.slug,
+        name: resolveHadithBookName(book.name_ar, book.name_en, locale),
+        nameAr: book.name_ar,
+        nameEn: book.name_en ?? undefined,
+        available,
+      };
+    })
+    .filter(book => book.available > 0);
+}
+
+function makePagination(page: number, limit: number, total: number): PaginationMeta {
+  return {
+    currentPage: page,
+    pageSize: limit,
+    totalItems: total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+  };
+}
+
+/** Read the last published, repository-backed snapshot only after a DB transport failure. */
+async function getOfflineHadithBookPage(
+  slug: string,
+  page: number,
+  limit: number,
+  locale: Locale,
+): Promise<HadithResponse<Hadith[]> | null> {
+  try {
+    const safePage = Math.max(1, Math.trunc(page) || 1);
+    const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit) || 20));
+    const snapshot = await loadOfflineHadithSnapshot();
+    const result = getOfflineHadithRowsForBook(snapshot, slug);
+    if (!result) return null;
+    const from = (safePage - 1) * safeLimit;
+    const data = result.rows.slice(from, from + safeLimit).map(row => mapDbHadith(row));
+    if (!data.length) return null;
+    return {
+      name: resolveHadithBookName(result.book.name_ar, result.book.name_en, locale),
+      slug,
+      total: result.rows.length,
+      pagination: makePagination(safePage, safeLimit, result.rows.length),
+      data,
+    };
+  } catch (error) {
+    console.error("[hadith-service] Offline hadith page unavailable:", error);
+    return null;
+  }
+}
+
+async function getOfflineHadithByNumber(
+  slug: string,
+  number: number,
+): Promise<Hadith | null> {
+  try {
+    const snapshot = await loadOfflineHadithSnapshot();
+    const result = getOfflineHadithRowsForBook(snapshot, slug);
+    const row = result?.rows.find(item => Number(item.hadith_number) === number);
+    return row ? mapDbHadith(row) : null;
+  } catch (error) {
+    console.error("[hadith-service] Offline single hadith unavailable:", error);
+    return null;
+  }
+}
+
+async function searchOfflineHadith(query: string): Promise<Hadith[]> {
+  try {
+    const normalizedQuery = normalizeArabicSearchText(query);
+    if (!normalizedQuery) return [];
+    const snapshot = await loadOfflineHadithSnapshot();
+    return snapshot.hadiths
+      .filter(row =>
+        normalizeArabicSearchText(row.text_ar).includes(normalizedQuery) ||
+        Boolean(row.text_en && normalizeArabicSearchText(row.text_en).includes(normalizedQuery)),
+      )
+      .slice(0, 50)
+      .map(row => mapDbHadith(row));
+  } catch (error) {
+    console.error("[hadith-service] Offline hadith search unavailable:", error);
+    return [];
+  }
 }
 
 function mapUmmahBook(book: UmmahCollection, locale: Locale = "ar"): HadithBook | null {
@@ -215,17 +311,19 @@ export async function getHadithBooks(locale: Locale = "ar"): Promise<HadithBook[
   );
   if (dbBooks?.length) return dbBooks.map((book) => mapDbHadithBook(book, locale));
 
-  const remote = await getUmmahBooks(locale);
-  if (remote.length > 0) return remote;
-
-  try {
-    const local = await loadOfflineHadithBooks(locale);
-    if (local.length > 0) return local;
-  } catch (error) {
-    console.error("[hadith-service] Offline book catalogue unavailable:", error);
+  // A null result is a transport/configuration failure, unlike a successful
+  // empty array. In the failure case, prefer the last published local snapshot.
+  if (dbBooks === null) {
+    try {
+      const local = await getOfflineHadithBooks(locale);
+      if (local.length > 0) return local;
+    } catch (error) {
+      console.error("[hadith-service] Offline book catalogue unavailable:", error);
+    }
   }
 
-  return [];
+  const remote = await getUmmahBooks(locale);
+  return remote.length > 0 ? remote : [];
 }
 
 export async function getHadithBook(
@@ -240,6 +338,10 @@ export async function getHadithBook(
   const dbBooks = await readSupabase<DbHadithBook[]>(
     `/rest/v1/hadith_books?select=id,slug,name_ar,name_en,hadith_count&slug=eq.${encodeURIComponent(clean)}&limit=1`,
   );
+  if (dbBooks === null) {
+    const offline = await getOfflineHadithBookPage(clean, page, limit, locale);
+    if (offline) return offline;
+  }
   if (dbBooks?.[0]) {
     const from = Math.max(0, (page - 1) * limit);
     const dbHadiths = await readSupabase<DbHadith[]>(
@@ -276,6 +378,9 @@ export async function getHadithBook(
       };
     }
 
+    const offline = await getOfflineHadithBookPage(clean, page, limit, locale);
+    if (offline) return offline;
+
     const remoteLocalized = await getUmmahBook(clean, page, limit, locale);
     if (remoteLocalized) return remoteLocalized;
   }
@@ -293,6 +398,10 @@ export async function getHadithByNumber(
   const dbBooks = await readSupabase<Pick<DbHadithBook, "id">[]>(
     `/rest/v1/hadith_books?select=id&slug=eq.${encodeURIComponent(book)}&limit=1`,
   );
+  if (dbBooks === null) {
+    const offline = await getOfflineHadithByNumber(book, number);
+    if (offline) return offline;
+  }
   if (dbBooks?.[0]) {
     const dbHadiths = await readSupabase<DbHadith[]>(
       `/rest/v1/hadiths?select=hadith_number,text_ar,text_en,ref&book_id=eq.${dbBooks[0].id}&hadith_number=eq.${number}&published=eq.true&limit=1`,
@@ -308,6 +417,8 @@ export async function getHadithByNumber(
       }
       return mapped;
     }
+    const offline = await getOfflineHadithByNumber(book, number);
+    if (offline) return offline;
   }
 
   return getUmmahHadithByNumber(book, number, locale);
@@ -324,9 +435,12 @@ export async function searchHadith(query: string, locale: Locale = "ar"): Promis
   );
   if (!shouldFallbackToExternalHadith(dbHadiths)) {
     // A successful empty DB result is authoritative: do not query the external
-    // catalogue, which could re-expose hadiths intentionally unpublished here.
+    // catalogue or stale offline snapshot, which could re-expose hidden content.
     return dbHadiths.map(mapDbHadith);
   }
+
+  const offlineMatches = await searchOfflineHadith(q);
+  if (offlineMatches.length > 0) return offlineMatches;
 
   const books = await getHadithBooks(locale);
   const seedBooks = books.slice(0, 3);

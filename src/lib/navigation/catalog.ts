@@ -72,8 +72,8 @@ export const SITE_CATALOG: CatalogGroup[] = [
     items: [
       { href: '/prophets', ar: 'الأنبياء', en: 'Prophets', descriptionAr: 'سير وقصص منظمة للقراءة والتعلم.', descriptionEn: 'Structured prophet stories and biographies.', icon: 'Star', tone: 'history' },
       { href: '/companions', ar: 'الصحابة', en: 'Companions', descriptionAr: 'تعريفات وسير ومواقف مختارة.', descriptionEn: 'Profiles and selected stories.', icon: 'Users', tone: 'history' },
-      { href: '/scholars', ar: 'العلماء', en: 'Scholars', descriptionAr: 'تراجم ومسارات علمية ومصادر.', descriptionEn: 'Biographies, fields and references.', icon: 'GraduationCap', tone: 'learning' },
       { href: '/stories', ar: 'القصص الإسلامية', en: 'Islamic Stories', descriptionAr: 'قصص مرتبة مع الفصل بين النص والتاريخ.', descriptionEn: 'Stories with clear source boundaries.', icon: 'BookMarked', tone: 'history' },
+      { href: '/scholars', ar: 'العلماء', en: 'Scholars', descriptionAr: 'تراجم ومسارات علمية ومصادر.', descriptionEn: 'Biographies, fields and references.', icon: 'GraduationCap', tone: 'learning' },
       { href: '/battles', ar: 'الغزوات', en: 'Battles', descriptionAr: 'خط زمني ومادة تاريخية منظمة.', descriptionEn: 'Organized historical timelines.', icon: 'Shield', tone: 'history' },
       { href: '/conquests', ar: 'الفتوحات', en: 'Conquests', descriptionAr: 'أحداث ومراحل تاريخية مرتبة.', descriptionEn: 'Historical events and periods.', icon: 'Map', tone: 'history' },
     ],

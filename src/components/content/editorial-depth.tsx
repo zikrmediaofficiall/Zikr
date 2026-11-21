@@ -849,6 +849,37 @@ function getGenericEditorialPage(pathname: string): EditorialPage | null {
   if (NON_EDITORIAL_PREFIXES.some((prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`))) {
     return null;
   }
+  // These pages already contain a full, purpose-built primary experience and
+  // receive their own treatment where needed; suppress the generic footer guide.
+  // The homepage already receives its focused guide from ContentExpansion.
+  // Suppress this generic block there to avoid two long guides stacked together.
+  if (normalized === '/' || normalized === '/about' || normalized === '/contact') return null;
+
+  // Utility pages render a dedicated guide through EditorialUtilityDepth.
+  // Do not stack a second generic editorial guide above those instructions.
+  const dedicatedUtilityGuideRoutes = new Set([
+    '/prayer-times', '/qibla', '/tasbeeh', '/memorization', '/wird',
+    '/zakat', '/spiritual-ai', '/radio', '/youtube', '/search', '/offline-library',
+  ]);
+  if (dedicatedUtilityGuideRoutes.has(normalized)) return null;
+
+  // Dynamic detail routes now have their own page-specific guide in
+  // ContentExpansion. Keep generic guides for the static Kids landing pages,
+  // but do not stack a second generic article under a detailed item page.
+  const specializedDetailPrefixes = [
+    '/quran', '/hadith', '/dua', '/prophets', '/companions', '/scholars',
+    '/articles', '/stories', '/videos', '/kids', '/battles', '/conquests',
+    '/reciters', '/content',
+  ];
+  const staticKidsRoutes = new Set([
+    '/kids/games', '/kids/audio', '/kids/adventures', '/kids/achievements',
+    '/kids/progress', '/kids/puzzle', '/kids/parent-dashboard',
+  ]);
+  const hasSpecializedDetailGuide = specializedDetailPrefixes.some(
+    (prefix) => normalized.startsWith(`${prefix}/`),
+  );
+  if (hasSpecializedDetailGuide && !staticKidsRoutes.has(normalized)) return null;
+
   const label = PUBLIC_PAGE_LABELS[normalized] ??
     (normalized.startsWith('/quran/') ? 'دليل الآية والسورة' :
       normalized.startsWith('/hadith/') ? 'دليل الحديث والكتاب' :

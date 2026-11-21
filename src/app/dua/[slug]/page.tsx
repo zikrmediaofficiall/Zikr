@@ -113,7 +113,13 @@ export default async function DuaDetailPage({
         {!isEnglish && dua.sourceAr && (
           <Card className="p-4 space-y-2 border-brand-gold/20">
             <h2 className="text-lg font-bold text-brand-gold">المصدر</h2>
-            <p className="text-brand-cream/90 leading-7">{dua.sourceAr}</p>
+            <p className="text-brand-cream/90 leading-7">
+              {dua.sourceUrl ? (
+                <a href={dua.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand-gold underline decoration-brand-gold/40 underline-offset-4">
+                  {dua.sourceAr}
+                </a>
+              ) : dua.sourceAr}
+            </p>
           </Card>
         )}
         {!isEnglish && dua.benefitsAr && (

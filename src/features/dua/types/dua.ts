@@ -15,6 +15,7 @@ export interface Dua {
   textEn?: string;
   occasionAr?: string;
   sourceAr?: string;
+  sourceUrl?: string;
   benefitsAr?: string;
   categoryId?: string;
   published: boolean;

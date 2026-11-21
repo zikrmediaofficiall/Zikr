@@ -1,6 +1,6 @@
 /**
  * Shared real-audio playback helpers for adhan, dhikr and salawat.
- * Synthesized tones remain technical fallbacks only.
+ * A missing recording remains silent rather than substituting an unrelated beep.
  */
 
 import { getAudioUrl, loadAudioSettings } from "@/lib/audio/config";
@@ -40,31 +40,6 @@ export function setToneVolume(v: number): void {
 
 export function getToneVolume(): number {
   return masterVolume;
-}
-
-function playFallbackTone(frequencies: number[], duration: number, peak = 0.35): void {
-  const context = getCtx();
-  if (!context || context.state !== "running") return;
-
-  frequencies.forEach((frequency, index) => {
-    const startTime = context.currentTime + index * (duration + 0.1);
-    const osc = context.createOscillator();
-    const gainNode = context.createGain();
-
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(frequency, startTime);
-    gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(masterVolume * peak, startTime + 0.05);
-    gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-    osc.connect(gainNode);
-    gainNode.connect(context.destination);
-    osc.start(startTime);
-    osc.stop(startTime + duration);
-  });
-}
-
-export function playAzanTone(): void {
-  playFallbackTone([440, 550, 660], 0.5, 0.4);
 }
 
 export const AZAN_CLIP_URL = "/audio/adhan.wav";
@@ -116,12 +91,11 @@ function getClipEl(kind: "azan" | "dhikr" | "salawat"): HTMLAudioElement | null 
 
 export function playAzanClip(): void {
   const el = getClipEl("azan");
-  if (!el) {
-    playAzanTone();
-    return;
-  }
+  if (!el) return;
   el.currentTime = 0;
-  el.play().catch(() => playAzanTone());
+  el.play().catch(() => {
+    // Do not substitute a generic synthesized tone for a real adhan recording.
+  });
 }
 
 export function stopAzanClip(): void {
@@ -133,22 +107,20 @@ export function stopAzanClip(): void {
 
 export function playDhikrClip(): void {
   const el = getClipEl("dhikr");
-  if (!el) {
-    playSalawatTone();
-    return;
-  }
+  if (!el) return;
   el.currentTime = 0;
-  el.play().catch(() => playSalawatTone());
+  el.play().catch(() => {
+    // A missing dhikr recording must not play salawat or an unrelated tone.
+  });
 }
 
 export function playSalawatClip(): void {
   const el = getClipEl("salawat");
-  if (!el) {
-    playSalawatTone();
-    return;
-  }
+  if (!el) return;
   el.currentTime = 0;
-  el.play().catch(() => playSalawatTone());
+  el.play().catch(() => {
+    // Keep the reminder available without misrepresenting a synthetic tone.
+  });
 }
 
 export function stopSalawatClip(): void {
@@ -158,6 +130,3 @@ export function stopSalawatClip(): void {
   }
 }
 
-export function playSalawatTone(): void {
-  playFallbackTone([528], 1.5, 0.35);
-}

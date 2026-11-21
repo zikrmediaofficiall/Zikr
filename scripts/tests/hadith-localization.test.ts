@@ -60,8 +60,9 @@ assert.equal(englishOfflineBooks[0]?.name, "Sahih al-Bukhari");
 assert.equal(arabicOfflineBooks[0]?.name, "صحيح البخاري");
 
 const hadithService = readFileSync("src/features/hadith/services/hadith.ts", "utf8");
-assert.ok(hadithService.includes("loadOfflineHadithBooks(locale)"), "offline collection names must use the requested locale");
-assert.ok(hadithService.includes("createOfflineHadithBooksLoader"), "the offline catalogue cache must retain locale-neutral rows and map each request locale");
+assert.ok(hadithService.includes("getOfflineHadithBooks(locale)"), "offline collection names must use the requested locale");
+assert.ok(hadithService.includes("createOfflineHadithSnapshotLoader"), "the offline hadith cache must validate and reuse the committed snapshot");
+assert.ok(hadithService.includes("normalizeOfflineHadithSnapshot"), "offline rows must pass through the published-only snapshot validator");
 assert.ok(hadithService.includes("if (!shouldFallbackToExternalHadith(dbHadiths))"), "successful empty published-only database results must remain authoritative");
 assert.ok(hadithService.includes("return dbHadiths.map(mapDbHadith)"), "Arabic originals must remain available when English translation is missing");
 assert.ok(

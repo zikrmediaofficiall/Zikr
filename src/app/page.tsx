@@ -21,8 +21,6 @@ const QUICK_ACTIONS = [
   { href: '/kids', ar: 'الأطفال', en: 'Kids', icon: 'Gamepad2', tone: 'تعلم ولعب' },
 ] as const;
 
-const FEATURED_GROUP_IDS = ['revelation', 'remembrance', 'daily', 'history'] as const;
-
 const DAILY_TOOLS = [
   { href: '/wird', ar: 'الورد اليومي', en: 'Daily Wird', icon: 'Sun', text: 'خطة بسيطة للقراءة والذكر والاستمرارية.' },
   { href: '/qibla', ar: 'القبلة', en: 'Qibla', icon: 'Navigation', text: 'حدد اتجاه القبلة من جهازك.' },
@@ -95,9 +93,9 @@ export default async function HomePage() {
     return true;
   });
 
-  const visibleGroups = SITE_CATALOG.filter(group =>
-    FEATURED_GROUP_IDS.includes(group.id as (typeof FEATURED_GROUP_IDS)[number]),
-  );
+  // Show every top-level category on Home; each group still previews a small
+  // number of entry points and links to the full Sections directory.
+  const visibleGroups = SITE_CATALOG;
 
   const articles = await getArticles(undefined, 6);
 
@@ -224,8 +222,8 @@ export default async function HomePage() {
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-7 text-brand-cream/55">
                 {isEnglish
-                  ? 'Each group below contains related sections. The complete directory remains in the Sections page, while Home only highlights the main paths.'
-                  : 'كل مجموعة تجمع الوظائف المتقاربة. الدليل الكامل موجود في صفحة الأقسام، بينما الصفحة الرئيسية تركز على أهم المسارات فقط.'}
+                  ? 'All eight main groups are visible here. Open any group to browse the complete directory of related sections.'
+                  : 'المجموعات الثماني ظاهرة هنا، ولكل مجموعة روابط أساسية، ويمكنك فتح دليل الأقسام لرؤية جميع المسارات.'}
               </p>
             </div>
 
