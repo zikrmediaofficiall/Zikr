@@ -107,7 +107,7 @@ jobs:
             if ! facebook_json="$(curl -fsS \
               -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-              "$SUPABASE_URL/rest/v1/social_platform_credentials?platform=eq.facebook&is_enabled=eq.true&connection_status=eq.connected&page_id=not.is.null&page_access_token=not.is.null&select=is_enabled,connection_status,page_id,expires_at,granted_permissions&limit=1")"; then
+              "$SUPABASE_URL/rest/v1/social_platform_credentials?platform=eq.facebook&is_enabled=eq.true&connection_status=eq.connected&page_id=not.is.null&and=(page_access_token.not.is.null,page_access_token.neq.)&select=is_enabled,connection_status,page_id,expires_at,granted_permissions&limit=1")"; then
               echo "::warning::Facebook credential lookup failed; disabling only Facebook publishing for this run." >&2
               facebook_json='[]'
             fi
@@ -144,7 +144,7 @@ jobs:
             if ! youtube_json="$(curl -fsS \
               -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-              "$SUPABASE_URL/rest/v1/youtube_oauth_credentials?provider=eq.youtube&refresh_token=not.is.null&channel_id=not.is.null&select=granted_scopes,channel_id&limit=1")"; then
+              "$SUPABASE_URL/rest/v1/youtube_oauth_credentials?provider=eq.youtube&and=(refresh_token.not.is.null,refresh_token.neq.,channel_id.not.is.null,channel_id.neq.)&select=granted_scopes,channel_id&limit=1")"; then
               echo "::warning::YouTube credential lookup failed; disabling only YouTube publishing for this run." >&2
               youtube_json='[]'
             fi
