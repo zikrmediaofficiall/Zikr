@@ -12,8 +12,8 @@ import { resolveHadithBookName, type Hadith, type HadithBook, type HadithRespons
 import {
   createOfflineHadithSnapshotLoader,
   getOfflineHadithRowsForBook,
+  normalizeOfflineHadithSnapshot,
   type OfflineHadithBookRecord,
-  type OfflineHadithSnapshot,
 } from "@/features/hadith/services/offline-hadith-loader";
 import { shouldFallbackToExternalHadith } from "@/features/hadith/services/database-fallback-policy";
 import type { Locale } from "@/lib/i18n";
@@ -36,7 +36,6 @@ const loadOfflineHadithSnapshot = createOfflineHadithSnapshotLoader(async () => 
 
   const books = JSON.parse(booksRaw) as unknown;
   const hadiths = JSON.parse(hadithsRaw) as unknown;
-  const { normalizeOfflineHadithSnapshot } = await import("./offline-hadith-loader");
   return normalizeOfflineHadithSnapshot(books, hadiths);
 });
 
