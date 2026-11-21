@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const editorial = readFileSync("src/components/content/editorial-depth.tsx", "utf8");
+const expansion = readFileSync("src/components/content/content-expansion.tsx", "utf8");
+
+assert.match(editorial, /const specializedDetailPrefixes = \[/);
+assert.match(editorial, /if \(hasSpecializedDetailGuide && !staticKidsRoutes\.has\(normalized\)\) return null/);
+assert.match(editorial, /'\/kids\/games'/, "static Kids landing pages retain the generic Kids guide");
+assert.match(editorial, /'\/kids\/parent-dashboard'/, "the parent dashboard retains its existing guide");
+
+for (const prefix of ["/quran", "/hadith", "/dua", "/prophets", "/companions", "/scholars", "/articles", "/stories", "/videos", "/kids/videos", "/content"]) {
+  const expected = "'" + prefix + "': page(";
+  assert.ok(
+    expansion.includes(expected),
+    "the expanded content layer must provide a focused guide for " + prefix,
+  );
+}
+
+assert.match(expansion, /EXISTING_DEDICATED_GUIDE_ROUTES/);
+assert.match(expansion, /'\/kids\/videos': page\(/);
+assert.match(expansion, /'تفاصيل فيديو الأطفال'/);
+
+console.log("Detail-guide deduplication contract passed.");
