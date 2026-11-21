@@ -272,7 +272,14 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     return NextResponse.json({ ok: true, deletedId: id, auditRecorded }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (message === 'DUPLICATE_FILE_DELETED_ROW_CLEANUP_PENDING') {\n      console.error('[api/admin/videos/[id]] Cloudinary asset was deleted but request-row cleanup needs reconciliation:', id);\n      return NextResponse.json({ error: 'حُذف ملف النسخة المكررة من Cloudinary، لكن سجل الطلب لم يُحذف بسبب تعارض في البيانات. حدّث القائمة وتواصل مع المسؤول قبل أي إعادة نشر.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });\n    }\n    if (/^DUPLICATE_/.test(message)) {\n      return NextResponse.json({ error: 'لم يُحذف الملف: لم ينجح التحقق من أن النسخة مكررة وخالية تمامًا من المراجع. لم يتم حذف بيانات أخرى.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });\n    }\n    if (/VIDEO_REQUEST_DELETE_(?:CONFLICT|NOT_TERMINAL|HAS_MEDIA|REFERENCED_BY_)/.test(message)) {
+    if (message === 'DUPLICATE_FILE_DELETED_ROW_CLEANUP_PENDING') {
+      console.error('[api/admin/videos/[id]] Cloudinary asset was deleted but request-row cleanup needs reconciliation:', id);
+      return NextResponse.json({ error: 'حُذف ملف النسخة المكررة من Cloudinary، لكن سجل الطلب لم يُحذف بسبب تعارض في البيانات. حدّث القائمة وتواصل مع المسؤول قبل أي إعادة نشر.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (/^DUPLICATE_/.test(message)) {
+      return NextResponse.json({ error: 'لم يُحذف الملف: لم ينجح التحقق من أن النسخة مكررة وخالية تمامًا من المراجع. لم يتم حذف بيانات أخرى.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (/VIDEO_REQUEST_DELETE_(?:CONFLICT|NOT_TERMINAL|HAS_MEDIA|REFERENCED_BY_)/.test(message)) {
       return NextResponse.json({ error: 'تعذر حذف الطلب: حالته تغيرت أو ما زال مرتبطًا بوسيط أو سجل في المكتبة أو طابور النشر. لم يُحذف أي شيء.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
     }
     console.error('[api/admin/videos/[id]] DELETE:', error);
