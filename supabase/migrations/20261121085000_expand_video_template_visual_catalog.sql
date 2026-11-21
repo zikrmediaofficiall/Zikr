@@ -16,6 +16,12 @@ ALTER TABLE public.video_templates
     'andalusian-arch',
     'midnight-skyline',
     'oasis-dawn',
+    'lantern-glow',
+    'geometric-mosaic',
+    'moonlit-sea',
+    'desert-caravan',
+    'olive-grove',
+    'manuscript-library',
     'desert-dusk',
     'coastal-blue',
     'botanical',
@@ -82,7 +88,7 @@ BEGIN
   END IF;
 
   IF (v_audience = 'kids' AND NOT (v_asset = ANY (ARRAY['kids-garden', 'kids-nature', 'kids-neighborhood', 'kids-workshop', 'kids-space', 'kids-ocean', 'kids-forest', 'kids-playground', 'kids-classroom', 'kids-adventure']::text[])))
-     OR (v_audience = 'general' AND NOT (v_asset = ANY (ARRAY['calm', 'dawn', 'emerald', 'gold', 'night', 'paper', 'rose', 'andalusian-arch', 'midnight-skyline', 'oasis-dawn', 'desert-dusk', 'coastal-blue', 'botanical', 'library', 'geometric', 'marble', 'cinematic', 'starfield', 'mountain-dawn', 'heritage', 'minimal-studio', 'rainy-window']::text[]))) THEN
+     OR (v_audience = 'general' AND NOT (v_asset = ANY (ARRAY['calm', 'dawn', 'emerald', 'gold', 'night', 'paper', 'rose', 'andalusian-arch', 'midnight-skyline', 'oasis-dawn', 'lantern-glow', 'geometric-mosaic', 'moonlit-sea', 'desert-caravan', 'olive-grove', 'manuscript-library', 'desert-dusk', 'coastal-blue', 'botanical', 'library', 'geometric', 'marble', 'cinematic', 'starfield', 'mountain-dawn', 'heritage', 'minimal-studio', 'rainy-window']::text[]))) THEN
     RAISE EXCEPTION 'asset does not match template audience' USING ERRCODE = '22023';
   END IF;
 
