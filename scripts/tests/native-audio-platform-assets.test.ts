@@ -35,12 +35,12 @@ const iosDhikr = getNativeAudio("dhikr", "ios");
 const iosSalawat = getNativeAudio("salawat", "ios");
 
 assert.equal(iosPrayer.sound, "adhan.wav");
-assert.equal(iosDhikr.sound, "adhan.wav");
+assert.equal(iosDhikr.sound, undefined, "iOS must not substitute an adhan for a dhikr reminder");
 assert.equal(iosSalawat.sound, "salawat.wav");
 assert.ok(!iosPrayer.sound.endsWith(".mp3"));
 assert.ok(!iosSalawat.sound.endsWith(".mp3"));
 
-for (const sound of [iosPrayer.sound, iosDhikr.sound, iosSalawat.sound]) {
+for (const sound of [iosPrayer.sound, iosDhikr.sound, iosSalawat.sound].filter((value): value is string => Boolean(value))) {
   assert.ok(
     existsSync(resolve(process.cwd(), "ios/App/App/Resources", sound)),
     `iOS notification sound must exist in the native app bundle: ${sound}`,
@@ -50,7 +50,8 @@ for (const sound of [iosPrayer.sound, iosDhikr.sound, iosSalawat.sound]) {
 const androidPrayer = getNativeAudio("prayer", "android");
 const androidDhikr = getNativeAudio("dhikr", "android");
 const androidSalawat = getNativeAudio("salawat", "android");
-for (const sound of [androidPrayer.sound, androidDhikr.sound, androidSalawat.sound]) {
+assert.equal(androidDhikr.sound, undefined, "Android must use the system default rather than an adhan for dhikr reminders");
+for (const sound of [androidPrayer.sound, androidDhikr.sound, androidSalawat.sound].filter((value): value is string => Boolean(value))) {
   assert.ok(
     existsSync(resolve(process.cwd(), "android/app/src/main/res/raw", sound)),
     `Android notification sound must exist in res/raw: ${sound}`,
@@ -69,7 +70,7 @@ const androidChannels: Array<{
   name: string;
   description: string;
   importance: number;
-  sound: string;
+  sound?: string;
   vibration: boolean;
   visibility: number;
 }> = [];
@@ -101,6 +102,16 @@ assert.equal(
   getAudioChoice("salawat-wav", "prayer").key,
   "adhan-01",
   "slot-aware lookup must fall back to the correct bundled audio instead of playing another slot's sound",
+);
+assert.equal(
+  getAudioChoice("missing-dhikr-choice", "dhikr").slot,
+  "dhikr",
+  "missing dhikr choices must fall back to another dhikr recording, never an adhan",
+);
+assert.match(
+  getAudioChoice("missing-dhikr-choice", "dhikr").key,
+  /^site:dhikr:/,
+  "the dhikr fallback must come from the curated human dhikr catalogue",
 );
 
 const staleRemoteChoice = {
@@ -143,6 +154,9 @@ assert.deepEqual(
 assert.ok(androidChannels.some(channel =>
   channel.id === getNativeAudio("dhikr", "android").channelId,
 ));
+const dhikrChannel = androidChannels.find(channel => channel.id === androidDhikr.channelId);
+assert.ok(dhikrChannel);
+assert.equal(dhikrChannel.sound, undefined, "the dhikr notification channel must not be configured with an adhan file");
 
 let iosChannelCount = 0;
 await ensureNativeNotificationChannels(
