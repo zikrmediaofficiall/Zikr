@@ -105,10 +105,10 @@ export function resolveCloudinaryVideoPoster(videoUrl: string | null | undefined
     ) return null;
     const segments = parsed.pathname.split("/").filter(Boolean);
     if (segments.length < 5 || segments[0] !== cloudName || segments[1] !== "video" || segments[2] !== "upload") return null;
-    if (!/\\.(mp4|webm|mov|m4v)$/i.test(segments.at(-1) ?? "")) return null;
+    if (!/\.(mp4|webm|mov|m4v)$/i.test(segments.at(-1) ?? "")) return null;
     const posterPath = parsed.pathname
       .replace("/video/upload/", "/video/upload/so_0/")
-      .replace(/\\.(mp4|webm|mov|m4v)$/i, ".jpg");
+      .replace(/\.(mp4|webm|mov|m4v)$/i, ".jpg");
     return parsed.origin + posterPath;
   } catch {
     return null;
