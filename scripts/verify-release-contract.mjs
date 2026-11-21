@@ -101,7 +101,7 @@ assert.ok(recoveryDispatch.includes("branchData.commit.sha"), "Android recovery 
 
 assert.ok(recoveryDispatch.includes("RELEASE_RETRY.flag"), "Android recovery dispatch must require the repository release retry guard");
 assert.ok(recoveryDispatch.includes("createWorkflowDispatch"), "Android recovery dispatch must start the guarded publisher workflow");
-assert.ok(recoveryDispatch.includes("github.event_name == 'workflow_dispatch'"), "Android recovery must only run after explicit CircleCI dispatch");
+assert.ok(recoveryDispatch.includes("github.event_name == 'workflow_dispatch'") && recoveryDispatch.includes("isPushRecoveryTrigger"), "Android recovery must retain explicit CircleCI dispatch and owner-only push fallback");
 assert.ok(recoveryDispatch.includes("getCombinedStatusForRef"), "Dispatched recovery must confirm success of the exact CircleCI Android build");
 assert.ok(recoveryDispatch.includes("  statuses: read"), "Android recovery must have read permission for CircleCI commit statuses");
 assert.ok(recoveryDispatch.includes("  actions: write"), "Android recovery must have permission to dispatch the guarded publisher");
