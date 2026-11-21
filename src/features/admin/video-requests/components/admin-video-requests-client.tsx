@@ -42,23 +42,19 @@ function getDuplicateCanonicalRequestId(request: VideoGenerationRequest): string
   return match?.[1] ?? null;
 }
 
-function isSafeDuplicateAssetCandidate(request: VideoGenerationRequest, canManageKids: boolean): boolean {
+function isSafeGeneratedAssetDeletionCandidate(request: VideoGenerationRequest, canManageKids: boolean): boolean {
   const audience = resolveVideoRequestAudience(request.content);
   if (!audience.ok || (audience.audience === "kids" && !canManageKids)) return false;
-  if (
-    request.status !== "cancelled" ||
-    !getDuplicateCanonicalRequestId(request) ||
-    !request.video_url ||
-    request.thumbnail_url ||
-    request.youtube_id ||
-    request.facebook_id ||
-    request.heygen_video_id ||
-    request.provider_job_id
-  ) return false;
   const content = request.content && typeof request.content === "object" && !Array.isArray(request.content)
     ? request.content as Record<string, unknown> : {};
+  const duplicate = request.status === "cancelled" && Boolean(getDuplicateCanonicalRequestId(request));
+  const qaFailed = request.status === "completed" && content.approvalStatus === "qa_failed";
+  if ((!duplicate && !qaFailed) || !request.video_url ||
+    request.thumbnail_url || request.youtube_id || request.facebook_id ||
+    request.heygen_video_id || request.provider_job_id) return false;
   const retainedContentKeys = ["audioUrl", "humanAudioUrl", "audioMediaAssetId", "audioMediaAssetOwnerId", "videoUrl", "generatedVideoUrl", "thumbnailUrl"];
-  if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim()) || content.audioSource === "human_recording") return false;
+  if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim()) ||
+    content.audioSource === "human_recording") return false;
   try {
     const url = new URL(request.video_url);
     const segments = url.pathname.split("/").filter(Boolean);
@@ -72,6 +68,12 @@ function isSafeDuplicateAssetCandidate(request: VideoGenerationRequest, canManag
   } catch {
     return false;
   }
+}
+
+function isQaFailedGeneratedVideo(request: VideoGenerationRequest): boolean {
+  const content = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+    ? request.content as Record<string, unknown> : {};
+  return request.status === "completed" && content.approvalStatus === "qa_failed";
 }
 
 function isSafelyDeletable(request: VideoGenerationRequest, canManageKids: boolean): boolean {
@@ -207,10 +209,14 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   }
 
   async function deleteRequest(request: VideoGenerationRequest) {
-    const duplicateAsset = isSafeDuplicateAssetCandidate(request, canManageKids);
-    if (!canDelete || (!isSafelyDeletable(request, canManageKids) && !duplicateAsset)) return;
-    const confirmation = duplicateAsset
-      ? `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
+    const generatedAsset = isSafeGeneratedAssetDeletionCandidate(request, canManageKids);
+    const duplicateAsset = Boolean(getDuplicateCanonicalRequestId(request));
+    const qaFailedAsset = isQaFailedGeneratedVideo(request);
+    if (!canDelete || (!isSafelyDeletable(request, canManageKids) && !generatedAsset)) return;
+    const confirmation = generatedAsset
+      ? qaFailedAsset
+        ? `هذا الفيديو مكتمل تقنيًا لكنه رُفض في فحص الجودة ولم يُنشر. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب بعد التأكد من عدم ارتباطه بأي منشور أو مكتبة. لا يمكن استعادته بعد الحذف. متابعة؟`
+        : `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
       : `تأكيد حذف سجل الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`;
     if (!window.confirm(confirmation)) return;
     setBusyId(request.id); setError(""); setMessage("");
@@ -222,11 +228,13 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       const data = await response.json().catch(() => ({}));
       if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
       if (!response.ok) throw new Error(data.error || "تعذر حذف طلب الفيديو.");
-      if (duplicateAsset && data.cloudinaryCleanupPending === true) {
-        setMessage("حُذف سجل النسخة المكررة بأمان، لكن Cloudinary لم يؤكد حذف الملف. تم تسجيل حالة تحتاج مراجعة؛ لا تعِد محاولة الحذف قبل مراجعة سجل التدقيق.");
+      if (generatedAsset && data.cloudinaryCleanupPending === true) {
+        setMessage("حُذف سجل الفيديو بعد فحص المراجع، لكن Cloudinary لم يؤكد حذف الملف. تم تسجيل حالة تحتاج مراجعة؛ لا تعِد محاولة الحذف قبل مراجعة سجل التدقيق.");
       } else {
-        setMessage(duplicateAsset
-          ? "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
+        setMessage(generatedAsset
+          ? qaFailedAsset
+            ? "تم حذف ملف الفيديو المرفوض في فحص الجودة وسجل طلبه بعد التحقق من عدم وجود أي مراجع. لم يتأثر أي فيديو منشور."
+            : "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
           : "حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
       }
       await load();
@@ -428,9 +436,11 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
                     return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
                   })()}
-                  {canDelete && (isSafelyDeletable(request, canManageKids) || isSafeDuplicateAssetCandidate(request, canManageKids)) && (
+                  {canDelete && (isSafelyDeletable(request, canManageKids) || isSafeGeneratedAssetDeletionCandidate(request, canManageKids)) && (
                     <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>
-                      {isSafeDuplicateAssetCandidate(request, canManageKids) ? "حذف الفيديو المكرر وملفه نهائيًا" : "حذف سجل الطلب"}
+                      {isSafeGeneratedAssetDeletionCandidate(request, canManageKids)
+                        ? isQaFailedGeneratedVideo(request) ? "حذف فيديو فشل فحص الجودة وملفه نهائيًا" : "حذف الفيديو المكرر وملفه نهائيًا"
+                        : "حذف سجل الطلب"}
                     </Button>
                   )}
                 </div>
