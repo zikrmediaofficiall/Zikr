@@ -22,6 +22,10 @@ assert.ok(releasePage.includes("ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY") && release
 assert.ok(!releasePage.includes("SIGNED_RELEASE_BLOCKER") && !releaseAction.includes("SIGNED_RELEASE_BLOCKER"), "Release UI and action must not hard-code a permanent signing blocker");
 assert.ok(releaseAction.includes("prepareAndroidRelease") && releaseAction.includes("assertNoActiveReleaseOperation"), "Release action must prepare canonical metadata and prevent overlapping operations");
 assert.ok(releaseAction.includes("recordAdminAuditEventSafely"), "Release preparation must preserve the admin audit trail");
+assert.ok(releasePage.includes("operationCanRecover") && releasePage.includes("حذف الإصدار العالق وإعادة إنشائه والمحاولة مرة أخرى"), "Release recovery must show the exact stale-operation cleanup control");
+assert.ok(releasePage.includes('name="confirmCleanup"') && releaseAction.includes('formData.get("confirmCleanup") !== "yes"'), "Release recovery must require explicit destructive-action confirmation in both UI and server action");
+assert.ok(releaseAction.includes("recreateStuckAndroidRelease") && releaseAction.includes('action: "android.release.recreate.retry"'), "Release recovery must invoke the guarded release manager and persist an audit event");
+
 
 for (const route of ["/admin/video", "/admin/social", "/admin/sections", "/admin/queues", "/admin/audio", "/admin/sources"]) {
   assert.ok(adminCommandCenter.includes(route), `admin command center quick actions must include ${route}`);
