@@ -87,7 +87,7 @@ export async function createAndroidReleaseAction() {
   await requireAdminStepUp("release.manage", "/admin/release");
   await assertNoActiveReleaseOperation();
 
-  let preflight;
+  let preflight: Awaited<ReturnType<typeof getAndroidReleaseSigningPreflightStatus>>;
   try {
     preflight = await getAndroidReleaseSigningPreflightStatus();
   } catch (error) {
@@ -109,7 +109,7 @@ export async function createAndroidReleaseAction() {
     );
   }
 
-  let prepared;
+  let prepared: Awaited<ReturnType<typeof prepareAndroidRelease>>;
   try {
     prepared = await prepareAndroidRelease();
   } catch (error) {
