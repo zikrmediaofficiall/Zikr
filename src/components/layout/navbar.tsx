@@ -31,11 +31,12 @@ const links: NavLink[] = [
   { href: "/sections", label: "كل الأقسام", labelEn: "All sections", icon: "Grid3X3" },
 ];
 
-export async function Navbar({ hiddenHrefs = [] }: { hiddenHrefs?: string[] }) {
+export async function Navbar({ hiddenHrefs = [], sectionOrder = [] }: { hiddenHrefs?: string[]; sectionOrder?: string[] }) {
   const locale = await getRequestLocale();
   const isEnglish = locale === "en";
   const hidden = new Set(hiddenHrefs);
-  const visibleLinks = links.filter((link) => !hidden.has(link.href));
+  const orderIndex = new Map(sectionOrder.map((key, index) => [key, index]));
+  const visibleLinks = links.filter((link) => !hidden.has(link.href)).sort((a, b) => (orderIndex.get(a.href.replace(/^\\/+|\\/+$/g, '').replaceAll('/', '-')) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(b.href.replace(/^\\/+|\\/+$/g, '').replaceAll('/', '-')) ?? Number.MAX_SAFE_INTEGER));
   let user = null;
   let isAdmin = false;
 
@@ -95,7 +96,7 @@ export async function Navbar({ hiddenHrefs = [] }: { hiddenHrefs?: string[] }) {
           >
             <Settings className="h-5 w-5" aria-hidden="true" />
           </Link>
-          <MobileNav isAuthenticated={Boolean(user)} hiddenHrefs={hiddenHrefs} />
+          <MobileNav isAuthenticated={Boolean(user)} hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} />
           <AuthNavActions initialUser={user} initialIsAdmin={isAdmin} />
         </div>
       </Container>
