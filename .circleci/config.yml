@@ -325,22 +325,24 @@ jobs:
               hadith_status=127
               quran_status=127
             else
+              # Source-backed Quran and Hadith imports do not depend on Gemini.
+              # Run them first so long article batches cannot delay them.
+              echo "Importing the named English Quran edition from the verified upstream source."
+              timeout --signal=TERM --kill-after=60s 15m pnpm sync:quran:en || quran_status=$?
+
+              echo "Synchronizing at most ${HADITH_TRANSLATION_BATCH_SIZE} Hadith records."
+              timeout --signal=TERM --kill-after=60s 15m pnpm sync:hadith:en || hadith_status=$?
+
               if [[ -n "${GEMINI_API_KEY:-}" ]]; then
                 echo "Translating at most ${TRANSLATION_BATCH_SIZE} published articles."
                 timeout --signal=TERM --kill-after=60s 40m pnpm translate:articles:en || article_status=$?
                 echo "Translating at most ${CONTENT_TRANSLATION_BATCH_SIZE} records per additional content category."
                 timeout --signal=TERM --kill-after=60s 40m pnpm translate:content:en || content_status=$?
               else
-                echo "Missing GEMINI_API_KEY; article and additional content translation cannot run." >&2
+                echo "Missing GEMINI_API_KEY; source-backed Quran and Hadith sync continue, but article and additional content translation cannot run." >&2
                 article_status=1
                 content_status=1
               fi
-
-              echo "Importing the named English Quran edition from the verified upstream source."
-              timeout --signal=TERM --kill-after=60s 15m pnpm sync:quran:en || quran_status=$?
-
-              echo "Synchronizing at most ${HADITH_TRANSLATION_BATCH_SIZE} Hadith records."
-              timeout --signal=TERM --kill-after=60s 15m pnpm sync:hadith:en || hadith_status=$?
             fi
 
             if (( article_status != 0 || content_status != 0 || quran_status != 0 || hadith_status != 0 )); then
