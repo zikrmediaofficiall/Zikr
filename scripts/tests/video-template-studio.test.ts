@@ -147,6 +147,7 @@ assert.equal(
 
 const migration = read("supabase/migrations/20261106010000_admin_video_template_studio.sql");
 const visualCatalogMigration = read("supabase/migrations/20261121090000_expand_video_template_visual_catalog.sql");
+const visualCatalogBridgeMigration = read("supabase/migrations/20261121085000_expand_video_template_visual_catalog.sql");
 const blockerFixMigration = read("supabase/migrations/20261106090800_production_blockers_and_social_insights.sql");
 const api = read("src/app/api/admin/video/templates/route.ts");
 const createApi = read("src/app/api/admin/videos/create/route.ts");
@@ -197,6 +198,15 @@ assert.doesNotMatch(blockerFixMigration, /FROM auth\.users/i);
 assert.match(migration, /video_template_versions_one_active_per_template/i);
 for (const asset of addedAssets) {
   assert.ok(visualCatalogMigration.includes("'" + asset + "'"), "Visual catalog migration must allow and seed " + asset);
+}
+for (const previouslyRegisteredAsset of [
+  "lantern-glow", "geometric-mosaic", "moonlit-sea",
+  "desert-caravan", "olive-grove", "manuscript-library",
+]) {
+  assert.ok(
+    visualCatalogBridgeMigration.includes("'" + previouslyRegisteredAsset + "'"),
+    "Intermediate catalog migration must preserve previously registered asset " + previouslyRegisteredAsset,
+  );
 }
 assert.match(visualCatalogMigration, /REVOKE ALL ON FUNCTION public\.admin_create_video_template_version/);
 assert.match(visualCatalogMigration, /GRANT EXECUTE ON FUNCTION public\.admin_create_video_template_version/);
