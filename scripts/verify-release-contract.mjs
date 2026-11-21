@@ -38,6 +38,9 @@ assert.ok(androidAdminAction.includes("لا يمكن تثبيت إصدار غي�
 const androidAdminPage = read("src/app/admin/android/page.tsx");
 assert.ok(androidAdminPage.includes('endsWith(".apk")') && androidAdminPage.includes('endsWith(".aab")'), "Admin Android release choices must contain both APK and AAB artifacts");
 assert.ok(!releaseManager.includes("buildTag"), "Android release manager must not create a redundant -build tag");
+const androidTagSigningWorkflow = read(".github/workflows/sign-android-release-tag.yml");
+const expectedNotesGuard = 'grep -Fq "Release tag: \\`$TAG\\`" "$NOTES"';
+assert.ok(androidTagSigningWorkflow.includes(expectedNotesGuard), "Signed release workflow must compare literal backtick-delimited notes without shell command substitution");
 
 const androidCircle = read(".circleci/config.yml");
 const androidDraftJob = androidCircle.split("  android-release-draft:")[1]?.split("\n  android-rebuild:")[0] ?? "";
