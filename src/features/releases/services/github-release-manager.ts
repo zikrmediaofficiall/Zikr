@@ -1,5 +1,7 @@
 import "server-only";
 
+import { dispatchGitHubWorkflow } from "@/lib/github/dispatch-workflow";
+
 type GitHubCommit = {
   sha: string;
   commit?: { message?: string };
@@ -214,6 +216,77 @@ function buildReleaseNotes(
  * if another writer advances main, GitHub rejects this commit rather than
  * overwriting or silently tagging somebody else's changes.
  */
+
+type GitHubWorkflowRun = {
+  id?: number;
+  head_sha?: string;
+  status?: string;
+  conclusion?: string | null;
+  html_url?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type GitHubWorkflowRuns = { workflow_runs?: GitHubWorkflowRun[] };
+
+export type AndroidReleaseSigningPreflight = {
+  mainSha: string;
+  status: "not_run" | "queued" | "in_progress" | "completed";
+  conclusion: string | null;
+  ready: boolean;
+  url: string | null;
+  runId: number | null;
+  updatedAt: string | null;
+};
+
+async function getCurrentMainSha(): Promise<string> {
+  const ref = await githubJson<GitHubRef>("/repos/" + REPO + "/git/ref/heads/main");
+  const sha = ref.object?.sha;
+  if (!sha) throw new Error("تعذر تحديد أحدث commit على main.");
+  return sha;
+}
+
+/**
+ * Signing readiness must come from a protected-environment preflight run
+ * against the exact current main SHA. A success for an older SHA is stale.
+ */
+export async function getAndroidReleaseSigningPreflightStatus(): Promise<AndroidReleaseSigningPreflight> {
+  const mainSha = await getCurrentMainSha();
+  const workflow = "android-release-signing-preflight.yml";
+  const response = await githubJson<GitHubWorkflowRuns>(
+    "/repos/" + REPO + "/actions/workflows/" + workflow + "/runs?event=workflow_dispatch&branch=main&per_page=20",
+  );
+  const candidates = (response.workflow_runs ?? [])
+    .filter(run => run.head_sha === mainSha)
+    .sort((a, b) => Date.parse(b.updated_at ?? b.created_at ?? "") - Date.parse(a.updated_at ?? a.created_at ?? ""));
+  const latest = candidates[0];
+  const updatedAt = latest?.updated_at ?? latest?.created_at ?? null;
+  const ageMs = updatedAt ? Date.now() - Date.parse(updatedAt) : Number.POSITIVE_INFINITY;
+  const recent = Number.isFinite(ageMs) && ageMs >= 0 && ageMs < 6 * 60 * 60 * 1000;
+  const ready = Boolean(latest?.status === "completed" && latest.conclusion === "success" && recent);
+
+  return {
+    mainSha,
+    status: (latest?.status as AndroidReleaseSigningPreflight["status"]) ?? "not_run",
+    conclusion: latest?.conclusion ?? null,
+    ready,
+    url: latest?.html_url ?? null,
+    runId: latest?.id ?? null,
+    updatedAt,
+  };
+}
+
+export async function requestAndroidReleaseSigningPreflight() {
+  const status = await getAndroidReleaseSigningPreflightStatus();
+  await dispatchGitHubWorkflow("android-release-signing-preflight.yml", {
+    target_sha: status.mainSha,
+  });
+  return {
+    mainSha: status.mainSha,
+    workflowUrl: "https://github.com/" + REPO + "/actions/workflows/android-release-signing-preflight.yml",
+  };
+}
+
 async function createAtomicMainCommit(baseSha: string, files: Record<string, string>) {
   const baseCommit = await githubJson<GitHubGitCommit>(
     "/repos/" + REPO + "/git/commits/" + baseSha,
@@ -294,9 +367,11 @@ async function createAtomicMainCommit(baseSha: string, files: Record<string, str
 }
 
 export async function prepareAndroidRelease() {
-  const ref = await githubJson<GitHubRef>("/repos/" + REPO + "/git/ref/heads/main");
-  const baseSha = ref.object?.sha;
-  if (!baseSha) throw new Error("تعذر تحديد أحدث commit على main.");
+  const baseSha = await getCurrentMainSha();
+  const preflight = await getAndroidReleaseSigningPreflightStatus();
+  if (!preflight.ready || preflight.mainSha !== baseSha) {
+    throw new Error("لم ينجح فحص مفتاح توقيع Git لهذا الـcommit. شغّل فحص التوقيع من مركز الإصدار وانتظر نجاحه قبل إنشاء أي commit أو tag.");
+  }
 
   const [
     buildGradle,
@@ -483,86 +558,21 @@ export async function prepareAndroidRelease() {
 
   const preparedCommitSha = await createAtomicMainCommit(baseSha, files);
 
-  const tagObject = await githubJson<{ sha?: string }>(
-    "/repos/" + REPO + "/git/tags",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        tag,
-        message: "ZIKR Android " + tag,
-        object: preparedCommitSha,
-        type: "commit",
-      }),
-    },
-  );
-  if (!tagObject.sha) throw new Error("تم تجهيز commit الإصدار لكن تعذر إنشاء Git tag object.");
-
-  const verifiedTagObject = await githubJson<{
-    tag?: string;
-    object?: { sha?: string; type?: string };
-  }>("/repos/" + REPO + "/git/tags/" + encodeURIComponent(tagObject.sha));
-  if (
-    verifiedTagObject.tag !== tag ||
-    verifiedTagObject.object?.type !== "commit" ||
-    verifiedTagObject.object.sha !== preparedCommitSha
-  ) {
-    throw new Error("فشل التحقق من أن Git tag يشير إلى نفس commit الذي يحتوي على metadata الإصدار.");
-  }
-
-  await githubJson(
-    "/repos/" + REPO + "/git/refs",
-    {
-      method: "POST",
-      body: JSON.stringify({ ref: "refs/tags/" + tag, sha: tagObject.sha }),
-    },
-  );
-
-  const publishedTagRef = await githubJson<GitHubRef>(
-    "/repos/" + REPO + "/git/ref/tags/" + encodeURIComponent(tag),
-  );
-  if (
-    publishedTagRef.object?.type !== "tag" ||
-    publishedTagRef.object.sha !== tagObject.sha
-  ) {
-    throw new Error("تعذر تأكيد نشر Git tag الصحيح على نفس commit الإصدار.");
-  }
-
-  const release = await githubJson<GitHubRelease>(
-    "/repos/" + REPO + "/releases",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        tag_name: tag,
-        target_commitish: "main",
-        name: "ZIKR Android " + tag,
-        body: notes,
-        draft: true,
-        prerelease: false,
-      }),
-    },
-  );
-  if (!release.id || release.tag_name !== tag || release.draft !== true) {
-    throw new Error("تم إنشاء Git tag لكن GitHub لم يؤكد Draft Release مطابقًا لنفس الإصدار.");
-  }
-
-  const verifiedRelease = await githubJson<GitHubRelease>(
-    "/repos/" + REPO + "/releases/" + release.id,
-  );
-  if (
-    verifiedRelease.id !== release.id ||
-    verifiedRelease.tag_name !== tag ||
-    verifiedRelease.draft !== true
-  ) {
-    throw new Error("فشل التحقق النهائي من هوية GitHub Release أو ارتباطه بالـTag المطلوب.");
-  }
+  // The REST tag API cannot supply a cryptographic signature. The protected
+  // GitHub Environment runner owns GPG signing and creates the Draft Release
+  // only after GitHub reports the exact tag as verified.
+  await dispatchGitHubWorkflow("sign-android-release-tag.yml", {
+    tag,
+    commit_sha: preparedCommitSha,
+  });
 
   return {
     tag,
     version: nextVersion,
     versionCode: nextVersionCode,
     commitSha: preparedCommitSha,
-    releaseId: release.id ?? null,
-    releaseUrl: release.html_url ?? "https://github.com/" + REPO + "/releases/tag/" + encodeURIComponent(tag),
+    releaseId: null,
+    releaseUrl: "https://github.com/" + REPO + "/actions/workflows/sign-android-release-tag.yml",
     notes,
   };
 }
