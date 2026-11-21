@@ -1,7 +1,7 @@
 "use client";
 
 import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video-publication";
-import { isKidsVideoContentMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
+import { isKidsVideoContentMarker, normalizeVideoMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -46,7 +46,17 @@ function isReadyForHumanApproval(content: unknown): boolean {
   const reviewAt = typeof record.approvalReviewedAt === "string" ? record.approvalReviewedAt : "";
   const snapshotHash = typeof record.approvalSnapshotHash === "string" ? record.approvalSnapshotHash : "";
   const requiredChecks: ApprovalCheckKey[] = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"];
+  const hasCompleteSeries =
+    normalizeVideoMarker(record.contentFormat) === "series_episode" &&
+    normalizeVideoMarker(record.aiMode) === "original_kids_story" &&
+    normalizeVideoMarker(record.sourceType) === "original_kids_fiction" &&
+    typeof record.seriesId === "string" && Boolean(record.seriesId.trim()) &&
+    typeof record.seriesTitle === "string" && Boolean(record.seriesTitle.trim()) &&
+    typeof record.learningObjective === "string" && Boolean(record.learningObjective.trim()) &&
+    Number.isInteger(Number(record.seasonNumber)) && Number(record.seasonNumber) > 0 &&
+    Number.isInteger(Number(record.episodeNumber)) && Number(record.episodeNumber) > 0;
   return audience.ok &&
+    hasCompleteSeries &&
     audience.audience === "kids" &&
     record.approvalStatus === "approved" &&
     record.approvalReviewerId === "system:zikr-video-factory" &&
