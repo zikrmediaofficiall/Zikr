@@ -7,7 +7,7 @@ import { AuthNavActions } from "./auth-nav-actions";
 import { LanguageToggle } from "./language-toggle";
 import { LanguageAwareNav, type NavLink } from "./language-aware-nav";
 import { getRequestLocale } from "@/lib/i18n/server";
-import { getCatalogItem } from "@/lib/navigation/catalog";
+import { getCatalogItem, getCatalogItemKey } from "@/lib/navigation/catalog";
 
 const PRIMARY_NAVIGATION_HREFS = [
   "/quran",
