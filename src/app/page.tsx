@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { Container } from '@/components/ui/container';
 import { getSiteSetting, getSectionVisibility, getSectionDisplayOrder } from '@/features/site-content/services/site-content';
 import { getArticles } from '@/features/articles/services/articles';
+import { getVideos } from '@/features/videos/services/videos';
 import { HomeInteractive } from '@/features/home/components/home-interactive';
 import { SITE_CATALOG, CATALOG_ITEMS, getCatalogItemKey } from '@/lib/navigation/catalog';
 import * as Icons from 'lucide-react';
@@ -22,11 +23,11 @@ const QUICK_ACTIONS = [
 ] as const;
 
 const DAILY_TOOLS = [
-  { href: '/wird', ar: 'الورد اليومي', en: 'Daily Wird', icon: 'Sun', text: 'خطة بسيطة للقراءة والذكر والاستمرارية.' },
-  { href: '/qibla', ar: 'القبلة', en: 'Qibla', icon: 'Navigation', text: 'حدد اتجاه القبلة من جهازك.' },
-  { href: '/memorization', ar: 'الحفظ', en: 'Memorization', icon: 'Brain', text: 'قسّم الحفظ والمراجعة إلى جلسات قابلة للمتابعة.' },
-  { href: '/tasbeeh', ar: 'التسبيح', en: 'Tasbeeh', icon: 'CircleDot', text: 'عداد بسيط للذكر مع حفظ التقدم على جهازك.' },
-  { href: '/offline-library', ar: 'المكتبة بلا إنترنت', en: 'Offline Library', icon: 'Download', text: 'ارجع للمحتوى المحفوظ عند ضعف الاتصال.' },
+  { href: '/wird', ar: 'الورد اليومي', en: 'Daily Wird', icon: 'Sun', text: 'خطة بسيطة للقراءة والذكر والاستمرارية.', textEn: 'Build a steady reading and remembrance routine.' },
+  { href: '/qibla', ar: 'القبلة', en: 'Qibla', icon: 'Navigation', text: 'حدد اتجاه القبلة من جهازك.', textEn: 'Find the Qibla direction using your device.' },
+  { href: '/memorization', ar: 'الحفظ', en: 'Memorization', icon: 'Brain', text: 'قسّم الحفظ والمراجعة إلى جلسات قابلة للمتابعة.', textEn: 'Organize memorization and revision into trackable sessions.' },
+  { href: '/tasbeeh', ar: 'التسبيح', en: 'Tasbeeh', icon: 'CircleDot', text: 'عداد بسيط للذكر مع حفظ التقدم على جهازك.', textEn: 'A simple remembrance counter that keeps your progress on this device.' },
+  { href: '/offline-library', ar: 'المكتبة بلا إنترنت', en: 'Offline Library', icon: 'Download', text: 'ارجع للمحتوى المحفوظ عند ضعف الاتصال.', textEn: 'Return to saved resources when your connection is limited.' },
 ] as const;
 
 const GUIDED_PATHS = [
@@ -73,6 +74,23 @@ function safeSocialUrl(value: string | null | undefined, allowedHosts: readonly 
 function resolveIcon(name: string): LucideIcon {
   const candidate = (Icons as unknown as Record<string, unknown>)[name];
   return (typeof candidate === 'function' || (typeof candidate === 'object' && candidate !== null)) ? (candidate as LucideIcon) : Icons.Circle;
+}
+
+function formatVideoDuration(seconds: number | undefined): string | null {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return null;
+  const total = Math.floor(seconds);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+function safeThumbnailBackground(value: string | undefined): string | null {
+  if (!value?.trim()) return null;
+  if (value.startsWith('/') && !value.startsWith('//')) return value;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' ? url.toString().replace(/"/g, '%22') : null;
+  } catch {
+    return null;
+  }
 }
 
 const dailyVerse = 'إِنَّ هَٰذَا الْقُرْآنَ يَهْدِي لِلَّتِي هِيَ أَقْوَمُ';
@@ -128,6 +146,7 @@ export default async function HomePage() {
   const showEditorialLibrary = homepageSetting?.showEditorialLibrary !== false && isSectionVisible('/articles');
   const showDailyTools = homepageSetting?.showDailyTools !== false;
   const showDailyVerse = homepageSetting?.showDailyVerse !== false && isSectionVisible('/quran');
+  const showFeaturedVideos = homepageSetting?.showFeaturedVideos !== false && isSectionVisible('/videos');
   const homeTitle =
     !isEnglish && homepageSetting?.title?.trim()
       ? homepageSetting.title.trim()
@@ -163,7 +182,10 @@ export default async function HomePage() {
       return aOrder - bOrder;
     });
 
-  const articles = await getArticles(undefined, 6);
+  const [articles, featuredVideos] = await Promise.all([
+    getArticles(undefined, 9),
+    getVideos(undefined, 4),
+  ]);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-brand-emeraldDeep text-brand-cream">
@@ -212,6 +234,19 @@ export default async function HomePage() {
                 </button>
               </div>
             </form>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <Link href="/sections" className="rounded-xl bg-brand-gold px-5 py-3 text-sm font-bold text-brand-emeraldDeep shadow-lg shadow-black/15 transition hover:bg-brand-goldSoft">
+                {isEnglish ? 'Explore all sections' : 'استكشف كل أقسام ذِكر'}
+              </Link>
+              <Link href="/wird" className="rounded-xl border border-brand-gold/30 bg-black/15 px-5 py-3 text-sm font-semibold text-brand-cream transition hover:border-brand-gold/60 hover:text-brand-gold">
+                {isEnglish ? 'Start a daily routine' : 'ابدأ وردك اليومي'}
+              </Link>
+            </div>
+            <div className="mt-5 flex flex-wrap justify-center gap-2 text-[11px] text-brand-cream/50">
+              {[isEnglish ? 'Quran and verified references' : 'قرآن ومراجع قابلة للتحقق', isEnglish ? 'Reading, audio and daily tools' : 'قراءة وصوت وأدوات يومية', isEnglish ? 'A focused Kids experience' : 'تجربة مخصصة للأطفال'].map((item) => (
+                <span key={item} className="rounded-full border border-brand-gold/10 bg-black/15 px-3 py-1.5">{item}</span>
+              ))}
+            </div>
           </div>
         </Container>
       </section>
@@ -270,6 +305,44 @@ export default async function HomePage() {
         <section className="border-b border-brand-gold/10 px-3 py-6 sm:px-4 sm:py-8" aria-label={isEnglish ? "Local time and prayer times" : "الوقت ومواقيت الصلاة"}>
           <Container>
             <HomeInteractive locale={locale} showPrayerTimes={showPrayerTimes} />
+          </Container>
+        </section>
+
+        <section
+          className="border-b border-brand-gold/10 bg-[#061d18]/80 px-3 py-9 sm:px-4 sm:py-12"
+          aria-labelledby="featured-videos-heading"
+          hidden={!showFeaturedVideos || featuredVideos.length === 0}
+          style={{ contentVisibility: 'auto', containIntrinsicSize: '0 560px' }}
+        >
+          <Container>
+            <div className="flex flex-wrap items-end justify-between gap-4" dir={dir}>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-gold/50">{isEnglish ? 'Watch and listen' : 'شاهد واستمع'}</p>
+                <h2 id="featured-videos-heading" className="mt-2 text-2xl font-bold text-brand-gold">{isEnglish ? 'Recently published videos' : 'أحدث الفيديوهات المنشورة'}</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-brand-cream/55">{isEnglish ? 'Explore recent visual content from the ZIKR library, with a clear path to the original page.' : 'تعرّف على أحدث المحتوى المرئي في مكتبة ذِكر، وافتح صفحة كل فيديو لمراجعة تفاصيله ومصدره.'}</p>
+              </div>
+              <Link href="/videos" className="rounded-xl border border-brand-gold/25 px-4 py-2.5 text-sm font-semibold text-brand-gold transition hover:bg-brand-gold/10">{isEnglish ? 'All videos' : 'كل الفيديوهات'}</Link>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {featuredVideos.map((video) => {
+                const thumbnail = safeThumbnailBackground(video.thumbnailUrl);
+                const duration = formatVideoDuration(video.duration);
+                return (
+                  <Link key={video.id} href={'/videos/' + video.slug} className="group overflow-hidden rounded-2xl border border-brand-gold/15 bg-black/25 transition hover:-translate-y-1 hover:border-brand-gold/40" dir={dir}>
+                    <div className="relative aspect-[9/12] overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(199,168,107,.22),transparent_35%),linear-gradient(145deg,#10372d,#07140f)]" style={thumbnail ? { backgroundImage: `linear-gradient(180deg,rgba(3,15,11,.02)_15%,rgba(3,15,11,.92)_100%),url("${thumbnail}")`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/5 transition group-hover:from-black/65" />
+                      <span className="absolute right-3 top-3 rounded-full border border-brand-gold/25 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-brand-gold/90">{isEnglish ? 'Published' : 'منشور'}</span>
+                      {duration ? <span className="absolute left-3 top-3 rounded-md bg-black/65 px-2 py-1 text-[11px] font-semibold text-white tabular-nums">{duration}</span> : null}
+                      <div className="absolute inset-x-0 bottom-0 p-4">
+                        <h3 className="line-clamp-2 text-base font-bold leading-7 text-white group-hover:text-brand-gold">{video.title}</h3>
+                        {video.description ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/65">{video.description}</p> : null}
+                        <p className="mt-3 text-[11px] font-semibold text-brand-gold/85">{isEnglish ? 'Watch video' : 'مشاهدة الفيديو'} ←</p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </Container>
         </section>
 
@@ -416,7 +489,7 @@ export default async function HomePage() {
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {articles.slice(0, 6).map(article => (
+              {articles.slice(0, 9).map(article => (
                 <Link
                   key={article.slug}
                   href={'/articles/' + article.slug}
@@ -523,7 +596,7 @@ export default async function HomePage() {
                     return <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-brand-gold/15 bg-brand-gold/5 text-brand-gold" aria-hidden="true"><ToolIcon className="h-5 w-5" /></span>;
                   })()}
                   <h3 className="mt-3 font-bold text-brand-gold">{isEnglish ? tool.en : tool.ar}</h3>
-                  <p className="mt-2 text-xs leading-6 text-brand-cream/50">{tool.text}</p>
+                  <p className="mt-2 text-xs leading-6 text-brand-cream/50">{isEnglish ? tool.textEn : tool.text}</p>
                 </Link>
               ))}
             </div>
