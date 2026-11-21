@@ -84,3 +84,33 @@ export function isGeneratedCloudinaryVideoUrl(value: unknown, cloudName: string)
     return false;
   }
 }
+
+
+/**
+ * Resolve the real first-frame poster for a Cloudinary-hosted generated video.
+ * The image remains in Cloudinary; this does not create or persist a fake thumbnail.
+ */
+export function resolveCloudinaryVideoPoster(videoUrl: string | null | undefined): string | null {
+  if (typeof videoUrl !== "string" || !videoUrl.trim()) return null;
+  try {
+    const parsed = new URL(videoUrl.trim());
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim() ?? "";
+    if (
+      parsed.protocol !== "https:" ||
+      parsed.hostname.toLowerCase() !== CLOUDINARY_VIDEO_HOST ||
+      parsed.username ||
+      parsed.password ||
+      (parsed.port && parsed.port !== "443") ||
+      !cloudName
+    ) return null;
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    if (segments.length < 5 || segments[0] !== cloudName || segments[1] !== "video" || segments[2] !== "upload") return null;
+    if (!/\\.(mp4|webm|mov|m4v)$/i.test(segments.at(-1) ?? "")) return null;
+    const posterPath = parsed.pathname
+      .replace("/video/upload/", "/video/upload/so_0/")
+      .replace(/\\.(mp4|webm|mov|m4v)$/i, ".jpg");
+    return parsed.origin + posterPath;
+  } catch {
+    return null;
+  }
+}
