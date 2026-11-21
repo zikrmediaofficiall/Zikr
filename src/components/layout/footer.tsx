@@ -82,8 +82,12 @@ const legalLinks: FooterLink[] = [
   { href: "/data-deletion", ar: "حذف البيانات", en: "Data deletion" },
 ];
 
-export function Footer({ socialLinks, showSmartLink = false }: { socialLinks?: FooterSocialLinks; showSmartLink?: boolean }) {
+export function Footer({ socialLinks, showSmartLink = false, hiddenHrefs = [] }: { socialLinks?: FooterSocialLinks; showSmartLink?: boolean; hiddenHrefs?: string[] }) {
   const { isEnglish } = useLanguage();
+  const hidden = new Set(hiddenHrefs);
+  const visibleSectionLinks = sectionLinks.filter((item) => !hidden.has(item.href));
+  const visibleToolLinks = toolLinks.filter((item) => !hidden.has(item.href));
+  const visibleSupportLinks = supportLinks.filter((item) => !hidden.has(item.href));
   const [isWebRuntime, setIsWebRuntime] = useState(false);
 
   useEffect(() => {
@@ -126,15 +130,15 @@ export function Footer({ socialLinks, showSmartLink = false }: { socialLinks?: F
             {copy.description}
           </p>
           <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
-            <Link href="/quran" aria-label={isEnglish ? "Quran" : "القرآن الكريم"} className="rounded-lg p-2 text-brand-gold/80 hover:bg-brand-gold/10 hover:text-brand-gold">
+            {!hidden.has("/quran") ? <Link href="/quran" aria-label={isEnglish ? "Quran" : "القرآن الكريم"} className="rounded-lg p-2 text-brand-gold/80 hover:bg-brand-gold/10 hover:text-brand-gold">
               <BookOpen className="h-5 w-5" aria-hidden="true" />
-            </Link>
-            <Link href="/hadith" aria-label={isEnglish ? "Hadith" : "الحديث الشريف"} className="rounded-lg p-2 text-brand-gold/80 hover:bg-brand-gold/10 hover:text-brand-gold">
+            </Link> : null}
+            {!hidden.has("/hadith") ? <Link href="/hadith" aria-label={isEnglish ? "Hadith" : "الحديث الشريف"} className="rounded-lg p-2 text-brand-gold/80 hover:bg-brand-gold/10 hover:text-brand-gold">
               <Scroll className="h-5 w-5" aria-hidden="true" />
-            </Link>
-            <Link href="/adhkar" aria-label={isEnglish ? "Adhkar" : "الأذكار"} className="rounded-lg p-2 text-brand-gold/80 hover:bg-brand-gold/10 hover:text-brand-gold">
+            </Link> : null}
+            {!hidden.has("/adhkar") ? <Link href="/adhkar" aria-label={isEnglish ? "Adhkar" : "الأذكار"} className="rounded-lg p-2 text-brand-gold/80 hover:bg-brand-gold/10 hover:text-brand-gold">
               <Star className="h-5 w-5" aria-hidden="true" />
-            </Link>
+            </Link> : null}
             <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg px-2 py-2 text-brand-cream/70 hover:bg-brand-gold/10 hover:text-brand-gold">
               Facebook
             </a>
@@ -149,9 +153,9 @@ export function Footer({ socialLinks, showSmartLink = false }: { socialLinks?: F
           </Badge>
         </div>
 
-        <FooterColumn title={copy.sections} links={sectionLinks} isEnglish={isEnglish} />
-        <FooterColumn title={copy.tools} links={toolLinks} isEnglish={isEnglish} />
-        <FooterColumn title={copy.support} links={supportLinks} isEnglish={isEnglish} />
+        <FooterColumn title={copy.sections} links={visibleSectionLinks} isEnglish={isEnglish} />
+        <FooterColumn title={copy.tools} links={visibleToolLinks} isEnglish={isEnglish} />
+        <FooterColumn title={copy.support} links={visibleSupportLinks} isEnglish={isEnglish} />
         <FooterColumn title={copy.legal} links={legalLinks} isEnglish={isEnglish} />
       </Container>
 
