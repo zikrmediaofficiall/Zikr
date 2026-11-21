@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  isVideoSceneAllowedForAudience,
   resolveDeterministicVideoHook,
   resolveDeterministicVideoMotion,
   resolveDeterministicVideoScene,
@@ -27,9 +28,12 @@ assert.equal(
   "Hook selection must stay stable across retries.",
 );
 assert.ok(["fade", "slow"].includes(resolveDeterministicVideoMotion(stableInput.id)));
-assert.equal(
-  ["emerald", "dawn", "gold", "calm"].includes(resolveDeterministicVideoScene({ id: "kids-1", category: "story", audience: "kids" })),
-  true,
+const kidsScene = resolveDeterministicVideoScene({ id: "kids-1", category: "story", audience: "kids" });
+assert.equal(isVideoSceneAllowedForAudience(kidsScene, "kids"), true);
+assert.equal(isVideoSceneAllowedForAudience(kidsScene, "general"), false);
+assert.ok(
+  new Set(ids.map((id) => resolveDeterministicVideoScene({ id, category: "story", audience: "kids" })).size >= 3,
+  "Kids stories should also have varied, child-specific visual scenes.",
 );
 assert.ok(
   new Set(ids.map((id) => resolveDeterministicVideoHook({ id, category: "story", audience: "kids" }))).size >= 3,
