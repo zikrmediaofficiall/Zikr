@@ -53,7 +53,7 @@ function isSafeGeneratedAssetDeletionCandidate(request: VideoGenerationRequest, 
   const pendingReview = request.status === "completed" && content.approvalStatus === "awaiting_human_review";
   const storedThumbnail = request.stored_thumbnail_url;
   if ((!duplicate && !qaFailed && !pendingReview) || !request.video_url ||
-    (typeof storedThumbnail === "string" && storedThumbnail.trim().length > 0) || request.youtube_id || request.facebook_id ||
+    storedThumbnail !== null || request.youtube_id || request.facebook_id ||
     request.heygen_video_id || request.provider_job_id) return false;
   const retainedContentKeys = ["audioUrl", "humanAudioUrl", "audioMediaAssetId", "audioMediaAssetOwnerId", "videoUrl", "generatedVideoUrl", "thumbnailUrl"];
   if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim()) ||
