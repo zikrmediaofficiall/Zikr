@@ -9,6 +9,20 @@ const videos = read("src/app/videos/page.tsx");
 const facebookPosts = read("src/features/social/services/facebook-public-posts.ts");
 const mediaRoute = read("src/app/api/admin/media/route.ts");
 const mediaClient = read("src/app/admin/media/media-client.tsx");
+
+const videoSourcesPage = read("src/app/admin/video/sources/page.tsx");
+const videoSourcesLogo = read("src/features/admin/video-sources/components/source-logo.tsx");
+const youtubeSocialClient = read("src/app/admin/social/social-client.tsx");
+const videoRequestApi = read("src/app/api/admin/videos/route.ts");
+assert.match(videoSourcesPage, /content_agent_sources/);
+assert.match(videoSourcesPage, /safeEndpointLabel/);
+assert.match(videoSourcesPage, /source_type/);
+assert.match(videoSourcesLogo, /onError/);
+assert.match(youtubeSocialClient, /youtubeLastCheckedAt/);
+assert.match(youtubeSocialClient, /youtubeReadSource/);
+assert.match(youtubeSocialClient, /youtubeUploadReady/);
+assert.match(videoRequestApi, /resolveCloudinaryVideoPoster/);
+
 const migration = read("supabase/migrations/20261110085520_add_hadith_chapter.sql");
 
 assert.ok(
