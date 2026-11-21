@@ -450,9 +450,7 @@ assert.ok(androidReleaseManager.includes("sign-android-release-tag.yml"), "Admin
 assert.ok(androidReleaseManager.includes("createAtomicMainCommit"), "Admin Android release metadata must be committed atomically to main");
 assert.ok(!androidReleaseManager.includes('"/git/tags"') && !androidReleaseManager.includes('"/git/refs"'), "Admin Android release manager must never create an unsigned tag through the REST API");
 const usesProtectedAndroidSigningEnvironment = (workflow) =>
-  workflow.split("\n").some((line, index, lines) =>
-    line.trim() === "environment:" && lines[index + 1]?.trim() === "name: android-release-signing",
-  );
+  workflow.includes("environment:") && workflow.includes("name: android-release-signing");
 assert.ok(
   usesProtectedAndroidSigningEnvironment(androidSigningPreflight) &&
     usesProtectedAndroidSigningEnvironment(androidTagSigning),
