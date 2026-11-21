@@ -57,7 +57,14 @@ jobs:
           TMP_DIR="$(mktemp -d)"
           export GNUPGHOME="$TMP_DIR/gnupg"
           mkdir -m 700 "$GNUPGHOME"
-          trap 'rm -rf "$TMP_DIR"' EXIT
+          TEST_TAG=""
+          cleanup() {
+            if [[ -n "$TEST_TAG" ]]; then
+              git tag -d "$TEST_TAG" >/dev/null 2>&1 || true
+            fi
+            rm -rf "$TMP_DIR"
+          }
+          trap cleanup EXIT
           printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
           ACTUAL_FINGERPRINT="$(gpg --batch --with-colons --fingerprint "$EXPECTED_FINGERPRINT" | awk -F: '$1 == "fpr" { print toupper($10); exit }')"
           test "$ACTUAL_FINGERPRINT" = "$EXPECTED_FINGERPRINT" || { echo "::error::Private key does not match the configured fingerprint"; exit 1; }
@@ -97,6 +104,31 @@ jobs:
           if [[ "$SIGNING_KEY_MATCH_COUNT" != "1" ]]; then
             echo "::error::Expected exactly one non-revoked GitHub GPG signing key with the verified email and matching key ID"; exit 1
           fi
+          # Exercise the exact signed-annotated-tag path used by the release signer.
+          git config user.name "$SIGNING_NAME"
+          git config user.email "$SIGNING_EMAIL"
+          GPG_WRAPPER="$TMP_DIR/gpg-with-passphrase"
+          cat > "$GPG_WRAPPER" <<'GPG'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec gpg --batch --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE:-}" "$@"
+          GPG
+          chmod 700 "$GPG_WRAPPER"
+          git config gpg.program "$GPG_WRAPPER"
+          git config user.signingkey "$EXPECTED_FINGERPRINT"
+
+          TEST_TAG="gpg-preflight-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git tag -s -u "$EXPECTED_FINGERPRINT" "$TEST_TAG" "$TARGET_SHA" -m "ZIKR Android GPG signing preflight"
+          git verify-tag --raw "$TEST_TAG" > "$TMP_DIR/verify-tag.txt" 2>&1
+          VERIFIED_PRIMARY_FINGERPRINT="$(awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print toupper(NF >= 12 ? $NF : $3); exit }' "$TMP_DIR/verify-tag.txt")"
+          test "$VERIFIED_PRIMARY_FINGERPRINT" = "$EXPECTED_FINGERPRINT" || {
+            echo "::error::Temporary Git tag signature does not match the trusted primary fingerprint"
+            cat "$TMP_DIR/verify-tag.txt"
+            exit 1
+          }
+          git cat-file tag "$TEST_TAG" | grep -Fq "tagger ${SIGNING_NAME} <${SIGNING_EMAIL}>" || {
+            echo "::error::Temporary signed tag does not contain the configured signer identity"; exit 1;
+          }
           echo "Verified GPG fingerprint: $EXPECTED_FINGERPRINT"
           echo "Verified signer email: $SIGNING_EMAIL"
           echo "Verified exact main SHA: $TARGET_SHA"
