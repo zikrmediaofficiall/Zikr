@@ -249,7 +249,9 @@ for (const required of [
   "GITHUB_SHA",
   "ci/circleci: android-rebuild",
   'if [[ "${tag}" != "${TAG}" ]]',
-  "releases/tags/${TAG}",
+  'releases?per_page=100',
+  "matching_releases",
+  "matching_count",
   "release_prerelease",
   '"${release_draft}" != "true"',
 ]) {
