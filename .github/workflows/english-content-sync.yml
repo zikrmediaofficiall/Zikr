@@ -1,17 +1,11 @@
 name: ZIKR English Content Sync
 
 on:
-  # Run the bounded source sync after its code or provenance migration reaches main.
+  # Run only after the protected production release has applied and verified migrations.
   # CircleCI remains the primary daily run; this is its protected GitHub fallback.
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/english-content-sync.yml"
-      - "scripts/sync-quran-english.ts"
-      - "scripts/sync-hadith-english.ts"
-      - "scripts/translate-published-articles-en.ts"
-      - "scripts/translate-published-content-en.ts"
-      - "supabase/migrations/20261121100000_quran_english_translation_provenance.sql"
+  workflow_run:
+    workflows: ["ZIKR Finalization Controlled Release"]
+    types: [completed]
   schedule:
     - cron: "15 7 * * *"
   workflow_dispatch:
@@ -40,7 +34,7 @@ jobs:
   sync:
     name: Bounded English content sync
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'))
     environment: production
     timeout-minutes: 100
     env:
