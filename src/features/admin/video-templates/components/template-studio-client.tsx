@@ -28,12 +28,14 @@ type Preview = {
 };
 type Payload = { templates: Template[]; versions: Version[]; previews: Preview[] };
 
-const GENERAL_ASSETS = ["calm", "dawn", "emerald", "gold", "night", "paper", "rose", "andalusian-arch", "midnight-skyline", "oasis-dawn"];
+const GENERAL_ASSETS = ["calm", "dawn", "emerald", "gold", "night", "paper", "rose", "andalusian-arch", "midnight-skyline", "oasis-dawn", "lantern-glow", "geometric-mosaic", "moonlit-sea", "desert-caravan", "olive-grove", "manuscript-library"];
 const KIDS_ASSETS = ["kids-garden", "kids-nature", "kids-neighborhood", "kids-workshop"];
 const ASSET_LABELS: Record<string, string> = {
   calm: "هادئ", dawn: "الفجر", emerald: "زمردي", gold: "ذهبي",
   night: "ليلي", paper: "ورقي", rose: "وردي",
   "andalusian-arch": "قوس أندلسي", "midnight-skyline": "أفق ليلي", "oasis-dawn": "واحة الفجر",
+  "lantern-glow": "فوانيس مضيئة", "geometric-mosaic": "فسيفساء هندسية", "moonlit-sea": "بحر تحت القمر",
+  "desert-caravan": "قافلة الصحراء", "olive-grove": "بستان الزيتون", "manuscript-library": "مكتبة المخطوطات",
   "kids-garden": "حديقة الأطفال", "kids-nature": "طبيعة الأطفال",
   "kids-neighborhood": "حيّ الأطفال", "kids-workshop": "ورشة الأطفال",
 };
