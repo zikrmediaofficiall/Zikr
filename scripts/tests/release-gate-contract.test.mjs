@@ -235,7 +235,7 @@ assert.doesNotMatch(
   "a tag ref alone must not authorize manual publisher dispatch",
 );
 const manualRecoveryGuardIndex = androidReleaseWorkflow.indexOf("Verify explicit recovery guard for manual dispatch");
-const androidOwnerIdentityPreflightIndex = androidReleaseWorkflow.indexOf("Verify current PR CODEOWNER approval before publishing Android assets");
+const androidOwnerIdentityPreflightIndex = androidReleaseWorkflow.indexOf("Verify canonical GitHub owner identity before publishing Android assets");
 assert.ok(manualRecoveryGuardIndex >= 0 && manualRecoveryGuardIndex < androidOwnerIdentityPreflightIndex,
   "manual recovery authorization must run before the release identity preflight and every release mutation");
 for (const required of [
