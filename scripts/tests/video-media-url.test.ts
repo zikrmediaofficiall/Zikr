@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   assertCloudinaryVideoUrl,
   isGeneratedCloudinaryVideoUrl,
+  resolveCloudinaryVideoPoster,
 } from "../../src/features/videos/services/video-media-url";
 import { isUnlinkedInternalVideoMedia, resolveLatestConfirmedYoutubeQueueState, resolveVideoMediaUrl, resolveVideoThumbnail, resolveVideoYoutubeId } from "../../src/features/videos/services/video-media-contract";
 import { buildNextRowVersionUpdatedAt } from "../../src/lib/supabase/row-version";
@@ -72,6 +73,29 @@ test("protects generated Cloudinary MP4 references with transformation segments"
   assert.equal(isGeneratedCloudinaryVideoUrl(direct, "another-cloud"), false);
   assert.equal(isGeneratedCloudinaryVideoUrl(direct.replace(".mp4", ".jpg"), "zikr"), false);
   assert.equal(isGeneratedCloudinaryVideoUrl("https://evil.example/video/upload/auto-episode.mp4", "zikr"), false);
+});
+
+
+test("recovers the authentic Cloudinary first-frame poster URL for generated videos", () => {
+  const previousCloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  process.env.CLOUDINARY_CLOUD_NAME = "zikr";
+  try {
+    const video = "https://res.cloudinary.com/zikr/video/upload/v123456/auto-episode.mp4";
+    assert.equal(
+      resolveCloudinaryVideoPoster(video),
+      "https://res.cloudinary.com/zikr/video/upload/so_0/v123456/auto-episode.jpg",
+    );
+    assert.equal(
+      resolveCloudinaryVideoPoster("https://res.cloudinary.com/other/video/upload/v123456/auto-episode.mp4"),
+      null,
+      "poster recovery must reject assets from another Cloudinary tenant",
+    );
+    assert.equal(resolveCloudinaryVideoPoster("https://example.com/video.mp4"), null);
+    assert.equal(resolveCloudinaryVideoPoster(null), null);
+  } finally {
+    if (previousCloudName === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
+    else process.env.CLOUDINARY_CLOUD_NAME = previousCloudName;
+  }
 });
 
 test("scheduled media audit avoids checkedAt-only database writes and reports unavailable published videos", () => {
