@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { Container } from '@/components/ui/container';
-import { getSiteSetting, getSectionVisibility } from '@/features/site-content/services/site-content';
+import { getSiteSetting, getSectionVisibility, getSectionDisplayOrder } from '@/features/site-content/services/site-content';
 import { getArticles } from '@/features/articles/services/articles';
 import { HomeInteractive } from '@/features/home/components/home-interactive';
 import { SITE_CATALOG, CATALOG_ITEMS, getCatalogItemKey } from '@/lib/navigation/catalog';
@@ -82,12 +82,15 @@ export default async function HomePage() {
   const locale = cookieStore.get('zikr-locale')?.value === 'en' ? 'en' : 'ar';
   const isEnglish = locale === 'en';
   const dir = isEnglish ? 'ltr' : 'rtl';
-  const [homepageSetting, socialSetting, sectionVisibility] = await Promise.all([
+  const [homepageSetting, socialSetting, sectionVisibility, sectionOrder] = await Promise.all([
     getSiteSetting('homepage'),
     getSiteSetting('social'),
     getSectionVisibility(),
+    getSectionDisplayOrder(),
   ]);
   const isSectionVisible = (href: string) => sectionVisibility[getCatalogItemKey(href)] !== false;
+  const orderIndex = new Map(sectionOrder.map((key, index) => [key, index]));
+  const bySectionOrder = <T extends { href: string }>(items: T[]) => [...items].sort((a, b) => (orderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER));
   const socialChannels = [
     {
       key: 'facebook',
@@ -118,13 +121,13 @@ export default async function HomePage() {
       descriptionEn: 'Follow short updates and announcements.',
     },
   ].filter((channel): channel is typeof channel & { url: string } => Boolean(channel.url));
-  const showPrayerTimes = homepageSetting?.showPrayerTimes !== false;
+  const showPrayerTimes = homepageSetting?.showPrayerTimes !== false && isSectionVisible('/prayer-times');
   const showQuickStart = homepageSetting?.showQuickStart !== false;
   const showJourneys = homepageSetting?.showJourneys !== false;
   const showGuidedPaths = homepageSetting?.showGuidedPaths !== false;
-  const showEditorialLibrary = homepageSetting?.showEditorialLibrary !== false;
+  const showEditorialLibrary = homepageSetting?.showEditorialLibrary !== false && isSectionVisible('/articles');
   const showDailyTools = homepageSetting?.showDailyTools !== false;
-  const showDailyVerse = homepageSetting?.showDailyVerse !== false;
+  const showDailyVerse = homepageSetting?.showDailyVerse !== false && isSectionVisible('/quran');
   const homeTitle =
     !isEnglish && homepageSetting?.title?.trim()
       ? homepageSetting.title.trim()
@@ -136,19 +139,29 @@ export default async function HomePage() {
         ? 'A focused Islamic knowledge and worship platform.'
         : 'منصة إسلامية مرتبة للقراءة والذكر والتعلّم والعمل.';
 
-  const visibleQuickActions = QUICK_ACTIONS.filter(item => {
+  const visibleQuickActions = bySectionOrder(QUICK_ACTIONS.filter(item => {
     if (!isSectionVisible(item.href)) return false;
     if (item.href === '/quran') return homepageSetting?.showQuran !== false;
     if (item.href === '/hadith') return homepageSetting?.showHadith !== false;
     return true;
-  });
-  const visibleDailyTools = DAILY_TOOLS.filter((item) => isSectionVisible(item.href));
-  const visibleGuidedPaths = GUIDED_PATHS.filter((item) => isSectionVisible(item.href));
+  }));
+  const visibleDailyTools = bySectionOrder(DAILY_TOOLS.filter((item) => isSectionVisible(item.href)));
+  const visibleGuidedPaths = bySectionOrder(GUIDED_PATHS.filter((item) => isSectionVisible(item.href)));
 
   // The public catalog is the same source used by navigation and admin visibility controls.
   const visibleGroups = SITE_CATALOG
-    .map((group) => ({ ...group, items: group.items.filter((item) => isSectionVisible(item.href)) }))
-    .filter((group) => group.items.length > 0);
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .filter((item) => isSectionVisible(item.href))
+        .sort((a, b) => (orderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER)),
+    }))
+    .filter((group) => group.items.length > 0)
+    .sort((a, b) => {
+      const aOrder = Math.min(...a.items.map((item) => orderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+      const bOrder = Math.min(...b.items.map((item) => orderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+      return aOrder - bOrder;
+    });
 
   const articles = await getArticles(undefined, 6);
 
