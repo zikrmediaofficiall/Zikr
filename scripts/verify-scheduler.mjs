@@ -66,7 +66,7 @@ const hasSuccessfulReleaseTrigger =
   contentSync.includes("types: [completed]") &&
   contentSync.includes("github.event.workflow_run.conclusion == 'success'") &&
   contentSync.includes("github.event.workflow_run.head_branch == 'main'") &&
-  !contentSync.includes("\\n  push:");
+  !contentSync.split(/\r?\n/).some((line) => line.trim() === "push:");
 const hasProtectedEnglishBackup =
   contentSync.includes('cron: "15 7 * * *"') &&
   contentSync.includes("environment: production") &&
@@ -88,7 +88,7 @@ if (!contentSync.includes("pnpm translate:articles:en") || !contentSync.includes
 if (!circleciConfig.includes("pnpm sync:quran:en") || !circleciConfig.includes("quran_status")) failures.push("primary CircleCI must run and report the source-attributed Quran translation worker");
 if (contentSync.includes("seq 1 10")) failures.push("article translation must not rerun the same bounded batch ten times");
 if (!contentSync.includes("environment: production") || !contentSync.includes("if: github.ref == 'refs/heads/main'")) failures.push("English content sync must use production secrets on main only");
-if (contentSync.includes("\\n  push:")) failures.push("English production sync must wait for the controlled release to apply and verify migrations");
+if (contentSync.split(/\r?\n/).some((line) => line.trim() === "push:")) failures.push("English production sync must wait for the controlled release to apply and verify migrations");
 if (!contentSync.includes("workflow_dispatch:")) failures.push("English content sync must retain deliberate manual dispatch");
 const articleTranslator = read("scripts/translate-published-articles-en.ts");
 if (articleTranslator.includes("GEMINI_API_KEY_")) failures.push("article translation must not rotate through quota-pooling Gemini keys");
