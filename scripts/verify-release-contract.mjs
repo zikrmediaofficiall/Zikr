@@ -309,7 +309,12 @@ assert.equal(releaseAdminPage.includes("SIGNED_RELEASE_BLOCKER"), false, "Releas
 const signingPreflightWorkflow = read(".github/workflows/android-release-signing-preflight.yml");
 const signingWorkflow = read(".github/workflows/sign-android-release-tag.yml");
 for (const workflow of [signingPreflightWorkflow, signingWorkflow]) {
-  assert.ok(workflow.includes("environment:\n      name: android-release-signing"), "GPG workflows must use the protected signing environment");
+  assert.ok(
+    workflow.split("\n").some((line, index, lines) =>
+      line.trim() === "environment:" && lines[index + 1]?.trim() === "name: android-release-signing",
+    ),
+    "GPG workflows must use the protected signing environment",
+  );
   for (const secret of ["ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY", "ANDROID_RELEASE_TAG_GPG_PASSPHRASE"]) {
     assert.ok(workflow.includes("secrets." + secret), "GPG workflows must use protected secret " + secret);
   }

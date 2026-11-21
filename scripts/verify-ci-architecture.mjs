@@ -449,7 +449,15 @@ assert.ok(androidReleaseManager.includes("dispatchPreparedAndroidReleaseTagSigni
 assert.ok(androidReleaseManager.includes("sign-android-release-tag.yml"), "Admin Android release manager must hand tag creation to the protected signing workflow");
 assert.ok(androidReleaseManager.includes("createAtomicMainCommit"), "Admin Android release metadata must be committed atomically to main");
 assert.ok(!androidReleaseManager.includes('"/git/tags"') && !androidReleaseManager.includes('"/git/refs"'), "Admin Android release manager must never create an unsigned tag through the REST API");
-assert.ok(androidSigningPreflight.includes("environment:\\n      name: android-release-signing"), "Android signing readiness must execute in a protected GitHub Environment");
+const usesProtectedAndroidSigningEnvironment = (workflow) =>
+  workflow.split("\n").some((line, index, lines) =>
+    line.trim() === "environment:" && lines[index + 1]?.trim() === "name: android-release-signing",
+  );
+assert.ok(
+  usesProtectedAndroidSigningEnvironment(androidSigningPreflight) &&
+    usesProtectedAndroidSigningEnvironment(androidTagSigning),
+  "Android signing readiness and tag signing must execute in a protected GitHub Environment",
+);
 assert.ok(androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY") && androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_FINGERPRINT"), "Android signing preflight must validate owner-managed key material and fingerprint");
 assert.ok(androidTagSigning.includes("git tag -s -u") && androidTagSigning.includes("git verify-tag --raw"), "Protected Android signer must create and locally verify a GPG-signed annotated tag");
 assert.ok(androidTagSigning.includes(".verification.verified") && androidTagSigning.includes("reason"), "Protected Android signer must require GitHub's cryptographic signature verification");
