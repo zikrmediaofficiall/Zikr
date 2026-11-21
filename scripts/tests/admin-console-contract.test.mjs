@@ -8,6 +8,7 @@ const commandPalette = read("src/features/admin/components/admin-command-palette
 const moduleDirectory = read("src/features/admin/components/admin-module-directory.tsx");
 const releasePage = read("src/app/admin/release/page.tsx");
 const releaseAction = read("src/app/admin/release/actions.ts");
+const adminCommandCenter = read("src/features/admin/components/admin-platform-command-center.tsx");
 
 assert.ok(layout.includes("<AdminRouteBreadcrumbs groups={visibleGroups} />"), "Admin breadcrumbs must use permission-filtered navigation groups");
 assert.ok(sidebar.includes("matchesAdminSearch(query") && sidebar.includes("matchesAdminSearch(mobileQuery"), "Desktop and mobile nav search must share matching behavior");
@@ -20,5 +21,10 @@ const hardStop = releaseAction.indexOf("SIGNED_RELEASE_BLOCKER");
 const stopRedirect = releaseAction.indexOf("redirect(\"/admin/release?android_release_error=\"");
 assert.ok(hardStop >= 0 && stopRedirect >= 0, "Server action must redirect with an explicit signed-tag blocker");
 assert.ok(!releaseAction.includes("prepareAndroidRelease") && !releaseAction.includes("supabaseServerAdminRequest"), "Blocked server action must not retain any callable release-creation or metadata-write path");
+
+for (const route of ["/admin/video", "/admin/social", "/admin/sections", "/admin/queues", "/admin/audio", "/admin/sources"]) {
+  assert.ok(adminCommandCenter.includes(route), `admin command center quick actions must include ${route}`);
+}
+assert.match(adminCommandCenter, /quickActionCandidates\.filter\(\(\[, href\]\) => availableHrefs\.has\(href\)\)/, "quick actions must remain permission-filtered");
 
 console.log("Admin console navigation and signed-release safety contracts passed.");
