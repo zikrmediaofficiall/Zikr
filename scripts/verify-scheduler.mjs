@@ -52,7 +52,17 @@ if (prayerPushCronReconcileMigration.includes("nmdeazfmtncelykzxkhs.supabase.co"
 }
 
 const contentSync = read(".github/workflows/english-content-sync.yml");
-if (contentSync.includes("\n  schedule:")) failures.push("GitHub English content sync must not own an automatic schedule");
+const circleciConfig = read(".circleci/config.yml");
+const hasProtectedEnglishBackup =
+  contentSync.includes('cron: "15 7 * * *"') &&
+  contentSync.includes("environment: production") &&
+  contentSync.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}") &&
+  contentSync.includes('test -n "${GEMINI_API_KEY:-}"') &&
+  contentSync.includes("if: github.ref == 'refs/heads/main'") &&
+  circleciConfig.includes('cron: "17 4 * * *"');
+if (contentSync.includes("\n  schedule:") && !hasProtectedEnglishBackup) {
+  failures.push("GitHub English sync may only be the protected 07:15 UTC backup; CircleCI must retain the primary 04:17 UTC schedule and Gemini/Supabase credentials must be checked before writes");
+}
 if (!contentSync.includes("pnpm translate:articles:en") || !contentSync.includes("pnpm sync:hadith:en")) failures.push("English article/Hadith sync commands are incomplete");
 if (contentSync.includes("seq 1 10")) failures.push("article translation must not rerun the same bounded batch ten times");
 if (!contentSync.includes("environment: production") || !contentSync.includes("if: github.ref == 'refs/heads/main'")) failures.push("English content sync must use production secrets on main only");

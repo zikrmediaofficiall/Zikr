@@ -314,7 +314,16 @@ assert.ok(
     !insightsService.includes("processSocialPublishItem"),
   "The analytics-only service must update published-post insights without claiming or publishing queue rows",
 );
-assert.ok(!english.includes("\n  schedule:"), "GitHub English sync must not own an automatic schedule");
+assert.ok(
+  !english.includes("\n  schedule:") ||
+    (
+      english.includes('cron: "15 7 * * *"') &&
+      english.includes("environment: production") &&
+      english.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}") &&
+      english.includes('test -n "${GEMINI_API_KEY:-}"')
+    ),
+  "GitHub English sync may only own the protected 07:15 UTC backup after CircleCI; it must verify Gemini and Supabase credentials before translation writes",
+);
 assert.ok(english.includes("environment: production"), "English sync must use protected production environment");
 assert.ok(english.includes("github.ref == 'refs/heads/main'"), "English sync must be main-only");
 

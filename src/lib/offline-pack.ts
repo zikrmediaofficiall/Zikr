@@ -111,6 +111,9 @@ export function isCacheableOfflinePageRoute(route: string): boolean {
     "/settings",
     "/account",
     "/dashboard",
+    "/kids/parent-dashboard",
+    "/kids/progress",
+    "/kids/achievements",
   ];
   if (privatePrefixes.some(prefix => pathname === prefix || pathname.startsWith(prefix + "/"))) {
     return false;
@@ -121,6 +124,7 @@ export function isCacheableOfflinePageRoute(route: string): boolean {
 
 const ESSENTIAL_ROUTES = [
   "/", "/mushaf", "/quran", "/hadith", "/stories", "/articles", "/duas", "/adhkar",
+  "/dua", "/prayer-times", "/audio", "/library", "/knowledge", "/sections",
   "/prophets", "/companions", "/scholars", "/battles", "/conquests", "/kids", "/videos",
   "/youtube", "/tawasheeh", "/tafsir", "/reciters", "/radio", "/qibla", "/tasbeeh",
   "/wird", "/zakat", "/poetry", "/competitions", "/faq", "/platform", "/about", "/contact",

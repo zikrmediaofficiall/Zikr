@@ -7,6 +7,7 @@ import {
   resolveSafeOfflineRoute,
 } from "../../src/lib/offline-route-safety";
 import { KIDS_CONTENT_TYPES } from "../../src/features/kids/services/kids-content-validation";
+import { isCacheableOfflinePageRoute } from "../../src/lib/offline-pack";
 
 const origin = "https://zikrmediaofficial.vercel.app";
 assert.equal(resolveSafeOfflineRoute("/kids/story-ibrahim", origin)?.origin, origin);
@@ -119,3 +120,29 @@ assert.equal(isOfflineRouteInventoryComplete(["/", "/kids/current"], ["/", "/kid
   "duplicate cached route entries must not be accepted as a complete inventory");
 
 console.log("Offline route same-origin safety tests passed.");
+
+for (const route of [
+  "/",
+  "/prayer-times",
+  "/qibla",
+  "/tasbeeh",
+  "/radio",
+  "/audio",
+  "/duas",
+  "/library",
+  "/knowledge",
+  "/sections",
+]) {
+  assert.equal(isCacheableOfflinePageRoute(route), true, "public route should be eligible for offline caching: " + route);
+}
+for (const route of [
+  "/kids/progress",
+  "/kids/parent-dashboard",
+  "/kids/achievements",
+  "/admin",
+  "/profile",
+  "/favorites",
+  "/settings",
+]) {
+  assert.equal(isCacheableOfflinePageRoute(route), false, "private account or Kids route must never enter the shared offline page cache: " + route);
+}

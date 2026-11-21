@@ -1,4 +1,4 @@
-export type RadioCategory = "quran" | "tawasheeh";
+export type RadioCategory = "quran" | "reciter";
 
 export interface RadioChannel {
   id: string;
@@ -19,11 +19,11 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     tags: ["قرآن", "تلاوات", "مباشر"],
   },
   {
-    id: "quran-eg",
+    id: "quran-afasy",
     name: "إذاعة القرآن - مشاري العفاسي",
-    streamUrl: "https://qurango.net/radio/mishary_alafasy",
+    streamUrl: "https://qurango.net/radio/mishary_alafasi",
     description: "تلاوات الشيخ مشاري العفاسي عبر البث الصوتي المدرج.",
-    category: "quran",
+    category: "reciter",
     tags: ["قرآن", "مشاري العفاسي", "مباشر"],
   },
   {
@@ -31,7 +31,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - المنشاوي",
     streamUrl: "https://qurango.net/radio/minshawi",
     description: "تلاوات الشيخ محمد صديق المنشاوي.",
-    category: "quran",
+    category: "reciter",
     tags: ["المنشاوي", "مرتل", "قرآن"],
   },
   {
@@ -39,7 +39,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - عبد الباسط",
     streamUrl: "https://qurango.net/radio/abdulbasit",
     description: "تلاوات الشيخ عبد الباسط عبد الصمد.",
-    category: "quran",
+    category: "reciter",
     tags: ["عبد الباسط", "قرآن"],
   },
   {
@@ -47,7 +47,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - الحصري",
     streamUrl: "https://qurango.net/radio/husary",
     description: "تلاوات الشيخ محمود خليل الحصري.",
-    category: "quran",
+    category: "reciter",
     tags: ["الحصري", "قرآن"],
   },
   {
@@ -55,7 +55,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - السديس",
     streamUrl: "https://qurango.net/radio/sudais",
     description: "تلاوات الشيخ عبد الرحمن السديس.",
-    category: "quran",
+    category: "reciter",
     tags: ["السديس", "قرآن"],
   },
   {
@@ -63,7 +63,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - ماهر المعيقلي",
     streamUrl: "https://qurango.net/radio/maher_al_muaiqly",
     description: "تلاوات الشيخ ماهر المعيقلي.",
-    category: "quran",
+    category: "reciter",
     tags: ["ماهر المعيقلي", "قرآن"],
   },
   {
@@ -71,7 +71,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - سعد الغامدي",
     streamUrl: "https://qurango.net/radio/saad_al_ghamdi",
     description: "تلاوات الشيخ سعد الغامدي.",
-    category: "quran",
+    category: "reciter",
     tags: ["سعد الغامدي", "قرآن"],
   },
   {
@@ -79,7 +79,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - ياسر الدوسري",
     streamUrl: "https://qurango.net/radio/yasser_al_dosari",
     description: "تلاوات الشيخ ياسر الدوسري.",
-    category: "quran",
+    category: "reciter",
     tags: ["ياسر الدوسري", "قرآن"],
   },
   {
@@ -87,7 +87,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - ناصر القطامي",
     streamUrl: "https://qurango.net/radio/nasser_al_qatami",
     description: "تلاوات الشيخ ناصر القطامي.",
-    category: "quran",
+    category: "reciter",
     tags: ["ناصر القطامي", "قرآن"],
   },
   {
@@ -95,7 +95,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - إدريس أبكر",
     streamUrl: "https://qurango.net/radio/idrees_abkar",
     description: "تلاوات الشيخ إدريس أبكر.",
-    category: "quran",
+    category: "reciter",
     tags: ["إدريس أبكر", "قرآن"],
   },
   {
@@ -103,7 +103,7 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - أحمد العجمي",
     streamUrl: "https://qurango.net/radio/ahmed_al_ajmi",
     description: "تلاوات الشيخ أحمد العجمي.",
-    category: "quran",
+    category: "reciter",
     tags: ["أحمد العجمي", "قرآن"],
   },
   {
@@ -111,23 +111,23 @@ export const RADIO_CHANNELS: RadioChannel[] = [
     name: "إذاعة القرآن - سعود الشريم",
     streamUrl: "https://qurango.net/radio/shuraim",
     description: "تلاوات الشيخ سعود الشريم.",
-    category: "quran",
+    category: "reciter",
     tags: ["الشريم", "قرآن"],
   },
   {
-    id: "tawasheeh-maher",
+    id: "quran-shatri",
     name: "إذاعة القرآن - أبو بكر الشاطري",
     streamUrl: "https://qurango.net/radio/abu_bakr_al_shatri",
     description: "تلاوات الشيخ أبو بكر الشاطري عبر البث الصوتي المدرج.",
-    category: "quran",
+    category: "reciter",
     tags: ["قرآن", "أبو بكر الشاطري"],
   },
   {
-    id: "tawasheeh-ghamdi",
+    id: "quran-kandari",
     name: "إذاعة القرآن - فهد الكندري",
     streamUrl: "https://qurango.net/radio/fahad_al_kandari",
     description: "تلاوات الشيخ فهد الكندري عبر البث الصوتي المدرج.",
-    category: "quran",
+    category: "reciter",
     tags: ["قرآن", "فهد الكندري"],
   },
 ];

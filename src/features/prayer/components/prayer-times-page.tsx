@@ -30,6 +30,11 @@ import { usePrayerAlert, PRAYER_NAMES_AR } from "@/features/prayer/hooks/use-pra
 import { resolveLocationLabel } from "@/lib/location/reverse-geocode";
 import { OpenStreetMapAttribution } from "@/components/location/openstreetmap-attribution";
 import { getSavedPrayerLocation, persistPrayerLocation } from "@/features/prayer/services/saved-prayer-location";
+import {
+  getDevicePrayerTimesForCity,
+  getDevicePrayerTimesForLocation,
+  saveDevicePrayerTimes,
+} from "@/features/prayer/services/prayer-times-device-cache";
 
 const CAIRO = { lat: 30.0444, lon: 31.2357, city: "القاهرة" };
 
@@ -60,6 +65,7 @@ export function PrayerTimesPage() {
       if (data) {
         setPrayerData(data);
         setError(null);
+        saveDevicePrayerTimes(city, lat, lon, data);
         await persistPrayerLocation({
           city,
           latitude: lat,
@@ -69,10 +75,38 @@ export function PrayerTimesPage() {
           updatedAt: new Date().toISOString(),
         });
       } else {
-        setError("فشل في جلب مواقيت الصلاة");
+        const cached = getDevicePrayerTimesForLocation(lat, lon);
+        if (cached) {
+          setPrayerData(cached.data);
+          void persistPrayerLocation({
+            city: cached.city,
+            latitude: cached.latitude,
+            longitude: cached.longitude,
+            timezone: cached.timezone,
+            isDefault: true,
+            updatedAt: new Date().toISOString(),
+          }).catch(() => undefined);
+          setError("تعذر الاتصال بالخدمة؛ نعرض مواقيت اليوم المحفوظة على هذا الجهاز لنفس الموقع.");
+        } else {
+          setError("فشل جلب مواقيت الصلاة، ولا توجد نسخة محفوظة صالحة لليوم والموقع الحالي.");
+        }
       }
     } catch {
-      setError("حدث خطأ في جلب البيانات");
+      const cached = getDevicePrayerTimesForLocation(lat, lon);
+      if (cached) {
+        setPrayerData(cached.data);
+        void persistPrayerLocation({
+          city: cached.city,
+          latitude: cached.latitude,
+          longitude: cached.longitude,
+          timezone: cached.timezone,
+          isDefault: true,
+          updatedAt: new Date().toISOString(),
+        }).catch(() => undefined);
+        setError("الاتصال غير متاح؛ نعرض نسخة اليوم المحفوظة على هذا الجهاز.");
+      } else {
+        setError("حدث خطأ في جلب البيانات، ولا توجد نسخة يومية محفوظة لهذا الموقع.");
+      }
     } finally {
       setLoading(false);
       setIsFetching(false);
@@ -126,6 +160,8 @@ export function PrayerTimesPage() {
         const timezone = data.data.meta.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
         setPrayerData(data);
         setCurrentLocation({ lat: latitude, lon: longitude, city });
+        setError(null);
+        saveDevicePrayerTimes(city, latitude, longitude, data);
         await persistPrayerLocation({
           city,
           latitude,
@@ -135,10 +171,40 @@ export function PrayerTimesPage() {
           updatedAt: new Date().toISOString(),
         });
       } else {
-        setError("لم يتم العثور على المدينة");
+        const cached = getDevicePrayerTimesForCity(city);
+        if (cached) {
+          setPrayerData(cached.data);
+          setCurrentLocation({ lat: cached.latitude, lon: cached.longitude, city: cached.city });
+          void persistPrayerLocation({
+            city: cached.city,
+            latitude: cached.latitude,
+            longitude: cached.longitude,
+            timezone: cached.timezone,
+            isDefault: true,
+            updatedAt: new Date().toISOString(),
+          }).catch(() => undefined);
+          setError("تعذر الاتصال بالخدمة؛ نعرض مواقيت اليوم المحفوظة لهذه المدينة.");
+        } else {
+          setError("لم يتم العثور على المدينة أو لا توجد نسخة مواقيت يومية محفوظة لها.");
+        }
       }
     } catch {
-      setError("حدث خطأ في البحث");
+      const cached = getDevicePrayerTimesForCity(city);
+      if (cached) {
+        setPrayerData(cached.data);
+        setCurrentLocation({ lat: cached.latitude, lon: cached.longitude, city: cached.city });
+        void persistPrayerLocation({
+          city: cached.city,
+          latitude: cached.latitude,
+          longitude: cached.longitude,
+          timezone: cached.timezone,
+          isDefault: true,
+          updatedAt: new Date().toISOString(),
+        }).catch(() => undefined);
+        setError("الاتصال غير متاح؛ نعرض نسخة مواقيت اليوم المحفوظة لهذه المدينة.");
+      } else {
+        setError("حدث خطأ في البحث، ولا توجد نسخة يومية محفوظة لهذه المدينة.");
+      }
     } finally {
       setLoading(false);
       setIsFetching(false);
@@ -164,20 +230,41 @@ export function PrayerTimesPage() {
       const saved = await getSavedPrayerLocation();
       if (saved) {
         setCurrentLocation({ lat: saved.latitude, lon: saved.longitude, city: saved.city });
-        const data = await getPrayerTimes(saved.latitude, saved.longitude);
-        if (!disposed && data) {
-          setPrayerData(data);
-          setLoading(false);
-          setIsFetching(false);
-          setError(null);
-          const timezone = data.data.meta.timezone || saved.timezone;
-          if (timezone !== saved.timezone) {
-            await persistPrayerLocation({ ...saved, timezone, updatedAt: new Date().toISOString() });
+        try {
+          const data = await getPrayerTimes(saved.latitude, saved.longitude);
+          if (!disposed && data) {
+            setPrayerData(data);
+            setLoading(false);
+            setIsFetching(false);
+            setError(null);
+            saveDevicePrayerTimes(saved.city, saved.latitude, saved.longitude, data);
+            const timezone = data.data.meta.timezone || saved.timezone;
+            if (timezone !== saved.timezone) {
+              await persistPrayerLocation({ ...saved, timezone, updatedAt: new Date().toISOString() });
+            }
+          } else if (!disposed) {
+            const cached = getDevicePrayerTimesForLocation(saved.latitude, saved.longitude);
+            setLoading(false);
+            setIsFetching(false);
+            if (cached) {
+              setPrayerData(cached.data);
+              setError("أنت غير متصل؛ نعرض مواقيت اليوم المحفوظة على هذا الجهاز لموقعك المختار.");
+            } else {
+              setError("تعذر تحديث مواقيت هذا الموقع، ولا توجد نسخة يومية صالحة محفوظة.");
+            }
           }
-        } else if (!disposed) {
-          setLoading(false);
-          setIsFetching(false);
-          setError("تعذر تحديث مواقيت هذا الموقع الآن، لكن موقعك المحفوظ لم يتغير.");
+        } catch {
+          if (!disposed) {
+            const cached = getDevicePrayerTimesForLocation(saved.latitude, saved.longitude);
+            setLoading(false);
+            setIsFetching(false);
+            if (cached) {
+              setPrayerData(cached.data);
+              setError("الاتصال غير متاح؛ نعرض مواقيت اليوم المحفوظة على هذا الجهاز.");
+            } else {
+              setError("تعذر جلب المواقيت ولا توجد نسخة صالحة لهذا اليوم والموقع.");
+            }
+          }
         }
         return;
       }

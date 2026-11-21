@@ -18,15 +18,20 @@ type Manifest = Awaited<ReturnType<typeof fetchOfflineManifest>>;
 const SUPPLEMENTAL_ROUTE_URL = '/offline-content/v2/routes.json';
 
 const PUBLIC_LIBRARY_ROUTES = [
-  '/', '/mushaf', '/quran', '/hadith', '/stories', '/adhkar', '/dua',
+  '/', '/mushaf', '/quran', '/hadith', '/stories', '/adhkar', '/dua', '/duas',
+  '/prayer-times', '/qibla', '/tasbeeh', '/audio', '/library', '/knowledge', '/sections',
   '/prophets', '/companions', '/scholars', '/articles', '/videos', '/kids',
+  '/kids/games', '/kids/adventures', '/kids/audio', '/kids/puzzle', '/kids/videos',
   '/battles', '/conquests', '/tafsir', '/tawasheeh', '/radio', '/reciters',
   '/poetry', '/memorization', '/wird', '/zakat', '/spiritual-ai',
   '/competitions', '/youtube', '/offline-library', '/about', '/contact',
   '/platform', '/faq', '/privacy', '/terms', '/editorial-policy',
 ] as const;
 
-const PRIVATE_PREFIXES = ['/api', '/auth', '/admin', '/profile', '/favorites', '/settings'];
+const PRIVATE_PREFIXES = [
+  '/api', '/auth', '/admin', '/profile', '/favorites', '/settings',
+  '/kids/parent-dashboard', '/kids/progress', '/kids/achievements',
+];
 
 const DATASET_LABELS: Record<string, string> = {
   surahs: 'السور',

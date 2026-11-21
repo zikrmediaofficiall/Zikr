@@ -22,6 +22,44 @@ type Props = {
     quran_message: string;
   };
 };
+const LOCAL_REMINDER_KEY = "zikr_quran_reminder_v1";
+
+type ReminderPreferences = {
+  quran_enabled: boolean;
+  quran_time: string;
+  quran_message: string;
+};
+
+function normalizeReminder(value: unknown): ReminderPreferences | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const time = typeof record.quran_time === "string" ? record.quran_time.trim() : "";
+  const message = typeof record.quran_message === "string" ? record.quran_message.slice(0, 240) : "";
+  if (
+    typeof record.quran_enabled !== "boolean" ||
+    !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)
+  ) return null;
+  return { quran_enabled: record.quran_enabled, quran_time: time, quran_message: message };
+}
+
+function readLocalReminder(): ReminderPreferences | null {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_REMINDER_KEY);
+    return raw ? normalizeReminder(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalReminder(value: ReminderPreferences): boolean {
+  try {
+    window.localStorage.setItem(LOCAL_REMINDER_KEY, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 
 export function ProfileLocalSettings({ initialReminder }: Props) {
   const [enabled, setEnabled] = useState(initialReminder.quran_enabled);
@@ -48,54 +86,73 @@ export function ProfileLocalSettings({ initialReminder }: Props) {
   };
 
   useEffect(() => {
+    const localReminder = readLocalReminder();
+    if (localReminder) {
+      setEnabled(localReminder.quran_enabled);
+      setTime(localReminder.quran_time);
+      setMessage(localReminder.quran_message);
+    }
     void refreshUsage();
   }, []);
 
   async function saveReminder(nextEnabled = enabled) {
     setSaving(true);
     setStatus(null);
+    const preferences: ReminderPreferences = {
+      quran_enabled: nextEnabled,
+      quran_time: time,
+      quran_message: message.slice(0, 240),
+    };
+    const deviceSaved = saveLocalReminder(preferences);
+    setEnabled(nextEnabled);
+
+    let scheduleMessage = "";
+    try {
+      if (nextEnabled) {
+        const permission = await requestNotificationPermission();
+        if (permission === "granted") {
+          const nativeScheduled = await scheduleQuranReminder(true, preferences.quran_time, preferences.quran_message);
+          scheduleMessage = nativeScheduled
+            ? "تمت جدولة التذكير محليًا على الهاتف لمدة 14 يومًا، ويُعاد ضبط الجدول عند فتح التطبيق."
+            : "حُفظ التذكير على الجهاز، لكن تعذر تأكيد جدولة إشعار محلي.";
+        } else {
+          scheduleMessage = "إذن الإشعارات غير مفعّل؛ الإعداد محفوظ ويمكن تفعيل الإذن لاحقًا.";
+        }
+      } else {
+        await cancelQuranReminderSchedule();
+        scheduleMessage = "تم إيقاف تذكير الورد على هذا الجهاز.";
+      }
+    } catch (error) {
+      console.warn("[ProfileLocalSettings] Local Quran reminder scheduling failed", error);
+      scheduleMessage = "حُفظ الاختيار، لكن تعذر تحديث جدول الإشعارات المحلي.";
+    }
+
+    let serverSaved = false;
+    let serverError = "";
     try {
       const response = await fetch("/api/reminders/background", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          quran_enabled: nextEnabled,
-          quran_time: time,
-          quran_message: message,
+          ...preferences,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         }),
       });
-
-      const result = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
-
-      if (!response.ok) {
-        throw new Error(result?.error || "تعذر حفظ إعداد التذكير.");
-      }
-
-      setEnabled(nextEnabled);
-      if (nextEnabled) {
-        const permission = await requestNotificationPermission();
-        if (permission === "granted") {
-          const nativeScheduled = await scheduleQuranReminder(true, time, message);
-          setStatus(
-            nativeScheduled
-              ? "تم حفظ التذكير ووجدولته على الهاتف لمدة 14 يومًا، ووسيُعاد ضبط الجدول تلقائيًا عند فتح التطبيق."
-              : "تم حفظ التذكير. يعمل الجدول الأصلي على التطبيق المحمول عند تفعيل الإشعارات.",
-          );
-        } else {
-          setStatus("تم حفظ التذكير، لكن إذن الإشعارات غير مفعّل على الجهاز.");
-        }
-      } else {
-        await cancelQuranReminderSchedule();
-        setStatus("تم إيقاف تذكير الورد اليومي.");
-      }
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error || "تعذر مزامنة الإعداد مع حسابك.");
+      serverSaved = true;
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "تعذر حفظ إعداد التذكير.");
-    } finally {
-      setSaving(false);
+      serverError = error instanceof Error ? error.message : "تعذر مزامنة الإعداد مع حسابك.";
     }
+
+    const deviceMessage = deviceSaved
+      ? "تم حفظ الإعدادات على هذا الجهاز."
+      : "لم يسمح المتصفح بحفظ الإعدادات محليًا.";
+    const accountMessage = serverSaved
+      ? "تمت مزامنتها مع حسابك."
+      : "تعذرت مزامنة الحساب: " + serverError;
+    setStatus([deviceMessage, scheduleMessage, accountMessage].join(" "));
+    setSaving(false);
   }
 
   async function clearDownloads() {

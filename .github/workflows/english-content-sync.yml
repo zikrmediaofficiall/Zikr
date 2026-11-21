@@ -1,7 +1,10 @@
 name: ZIKR English Content Sync
 
 on:
-  # Daily automatic execution is owned by CircleCI; keep GitHub Actions for deliberate/manual runs.
+  # CircleCI remains the primary daily run. This later, bounded run is a backup
+  # using the protected GitHub production environment when CircleCI credentials or jobs fail.
+  schedule:
+    - cron: "15 7 * * *"
   workflow_dispatch:
     inputs:
       article_batch_size:
@@ -43,10 +46,13 @@ jobs:
         shell: bash
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           set -euo pipefail
           test -n "${SUPABASE_URL:-}" || { echo "Missing canonical Supabase URL configuration." >&2; exit 1; }
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "Missing production environment secret: SUPABASE_SERVICE_ROLE_KEY" >&2; exit 1; }
+          test -n "${GEMINI_API_KEY:-}" || { echo "Missing production environment secret: GEMINI_API_KEY" >&2; exit 1; }
+          echo "Production Supabase and Gemini credentials are present." >> "$GITHUB_STEP_SUMMARY"
       - uses: pnpm/action-setup@v6
         with:
           version: 9.15.0

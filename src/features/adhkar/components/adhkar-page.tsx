@@ -72,41 +72,89 @@ const adhkarData: Record<string, { title: string; icon: LucideIcon; items: { tex
 type AdhkarCategory = keyof typeof adhkarData;
 
 const COUNTERS_KEY = 'zikr_adhkar_counters';
+const SELECTED_CATEGORY_KEY = 'zikr_adhkar_selected_category';
 
 function loadCounters(): Record<string, number> {
   if (typeof window === 'undefined') return {};
   try {
     const raw = localStorage.getItem(COUNTERS_KEY);
-    return raw ? JSON.parse(raw) : {};
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+    const result: Record<string, number> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      const separator = key.lastIndexOf('-');
+      const category = key.slice(0, separator) as AdhkarCategory;
+      const index = Number(key.slice(separator + 1));
+      if (
+        separator <= 0 ||
+        !Object.prototype.hasOwnProperty.call(adhkarData, category) ||
+        !Number.isInteger(index) ||
+        index < 0 ||
+        typeof value !== 'number' ||
+        !Number.isSafeInteger(value) ||
+        value < 0
+      ) continue;
+      const maximum = adhkarData[category].items[index]?.count;
+      if (typeof maximum === 'number') result[key] = Math.min(value, maximum);
+    }
+    return result;
   } catch {
     return {};
+  }
+}
+
+function loadSelectedCategory(): AdhkarCategory {
+  if (typeof window === 'undefined') return 'morning';
+  try {
+    const value = localStorage.getItem(SELECTED_CATEGORY_KEY);
+    return value && Object.prototype.hasOwnProperty.call(adhkarData, value)
+      ? value as AdhkarCategory
+      : 'morning';
+  } catch {
+    return 'morning';
+  }
+}
+
+function saveLocalPreference(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Private browsing or device quota restrictions must not break the counters.
   }
 }
 
 export function AdhkarPage() {
   const [selectedCategory, setSelectedCategory] = useState<AdhkarCategory>('morning');
   const [counters, setCounters] = useState<Record<string, number>>({});
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
-  // Load persisted counters on mount
+  // Hydrate before writing so initial empty state never overwrites device data.
   useEffect(() => {
-    const loaded = loadCounters();
-    setCounters(loaded);
+    setCounters(loadCounters());
+    setSelectedCategory(loadSelectedCategory());
+    setPreferencesLoaded(true);
   }, []);
 
-  // Persist whenever counters change
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(COUNTERS_KEY, JSON.stringify(counters));
-  }, [counters]);
+    if (!preferencesLoaded) return;
+    saveLocalPreference(COUNTERS_KEY, JSON.stringify(counters));
+  }, [counters, preferencesLoaded]);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    saveLocalPreference(SELECTED_CATEGORY_KEY, selectedCategory);
+  }, [selectedCategory, preferencesLoaded]);
 
   const currentAdhkar = adhkarData[selectedCategory];
 
   const handleCount = (index: number, maxCount: number) => {
     const key = `${selectedCategory}-${index}`;
-    const current = counters[key] || 0;
-    if (current < maxCount) {
-      setCounters({ ...counters, [key]: current + 1 });
-    }
+    setCounters((current) => {
+      const count = current[key] || 0;
+      return count < maxCount ? { ...current, [key]: count + 1 } : current;
+    });
   };
 
   const resetCounters = () => {
@@ -115,10 +163,6 @@ export function AdhkarPage() {
       delete newCounters[`${selectedCategory}-${idx}`];
     });
     setCounters(newCounters);
-    // Persist the cleared state immediately
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(COUNTERS_KEY, JSON.stringify(newCounters));
-    }
   };
 
   const getProgress = (index: number, maxCount: number) => {
