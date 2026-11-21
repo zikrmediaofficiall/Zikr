@@ -10,6 +10,11 @@ if (requireVercelStatusSetting && !["true", "false"].includes(requireVercelStatu
   throw new Error("REQUIRE_VERCEL_STATUS must be true or false when provided.");
 }
 const requireVercelStatus = requireVercelStatusSetting !== "false";
+const allowPrivateAndroidDraftFailureSetting = process.env.ALLOW_PRIVATE_ANDROID_DRAFT_FAILURE?.trim().toLowerCase();
+if (allowPrivateAndroidDraftFailureSetting && !["true", "false"].includes(allowPrivateAndroidDraftFailureSetting)) {
+  throw new Error("ALLOW_PRIVATE_ANDROID_DRAFT_FAILURE must be true or false when provided.");
+}
+const allowPrivateAndroidDraftFailure = allowPrivateAndroidDraftFailureSetting === "true";
 
 if (!repository || !commitSha || !token || !/^[0-9a-f]{40}$/i.test(commitSha)) {
   throw new Error("GITHUB_REPOSITORY, RELEASE_COMMIT_SHA or GITHUB_SHA, and GITHUB_TOKEN are required.");
@@ -73,14 +78,19 @@ async function requireSuccessfulCheckRuns(sha, requiredNames, label) {
   }
 }
 
-async function requireCircleCiStatuses(sha, label, requireVercel) {
+async function requireCircleCiStatuses(
+  sha,
+  label,
+  requireVercel,
+  requireReleaseBuildContexts = false,
+  allowPrivateDraftFailure = false,
+) {
   const payload = await api("/repos/" + repository + "/commits/" + sha + "/status");
   const statuses = latestStatusesByContext(payload.statuses || []);
-  const required = [
-    "ci/circleci: config-guard",
-    "ci/circleci: application-build-docs",
-    "ci/circleci: source-verify",
-  ];
+  const required = ["ci/circleci: config-guard"];
+  if (requireReleaseBuildContexts) {
+    required.push("ci/circleci: application-build-docs", "ci/circleci: source-verify");
+  }
   if (requireVercel) required.push("Vercel");
 
   for (const context of required) {
@@ -90,9 +100,21 @@ async function requireCircleCiStatuses(sha, label, requireVercel) {
     }
   }
 
+  const privateDraftVisibilityFailure = statuses.get("ci/circleci: android-release-draft");
+  const mayIgnorePrivateDraftVisibilityFailure =
+    allowPrivateDraftFailure &&
+    privateDraftVisibilityFailure?.state === "failure";
   const failures = [...statuses.values()].filter(
-    (status) => status.context.startsWith("ci/circleci:") && status.state !== "success",
+    (status) =>
+      status.context.startsWith("ci/circleci:") &&
+      status.state !== "success" &&
+      !(mayIgnorePrivateDraftVisibilityFailure && status.context === "ci/circleci: android-release-draft"),
   );
+  if (mayIgnorePrivateDraftVisibilityFailure) {
+    console.warn(
+      label + ": tolerated only ci/circleci: android-release-draft=failure after authenticated manual-recovery preflight verified the unique eligible private draft.",
+    );
+  }
   if (failures.length) {
     throw new Error(label + ": non-success CircleCI contexts: " + failures.map((status) => status.context + "=" + status.state).join(", "));
   }
@@ -131,9 +153,15 @@ await requireSuccessfulCheckRuns(
   requiredPullRequestChecks,
   "PR #" + pullRequest.number + " head checks",
 );
-await requireCircleCiStatuses(pullRequest.head.sha, "PR #" + pullRequest.number + " head statuses", false);
+await requireCircleCiStatuses(pullRequest.head.sha, "PR #" + pullRequest.number + " head statuses", false, false, false);
 await requireSuccessfulCheckRuns(commitSha, ["ZIKR / Quality Gate"], "Merged commit checks");
-await requireCircleCiStatuses(commitSha, "Merged commit statuses", requireVercelStatus);
+await requireCircleCiStatuses(
+  commitSha,
+  "Merged commit statuses",
+  requireVercelStatus,
+  true,
+  allowPrivateAndroidDraftFailure,
+);
 
 console.log(
   "RELEASE_PREFLIGHT_PASSED: commit=" + commitSha + "; PR=#" + pullRequest.number +

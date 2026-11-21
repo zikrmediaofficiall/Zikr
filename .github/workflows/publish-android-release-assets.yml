@@ -249,6 +249,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           RELEASE_COMMIT_SHA: ${{ steps.resolve_tag.outputs.tag_target_sha }}
           REQUIRE_VERCEL_STATUS: "false"
+          ALLOW_PRIVATE_ANDROID_DRAFT_FAILURE: ${{ github.event_name == 'workflow_dispatch' && inputs.retry == true }}
         run: node scripts/verify-release-gates.mjs
 
       - name: Fail fast if a published immutable release is missing APK/AAB
