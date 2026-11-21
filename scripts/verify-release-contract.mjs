@@ -37,6 +37,7 @@ assert.ok(releaseManager.includes("release.draft !== true") && releaseManager.in
 assert.ok(releaseManager.includes('tagRef.object?.type === "tag"') && releaseManager.includes("tagObject.object.sha !== commitSha"), "Stuck Android recovery must verify the annotated tag target before deleting it, even when signature verification is what failed");
 assert.ok(releaseManager.includes("tagObject.object.sha !== commitSha") && releaseManager.includes("currentMainSha !== commitSha"), "Stuck Android recovery must bind deletion and recreation to the exact current main commit");
 assert.ok(releaseManager.includes("cancelWorkflowRunsForReleaseCommit"), "Stuck Android recovery must stop in-flight signing/publishing workflows before cleanup");
+assert.ok(releaseManager.includes("dispatch-android-release-recovery.yml"), "Stuck Android recovery must cancel a stale publisher dispatcher before re-creating the tag");
 assert.ok(releaseAction.includes("formData.get(\"confirmCleanup\") !== \"yes\""), "Destructive release recovery must require explicit confirmation");
 assert.ok(releaseAction.includes("Number.isFinite(startedAt)") && releaseAction.includes("Date.now() - startedAt >= 6 * 60 * 60 * 1000"), "Release cleanup must require a valid timestamp older than six hours or a known dispatch failure");
 assert.ok(releaseAction.includes('action: "android.release.recreate.retry"'), "Release cleanup and retry must be recorded in the admin audit log");
