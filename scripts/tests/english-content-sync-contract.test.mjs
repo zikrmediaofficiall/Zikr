@@ -142,11 +142,13 @@ assert.ok(
   "Supabase credentials shared by both content-sync workers must be validated before the bounded worker step",
 );
 const geminiBranchStart = boundedSyncCommand.indexOf('if [[ -n "${GEMINI_API_KEY:-}" ]]');
-const geminiBranchEnd = boundedSyncCommand.indexOf("\n              fi\n\n              echo \"Synchronizing", geminiBranchStart);
+const geminiBranchEnd = boundedSyncCommand.indexOf("\n              fi\n\n              echo \"Importing the named English Quran edition", geminiBranchStart);
+const quranCommandPosition = boundedSyncCommand.indexOf("pnpm sync:quran:en");
 const hadithCommandPosition = boundedSyncCommand.indexOf("pnpm sync:hadith:en");
 assert.ok(
-  geminiBranchStart >= 0 && geminiBranchEnd > geminiBranchStart && hadithCommandPosition > geminiBranchEnd,
-  "Hadith sync must remain outside the optional Gemini article branch so it runs even when article translation is unavailable",
+  geminiBranchStart >= 0 && geminiBranchEnd > geminiBranchStart &&
+    quranCommandPosition > geminiBranchEnd && hadithCommandPosition > quranCommandPosition,
+  "Quran and Hadith sync must both remain outside the optional Gemini article branch so they run even when article translation is unavailable",
 );
 
 assert.ok(
