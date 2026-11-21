@@ -1,5 +1,6 @@
 export const VIDEO_TEMPLATE_ASSETS = [
   "calm", "dawn", "emerald", "gold", "night", "paper", "rose",
+  "andalusian-arch", "midnight-skyline", "oasis-dawn",
   "kids-garden", "kids-nature", "kids-neighborhood", "kids-workshop",
 ] as const;
 
@@ -26,6 +27,7 @@ export type VideoTemplateConfig = {
 
 const GENERAL_ASSETS = new Set<VideoTemplateAsset>([
   "calm", "dawn", "emerald", "gold", "night", "paper", "rose",
+  "andalusian-arch", "midnight-skyline", "oasis-dawn",
 ]);
 const KIDS_ASSETS = new Set<VideoTemplateAsset>([
   "kids-garden", "kids-nature", "kids-neighborhood", "kids-workshop",
@@ -90,5 +92,8 @@ export function videoTemplateAssetPath(
 }
 
 export function videoTemplateScene(assetKey: VideoTemplateAsset): "calm" | "dawn" | "emerald" | "gold" | "night" | "paper" | "rose" {
+  if (assetKey === "andalusian-arch") return "emerald";
+  if (assetKey === "midnight-skyline") return "night";
+  if (assetKey === "oasis-dawn") return "dawn";
   return GENERAL_ASSETS.has(assetKey) ? assetKey as ReturnType<typeof videoTemplateScene> : "calm";
 }

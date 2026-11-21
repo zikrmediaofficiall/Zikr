@@ -6,6 +6,10 @@ const catalog = readFileSync("src/lib/navigation/catalog.ts", "utf8");
 const sections = readFileSync("src/app/sections/page.tsx", "utf8");
 
 assert.match(home, /const visibleGroups = SITE_CATALOG/, "Home must render the canonical catalogue");
+assert.match(home, /getVideos\(undefined, 4\)/, "Home must surface recent published videos from the canonical video service");
+assert.match(home, /showFeaturedVideos[\s\S]*?isSectionVisible\('\/videos'\)/, "Featured videos must obey section visibility and homepage settings");
+assert.match(home, /featured-videos-heading/, "Home must include a dedicated published video shelf");
+assert.match(home, /استكشف كل أقسام ذِكر/, "Hero must include a clear route to section discovery");
 assert.match(home, /getSectionVisibility/, "Home must consume the persisted administrator visibility settings");
 assert.match(home, /getSectionDisplayOrder/, "Home must consume the persisted administrator section order");
 assert.match(home, /bySectionOrder\(QUICK_ACTIONS\.filter/, "Quick actions must follow the administrator display order");

@@ -29,6 +29,13 @@ assert.ok(["center", "left-to-right", "right-to-left", "top-to-bottom", "bottom-
 const first = resolveVideoComposition({ category: "quran", seed: "stable-id", ...dimensions });
 const retry = resolveVideoComposition({ category: "quran", seed: "stable-id", ...dimensions });
 assert.equal(first.cameraPath, retry.cameraPath, "camera path must remain stable across retries");
+assert.equal(first.panelLeft, retry.panelLeft, "layout variant must remain stable across retries");
+assert.equal(first.captionStyle, retry.captionStyle, "caption treatment must remain stable across retries");
+const variantSeeds = Array.from({ length: 24 }, (_, index) => `composition-variant-${index}`);
+const variants = variantSeeds.map((seed) => resolveVideoComposition({ category: "story", seed, ...dimensions }));
+assert.ok(new Set(variants.map((profile) => `${profile.panelLeft}:${profile.panelPixelWidth}:${profile.panelTop}:${profile.captionStyle}`)).size > 1, "different source IDs should receive more than one polished composition");
+assert.ok(variants.every((profile) => profile.panelLeft >= 0 && profile.panelLeft + profile.panelPixelWidth <= dimensions.width), "composition panels must remain inside horizontal safe bounds");
+assert.ok(variants.every((profile) => profile.panelTop >= 0 && profile.panelTop + profile.panelPixelHeight <= dimensions.height), "composition panels must remain inside vertical safe bounds");
 
 const longStory = Array.from({ length: 450 }, (_, index) => `كلمة${index + 1}`).join(" ");
 const longStoryPages = paginateCaptionText(longStory, 26, 3);

@@ -95,9 +95,16 @@ export async function AdminPlatformCommandCenter() {
   );
   const quickActionCandidates: Array<[string, string, string]> = [
     ["إدارة المحتوى", "/admin/content", "راجع المحتوى والمسودات"],
+    ["مصنع الفيديو", "/admin/video", "إنتاج الفيديوهات والقوالب والجودة"],
+    ["النشر الاجتماعي", "/admin/social", "راجع القنوات والطوابير والمنشورات"],
+    ["ترتيب الأقسام", "/admin/sections", "تحكم في ظهور الأقسام وترتيبها"],
+    ["مركز الطوابير", "/admin/queues", "تابع الأعمال المنتظرة والمعالجة"],
+    ["مركز الصوت", "/admin/audio", "إدارة التلاوات والصوتيات"],
     ["تحليلات المنصة", "/admin/analytics", "تابع الاستخدام والنمو"],
     ["الألعاب", "/admin/kids/games", "حدّث تجربة الأطفال"],
+    ["مصادر المحتوى", "/admin/sources", "راجع المصادر والمراجع المعتمدة"],
     ["سجل التدقيق", "/admin/audit", "راجع آخر العمليات"],
+    ["إعدادات النظام", "/admin/settings", "إدارة إعدادات المنصة"],
   ];
   const quickActions = quickActionCandidates.filter(([, href]) => availableHrefs.has(href));
   const queueLabels: Record<string, string> = {
