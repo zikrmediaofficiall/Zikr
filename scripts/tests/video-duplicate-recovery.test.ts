@@ -232,6 +232,14 @@ assert.ok(adminReviewClient.includes("approveSelectedForPublishing") && adminRev
 assert.ok(adminReviewClient.includes('action: "approve_publish"') && adminReviewClient.includes('"/api/admin/video-generation"'), "bulk review must reuse the guarded existing approval API");
 assert.ok(adminReviewClient.includes("batchApprovalChecks") && adminReviewClient.includes("APPROVAL_CHECKS.some"), "bulk review must require the full human checklist");
 
+assert.ok(projectCopyDeleteRoute.includes("matchesVideoAsset && assetUrl !== null && row.video_url === assetUrl ? null : row.video_url"), "staging-copy cleanup must preserve unrelated queue video URLs");
+assert.ok(projectCopyDeleteRoute.includes('row.video_url === assetUrl && assetUrl !== null && ["queued"'), "only queued items whose exact video URL is being deleted may be failed");
+assert.ok(projectCopyDeleteRoute.includes("byMetadata.length >= 10 || bySlug.length >= 10"), "catalog inventory truncation must stop deletion before mutation");
+assert.ok(projectCopyDeleteRoute.includes("resolveVideoRequestAudience(current.content)"), "unknown or conflicting audience markers must fail closed before deletion");
+assert.ok(projectCopyDeleteRoute.includes("allowProjectReference: true"), "legacy generated Cloudinary assets may be deleted only when their exact URL is linked to a project request");
+assert.ok(projectCopyDeleteRoute.includes("managedVideoStoragePathFromUrl(assetUrl)"), "legacy Supabase video URLs must map to exact project Storage objects");
+assert.ok(projectCopyDeleteRoute.includes("catalogReferencesTargetedMedia(catalog, assetUrl, storagePaths)"), "catalog media pointers must be matched to the exact asset");
+
 assert.ok(adminVideoDeleteRoute.includes("terminalGeneratedAsset"), "verified failed and cancelled generated assets must use the same reference-checked deletion preflight");
 assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.qa_failed"));
 assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.awaiting_human_review"));
@@ -427,29 +435,5 @@ assert.ok(
   worker.includes('existingQueue.status === "published"'),
   "a previously published internal queue row must be re-queued only for explicit purged-record recovery",
 );
-
-const projectCopyDeleteRoute = readFileSync("src/app/api/admin/videos/[id]/project-copy/route.ts", "utf8");
-const adminReviewClient = readFileSync("src/features/admin/video-requests/components/admin-video-requests-client.tsx", "utf8");
-assert.ok(projectCopyDeleteRoute.includes('requireAdminStepUpApi("video.delete"'), "project-only media deletion must require video.delete step-up");
-assert.ok(projectCopyDeleteRoute.includes("verifyGeneratedCloudinaryVideo"), "project-only media deletion must verify the exact Cloudinary-generated asset");
-assert.ok(projectCopyDeleteRoute.includes("deleteVerifiedGeneratedCloudinaryVideo"), "project-only media deletion must physically remove the verified Cloudinary video");
-assert.ok(projectCopyDeleteRoute.includes('createAdminClient().storage.from("videos")'), "project-only media deletion must remove its managed Supabase staging object");
-assert.ok(projectCopyDeleteRoute.includes("video_url: row.video_url === assetUrl && assetUrl !== null ? null : row.video_url"), "deletion must only clear the exact targeted request URL");
-assert.ok(projectCopyDeleteRoute.includes("matchesVideoAsset && assetUrl !== null && row.video_url === assetUrl ? null : row.video_url"), "staging-copy cleanup must preserve unrelated queue video URLs");
-assert.ok(projectCopyDeleteRoute.includes('row.video_url === assetUrl && assetUrl !== null && ["queued"'), "only queued items whose exact video URL is being deleted may be failed");
-assert.ok(projectCopyDeleteRoute.includes("byMetadata.length >= 10 || bySlug.length >= 10"), "catalog inventory truncation must stop deletion before any mutation");
-assert.ok(projectCopyDeleteRoute.includes("resolveVideoRequestAudience(current.content)"), "unknown or conflicting audience markers must fail closed before deletion");
-assert.ok(projectCopyDeleteRoute.includes("allowProjectReference: true"), "legacy generated Cloudinary assets may be deleted only when their exact URL is linked to a project request");
-assert.ok(projectCopyDeleteRoute.includes("managedVideoStoragePathFromUrl(assetUrl)"), "legacy Supabase video URLs must map to their exact automated Storage object");
-assert.ok(projectCopyDeleteRoute.includes("catalogReferencesTargetedMedia(catalog, assetUrl, storagePaths)"), "catalog media pointers must be matched to the exact asset before being cleared");
-assert.ok(projectCopyDeleteRoute.includes('row.status === "published"'), "published social queue history must remain published");
-assert.ok(projectCopyDeleteRoute.includes("externalSocialPostsDeleted: false"), "external social posts must never be deleted by project-only cleanup");
-assert.ok(projectCopyDeleteRoute.includes("platformPublicationIdsPreserved: true"), "YouTube/Facebook publication IDs must be retained");
-assert.ok(projectCopyDeleteRoute.includes("socialQueueRowsPreserved: true"), "social queue history must be retained");
-assert.ok(!/youtube\.com\/.*delete|facebook\.com\/.*delete/i.test(projectCopyDeleteRoute), "the cleanup route must not invoke social-platform delete endpoints");
-assert.ok(adminReviewClient.includes("approveSelectedForPublishing") && adminReviewClient.includes("selectedReviewIds"), "the review screen must support selecting multiple review-ready videos");
-assert.ok(adminReviewClient.includes('action: "approve_publish"') && adminReviewClient.includes('fetch("/api/admin/video-generation"'), "bulk review must use the existing guarded approval endpoint");
-assert.ok(adminReviewClient.includes("batchApprovalChecks") && adminReviewClient.includes("APPROVAL_CHECKS.some"), "bulk review must require the complete human checklist");
-assert.ok(adminReviewClient.includes("حذف نسخة المشروع فقط"), "the video queue must expose a separate project-copy deletion action");
 
 console.log("Duplicate video render recovery contract tests passed.");
