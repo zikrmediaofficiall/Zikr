@@ -8,6 +8,7 @@ import {
   dispatchPreparedAndroidReleaseTagSigning,
   getAndroidReleaseSigningPreflightStatus,
   prepareAndroidRelease,
+  recreateStuckAndroidRelease,
   requestAndroidReleaseSigningPreflight,
 } from "@/features/releases/services/github-release-manager";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
@@ -227,5 +228,105 @@ export async function retryAndroidReleaseSigningAction() {
       encodeURIComponent(operation.tag) +
       "&commit_sha=" +
       encodeURIComponent(operation.commitSha),
+  );
+}
+
+
+/**
+ * Delete only the unpublished draft/tag belonging to a stale recorded release,
+ * then recreate the same signed tag and retry the existing release pipeline.
+ */
+export async function recreateStuckAndroidReleaseAction(formData: FormData) {
+  await requireAdminPermission("release.manage");
+  await requireAdminStepUp("release.manage", "/admin/release");
+
+  if (formData.get("confirmCleanup") !== "yes") {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent("أكد اختيارك قبل حذف مسودة الإصدار والوسم العالقين."));
+  }
+
+  let rows: Array<{ value?: unknown }>;
+  try {
+    rows = await supabaseServerAdminRequest<Array<{ value?: unknown }>>(
+      "/rest/v1/admin_settings?key=eq.android_release_operation&select=value&limit=1",
+      { method: "GET" },
+    );
+  } catch {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent("تعذر قراءة عملية الإصدار من Supabase؛ لم يتم حذف أي شيء."));
+  }
+
+  const value = rows?.[0]?.value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent("لا توجد عملية إصدار مسجلة قابلة للاسترداد."));
+  }
+
+  const operation = value as {
+    status?: string;
+    tag?: string;
+    commitSha?: string;
+    startedAt?: string;
+    [key: string]: unknown;
+  };
+  const startedAt = Date.parse(operation.startedAt ?? "");
+  const isKnownDispatchFailure = operation.status === "signing_dispatch_failed";
+  const isStaleOperation =
+    (operation.status === "signing" || operation.status === "building") &&
+    (!Number.isFinite(startedAt) || Date.now() - startedAt >= 6 * 60 * 60 * 1000);
+
+  if (!isKnownDispatchFailure && !isStaleOperation) {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent("لا يمكن حذف الإصدار أثناء وجود عملية حديثة أو غير معروفة الحالة. انتظر انتهاء مهلة الست ساعات أو راجع سجل العملية."));
+  }
+  if (!operation.tag || !operation.commitSha) {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent("بيانات Tag أو commit غير مكتملة؛ لم يتم حذف أي شيء."));
+  }
+
+  let recovery: Awaited<ReturnType<typeof recreateStuckAndroidRelease>>;
+  try {
+    recovery = await recreateStuckAndroidRelease(operation.tag, operation.commitSha);
+  } catch (error) {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent(errorMessage(error)));
+  }
+
+  const retriedAt = new Date().toISOString();
+  await persistReleaseOperation({
+    ...operation,
+    status: recovery.dispatchError ? "signing_dispatch_failed" : "signing",
+    tag: recovery.tag,
+    commitSha: recovery.commitSha,
+    releaseId: null,
+    releaseUrl: recovery.workflowUrl,
+    startedAt: retriedAt,
+    signingDispatchError: recovery.dispatchError,
+    note: recovery.dispatchError
+      ? "تم تنظيف مسودة الإصدار والوسم العالقين، لكن فشل إرسال مهمة التوقيع. أعد المحاولة مرة أخرى لنفس الوسم والـcommit."
+      : "تم تنظيف Draft Release والـTag العالقين، وإعادة إنشاء نفس الوسم الموقّع وإرسال الإصدار إلى مسار بناء Android من نفس commit.",
+  });
+
+  await recordAdminAuditEventSafely({
+    action: "android.release.recreate.retry",
+    permission: "release.manage",
+    resourceType: "android_release_operation",
+    resourceId: recovery.tag,
+    metadata: {
+      tag: recovery.tag,
+      commitSha: recovery.commitSha,
+      deletedDraftRelease: recovery.deletedRelease,
+      deletedTag: recovery.deletedTag,
+      dispatchError: recovery.dispatchError,
+      retry: true,
+    },
+  });
+
+  revalidatePath("/admin/release");
+  if (recovery.dispatchError) {
+    redirect(
+      "/admin/release?android_release_error=" +
+        encodeURIComponent("تم تنظيف الإصدار العالق، لكن تعذر إعادة تشغيل التوقيع: " + recovery.dispatchError),
+    );
+  }
+  redirect(
+    "/admin/release?android_release_recreated=" +
+      encodeURIComponent(recovery.tag) +
+      "&commit_sha=" +
+      encodeURIComponent(recovery.commitSha),
   );
 }
