@@ -41,6 +41,13 @@ export type AudioSettings = Record<AudioSlot, string>;
 const AUDIO_SETTINGS_KEY = "zikr_audio_settings";
 let remoteAudioChoices: AudioChoice[] = [];
 
+/** Stable key shared by the database-backed library and its curated fallback. */
+export function getSiteAudioChoiceKey(id: string): string {
+  return id.startsWith("curated:")
+    ? "site:" + id.slice("curated:".length)
+    : "site:id:" + id;
+}
+
 function allChoices(): readonly AudioChoice[] {
   return [...AUDIO_CHOICES, ...remoteAudioChoices];
 }
@@ -154,7 +161,7 @@ export async function loadAudioSettings(): Promise<AudioSettings> {
     const remote = (audioPayload.library ?? []).map(choice => {
       const slot: AudioSlot = choice.kind === "adhan" ? "prayer" : choice.kind;
       return {
-        key: "site:id:" + choice.id,
+        key: getSiteAudioChoiceKey(choice.id),
         label: choice.title ?? "مقطع صوتي",
         webUrl: choice.url,
         nativeFile: null,
@@ -177,7 +184,7 @@ export async function loadAudioSettings(): Promise<AudioSettings> {
         .filter(item => item.isPrimary)
         .map(item => {
           const slot: AudioSlot = item.kind === "adhan" ? "prayer" : item.kind;
-          return [slot, "site:id:" + item.id];
+          return [slot, getSiteAudioChoiceKey(item.id)];
         }),
     );
 
