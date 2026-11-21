@@ -74,6 +74,15 @@ assert.equal(videoTemplateAssetPath("kids-garden", "kids"), "public/video/templa
 assert.equal(videoTemplateAssetPath("kids-garden", "general"), null);
 assert.equal(videoTemplateScene("kids-garden"), "calm");
 assert.equal(videoTemplateScene("emerald"), "emerald");
+for (const asset of ["andalusian-arch", "midnight-skyline", "oasis-dawn"] as const) {
+  assert.equal(isVideoTemplateAssetAllowedForAudience(asset, "general"), true);
+  assert.equal(isVideoTemplateAssetAllowedForAudience(asset, "kids"), false);
+  assert.equal(videoTemplateAssetPath(asset, "general"), `public/video/templates/${asset}.svg`);
+  assert.equal(parseVideoTemplateConfig({ assetKey: asset, defaultFormat: "vertical", motion: "slow" })?.assetKey, asset);
+}
+assert.equal(videoTemplateScene("andalusian-arch"), "emerald");
+assert.equal(videoTemplateScene("midnight-skyline"), "night");
+assert.equal(videoTemplateScene("oasis-dawn"), "dawn");
 
 const read = (path: string) => readFileSync(path, "utf8");
 const migration = read("supabase/migrations/20261106010000_admin_video_template_studio.sql");
