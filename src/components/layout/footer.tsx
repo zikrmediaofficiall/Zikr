@@ -6,7 +6,7 @@ import { Capacitor } from "@capacitor/core";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Container } from "@/components/ui/container";
-import { getCatalogItem } from "@/lib/navigation/catalog";
+import { getCatalogItem, getCatalogItemKey } from "@/lib/navigation/catalog";
 import { useLanguage } from "./language-provider";
 import { BookOpen, Scroll, Star } from "lucide-react";
 import { MONETAG_SMARTLINK_DISCLOSURE_AR, MONETAG_SMARTLINK_DISCLOSURE_EN, MONETAG_SMARTLINK_URL } from "@/lib/smartlink";
@@ -82,11 +82,13 @@ const legalLinks: FooterLink[] = [
   { href: "/data-deletion", ar: "حذف البيانات", en: "Data deletion" },
 ];
 
-export function Footer({ socialLinks, showSmartLink = false, hiddenHrefs = [] }: { socialLinks?: FooterSocialLinks; showSmartLink?: boolean; hiddenHrefs?: string[] }) {
+export function Footer({ socialLinks, showSmartLink = false, hiddenHrefs = [], sectionOrder = [] }: { socialLinks?: FooterSocialLinks; showSmartLink?: boolean; hiddenHrefs?: string[]; sectionOrder?: string[] }) {
   const { isEnglish } = useLanguage();
   const hidden = new Set(hiddenHrefs);
-  const visibleSectionLinks = sectionLinks.filter((item) => !hidden.has(item.href));
-  const visibleToolLinks = toolLinks.filter((item) => !hidden.has(item.href));
+  const orderIndex = new Map(sectionOrder.map((key, index) => [key, index]));
+  const sortLinks = (links: FooterLink[]) => [...links].sort((a, b) => (orderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER));
+  const visibleSectionLinks = sortLinks(sectionLinks.filter((item) => !hidden.has(item.href)));
+  const visibleToolLinks = sortLinks(toolLinks.filter((item) => !hidden.has(item.href)));
   const visibleSupportLinks = supportLinks.filter((item) => !hidden.has(item.href));
   const [isWebRuntime, setIsWebRuntime] = useState(false);
 
