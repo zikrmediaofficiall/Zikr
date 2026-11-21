@@ -231,7 +231,7 @@ type GitHubWorkflowRuns = { workflow_runs?: GitHubWorkflowRun[] };
 
 export type AndroidReleaseSigningPreflight = {
   mainSha: string;
-  status: "not_run" | "queued" | "in_progress" | "completed";
+  status: "not_run" | "queued" | "in_progress" | "waiting" | "completed";
   conclusion: string | null;
   ready: boolean;
   url: string | null;
@@ -278,7 +278,7 @@ export async function getAndroidReleaseSigningPreflightStatus(): Promise<Android
 
 export async function requestAndroidReleaseSigningPreflight() {
   const status = await getAndroidReleaseSigningPreflightStatus();
-  if (status.status === "queued" || status.status === "in_progress") {
+  if (status.status === "queued" || status.status === "in_progress" || status.status === "waiting") {
     return {
       mainSha: status.mainSha,
       workflowUrl: status.url ?? "https://github.com/" + REPO + "/actions/workflows/android-release-signing-preflight.yml",

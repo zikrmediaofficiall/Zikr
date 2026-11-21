@@ -99,7 +99,7 @@ export default async function AdminReleasePage({
             <p className="mt-1 text-brand-cream/70">
               {signingPreflight?.ready
                 ? "نجح فحص مفتاح التوقيع المحمي على أحدث commit من main."
-                : signingPreflight?.status === "in_progress" || signingPreflight?.status === "queued"
+                : signingPreflight?.status === "in_progress" || signingPreflight?.status === "queued" || signingPreflight?.status === "waiting"
                   ? "فحص التوقيع يعمل حاليًا؛ افتح نتيجة GitHub ثم حدّث هذه الصفحة."
                   : signingPreflight?.conclusion === "failure"
                     ? "فشل فحص التوقيع. افتح سجل GitHub لمعرفة المفتاح أو المتغير الناقص."
