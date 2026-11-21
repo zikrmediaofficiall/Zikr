@@ -849,7 +849,9 @@ function getGenericEditorialPage(pathname: string): EditorialPage | null {
   }
   // These pages already contain a full, purpose-built primary experience and
   // receive their own treatment where needed; suppress the generic footer guide.
-  if (normalized === '/about' || normalized === '/contact') return null;
+  // The homepage already receives its focused guide from ContentExpansion.
+  // Suppress this generic block there to avoid two long guides stacked together.
+  if (normalized === '/' || normalized === '/about' || normalized === '/contact') return null;
 
   // Dynamic detail routes now have their own page-specific guide in
   // ContentExpansion. Keep generic guides for the static Kids landing pages,
