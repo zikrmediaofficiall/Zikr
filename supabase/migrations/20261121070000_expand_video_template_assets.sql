@@ -28,7 +28,7 @@ DECLARE
   v_asset text;
 BEGIN
   IF p_actor_user_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM auth.users WHERE auth.users.id = p_actor_user_id
+    SELECT 1 FROM public.profiles AS actor WHERE actor.id = p_actor_user_id
   ) THEN
     RAISE EXCEPTION 'valid actor is required' USING ERRCODE = '22023';
   END IF;
