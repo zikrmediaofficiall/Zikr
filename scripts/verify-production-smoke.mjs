@@ -144,21 +144,27 @@ const ASSET_CHECKS = [
   { path: "/sitemap-index.xml", label: "sitemap index", expected: /<sitemapindex/i },
 ];
 
+const configuredIosAppId = process.env.IOS_ASSOCIATED_DOMAIN_APP_ID?.trim() ?? "";
+if (!configuredIosAppId) {
+  console.warn("WARN iOS Universal Links check skipped: the production website may be released without the optional Apple Team ID; configure IOS_ASSOCIATED_DOMAIN_APP_ID before enabling iOS Universal Links.");
+}
+
 const ASSOCIATION_CHECKS = [
-  {
-    path: "/.well-known/apple-app-site-association",
-    label: "iOS Universal Links and web credentials association",
-    expectedJson: (payload) => {
-      const validAppId = (value) => typeof value === "string" && /^[A-Z0-9]{10}\.com\.zikr\.app$/.test(value);
-      const appIds = (payload?.applinks?.details ?? []).flatMap((detail) =>
-        Array.isArray(detail?.appIDs) ? detail.appIDs : [],
-      );
-      const webCredentials = Array.isArray(payload?.webcredentials?.apps)
-        ? payload.webcredentials.apps
-        : [];
-      return appIds.some(validAppId) && webCredentials.some(validAppId);
-    },
-  },
+  ...(configuredIosAppId
+    ? [{
+        path: "/.well-known/apple-app-site-association",
+        label: "iOS Universal Links and web credentials association",
+        expectedJson: (payload) => {
+          const appIds = (payload?.applinks?.details ?? []).flatMap((detail) =>
+            Array.isArray(detail?.appIDs) ? detail.appIDs : [],
+          );
+          const webCredentials = Array.isArray(payload?.webcredentials?.apps)
+            ? payload.webcredentials.apps
+            : [];
+          return appIds.includes(configuredIosAppId) && webCredentials.includes(configuredIosAppId);
+        },
+      }]
+    : []),
   {
     path: "/.well-known/assetlinks.json",
     label: "Android App Links signing association",
