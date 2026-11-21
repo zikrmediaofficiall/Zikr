@@ -115,7 +115,7 @@ function isConfiguredSupabaseOrigin(value: string): boolean {
 function managedVideoStoragePathFromUrl(value: unknown): string | null {
   if (typeof value !== "string" || !isConfiguredSupabaseOrigin(value)) return null;
   const url = new URL(value);
-  const match = url.pathname.match(/\\/storage\\/v1\\/object\\/(?:public|sign|authenticated)\\/videos\\/(.+)$/i);
+  const match = url.pathname.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/videos\/(.+)$/i);
   if (!match) return null;
   let path: string;
   try {
