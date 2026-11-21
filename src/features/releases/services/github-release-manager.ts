@@ -424,20 +424,27 @@ async function inspectStuckAndroidRelease(tag: string, commitSha: string) {
 
   if (tagRef) {
     const tagObjectSha = tagRef.object?.sha;
-    if (tagRef.object?.type !== "tag" || !tagObjectSha) {
-      throw new Error("رفض حذف Tag غير مشروح أو غير مكتمل؛ الوسم يجب أن يكون Annotated GPG Tag.");
+    if (!tagObjectSha) {
+      throw new Error("تعذر تحديد كائن Tag؛ لم يتم حذف أي عنصر.");
     }
-    const tagObject = await githubJson<GitHubTagObject>(
-      "/repos/" + REPO + "/git/tags/" + encodeURIComponent(tagObjectSha),
-    );
-    if (
-      (tagObject.tag && tagObject.tag !== tag) ||
-      tagObject.verification?.verified !== true ||
-      tagObject.verification.reason !== "valid" ||
-      tagObject.object?.type !== "commit" ||
-      tagObject.object.sha !== commitSha
-    ) {
-      throw new Error("رفض حذف Tag لأن توقيعه أو commit الهدف لا يطابق بيانات الإصدار المسجلة.");
+
+    // A failed/invalid signature is a reason a release can become stuck. We may
+    // remove that tag only when its resolved target is the exact current-main
+    // commit recorded by the release operation. The replacement tag is still
+    // created and cryptographically verified by the protected signer.
+    if (tagRef.object?.type === "tag") {
+      const tagObject = await githubJson<GitHubTagObject>(
+        "/repos/" + REPO + "/git/tags/" + encodeURIComponent(tagObjectSha),
+      );
+      if (
+        (tagObject.tag && tagObject.tag !== tag) ||
+        tagObject.object?.type !== "commit" ||
+        tagObject.object.sha !== commitSha
+      ) {
+        throw new Error("رفض حذف Tag لأن اسمه أو commit الهدف لا يطابق بيانات الإصدار المسجلة.");
+      }
+    } else if (tagRef.object?.type !== "commit" || tagObjectSha !== commitSha) {
+      throw new Error("رفض حذف Tag خفيف أو غير موثوق لأنه لا يشير مباشرة إلى commit الإصدار المسجل.");
     }
   }
 
