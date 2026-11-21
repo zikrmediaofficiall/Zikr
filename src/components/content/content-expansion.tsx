@@ -1052,6 +1052,10 @@ const EXISTING_DEDICATED_GUIDE_ROUTES = new Set([
   '/platform', '/faq', '/prayer-times', '/qibla', '/tasbeeh',
   '/memorization', '/wird', '/zakat', '/spiritual-ai', '/radio',
   '/youtube', '/search', '/offline-library',
+  // These Kids subpages already receive the dedicated Kids editorial guide.
+  // Avoid repeating a generic activity article after their own page content.
+  '/kids/games', '/kids/audio', '/kids/adventures', '/kids/achievements',
+  '/kids/progress', '/kids/puzzle', '/kids/parent-dashboard', '/kids/videos',
 ]);
 
 function resolvePage(pathname: string): Page | null {
