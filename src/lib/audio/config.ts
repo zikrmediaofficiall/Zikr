@@ -45,10 +45,20 @@ function allChoices(): readonly AudioChoice[] {
   return [...AUDIO_CHOICES, ...remoteAudioChoices];
 }
 
-function getBundledFallback(slot: AudioSlot): AudioChoice {
+function getFallbackAudioChoice(slot: AudioSlot): AudioChoice {
+  // Never substitute audio from another category. Dhikr has no bundled native
+  // recording, so its web fallback must come from the curated dhikr catalogue.
   return (
     BUNDLED_AUDIO_CHOICES.find(choice => choice.slot === slot) ??
-    BUNDLED_AUDIO_CHOICES[0]
+    AUDIO_CHOICES.find(choice => choice.slot === slot) ??
+    {
+      key: `unavailable:${slot}`,
+      label: "لا يوجد تسجيل متاح",
+      webUrl: "",
+      nativeFile: null,
+      slot,
+      human: false,
+    }
   );
 }
 
@@ -83,7 +93,7 @@ export function normalizeAudioSettings(
 }
 
 export function getAudioChoice(key: string, slot: AudioSlot = "prayer"): AudioChoice {
-  return allChoices().find(choice => choice.key === key && choice.slot === slot) ?? getBundledFallback(slot);
+  return allChoices().find(choice => choice.key === key && choice.slot === slot) ?? getFallbackAudioChoice(slot);
 }
 
 export function getAudioSettingsFromStorage(): AudioSettings {
@@ -185,23 +195,28 @@ export function getNativeAudio(
   slot: AudioSlot,
   platform: string = Capacitor.getPlatform(),
 ): {
-  sound: string;
+  sound?: string;
   channelId: string;
 } {
   const settings = getAudioSettingsFromStorage();
-  const choice = getAudioChoice(settings[slot], slot);
-  const native = choice.nativeFile ? choice : getBundledFallback(slot);
 
-  // iOS notification sounds must be present in the native app bundle and use
-  // supported WAV/CAF formats. The iOS target ships only adhan.wav/salawat.wav;
-  // remote choices and the Android-only MP3 fallback remain foreground audio.
-  const sound = platform === "ios"
-    ? slot === "salawat" ? "salawat.wav" : "adhan.wav"
-    : native.nativeFile as string;
+  // Native notification bundles contain adhan and salawat only. A dhikr
+  // reminder must never borrow an adhan file; omit the custom sound and let
+  // Android/iOS use the user's normal notification sound instead.
+  let sound: string | undefined;
+  if (slot === "prayer") {
+    sound = platform === "ios"
+      ? "adhan.wav"
+      : BUNDLED_AUDIO_CHOICES.find(choice => choice.slot === "prayer")?.nativeFile ?? undefined;
+  } else if (slot === "salawat") {
+    sound = platform === "ios"
+      ? "salawat.wav"
+      : BUNDLED_AUDIO_CHOICES.find(choice => choice.slot === "salawat")?.nativeFile ?? undefined;
+  }
 
   return {
-    sound,
-    channelId: "zikr-audio-" + slot + "-" + settings[slot] + "-v3",
+    ...(sound ? { sound } : {}),
+    channelId: "zikr-audio-" + slot + "-" + settings[slot] + "-v4",
   };
 }
 
