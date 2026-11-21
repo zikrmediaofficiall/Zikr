@@ -95,6 +95,8 @@ assert.ok(
     androidPublish.includes("source_commit:") &&
     androidPublish.includes("contents/${release_path}?ref=${TAG_TARGET_SHA}") && androidPublish.includes("cmp -s") &&
     androidPublish.includes("RELEASE_SOURCE_SHA=$TAG_TARGET_SHA") &&
+    androidPublish.includes("github.actor == 'zikrofficial-X'") &&
+    androidPublish.includes('GITHUB_ACTOR}" == "zikrofficial-X"') &&
     !androidPublish.includes("github.event_name != 'workflow_dispatch'"),
   "Every Android publish/retry path must verify the exact tag source commit and all CI gates",
 );
