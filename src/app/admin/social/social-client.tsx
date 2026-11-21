@@ -766,10 +766,16 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
               </Button>
             )}
             <Link
-              href="/admin/video/requests"
+              href="/admin/video/review"
               className="inline-flex items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-400/15"
             >
-              مراجعة الفيديوهات ({readiness.approvalPending})
+              طلبات تحتاج مراجعة ({readiness.approvalPending})
+            </Link>
+            <Link
+              href="/admin/video/requests"
+              className="inline-flex items-center justify-center rounded-xl border border-brand-gold/20 px-3 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/10"
+            >
+              كل طلبات الفيديو
             </Link>
             <Link
               href="/admin/social/written-studio"
