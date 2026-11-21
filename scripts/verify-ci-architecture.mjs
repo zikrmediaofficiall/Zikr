@@ -177,7 +177,13 @@ const articleTranslation = read("scripts/translate-published-articles-en.ts");
 const hadithTranslation = read("scripts/sync-hadith-english.ts");
 const androidRecovery = read(".github/workflows/dispatch-android-release-recovery.yml");
 assert.ok(androidRecovery.includes("workflow_dispatch:"), "Android recovery must be explicitly dispatched by the successful CircleCI release pipeline");
-assert.ok(!androidRecovery.includes("\n  status:") && !androidRecovery.includes("\n  push:"), "Android recovery must not subscribe to every repository status or push event");
+assert.ok(
+  !androidRecovery.includes("\\n  status:") &&
+    androidRecovery.includes('branches:\\n      - "android-release-dispatch-v*"') &&
+    androidRecovery.includes("github.actor == 'zikrofficial-X'") &&
+    androidRecovery.includes("isPushRecoveryTrigger"),
+  "Android recovery must not subscribe to every repository status and may use only the owner-restricted canonical release-dispatch push fallback",
+);
 assert.ok(androidRecovery.includes("github.event_name == 'workflow_dispatch'"), "Android recovery must accept only an explicit workflow dispatch");
 assert.ok(circle.includes("android-release-dispatch:"), "CircleCI must dispatch Android recovery only after android-rebuild succeeds");
 assert.ok(circle.includes("api.github.com/repos/zikrofficial-X/Zikr/actions/workflows/dispatch-android-release-recovery.yml/dispatches"), "CircleCI must invoke the guarded Android recovery workflow");
