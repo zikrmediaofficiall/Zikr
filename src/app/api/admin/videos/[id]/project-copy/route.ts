@@ -472,7 +472,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       const metadata = queueMetadataForDeletion(row, relatedVideoUrl, storagePaths, requestIds, requestedAt, requestedBy);
       const nextStatus = row.status === "published"
         ? "published"
-        : row.video_url === assetUrl && assetUrl !== null && ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
+        : (matchesVideoAsset || matchesStorageCopy) && ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
           ? "failed"
           : row.status;
       const queueFilter = `id=eq.${encodeURIComponent(row.id)}${row.updated_at ? `&updated_at=eq.${encodeURIComponent(row.updated_at)}` : ""}`;
