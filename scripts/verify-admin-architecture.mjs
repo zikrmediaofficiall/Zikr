@@ -139,32 +139,32 @@ for (const label of visibleLabels) {
   }
 }
 
-const legacyRedirects = {
-  "src/app/admin/videos/page.tsx": "/admin/video/requests",
-  "src/app/admin/control/page.tsx": "/admin",
-  "src/app/admin/media/page.tsx": "/admin/memory",
-  "src/app/admin/video-factory/page.tsx": "/admin/video",
-  "src/app/admin/video-factory/sources/page.tsx": "/admin/video/sources",
-  "src/app/admin/video-factory/scripts/page.tsx": "/admin/video/scripts",
-  "src/app/admin/video-factory/voices/page.tsx": "/admin/video/voices",
-  "src/app/admin/video-factory/visuals/page.tsx": "/admin/video/visuals",
-  "src/app/admin/video-factory/templates/page.tsx": "/admin/video/templates",
-  "src/app/admin/video-factory/qa/page.tsx": "/admin/video/qa",
-  "src/app/admin/video-factory/queue/page.tsx": "/admin/video/requests",
-  "src/app/admin/ai-video/page.tsx": "/admin/video/studio",
-  "src/app/admin/ai-video/curated/page.tsx": "/admin/video/studio/curated",
-  "src/app/admin/social/youtube-import/page.tsx": "/admin/analytics",
-  "src/app/admin/alerts/page.tsx": "/admin/notifications",
-  "src/app/admin/audio/site-audio/page.tsx": "/admin/site-audio",
-  "src/app/admin/video-factory/publishing/page.tsx": "/admin/memory",
-  "src/app/admin/video-factory/scheduler/page.tsx": "/admin/automation",
-};
-for (const [path, target] of Object.entries(legacyRedirects)) {
-  const page = read(path);
-  if (!page.includes(`redirect("${target}")`)) {
-    failures.push(`legacy admin route must redirect to canonical path: ${path} -> ${target}`);
+const retiredAdminRouteFiles = [
+  "src/app/admin/videos/page.tsx",
+  "src/app/admin/video-factory/page.tsx",
+  "src/app/admin/video-factory/sources/page.tsx",
+  "src/app/admin/video-factory/scripts/page.tsx",
+  "src/app/admin/video-factory/voices/page.tsx",
+  "src/app/admin/video-factory/visuals/page.tsx",
+  "src/app/admin/video-factory/templates/page.tsx",
+  "src/app/admin/video-factory/qa/page.tsx",
+  "src/app/admin/video-factory/queue/page.tsx",
+  "src/app/admin/video-factory/scheduler/page.tsx",
+  "src/app/admin/video-factory/publishing/page.tsx",
+  "src/app/admin/ai-video/page.tsx",
+  "src/app/admin/ai-video/curated/page.tsx",
+  "src/app/admin/social/youtube-import/page.tsx",
+  "src/app/admin/alerts/page.tsx",
+  "src/app/admin/control/page.tsx",
+  "src/app/admin/media/page.tsx",
+  "src/app/admin/audio/site-audio/page.tsx",
+];
+for (const path of retiredAdminRouteFiles) {
+  if (existsSync(join(ROOT, path))) {
+    failures.push("retired admin compatibility route must not exist: " + path);
   }
 }
+
 const socialPage = read("src/app/admin/social/page.tsx");
 const writtenSocialPage = read("src/app/admin/social/written-studio/page.tsx");
 const writtenSocialClient = read("src/app/admin/social/written-studio/written-studio-client.tsx");

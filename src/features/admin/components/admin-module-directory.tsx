@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Clock3, Search, Star, X } from "lucide-react";
 import { AdminIcon } from "@/features/admin/components/admin-sidebar";
+import { matchesAdminSearch, normalizeAdminSearch } from "@/features/admin/utils/admin-search";
 type NavigationItem = { href: string; label: string; icon?: string };
 type NavigationGroup = { key: string; label: string; items: readonly NavigationItem[] };
 type DirectoryModule = NavigationItem & { groupKey: string; groupLabel: string };
@@ -22,8 +23,6 @@ function readStringList(value: string | null): string[] {
     return [];
   }
 }
-
-const normalize = (value: string) => value.trim().toLocaleLowerCase("ar");
 
 export function AdminModuleDirectory({ groups }: { groups: readonly NavigationGroup[] }) {
   const [query, setQuery] = useState("");
@@ -50,17 +49,7 @@ export function AdminModuleDirectory({ groups }: { groups: readonly NavigationGr
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const typing = Boolean(target && (
-        target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
-      ));
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        searchRef.current?.focus();
-      } else if (event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        event.preventDefault();
-        searchRef.current?.focus();
-      } else if (event.key === "Escape") {
+      if (event.key === "Escape") {
         setQuery("");
         if (document.activeElement === searchRef.current) searchRef.current?.blur();
       }
@@ -87,19 +76,16 @@ export function AdminModuleDirectory({ groups }: { groups: readonly NavigationGr
     });
   };
 
-  const normalizedQuery = normalize(query);
+  const normalizedQuery = normalizeAdminSearch(query);
   const visibleGroups = useMemo(
     () => groups.map((group) => ({
       ...group,
       items: group.items.filter((item) =>
         (groupFilter === "all" || group.key === groupFilter) &&
-        (!normalizedQuery ||
-          normalize(item.label).includes(normalizedQuery) ||
-          normalize(item.href).includes(normalizedQuery) ||
-          normalize(group.label).includes(normalizedQuery)),
+        matchesAdminSearch(query, item.label, item.href, group.label),
       ),
     })).filter((group) => group.items.length > 0),
-    [groups, groupFilter, normalizedQuery],
+    [groups, groupFilter, query],
   );
 
   const favoritesList = favorites.map((href) => moduleByHref.get(href))
@@ -150,14 +136,14 @@ export function AdminModuleDirectory({ groups }: { groups: readonly NavigationGr
           <span className="sr-only">البحث في أقسام الإدارة</span>
           <Search size={17} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-cream/35" />
           <input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)}
-            placeholder="ابحث باسم الصفحة أو مسارها أو مجموعتها..." aria-keyshortcuts="Control+K Meta+K /"
+            placeholder="ابحث باسم الصفحة أو مسارها أو مجموعتها..."
             autoComplete="off" className="w-full rounded-xl border border-brand-gold/15 bg-black/25 py-3 pl-11 pr-10 text-sm text-brand-cream outline-none placeholder:text-brand-cream/30 focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10" />
           {query ? (
             <button type="button" onClick={() => setQuery("")} aria-label="مسح البحث"
               className="absolute left-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-brand-cream/50 hover:bg-brand-gold/10 hover:text-brand-gold">
               <X size={14} aria-hidden="true" />
             </button>
-          ) : <kbd className="absolute left-3 top-1/2 -translate-y-1/2 rounded border border-brand-gold/15 px-1.5 py-0.5 text-[10px] text-brand-cream/30">Ctrl K</kbd>}
+          ) : null}
         </label>
 
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="تصفية صفحات الإدارة حسب المجموعة">
@@ -169,7 +155,7 @@ export function AdminModuleDirectory({ groups }: { groups: readonly NavigationGr
           ))}
         </div>
         <p className="mt-2 text-[11px] text-brand-cream/35" aria-live="polite">
-          {normalizedQuery || groupFilter !== "all" ? "يعرض " + visible + " من " + total + " صفحة." : "اختصار البحث: Ctrl+K أو / · اضغط Escape لمسح البحث"}
+          {normalizedQuery || groupFilter !== "all" ? "يعرض " + visible + " من " + total + " صفحة." : "افتح البحث السريع بـ Ctrl+K · اضغط Escape لمسح البحث"}
         </p>
       </div>
 

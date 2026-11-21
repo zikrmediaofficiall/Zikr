@@ -863,8 +863,8 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
 
       {activeView === "overview" && (
         <>
-      <section className="grid gap-3 md:grid-cols-3">
-        <Card className="space-y-3">
+      <section className="grid gap-3 md:grid-cols-2">
+        <Card className="space-y-3 border-red-500/10 bg-gradient-to-br from-red-500/5 via-black/10 to-black/20">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs text-brand-cream/50">YouTube</div>
             <span className={`text-xs ${health.youtubeConnectionStatus === "connected" ? "text-emerald-300" : "text-amber-200/80"}`}>
@@ -872,6 +872,20 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
             </span>
           </div>
           <p className="text-sm font-semibold text-brand-cream/85">{health.youtubeChannelName || (health.youtubeConfigured ? "قناة YouTube — يلزم الاختبار" : "بيانات YouTube غير مكتملة")}</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-red-400/10 bg-black/15 p-2.5">
+              <p className="text-[10px] text-brand-cream/40">المشتركون</p>
+              <p className="mt-1 text-sm font-bold tabular-nums text-brand-cream">{health.youtubeSubscribers?.toLocaleString("ar-EG") ?? "غير متاح"}</p>
+            </div>
+            <div className="rounded-xl border border-red-400/10 bg-black/15 p-2.5">
+              <p className="text-[10px] text-brand-cream/40">المشاهدات</p>
+              <p className="mt-1 text-sm font-bold tabular-nums text-brand-cream">{health.youtubeTotalViews?.toLocaleString("ar-EG") ?? "غير متاح"}</p>
+            </div>
+            <div className="rounded-xl border border-red-400/10 bg-black/15 p-2.5">
+              <p className="text-[10px] text-brand-cream/40">الفيديوهات</p>
+              <p className="mt-1 text-sm font-bold tabular-nums text-brand-cream">{health.youtubeVideoCount?.toLocaleString("ar-EG") ?? "غير متاح"}</p>
+            </div>
+          </div>
           {health.youtubeConnectionMessage && <p className="text-xs leading-5 text-brand-cream/55">{health.youtubeConnectionMessage}</p>}
           {health.youtubeConnectionStatus === "connected" && !health.youtubeUploadReady && <p className="text-xs leading-5 text-amber-200/80">قراءة القناة متاحة، لكن صلاحية رفع الفيديو غير مكتملة. أعد ربط YouTube قبل تحرير العناصر المحجوبة.</p>}
           <div className="flex flex-wrap gap-2">
@@ -905,6 +919,16 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
           {health.facebookPageName && (
             <p className="text-xs text-brand-cream/55">الصفحة: {health.facebookPageName}</p>
           )}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-blue-400/10 bg-black/15 p-2.5">
+              <p className="text-[10px] text-brand-cream/40">المتابعون</p>
+              <p className="mt-1 text-sm font-bold tabular-nums text-brand-cream">{socialAnalytics?.audience.facebook.followers?.toLocaleString("ar-EG") ?? "غير متاح"}</p>
+            </div>
+            <div className="rounded-xl border border-blue-400/10 bg-black/15 p-2.5">
+              <p className="text-[10px] text-brand-cream/40">إعجابات الصفحة</p>
+              <p className="mt-1 text-sm font-bold tabular-nums text-brand-cream">{socialAnalytics?.audience.facebook.pageLikes?.toLocaleString("ar-EG") ?? "غير متاح"}</p>
+            </div>
+          </div>
           {health.facebookConnectionMessage && (
             <div className="space-y-1">
               <p className="text-xs leading-5 text-brand-cream/55">{health.facebookConnectionMessage}</p>
@@ -920,20 +944,20 @@ export default function AdminSocialClient({ canPublish }: { canPublish: boolean 
             </Button>
           </div>
         </Card>
-        <Card>
+        <div className="grid grid-cols-2 gap-3 md:col-span-2">
+        <Card className="border-amber-400/10 bg-amber-400/[0.03]">
           <div className="text-xs text-brand-cream/50">
-            <span aria-hidden="true">Facebook Auth Blocks</span>
-            <span className="sr-only">سجلات فشل اعتماد Facebook السابقة</span>
+            <span>عناصر Facebook المتوقفة بسبب الاعتماد</span>
           </div>
           <div className="mt-1 font-semibold">{health.facebookAuthBlocked}</div>
         </Card>
-        <Card>
+        <Card className="border-amber-400/10 bg-amber-400/[0.03]">
           <div className="text-xs text-brand-cream/50">
-            <span aria-hidden="true">YouTube Auth Blocks</span>
-            <span className="sr-only">سجلات فشل اعتماد YouTube السابقة</span>
+            <span>عناصر YouTube المتوقفة بسبب الاعتماد</span>
           </div>
           <div className="mt-1 font-semibold">{health.youtubeAuthBlocked}</div>
         </Card>
+        </div>
       </section>
 
       {health.facebookAuthBlocked > 0 && (

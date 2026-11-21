@@ -145,27 +145,7 @@ export const ADMIN_MODULES: readonly AdminModuleDefinition[] = [
   },
 ] as const;
 
-/** المسارات القديمة محفوظة كتحويلات فقط؛ لا توجد لها نسخ تشغيلية ثانية. */
-export const ADMIN_ROUTE_ALIASES = [
-  { from: "/admin/videos", to: "/admin/video/requests", reason: "مسار فيديو رسمي موحد" },
-  { from: "/admin/video-factory", to: "/admin/video", reason: "دمج مصنع الفيديو في مركز واحد" },
-  { from: "/admin/video-factory/sources", to: "/admin/video/sources", reason: "نقل المصادر إلى المركز الموحد" },
-  { from: "/admin/video-factory/scripts", to: "/admin/video/scripts", reason: "نقل النصوص إلى المركز الموحد" },
-  { from: "/admin/video-factory/voices", to: "/admin/video/voices", reason: "نقل الأصوات إلى المركز الموحد" },
-  { from: "/admin/video-factory/visuals", to: "/admin/video/visuals", reason: "نقل المرئيات إلى المركز الموحد" },
-  { from: "/admin/video-factory/templates", to: "/admin/video/templates", reason: "نقل القوالب إلى المركز الموحد" },
-  { from: "/admin/video-factory/qa", to: "/admin/video/qa", reason: "نقل الجودة إلى المركز الموحد" },
-  { from: "/admin/video-factory/queue", to: "/admin/video/requests", reason: "توحيد طابور الفيديو" },
-  { from: "/admin/video-factory/scheduler", to: "/admin/automation", reason: "الجدولة تحت مركز الأتمتة" },
-  { from: "/admin/ai-video", to: "/admin/video/studio", reason: "دمج الاستوديو في مركز الفيديو" },
-  { from: "/admin/ai-video/curated", to: "/admin/video/studio/curated", reason: "نقل المحتوى الموثق إلى الاستوديو الرسمي" },
-  { from: "/admin/video-factory/publishing", to: "/admin/memory", reason: "تحويل مساحة الوسائط والذاكرة الداخلية" },
-    { from: "/admin/social/youtube-import", to: "/admin/analytics", reason: "إيقاف أداة الاستيراد القديمة وتحويل المستخدم إلى التحليلات" },
-  { from: "/admin/alerts", to: "/admin/notifications", reason: "توحيد التنبيهات" },
-  { from: "/admin/control", to: "/admin", reason: "اختصار قديم لمركز العمليات" },
-  { from: "/admin/media", to: "/admin/memory", reason: "المسار القديم يحول إلى مكتبة الوسائط والذاكرة الرسمية" },
-  { from: "/admin/audio/site-audio", to: "/admin/site-audio", reason: "مسار صوت الموقع الرسمي" },
-] as const;
+// Legacy admin route files are retired; ADMIN_NAVIGATION is the only route registry.
 
 export function getAdminModule(pathname: string) {
   const matches = ADMIN_MODULES.map((module) => ({

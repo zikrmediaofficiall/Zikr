@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Command, Search, X } from "lucide-react";
+import { matchesAdminSearch } from "@/features/admin/utils/admin-search";
 
 type AdminCommandItem = { href: string; label: string };
 type AdminCommandGroup = { group: string; items: AdminCommandItem[] };
@@ -11,13 +12,12 @@ export function AdminCommandPalette({ groups }: { groups: AdminCommandGroup[] })
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const normalized = query.trim().toLocaleLowerCase("ar");
   const results = useMemo(
     () => groups
       .flatMap((group) => group.items.map((item) => ({ ...item, group: group.group })))
-      .filter((item) => !normalized || `${item.label} ${item.href} ${item.group}`.toLocaleLowerCase("ar").includes(normalized))
+      .filter((item) => matchesAdminSearch(query, item.label, item.href, item.group))
       .slice(0, 12),
-    [groups, normalized],
+    [groups, query],
   );
 
   useEffect(() => {

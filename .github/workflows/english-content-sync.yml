@@ -5,13 +5,17 @@ on:
   workflow_dispatch:
     inputs:
       article_batch_size:
-        description: "Number of articles to translate in this run"
+        description: "Number of articles to translate in this run (maximum 10)"
         required: false
-        default: "5"
+        default: "10"
+      content_batch_size:
+        description: "Number of rows per content category to translate in this run (maximum 10)"
+        required: false
+        default: "10"
       hadith_batch_size:
-        description: "Number of Hadith records to synchronize in this run"
+        description: "Number of Hadith records to synchronize in this run (maximum 100)"
         required: false
-        default: "25"
+        default: "75"
 
 concurrency:
   group: zikr-english-content-sync
@@ -26,12 +30,13 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: production
-    timeout-minutes: 40
+    timeout-minutes: 100
     env:
       SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
-      TRANSLATION_BATCH_SIZE: ${{ github.event.inputs.article_batch_size || '5' }}
+      TRANSLATION_BATCH_SIZE: ${{ github.event.inputs.article_batch_size || '10' }}
+      CONTENT_TRANSLATION_BATCH_SIZE: ${{ github.event.inputs.content_batch_size || '10' }}
       HADITH_API_BASE_URL: https://ummahapi.com/api/hadith
-      HADITH_TRANSLATION_BATCH_SIZE: ${{ github.event.inputs.hadith_batch_size || '25' }}
+      HADITH_TRANSLATION_BATCH_SIZE: ${{ github.event.inputs.hadith_batch_size || '75' }}
     steps:
       - uses: actions/checkout@v7
       - name: Validate Supabase credentials before installing dependencies
@@ -61,20 +66,25 @@ jobs:
         run: |
           set -u
           article_status=0
+          content_status=0
           hadith_status=0
 
           if [[ -n "${GEMINI_API_KEY:-}" ]]; then
             echo "Translating at most ${TRANSLATION_BATCH_SIZE} published articles."
-            pnpm translate:articles:en || article_status=$?
+            timeout --signal=TERM --kill-after=60s 40m pnpm translate:articles:en || article_status=$?
+
+            echo "Translating at most ${CONTENT_TRANSLATION_BATCH_SIZE} records per additional content category."
+            timeout --signal=TERM --kill-after=60s 40m pnpm translate:content:en || content_status=$?
           else
-            echo "Missing production environment secret: GEMINI_API_KEY; article translation cannot run." >&2
+            echo "Missing production environment secret: GEMINI_API_KEY; article and additional content translation cannot run." >&2
             article_status=1
+            content_status=1
           fi
 
           echo "Synchronizing at most ${HADITH_TRANSLATION_BATCH_SIZE} Hadith records."
-          pnpm sync:hadith:en || hadith_status=$?
+          timeout --signal=TERM --kill-after=60s 15m pnpm sync:hadith:en || hadith_status=$?
 
-          if (( article_status != 0 || hadith_status != 0 )); then
-            echo "English sync incomplete (articles=${article_status}, hadith=${hadith_status})." >&2
+          if (( article_status != 0 || content_status != 0 || hadith_status != 0 )); then
+            echo "English sync incomplete (articles=${article_status}, other-content=${content_status}, hadith=${hadith_status})." >&2
             exit 1
           fi

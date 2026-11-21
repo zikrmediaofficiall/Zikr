@@ -6,6 +6,7 @@ import { hasAdminPermission, type AdminPermission } from "@/features/admin/servi
 import { ADMIN_NAVIGATION } from "@/features/admin/config/navigation";
 import { AdminPageViewTracker } from "@/features/admin/components/admin-page-view-tracker";
 import { AdminCommandPalette } from "@/features/admin/components/admin-command-palette";
+import { AdminRouteBreadcrumbs } from "@/features/admin/components/admin-route-breadcrumbs";
 
 export const metadata: Metadata = {
   title: "لوحة الإدارة | ذِكرٌ",
@@ -52,6 +53,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
         <AdminMobileNav groups={visibleGroups} />
+        <AdminRouteBreadcrumbs groups={visibleGroups} />
         <main className="min-w-0 flex-1">{children}</main>
       </div>
     </div>

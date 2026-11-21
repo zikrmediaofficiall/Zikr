@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/card';
+import type { Locale } from '@/lib/i18n';
 
 const UTILITY_CONTENT: Record<string, {
   heading: string;
@@ -117,16 +118,137 @@ const UTILITY_CONTENT: Record<string, {
   },
 };
 
-export function EditorialUtilityDepth({ pathname }: { pathname: string }) {
+type UtilityContentPage = {
+  heading: string;
+  intro: string;
+  blocks: { title: string; text: string }[];
+};
+
+const UTILITY_CONTENT_EN: Record<string, UtilityContentPage> = {
+  "/prayer-times": {
+    heading: "Prayer times and calculation settings",
+    intro: "Prayer times depend on geographic location, calculation method and time zone. ZIKR presents them as a practical aid that needs correct settings and local verification when a mosque or recognized authority follows a specific timetable.",
+    blocks: [
+      { title: "Location and calculation method", text: "Times can differ slightly between cities and calculation methods. Confirm the city, coordinates and time zone before relying on the result, especially after travel or when changing devices." },
+      { title: "Accuracy and service limits", text: "A calculated time is not proof that every local circumstance is identical. When a local mosque or recognized religious authority publishes a timetable, compare it with the app if you notice a difference." },
+      { title: "Optional reminders", text: "Notifications are optional prompts, not a guarantee that every device will deliver an alert. Battery restrictions, browser permissions and operating-system settings can affect delivery." },
+      { title: "Source and religious context", text: "The page uses a technical calculation service. Detailed questions about the legal boundaries of prayer times should be checked with qualified scholarship and the relevant local authority." },
+    ],
+  },
+  "/qibla": {
+    heading: "Qibla direction and location guidance",
+    intro: "The Qibla tool estimates the direction from a location toward the Kaaba. When it uses a phone compass, the result also depends on device sensors and the surrounding environment, so it should be treated as a helpful guide rather than an infallible instrument.",
+    blocks: [
+      { title: "Compass accuracy", text: "Magnets, phone cases and nearby metal or electrical equipment can affect a digital compass. Recalibrate the device or move away from possible interference when the heading appears unstable." },
+      { title: "Location permission", text: "The tool may request location access to calculate the direction from your current position. You can decline permission; manual location entry or another available method may still be used." },
+      { title: "Practical verification", text: "When arriving in an unfamiliar place, compare the direction with a nearby mosque or another trusted reference if the compass is unstable. Recheck the reading after moving away from interference." },
+      { title: "Religious questions", text: "The tool helps identify a direction. Jurisprudential questions about facing the Qibla while travelling, unable to determine direction or correcting an earlier mistake belong to qualified religious guidance." },
+    ],
+  },
+  "/tasbeeh": {
+    heading: "Digital Tasbeeh and remembrance counter",
+    intro: "A digital counter is an optional way to track repetitions; it is not a condition for the validity of remembrance. ZIKR provides the tool to reduce counting effort without making worship dependent on a screen.",
+    blocks: [
+      { title: "Counting is a tool, not the goal", text: "You can remember Allah without a phone. A counter is simply an optional visual aid for people who find it useful to track a repetition or review a routine." },
+      { title: "Use established counts carefully", text: "When a transmitted text specifies a count, follow the wording and source. Do not treat a number selected by the interface as a religious prescription without supporting evidence." },
+      { title: "Protect attention", text: "Avoid turning the screen into a distraction. You can silence unrelated notifications or use a simple view during a remembrance session." },
+      { title: "Privacy by design", text: "A counter does not need personal data. Any private record of a daily wird should remain under the user's control and should not be shared without a clear reason." },
+    ],
+  },
+  "/memorization": {
+    heading: "Quran memorization and review method",
+    intro: "Sustainable memorization depends on repetition, review and realistic progress. ZIKR's tools can organize sessions and track a plan, but they do not replace correction of recitation by a qualified teacher.",
+    blocks: [
+      { title: "Choose a sustainable plan", text: "Select an amount you can repeat each week and include revision from the beginning. Adding new passages without reviewing earlier material often weakens retention." },
+      { title: "Test recall, not just playback", text: "A meaningful memorization check is recalling the passage without looking. You can recite to a teacher, record a session or ask a trusted person to listen, then review the mistakes." },
+      { title: "Space review sessions", text: "Reviewing material across several days can be more useful than one long session. Adjust the schedule to your time and ability rather than forcing a fixed pace." },
+      { title: "Correct mistakes calmly", text: "A memorization error should be corrected with the Mushaf, a reliable recitation and a teacher when needed. If the wording or reading is unclear, verify it before continuing." },
+    ],
+  },
+  "/wird": {
+    heading: "Daily wird and building a spiritual routine",
+    intro: "A daily wird is a personal routine for reading, remembrance and supplication. The most useful plan is one that can be maintained on ordinary busy days and resumed after an interruption without creating unnecessary pressure.",
+    blocks: [
+      { title: "Begin with a small minimum", text: "Choose a clear, modest amount that you can complete even on a busy day. Add more when time and attention allow, rather than making the routine difficult to restart." },
+      { title: "Track progress without pressure", text: "A record is a review tool, not a judgment of faith. Use it to notice patterns: when you read, what interrupts the routine and which time works best." },
+      { title: "Connect the routine to your day", text: "You may attach a short wird to an existing moment, such as after prayer or at a regular morning or evening time. Keep enough flexibility for travel and changes in work." },
+      { title: "Return after an interruption", text: "When a routine stops, restart with one manageable step instead of trying to compensate for every missed session at once. Consistency grows through realistic repetition." },
+    ],
+  },
+  "/zakat": {
+    heading: "Introductory guidance about Zakat",
+    intro: "This page helps organize general information about Zakat; it does not provide a binding calculation for every individual. The ruling can depend on asset type, ownership, Nisab, the passage of a lunar year, debts and other details.",
+    blocks: [
+      { title: "Organize the information first", text: "Before calculating, identify which assets you actually own, which are shared, owed to another person or held in trust, and record the relevant dates where needed." },
+      { title: "Recognize areas of jurisprudential difference", text: "Some questions about shares, trade goods and debts involve recognized detail and scholarly disagreement. They should not be reduced to one automatic number without understanding the circumstances." },
+      { title: "Consult a qualified source", text: "For a binding calculation, consult a recognized fatwa authority or qualified scholar who can review your situation. Bring organized information rather than relying on an unattributed post." },
+      { title: "Protect financial privacy", text: "Do not enter account numbers, card details or other sensitive financial information into a public field. Organizing a calculation does not require exposing private identifiers." },
+    ],
+  },
+  "/spiritual-ai": {
+    heading: "Using spiritual AI responsibly",
+    intro: "The spiritual assistant is a tool for search, summarization and finding references. It is not a scholar or a fatwa authority. Automated answers can misquote a source, miss context or attribute a statement incorrectly, so verification remains essential.",
+    blocks: [
+      { title: "An answer is not a source", text: "When the system provides an explanation or summary, open the linked reference and check the wording and context, especially for Quran, Hadith and religious rulings." },
+      { title: "Personal religious questions need a specialist", text: "A detailed ruling or a question about a personal circumstance should be addressed to a qualified specialist. AI can help organize the question or locate terminology, but it cannot replace a fatwa." },
+      { title: "Watch for invented quotations and attribution", text: "A model may produce inaccurate quotations or assign words to a scholar who never said them. Do not publish an answer as a source without independent verification." },
+      { title: "Do not overshare private information", text: "Avoid entering secrets or sensitive personal data into an AI service for a general question. Review the privacy terms before using features that store or synchronize information." },
+    ],
+  },
+  "/radio": {
+    heading: "Quran radio and continuous listening",
+    intro: "Radio can make recitation part of the day, but a stream depends on an external provider and can be affected by the network or service availability. ZIKR therefore keeps reading options available alongside listening.",
+    blocks: [
+      { title: "Streaming and reading serve different needs", text: "Listening may fit some activities, while reading and reflection require a different level of attention. Do not make a continuous stream the only way you learn or review." },
+      { title: "Identify the external provider", text: "Audio may come from another broadcaster or service, which remains responsible for the stream and its terms. Show the source clearly and do not claim ownership of third-party material." },
+      { title: "Plan for interruptions", text: "Pause the stream when the connection is weak and use the Mushaf or supported offline material when available. A provider outage should not block access to reading." },
+      { title: "Keep the player calm and predictable", text: "Prefer simple playback controls that do not overwhelm the content or open unnecessary windows. Audio should begin only when the visitor chooses to play it." },
+    ],
+  },
+  "/youtube": {
+    heading: "YouTube channel and external video content",
+    intro: "The YouTube section connects video material with topics inside ZIKR. Its added value should come from organization, description and context—not from copying other creators' videos and presenting them as original ZIKR productions.",
+    blocks: [
+      { title: "Explain each video", text: "Tell the visitor what the video covers, why it may be useful and how it relates to the page. The description should make sense before the viewer presses play." },
+      { title: "Identify the publisher", text: "Show the channel or original publisher and avoid attributing a video to ZIKR when another creator produced it." },
+      { title: "Respect copyright and platform terms", text: "Embedding a video through YouTube is different from re-uploading or storing the file. Respect the platform's terms and the rights of the creator." },
+      { title: "Review claims critically", text: "For religious and historical topics, compare important claims with original references before treating the video as a verified source or sharing its conclusions." },
+    ],
+  },
+  "/search": {
+    heading: "Searching the ZIKR library",
+    intro: "Search is a way to reach content, not an editorial page in itself. Useful results depend on clear titles, relevant content and an index that does not treat every query as a separate page that should be published or indexed.",
+    blocks: [
+      { title: "Use a focused search term", text: "A chapter name, Companion's name or article topic will usually produce more useful results than a very long sentence. Add another keyword when the first results are too broad." },
+      { title: "Open the original page", text: "A search result is only a starting point. When you reach a Hadith or historical article, open the source page and review the references." },
+      { title: "Search results are functional screens", text: "Query screens are navigation tools. They should not be filled with repeated text merely to improve SEO or treated as independent articles." },
+      { title: "Report poor or unclear results", text: "If a title is unclear or the result does not match the query, report the search term and page where the problem appears so the index can be improved." },
+    ],
+  },
+  "/offline-library": {
+    heading: "Using the library offline",
+    intro: "The offline library gives access to supported material after it has been saved locally. This is useful while travelling or when connectivity is weak, but it does not mean that every page or every external service is permanently available without a connection.",
+    blocks: [
+      { title: "Understand what is stored", text: "Only material supported by the offline mode can be saved. Available storage and content coverage may vary with the device and the local space remaining." },
+      { title: "Allow changes to synchronize", text: "Saved items or progress may synchronize later when the connection returns. Do not treat the offline copy as the only record of information that you need to preserve." },
+      { title: "Refresh older material", text: "Some pages and references change. Update the local copy when you are online so you can access the latest reviewed version." },
+      { title: "Secure the device", text: "Protect the phone with a screen lock, especially when local data includes personal notes or preferences. Remove saved material you no longer need." },
+    ],
+  },
+};
+
+export function EditorialUtilityDepth({ pathname, locale = "ar" }: { pathname: string; locale?: Locale }) {
   const clean = pathname.split('?')[0].replace(/\/$/, '') || '/';
-  const page = UTILITY_CONTENT[clean];
+  const page = locale === "en" ? UTILITY_CONTENT_EN[clean] : UTILITY_CONTENT[clean];
   if (!page) return null;
 
+  const direction = locale === "ar" ? "rtl" : "ltr";
+
   return (
-    <section className="border-y border-brand-gold/10 bg-black/10 px-3 py-10 sm:px-4 sm:py-12" dir="rtl" aria-labelledby="utility-editorial-title">
+    <section className="border-y border-brand-gold/10 bg-black/10 px-3 py-10 sm:px-4 sm:py-12" dir={direction} aria-labelledby="utility-editorial-title">
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-3 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-gold/45">دليل استخدام موسع</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-gold/45">{locale === "ar" ? "دليل استخدام موسع" : "EXTENDED USER GUIDE"}</p>
           <h2 id="utility-editorial-title" className="text-3xl font-bold text-brand-gold">{page.heading}</h2>
           <p className="mx-auto max-w-4xl leading-8 text-brand-cream/65">{page.intro}</p>
         </header>

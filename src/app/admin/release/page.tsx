@@ -10,6 +10,9 @@ import { createAndroidReleaseAction } from "./actions";
 
 export const metadata: Metadata = { title: "مركز الإصدار | الأدمن" };
 
+const SIGNED_RELEASE_BLOCKER =
+  "مسار إنشاء الوسم الحالي عبر GitHub API لا يثبت توقيعًا تشفيريًا. يلزم تجهيز مفتاح توقيع محمي والتحقق من بصمته قبل إنشاء أي tag أو Draft Release.";
+
 const checks = [
   ["التحقق الآلي", "GitHub Actions → ZIKR / Quality Gate"],
   ["بناء الإنتاج", "Vercel / controlled production release"],
@@ -50,11 +53,6 @@ export default async function AdminReleasePage({
 
   const operation = (operationRows?.[0]?.value ?? null) as Operation | null;
   const params = await searchParams;
-  const startedTag =
-    typeof params.android_release === "string" &&
-    typeof params.tag === "string"
-      ? params.tag
-      : null;
   const operationStartedAt = Date.parse(operation?.startedAt ?? "");
   const operationIsActive = Boolean(
     operation?.status === "building" &&
@@ -81,10 +79,9 @@ export default async function AdminReleasePage({
         <p className="text-xs tracking-[0.18em] text-brand-cream/30">إدارة الإصدار</p>
         <h1 className="mt-2 text-3xl font-bold text-brand-gold">مركز الإصدار</h1>
         <p className="mt-2 max-w-4xl text-sm leading-7 text-brand-cream/50">
-          مركز واحد لإطلاق إصدار Android من أحدث commit على main. الزر يرفع
-          رقم الإصدار وversionCode معًا، ويُنشئ Tag وDraft Release مرتبطين بنفس commit.
-          لا يظهر الإصدار للمستخدمين إلا بعد بناء APK وAAB وتوقيعهما والتحقق من
-          هوية المصدر وSHA-256 ونجاح بوابات CI.
+          لوحة متابعة للإصدار المستقر ومتطلبات إطلاق Android. إنشاء إصدار جديد
+          متوقف حتى يتوفر مسار محمي يوقّع Git tag تشفيريًا وتتحقق CI من التوقيع
+          والهوية قبل تجهيز الإصدار.
         </p>
       </header>
 
@@ -93,6 +90,12 @@ export default async function AdminReleasePage({
           تعذر إنشاء إصدار Android: {releaseError}
         </section>
       ) : null}
+
+      <section id="android-release-blocker" role="status" className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] p-4 text-sm leading-7 text-amber-100/85">
+        <h2 className="font-semibold">مانع إطلاق Android</h2>
+        <p className="mt-1">{SIGNED_RELEASE_BLOCKER}</p>
+        <p className="mt-1">لن يُنشأ commit أو tag أو Draft Release، ولن تُعدّل بيانات التنزيل عبر هذا المسار قبل إغلاق هذا المانع.</p>
+      </section>
 
       {operationIsStale ? (
         <section className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm leading-7 text-amber-100/80">
@@ -108,41 +111,22 @@ export default async function AdminReleasePage({
         </section>
       ) : null}
 
-      {startedTag ? (
-        <section className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5">
-          <h2 className="font-semibold text-emerald-300">تم إطلاق عملية الإصدار</h2>
-          <p className="mt-2 text-sm leading-7 text-brand-cream/70">
-            تم تجهيز <span className="font-mono text-brand-gold">{startedTag}</span> كـGit tag وDraft Release.
-            سيُنشر الإصدار بعد نجاح بناء APK وAAB والتحقق من التوقيع والبصمات وربط الملفات
-            بنفس commit والوسم؛ لا يتم إظهار ملفات غير مكتملة للمستخدمين.
-          </p>
-          <a
-            href="https://app.circleci.com/pipelines/github/zikrofficial-X/Zikr"
-            target="_blank"
-            rel="noreferrer noopener"
-            className="mt-3 inline-flex text-sm text-brand-gold underline"
-          >
-            فتح pipelines في CircleCI
-          </a>
-        </section>
-      ) : null}
-
       <section className="rounded-2xl border border-brand-gold/15 bg-black/15 p-6 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-brand-gold">إصدار Android جديد</h2>
             <p className="mt-1 text-sm leading-7 text-brand-cream/45">
-              يتم حساب الإصدار التالي تلقائيًا من النسخة الحالية، وزيادة versionCode،
-              وتجهيز ملاحظات الإصدار من commits الموجودة منذ آخر Release مستقر.
+              لن يُحسب رقم إصدار جديد أو تُحدّث ملفات التنزيل قبل توفر التوقيع والتحقق المطلوبين.
             </p>
           </div>
           <form action={createAndroidReleaseAction}>
             <button
               type="submit"
-              className="rounded-xl bg-brand-gold px-6 py-3 font-bold text-black hover:bg-brand-gold/90"
-              disabled={operationIsActive || operationNeedsReview}
+              className="cursor-not-allowed rounded-xl bg-brand-gold/35 px-6 py-3 font-bold text-black/60"
+              disabled
+              aria-describedby="android-release-blocker"
             >
-              {operationIsActive ? "يوجد إصدار قيد البناء" : "إطلاق أحدث نسخة Android"}
+              {operationIsActive ? "عملية سابقة قيد البناء" : "إصدار Android محجوب"}
             </button>
           </form>
         </div>
@@ -157,7 +141,7 @@ export default async function AdminReleasePage({
                   ? "عملية سابقة متوقفة — جاهز لإصدار أحدث"
                   : operationNeedsReview
                     ? "تحتاج العملية السابقة إلى مراجعة"
-                    : "جاهز لإطلاق إصدار جديد"}
+                    : "محجوب: توقيع الوسم غير مهيأ"}
             </p>
           </div>
           <div className="rounded-xl border border-brand-gold/10 bg-black/10 p-4">

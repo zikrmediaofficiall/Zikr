@@ -1,14 +1,14 @@
 # حوكمة لوحة إدارة ذِكر
 
-**آخر مراجعة:** 14 نوفمبر 2026
+**آخر مراجعة:** 21 نوفمبر 2026
 **مصدر الحقيقة للتنقل:** `src/features/admin/config/navigation.ts`  
 **مصدر الحقيقة للصلاحيات:** `src/features/admin/services/permissions.ts`
 
-تعتمد اللوحة على 10 مناطق تنقل تشغيلية تضم 48 رابطًا إداريًا ظاهرًا. مصدر الحقيقة للمسارات هو `src/features/admin/config/navigation.ts`، بينما يربط `src/features/admin/config/modules.ts` كل مجال بمالكه وصلاحياته وجداوله دون إعادة تعريف المسارات. ملف التنقل هو المصدر المنفرد لترتيب الصفحات والأيقونات، بينما يرشّح `src/app/admin/layout.tsx` الروابط بحسب دور المستخدم. لا تُضاف روابط إلى قائمة الإدارة قبل وجود صفحة فعلية وفحص صلاحية خادمي.
+تعتمد اللوحة على 10 مناطق تنقل تشغيلية تضم 48 رابطًا إداريًا ظاهرًا و49 صفحة فعلية (تشمل صفحة تحقق MFA المنفصلة). لا توجد صفحات Redirect توافقية أو مسارات قديمة مفعلة. مصدر الحقيقة للمسارات هو `src/features/admin/config/navigation.ts`، بينما يربط `src/features/admin/config/modules.ts` كل مجال بمالكه وصلاحياته وجداوله دون إعادة تعريف المسارات. ملف التنقل هو المصدر المنفرد لترتيب الصفحات والأيقونات، بينما يرشّح `src/app/admin/layout.tsx` الروابط بحسب دور المستخدم. لا تُضاف روابط إلى قائمة الإدارة قبل وجود صفحة فعلية وفحص صلاحية خادمي.
 
 ### المسارات الرسمية المضافة في مركز التشغيل
 
-أصبحت هذه المسارات هي نقاط الدخول الرسمية التي يجب استخدامها في الروابط الجديدة، مع إبقاء المسارات القديمة للتحويل التوافقي:
+هذه هي نقاط الدخول الوحيدة المعتمدة في لوحة الإدارة. أزيلت صفحات التحويل القديمة من شجرة App Router ومن ملف المسارات؛ الروابط القديمة المتداولة لم تعد مدعومة ويجب تحديث أي Bookmark أو تكامل خارجي إلى أحد المسارات التالية:
 
 - مركز الطوابير: `/admin/queues` بصلاحية `dashboard.view`.
 - مركز الفيديو والإنتاج: `/admin/video` بصلاحية `video.manage`.
@@ -23,9 +23,9 @@
 - القوالب: `/admin/video/templates` بصلاحية `video.manage`.
 - ضبط الجودة: `/admin/video/qa` بصلاحية `video.manage`.
 
-جميع صفحات الفيديو السابقة تحت `/admin/video-factory/*` أصبحت تحويلات توافقية إلى مسارات مركز الفيديو الرسمية. صفحة الجدولة القديمة تحوّل إلى `/admin/automation` بصلاحية `system.manage`. مركز النشر الاجتماعي `/admin/social` ومصنع المنشورات المكتوبة `/admin/social/written-studio` مساران مستقلان ضمن مجموعة «النشر والتواصل الاجتماعي»، ومحميان بصلاحية `social.manage`. توليد المنشورات المكتوبة منفصل عن مصنع الفيديو ويستخدم طابور Facebook الخاص بالمحتوى المكتوب. مكتبة الوسائط والذاكرة `/admin/memory` هي المسار التشغيلي بصلاحية `media.manage`، بينما يبقى `/admin/media` مسار توافق قديمًا يحوّل إليها ولا يظهر كرابط أساسي.
+حُذفت عائلات `/admin/video-factory/*` و`/admin/ai-video/*` والمسارات القديمة `/admin/videos` و`/admin/alerts` و`/admin/control` و`/admin/media` و`/admin/audio/site-audio` و`/admin/social/youtube-import`؛ لا تبقى لها صفحات تحويل أو روابط في manifest. مركز النشر الاجتماعي `/admin/social` ومصنع المنشورات المكتوبة `/admin/social/written-studio` مساران مستقلان ضمن مجموعة «النشر والتواصل الاجتماعي»، ومحميان بصلاحية `social.manage`. توليد المنشورات المكتوبة منفصل عن مصنع الفيديو ويستخدم طابور Facebook الخاص بالمحتوى المكتوب. مكتبة الوسائط والذاكرة `/admin/memory` هي المسار التشغيلي الوحيد بصلاحية `media.manage`.
 
-يوفر تخطيط الإدارة بحثًا سريعًا مفلترًا حسب الدور عبر `Ctrl+K`، بينما يحتفظ دليل الوحدات بالمفضلة والصفحات الأخيرة على الجهاز دون إرسال هذه التفضيلات إلى الخادم.
+يوفر التخطيط بحثًا سريعًا مفلترًا حسب الدور عبر `Ctrl+K`، ويستخدم البحث في القائمة المكتبية والجوال ودليل الوحدات التطبيع نفسه للأحرف العربية واللاتينية. اختصار `/` يركز فقط حقل البحث المرئي حسب حجم الشاشة، بينما يبقى `Ctrl+K` مخصصًا للوحة الأوامر. يعرض التخطيط مسار الصفحة الحالي من مجموعات التنقل المرئية للدور، ويحتفظ دليل الوحدات بالمفضلة والصفحات الأخيرة على الجهاز دون إرسال هذه التفضيلات إلى الخادم.
 
 ## 1. جرد المسارات والصلاحيات
 
@@ -156,7 +156,7 @@
 | الحسابات والصلاحيات | `/admin/users`, `/admin/security` | `profiles`, `admin_role_assignments` | تغيير الأدوار عبر Server Actions المحمية، مع MFA للعمليات الحساسة وسجل تدقيق. |
 | التدقيق والإعدادات | `/admin/audit`, `/admin/settings` | `admin_audit_events`, `admin_settings`, `admin_rate_limits` | أحداث الإدارة تضاف عبر خدمة التدقيق؛ لا تسجل الرموز أو كلمات المرور أو مفاتيح السر. |
 | المحتوى والمعرفة | `/admin/content`, `/admin/library`, `/admin/editorial`, `/admin/knowledge` | `content_library`, `content_revisions`, `articles`, `stories`, `hadiths`, `duas`, `prophets`, `companions`, `scholars` | تُراجع صلاحية القراءة/التعديل/النشر مستقلة، ولا يكفي إخفاء الرابط من القائمة. |
-| الفيديو والوسائط | `/admin/video`, `/admin/video/requests`, `/admin/video/review`, `/admin/video/studio`, `/admin/video/sources`, `/admin/video/scripts`, `/admin/video/voices`, `/admin/video/visuals`, `/admin/video/templates`, `/admin/video/qa`, `/admin/media` | `videos`, `video_generation_requests`, `media_assets` وموارد التخزين | لا يُعلن عن تنفيذ فوري إذا كانت العملية قد دخلت طابور عامل مجدول. |
+| الفيديو والوسائط | `/admin/video`, `/admin/video/requests`, `/admin/video/review`, `/admin/video/studio`, `/admin/video/sources`, `/admin/video/scripts`, `/admin/video/voices`, `/admin/video/visuals`, `/admin/video/templates`, `/admin/video/qa`, `/admin/memory` | `videos`, `video_generation_requests`, `media_assets` وموارد التخزين | لا يُعلن عن تنفيذ فوري إذا كانت العملية قد دخلت طابور عامل مجدول. |
 | سجل المنصات التاريخي | غير ظاهر في التنقل | `social_publish_queue`, `social_sync_jobs`, `social_platform_credentials` | سجلات للقراءة والتدقيق فقط؛ لا مهام نشر جديدة ولا سياسات قراءة عامة لبيانات OAuth. |
 | الأطفال والألعاب | `/admin/kids` وما يتفرع عنها | `kids_content`, `kids_games`, `kids_game_levels`, `kids_game_questions`, `kids_game_results` وجداول التقدم والنتائج | تعديلات اللعب ونتائج الأطفال تُفحص بعقود الاختبار وسياسات RLS الخاصة بالمجال. |
 | الصوت | `/admin/audio`, `/admin/site-audio` | `site_audio_assets` ومصادر الصوت | تُختبر روابط الأصول وحالات فشل التحميل؛ لا تُعرض حالة نجاح وهمية عند فشل القراءة. |

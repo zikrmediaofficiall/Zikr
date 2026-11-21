@@ -22,11 +22,20 @@ assert.ok(releaseManager.includes("/git/refs"), "Admin release manager must publ
 assert.ok(releaseManager.includes("/releases"), "Admin release manager must create the draft GitHub Release");
 assert.ok(releaseManager.includes("draft: true"), "Admin release manager must create Android releases as drafts until artifacts are verified");
 assert.ok(releaseManager.includes('const REPO = process.env.GITHUB_REPOSITORY?.trim() || "zikrofficial-X/Zikr";'), "Admin release manager must use the canonical repository");
-assert.ok(releaseAction.includes("prepareAndroidRelease"), "Admin release action must use the canonical Android release manager");
-
-assert.ok(releaseAction.includes('requireAdminStepUp("release.manage", "/admin/release")'), "Android release preparation must honor the destructive-action step-up policy");
-assert.ok(!releaseAction.includes(".catch(() => [])"), "Android release preparation must fail closed when the operation-state read fails");
-assert.ok(releaseAction.includes("تعذر التحقق من حالة الإصدار الحالية"), "Android release preparation must stop before GitHub side effects when operation state cannot be verified");
+const releaseActionIsFailClosed = releaseAction.includes("SIGNED_RELEASE_BLOCKER");
+if (releaseActionIsFailClosed) {
+  assert.ok(releaseAction.includes('await requireAdminPermission("release.manage")'), "a blocked release action must still enforce the release permission");
+  assert.ok(releaseAction.includes('await requireAdminStepUp("release.manage", "/admin/release")'), "a blocked release action must still enforce step-up authentication");
+  assert.ok(releaseAction.includes("Fail closed: do not create commits, tags, drafts, or alter download metadata"), "a blocked release action must explicitly fail closed before side effects");
+  assert.ok(releaseAction.includes("redirect(") && releaseAction.includes("SIGNED_RELEASE_BLOCKER"), "a blocked release action must report the signing blocker");
+  assert.ok(!releaseAction.includes("prepareAndroidRelease"), "a blocked release action must not invoke the unsigned release manager");
+  assert.doesNotMatch(releaseAction, /supabaseServerAdminRequest|recordAdminAuditEvent|runPostCommitAudit/, "a blocked release action must not write release state or audit data");
+} else {
+  assert.ok(releaseAction.includes("prepareAndroidRelease"), "an active Admin release action must use the canonical Android release manager");
+  assert.ok(releaseAction.includes('requireAdminStepUp("release.manage", "/admin/release")'), "Android release preparation must honor the destructive-action step-up policy");
+  assert.ok(!releaseAction.includes(".catch(() => [])"), "Android release preparation must fail closed when the operation-state read fails");
+  assert.ok(releaseAction.includes("تعذر التحقق من حالة الإصدار الحالية"), "Android release preparation must stop before GitHub side effects when operation state cannot be verified");
+}
 const androidAdminAction = read("src/app/admin/android/actions.ts");
 assert.ok(androidAdminAction.includes('requireAdminStepUp("android.manage", "/admin/android")'), "Android release-setting changes must honor the destructive-action step-up policy");
 assert.ok(androidAdminAction.includes("getStableReleaseByTag"), "Pinned Android releases must be validated against a published stable GitHub release");
@@ -299,7 +308,12 @@ assert.ok(homePage.includes("AndroidReleaseCard"), "The homepage must surface th
 
 const releaseAdminPage = read("src/app/admin/release/page.tsx");
 assert.ok(releaseAdminPage.includes("operationIsStale") && releaseAdminPage.includes("operationNeedsReview"), "The release center must distinguish stale and unverified prior operations");
-assert.ok(releaseAdminPage.includes("disabled={operationIsActive || operationNeedsReview}"), "The release action must remain disabled while a prior operation cannot be verified");
+if (releaseAdminPage.includes("SIGNED_RELEASE_BLOCKER")) {
+  assert.ok(releaseAdminPage.includes("aria-describedby=\"android-release-blocker\"") && releaseAdminPage.includes("disabled"), "The release center must keep its action disabled while cryptographic tag signing is unavailable");
+  assert.ok(releaseAdminPage.includes("android-release-blocker") && releaseAdminPage.includes("توقيعًا تشفيريًا"), "The release center must explain the cryptographic signing blocker");
+} else {
+  assert.ok(releaseAdminPage.includes("disabled={operationIsActive || operationNeedsReview}"), "The release action must remain disabled while a prior operation cannot be verified");
+}
 
 
 const applicationBuildDocsJob = releaseWorkflow.split("- application-build-docs:")[1]?.split("\n      - ")[0] ?? "";

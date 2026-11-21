@@ -1,6 +1,5 @@
 import { Container } from "@/components/ui/container";
 import AdminVideoRequestsClient from "@/features/admin/video-requests/components/admin-video-requests-client";
-import { AdminBreadcrumbs } from "@/features/admin/components/admin-breadcrumbs";
 import { requireAdminPermission } from "@/features/admin/services/admin";
 import { hasAdminPermission } from "@/features/admin/services/permissions";
 
@@ -11,7 +10,6 @@ export default async function AdminVideoRequestsPage() {
   const canManageKids = hasAdminPermission(admin.role, "kids.manage");
   return (
     <Container className="py-8">
-      <AdminBreadcrumbs current="طلبات الفيديو" />
       <AdminVideoRequestsClient canManageKids={canManageKids} canDelete={hasAdminPermission(admin.role, "video.delete")} />
     </Container>
   );

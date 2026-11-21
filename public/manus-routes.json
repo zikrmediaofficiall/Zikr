@@ -13,15 +13,6 @@
       "path": "/admin"
     },
     {
-      "path": "/admin/ai-video"
-    },
-    {
-      "path": "/admin/ai-video/curated"
-    },
-    {
-      "path": "/admin/alerts"
-    },
-    {
       "path": "/admin/analytics"
     },
     {
@@ -35,9 +26,6 @@
     },
     {
       "path": "/admin/audio/quran"
-    },
-    {
-      "path": "/admin/audio/site-audio"
     },
     {
       "path": "/admin/audio/tts"
@@ -56,9 +44,6 @@
     },
     {
       "path": "/admin/content"
-    },
-    {
-      "path": "/admin/control"
     },
     {
       "path": "/admin/editorial"
@@ -89,9 +74,6 @@
     },
     {
       "path": "/admin/library"
-    },
-    {
-      "path": "/admin/media"
     },
     {
       "path": "/admin/memory"
@@ -136,9 +118,6 @@
       "path": "/admin/social/written-studio"
     },
     {
-      "path": "/admin/social/youtube-import"
-    },
-    {
       "path": "/admin/sources"
     },
     {
@@ -146,36 +125,6 @@
     },
     {
       "path": "/admin/video"
-    },
-    {
-      "path": "/admin/video-factory"
-    },
-    {
-      "path": "/admin/video-factory/publishing"
-    },
-    {
-      "path": "/admin/video-factory/qa"
-    },
-    {
-      "path": "/admin/video-factory/queue"
-    },
-    {
-      "path": "/admin/video-factory/scheduler"
-    },
-    {
-      "path": "/admin/video-factory/scripts"
-    },
-    {
-      "path": "/admin/video-factory/sources"
-    },
-    {
-      "path": "/admin/video-factory/templates"
-    },
-    {
-      "path": "/admin/video-factory/visuals"
-    },
-    {
-      "path": "/admin/video-factory/voices"
     },
     {
       "path": "/admin/video/qa"
@@ -206,9 +155,6 @@
     },
     {
       "path": "/admin/video/voices"
-    },
-    {
-      "path": "/admin/videos"
     },
     {
       "path": "/articles"
