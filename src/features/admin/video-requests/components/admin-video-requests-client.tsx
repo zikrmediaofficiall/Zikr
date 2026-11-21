@@ -36,6 +36,12 @@ function isKidsVideoContent(content: unknown): boolean {
   return isKidsVideoContentMarker(content);
 }
 
+function getDuplicateCanonicalRequestId(request: VideoGenerationRequest): string | null {
+  if (request.status !== "cancelled" || !/duplicate generated content/i.test(request.error_message ?? "")) return null;
+  const match = (request.error_details ?? "").match(/belongs to request\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  return match?.[1] ?? null;
+}
+
 function isSafelyDeletable(request: VideoGenerationRequest, canManageKids: boolean): boolean {
   const audience = resolveVideoRequestAudience(request.content);
   return audience.ok && (audience.audience !== "kids" || canManageKids) &&
@@ -371,6 +377,12 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                 <div className="mt-4 rounded-xl border border-red-500/15 bg-red-500/5 p-3 text-xs leading-6 text-red-200">
                   <div>{request.error_message}</div>
                   {request.error_details && <pre className="mt-2 whitespace-pre-wrap break-words text-red-200/70">{request.error_details}</pre>}
+                  {getDuplicateCanonicalRequestId(request) && (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300/15 bg-amber-300/5 p-3 text-amber-100/85">
+                      <span>هذا رندر مكرر؛ لم يُنشر كعنصر مستقل. افتح الطلب الأصلي لمراجعة النسخة المعتمدة بدل إعادة نشر نسخة مكررة.</span>
+                      <Button variant="outline" disabled={busyId !== null} onClick={() => void openDetails(getDuplicateCanonicalRequestId(request)!)}>فتح الطلب الأصلي للمراجعة</Button>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>
