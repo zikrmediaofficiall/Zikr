@@ -89,25 +89,3 @@ jobs:
           echo "Verified signer email: $SIGNING_EMAIL"
           echo "Verified exact main SHA: $TARGET_SHA"
           echo "::notice::Android Git-tag signing preflight passed."
- "$TMP_DIR/github-matching-public-keys.asc" || {
-            echo "::error::GitHub did not return an armored public GPG key for the configured verified email"; exit 1;
-          }
-          grep -q '^-----END PGP PUBLIC KEY BLOCK-----
-          if ! gpg --batch --with-colons --fingerprint | awk -F: '$1 == "fpr" { print toupper($10) }' | grep -Fxq "$EXPECTED_FINGERPRINT"; then
-            echo "::error::Configured fingerprint is not registered to the exact signer email"; exit 1
-          fi
-          echo "Verified GPG fingerprint: $EXPECTED_FINGERPRINT"
-          echo "Verified signer email: $SIGNING_EMAIL"
-          echo "Verified exact main SHA: $TARGET_SHA"
-          echo "::notice::Android Git-tag signing preflight passed."
- "$TMP_DIR/github-matching-public-keys.asc" || {
-            echo "::error::GitHub returned an incomplete armored public GPG key"; exit 1;
-          }
-          gpg --batch --import "$TMP_DIR/github-matching-public-keys.asc" >/dev/null 2>&1
-          if ! gpg --batch --with-colons --fingerprint | awk -F: '$1 == "fpr" { print toupper($10) }' | grep -Fxq "$EXPECTED_FINGERPRINT"; then
-            echo "::error::Configured fingerprint is not registered to the exact signer email"; exit 1
-          fi
-          echo "Verified GPG fingerprint: $EXPECTED_FINGERPRINT"
-          echo "Verified signer email: $SIGNING_EMAIL"
-          echo "Verified exact main SHA: $TARGET_SHA"
-          echo "::notice::Android Git-tag signing preflight passed."
