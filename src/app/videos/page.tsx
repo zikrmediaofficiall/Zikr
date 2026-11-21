@@ -93,10 +93,10 @@ export default async function VideosPage() {
   );
   const instagramUrl = resolveOfficialSocialUrl(socialSettings?.instagramUrl, ["instagram.com"]);
   const xUrl = resolveOfficialSocialUrl(socialSettings?.xUrl ?? socialSettings?.twitterUrl, ["x.com", "twitter.com"]);
-  const hasSocialChannels = Boolean(youtubeChannelUrl || facebookPageUrl || instagramUrl || xUrl);
   const youtubeChannelUrl = youtubeFeed.channel?.pageUrl
     ?? resolveOfficialSocialUrl(socialSettings?.youtubeChannelUrl, ["youtube.com", "youtu.be"])
     ?? (youtubeFeed.channelId ? "https://www.youtube.com/channel/" + encodeURIComponent(youtubeFeed.channelId) : null);
+  const hasSocialChannels = Boolean(youtubeChannelUrl || facebookPageUrl || instagramUrl || xUrl);
 
   return (
     <Container className="space-y-10 py-10">
