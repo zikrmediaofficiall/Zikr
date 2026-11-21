@@ -70,6 +70,25 @@ test("rejects transformed, foreign-host, and non-generated URLs before any Cloud
   assert.equal(calls.length, 0);
 });
 
+test("retries transient Cloudinary destroy failures and treats a missing asset as already deleted", async () => {
+  const calls: string[] = [];
+  const fetcher: typeof fetch = async (input) => {
+    const url = String(input);
+    calls.push(url);
+    if (calls.length === 1) return new Response(JSON.stringify({ error: { message: "temporary outage" } }), { status: 503 });
+    if (calls.length === 2) return new Response(JSON.stringify({ error: { message: "rate limited" } }), { status: 429 });
+    return new Response(JSON.stringify({ result: "not found" }), { status: 200 });
+  };
+  const result = await deleteVerifiedGeneratedCloudinaryVideo({
+    publicId: "auto-episode-123",
+    cloudName: "zikr",
+    apiKey: "test-api-key",
+    apiSecret: "test-api-secret",
+  }, fetcher);
+  assert.deepEqual(result, { publicId: "auto-episode-123" });
+  assert.equal(calls.length, 3);
+});
+
 test("requires complete Cloudinary credentials before attempting deletion", async () => {
   const { fetcher, calls } = mockFetcher({ resources: [] });
   await assert.rejects(

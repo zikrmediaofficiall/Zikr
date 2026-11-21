@@ -4,6 +4,7 @@ import { buildDuplicateVideoOwnerRecoveryFilter, buildDuplicateVideoOwnerVideoUr
 import type { DuplicateVideoHashOwner } from "../../src/features/videos/services/duplicate-video-recovery";
 import { calculateDailyVideoQuotaState } from "../../src/features/videos/services/video-automation-quota";
 import { buildMissingMediaQueueRecoveryPatch } from "../../src/features/social/services/platform-availability";
+import { prepareGeneratedVideoContentForDeletion } from "../../src/features/videos/services/video-request-deletion";
 
 const owner: DuplicateVideoHashOwner = {
   status: "completed",
@@ -156,6 +157,28 @@ reject({
   siteRecord: { published: false, metadata: { mediaState: "purged", videoUrl: "https://not-cloudinary.test/video.mp4" } },
 }, "a catalog record retaining a media URL must not be treated as purged");
 
+const canonicalVideoUrl = "https://res.cloudinary.com/zikr/video/upload/v123/auto-canonical.mp4";
+const sameAssetPointers = prepareGeneratedVideoContentForDeletion({
+  approvalStatus: "awaiting_human_review",
+  videoUrl: canonicalVideoUrl,
+  generatedVideoUrl: canonicalVideoUrl,
+  sourceType: "original",
+}, canonicalVideoUrl);
+assert.equal(sameAssetPointers.ok, true, "duplicate/cancelled requests may clear only content pointers that exactly match their verified generated MP4");
+if (sameAssetPointers.ok) {
+  assert.equal("videoUrl" in sameAssetPointers.content, false);
+  assert.equal("generatedVideoUrl" in sameAssetPointers.content, false);
+  assert.equal(sameAssetPointers.content.approvalStatus, "awaiting_human_review");
+}
+assert.equal(prepareGeneratedVideoContentForDeletion({ videoUrl: "https://media.example/other.mp4" }, canonicalVideoUrl).ok, false,
+  "a different media URL must block deletion rather than being cleared");
+assert.equal(prepareGeneratedVideoContentForDeletion({ audioUrl: "https://media.example/audio.mp3" }, canonicalVideoUrl).ok, false,
+  "retained narration must block generated-video deletion");
+assert.equal(prepareGeneratedVideoContentForDeletion({ thumbnailUrl: "https://media.example/poster.jpg" }, canonicalVideoUrl).ok, false,
+  "a separately retained thumbnail must block deletion until its ownership is resolved");
+assert.equal(prepareGeneratedVideoContentForDeletion({ videoUrl: canonicalVideoUrl }, "").ok, false,
+  "content-only video pointers cannot be deleted without verifying the root generated MP4");
+
 const quotaState = calculateDailyVideoQuotaState([
   { status: "completed", automation_key: "quran:20607:0" },
   { status: "pending", automation_key: "hadith:20607:1" },
@@ -189,6 +212,10 @@ assert.ok(adminVideoDeleteRoute.includes("social_publish_queue"));
 assert.ok(adminVideoDeleteRoute.includes("media_assets"));
 assert.ok(adminVideoDeleteRoute.includes("admin_delete_unreferenced_video_generation_request"));
 assert.ok(adminVideoDeleteRoute.includes("prepareGeneratedCloudinaryAssetDeletion"));
+assert.ok(adminVideoDeleteRoute.includes("sharedCanonicalAsset"), "a duplicate request sharing the canonical MP4 must be deleted without destroying the canonical asset");
+assert.ok(adminVideoDeleteRoute.includes("originalContent: requestRow.content"), "failed DB deletion must restore original content metadata and media aliases");
+assert.ok(adminReviewClient.includes("eligibleVisible = canDelete") && adminReviewClient.includes("isSafeGeneratedAssetDeletionCandidate(request, canManageKids)"), "bulk deletion must include safe generated-media rows, not only rows without video assets");
+
 assert.ok(adminVideoDeleteRoute.includes("isQaFailedGeneratedVideo"));
 assert.ok(adminVideoDeleteRoute.includes("isPendingHumanReviewGeneratedVideo"));
 assert.ok(adminVideoDeleteRoute.includes("terminalGeneratedAsset"), "verified failed and cancelled generated assets must use the same reference-checked deletion preflight");
@@ -212,6 +239,9 @@ assert.ok(pendingReviewDeletionMigration.includes("GRANT EXECUTE ON FUNCTION pub
 assert.ok(generatedCloudinaryAsset.includes('tags.has("automated")'));
 assert.ok(generatedCloudinaryAsset.includes('tags.has("zikr-generated")'));
 assert.ok(generatedCloudinaryAsset.includes("/video/destroy"));
+assert.ok(generatedCloudinaryAsset.includes("for (let attempt = 0; attempt < 3; attempt += 1)"), "Cloudinary delete must retry transient provider/network failures");
+assert.ok(generatedCloudinaryAsset.includes('destroyPayload.result === "not found"'), "Cloudinary deletion must be idempotent for an asset already removed");
+
 assert.ok(adminReviewClient.includes("isSafeGeneratedAssetDeletionCandidate"));
 assert.ok(adminReviewClient.includes("isQaFailedGeneratedVideo"));
 assert.ok(adminReviewClient.includes("حذف فيديو فشل فحص الجودة وملفه نهائيًا"));

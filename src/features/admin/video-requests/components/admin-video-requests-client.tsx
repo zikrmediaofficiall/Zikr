@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { PurgeGeneratedVideosControl } from "@/features/admin/components/purge-generated-videos-control";
 import { redirectToAdminStepUp } from "@/features/admin/utils/step-up-client";
 import type { VideoGenerationRequest } from "@/features/videos/services/video-automation";
+import { prepareGeneratedVideoContentForDeletion } from "@/features/videos/services/video-request-deletion";
 
 type Status = "pending" | "processing" | "retry_wait" | "completed" | "failed" | "cancelled";
 type QueueFilter = "all" | "review" | Status;
@@ -94,13 +95,11 @@ function isSafeGeneratedAssetDeletionCandidate(request: VideoGenerationRequest, 
   const qaFailed = request.status === "completed" && content.approvalStatus === "qa_failed";
   const pendingReview = request.status === "completed" && content.approvalStatus === "awaiting_human_review";
   const terminalWithAsset = (request.status === "failed" || request.status === "cancelled") && Boolean(request.video_url);
-  const storedThumbnail = request.stored_thumbnail_url;
+  const contentPreparation = prepareGeneratedVideoContentForDeletion(request.content, request.video_url ?? "");
+  const storedThumbnail = request.stored_thumbnail_url ?? null;
   if ((!duplicate && !qaFailed && !pendingReview && !terminalWithAsset) || !request.video_url ||
     storedThumbnail !== null || request.youtube_id || request.facebook_id ||
-    request.heygen_video_id || request.provider_job_id) return false;
-  const retainedContentKeys = ["audioUrl", "humanAudioUrl", "audioMediaAssetId", "audioMediaAssetOwnerId", "videoUrl", "generatedVideoUrl", "thumbnailUrl"];
-  if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim()) ||
-    content.audioSource === "human_recording") return false;
+    request.heygen_video_id || request.provider_job_id || !contentPreparation.ok) return false;
   try {
     const url = new URL(request.video_url);
     const segments = url.pathname.split("/").filter(Boolean);
@@ -124,10 +123,13 @@ function isQaFailedGeneratedVideo(request: VideoGenerationRequest): boolean {
 
 function isSafelyDeletable(request: VideoGenerationRequest, canManageKids: boolean): boolean {
   const audience = resolveVideoRequestAudience(request.content);
+  const contentPreparation = prepareGeneratedVideoContentForDeletion(request.content, "");
   return audience.ok && (audience.audience !== "kids" || canManageKids) &&
     (request.status === "failed" || request.status === "cancelled") &&
-    !request.video_url && !request.youtube_id && !request.facebook_id &&
-    !request.heygen_video_id && !request.provider_job_id;
+    !request.video_url && (request.stored_thumbnail_url ?? null) === null &&
+    !request.youtube_id && !request.facebook_id &&
+    !request.heygen_video_id && !request.provider_job_id &&
+    contentPreparation.ok;
 }
 
 const STATUS_LABELS: Record<Status, string> = {
@@ -206,7 +208,12 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     : filter === "review"
       ? requests.filter((request) => request.stale_processing || (request.status === "completed" && Boolean(request.video_url) && !isContentApproved(request.content)) || request.status === "failed" || request.status === "cancelled")
       : requests.filter((request) => request.status === filter);
-  const eligibleVisible = canDelete ? visible.filter((request) => isSafelyDeletable(request, canManageKids)) : [];
+  const eligibleVisible = canDelete
+    ? visible.filter((request) =>
+        isSafelyDeletable(request, canManageKids) ||
+        isSafeGeneratedAssetDeletionCandidate(request, canManageKids),
+      )
+    : [];
   const selectedVisibleCount = eligibleVisible.filter((request) => selectedIds.has(request.id)).length;
 
   useEffect(() => {
@@ -232,6 +239,8 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     setError(""); setMessage("");
     const deleted: string[] = [];
     const failures: string[] = [];
+    const cleanupPending: string[] = [];
+    const preservedForCanonical: string[] = [];
     for (const request of selected) {
       setBusyId(request.id);
       try {
@@ -243,13 +252,20 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
         if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
         if (!response.ok) throw new Error(data.error || "فشل الحذف");
         deleted.push(request.id);
+        if (data.cloudinaryCleanupPending === true) cleanupPending.push(request.title);
+        if (data.mediaPreservedForCanonicalRequest === true) preservedForCanonical.push(request.title);
       } catch (cause) {
         failures.push(`${request.title}: ${cause instanceof Error ? cause.message : "فشل الحذف"}`);
       }
     }
     setBusyId(null);
     setSelectedIds(new Set());
-    setMessage(`تم حذف ${deleted.length} من ${selected.length} سجل طلب بعد فحص كل سجل ذريًا.${failures.length ? ` تعذر حذف ${failures.length}; راجع الأخطاء أدناه.` : ""}`);
+    setMessage(
+      `تم حذف ${deleted.length} من ${selected.length} طلب.` +
+      (preservedForCanonical.length ? ` تم الاحتفاظ بملف ${preservedForCanonical.length} نسخة مكررة لأنه مستخدم في الطلب الأصلي.` : "") +
+      (cleanupPending.length ? ` ملفات تحتاج إعادة تسوية مع Cloudinary: ${cleanupPending.join("، ")}.` : "") +
+      (failures.length ? ` تعذر حذف ${failures.length}; راجع الأخطاء أدناه.` : ""),
+    );
     if (failures.length) setError(failures.join("\n"));
     await load();
   }
@@ -281,7 +297,9 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       const data = await response.json().catch(() => ({}));
       if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
       if (!response.ok) throw new Error(data.error || "تعذر حذف طلب الفيديو.");
-      if (generatedAsset && data.cloudinaryCleanupPending === true) {
+      if (data.mediaPreservedForCanonicalRequest === true) {
+        setMessage("تم حذف سجل النسخة المكررة نهائيًا، وتم الاحتفاظ بملف الفيديو الأصلي لأنه مشترك مع الطلب الأساسي.");
+      } else if (generatedAsset && data.cloudinaryCleanupPending === true) {
         setMessage("حُذف سجل الفيديو بعد فحص المراجع، لكن Cloudinary لم يؤكد حذف الملف. تم تسجيل حالة تحتاج مراجعة؛ لا تعِد محاولة الحذف قبل مراجعة سجل التدقيق.");
       } else {
         setMessage(generatedAsset

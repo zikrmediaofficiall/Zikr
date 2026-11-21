@@ -9,6 +9,7 @@ import type { VideoGenerationRequest } from '@/lib/types/video';
 import { updateVideoRequestStatus } from '@/features/videos/services/video-automation';
 import { canViewVideoRequestRow, resolveVideoRequestAudience } from '@/features/videos/services/video-audience-visibility';
 import { deleteVerifiedGeneratedCloudinaryVideo, verifyGeneratedCloudinaryVideo, type VerifiedGeneratedCloudinaryVideo } from '@/features/videos/services/generated-cloudinary-asset';
+import { prepareGeneratedVideoContentForDeletion } from '@/features/videos/services/video-request-deletion';
 
 const VIDEO_REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -31,23 +32,15 @@ function isPendingHumanReviewGeneratedVideo(request: VideoGenerationRequest): bo
   return request.status === 'completed' && content.approvalStatus === 'awaiting_human_review';
 }
 
-function hasRetainedMediaInContent(value: unknown): boolean {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return true;
-  const content = value as Record<string, unknown>;
-  return [
-    'audioUrl', 'humanAudioUrl', 'audioMediaAssetId', 'audioMediaAssetOwnerId',
-    'videoUrl', 'generatedVideoUrl', 'thumbnailUrl',
-  ].some((key) => typeof content[key] === 'string' && String(content[key]).trim().length > 0) ||
-    content.audioSource === 'human_recording';
-}
-
 type PreparedGeneratedAssetDeletion = {
   originalVideoUrl: string;
+  originalContent: unknown;
   verifiedAsset: VerifiedGeneratedCloudinaryVideo;
   clearedUpdatedAt: string;
   expectedStatus: VideoGenerationRequest["status"];
   qaFailed: boolean;
   pendingHumanReview: boolean;
+  sharedCanonicalAsset: boolean;
 };
 
 async function prepareGeneratedCloudinaryAssetDeletion(
@@ -62,8 +55,11 @@ async function prepareGeneratedCloudinaryAssetDeletion(
   const duplicate = requestRow.status === 'cancelled' &&
     Boolean(canonicalId) &&
     /duplicate generated content; publication skipped/i.test(requestRow.error_message ?? '');
+  const originalVideoUrl = requestRow.video_url;
+  if (!originalVideoUrl) throw new Error('GENERATED_ASSET_NOT_ELIGIBLE');
+  const contentPreparation = prepareGeneratedVideoContentForDeletion(requestRow.content, originalVideoUrl);
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim() ?? '';
-  if ((!duplicate && !qaFailed && !pendingHumanReview && !terminalGeneratedAsset) || !requestRow.video_url || !cloudName) {
+  if ((!duplicate && !qaFailed && !pendingHumanReview && !terminalGeneratedAsset) || !cloudName) {
     throw new Error('GENERATED_ASSET_NOT_ELIGIBLE');
   }
   if (
@@ -73,11 +69,12 @@ async function prepareGeneratedCloudinaryAssetDeletion(
     requestRow.facebook_id ||
     requestRow.heygen_video_id ||
     requestRow.provider_job_id ||
-    hasRetainedMediaInContent(requestRow.content)
+    !contentPreparation.ok
   ) {
     throw new Error('GENERATED_ASSET_HAS_RETAINED_REFERENCES');
   }
 
+  let sharedCanonicalAsset = false;
   if (duplicate) {
     const canonicalRows = await supabaseServerAdminRequest<Array<{
       id: string; status: string; video_url: string | null; source_hash: string | null; content_hash: string | null;
@@ -94,12 +91,26 @@ async function prepareGeneratedCloudinaryAssetDeletion(
     ) {
       throw new Error('DUPLICATE_CANONICAL_REQUEST_NOT_VERIFIED');
     }
+    // A duplicate can point at the canonical request's exact render. Delete
+    // only the duplicate row in that case; never destroy the shared MP4.
+    sharedCanonicalAsset = canonical.video_url === originalVideoUrl;
   }
 
-  const originalVideoUrl = requestRow.video_url;
   const verifiedAsset = await verifyGeneratedCloudinaryVideo(originalVideoUrl);
   const encodedVideoUrl = encodeURIComponent(originalVideoUrl);
-  const references = await Promise.all([
+  const otherRequestRows = await supabaseServerAdminRequest<Array<{ id: string }>>(
+    `/rest/v1/video_generation_requests?id=neq.${encodeURIComponent(requestId)}&video_url=eq.${encodedVideoUrl}&select=id&limit=10`,
+  );
+  if (!Array.isArray(otherRequestRows)) throw new Error('GENERATED_ASSET_REFERENCE_LOOKUP_INVALID');
+  if (sharedCanonicalAsset) {
+    if (otherRequestRows.length !== 1 || otherRequestRows[0]?.id !== canonicalId) {
+      throw new Error('GENERATED_ASSET_STILL_REFERENCED');
+    }
+  } else if (otherRequestRows.length > 0) {
+    throw new Error('GENERATED_ASSET_STILL_REFERENCED');
+  }
+
+  const referenceQueries = [
     supabaseServerAdminRequest<Array<{ id: string }>>(
       `/rest/v1/videos?slug=eq.zikr-${encodeURIComponent(requestId)}&select=id&limit=1`,
     ),
@@ -109,16 +120,18 @@ async function prepareGeneratedCloudinaryAssetDeletion(
     supabaseServerAdminRequest<Array<{ id: string }>>(
       `/rest/v1/social_publish_queue?content_id=eq.${encodeURIComponent(requestId)}&select=id&limit=1`,
     ),
-    supabaseServerAdminRequest<Array<{ id: string }>>(
-      `/rest/v1/social_publish_queue?video_url=eq.${encodedVideoUrl}&select=id&limit=1`,
-    ),
-    supabaseServerAdminRequest<Array<{ id: string }>>(
-      `/rest/v1/media_assets?url=eq.${encodedVideoUrl}&select=id&limit=1`,
-    ),
-    supabaseServerAdminRequest<Array<{ id: string }>>(
-      `/rest/v1/video_generation_requests?id=neq.${encodeURIComponent(requestId)}&video_url=eq.${encodedVideoUrl}&select=id&limit=1`,
-    ),
-  ]);
+  ];
+  if (!sharedCanonicalAsset) {
+    referenceQueries.push(
+      supabaseServerAdminRequest<Array<{ id: string }>>(
+        `/rest/v1/social_publish_queue?video_url=eq.${encodedVideoUrl}&select=id&limit=1`,
+      ),
+      supabaseServerAdminRequest<Array<{ id: string }>>(
+        `/rest/v1/media_assets?url=eq.${encodedVideoUrl}&select=id&limit=1`,
+      ),
+    );
+  }
+  const references = await Promise.all(referenceQueries);
   if (references.some((rows) => !Array.isArray(rows) || rows.length > 0)) {
     throw new Error('GENERATED_ASSET_STILL_REFERENCED');
   }
@@ -131,7 +144,11 @@ async function prepareGeneratedCloudinaryAssetDeletion(
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-      body: JSON.stringify({ video_url: null, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({
+        video_url: null,
+        content: contentPreparation.content,
+        updated_at: new Date().toISOString(),
+      }),
     },
   );
   if (!Array.isArray(clearedRows) || clearedRows.length !== 1 || !clearedRows[0]?.updated_at) {
@@ -139,11 +156,13 @@ async function prepareGeneratedCloudinaryAssetDeletion(
   }
   return {
     originalVideoUrl,
+    originalContent: requestRow.content,
     verifiedAsset,
     clearedUpdatedAt: clearedRows[0].updated_at,
     expectedStatus: requestRow.status,
     qaFailed,
     pendingHumanReview,
+    sharedCanonicalAsset,
   };
 }
 
@@ -156,7 +175,11 @@ async function restoreGeneratedAssetPointer(requestId: string, prepared: Prepare
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-      body: JSON.stringify({ video_url: prepared.originalVideoUrl, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({
+        video_url: prepared.originalVideoUrl,
+        content: prepared.originalContent,
+        updated_at: new Date().toISOString(),
+      }),
     },
   );
   if (!Array.isArray(restoredRows) || restoredRows.length !== 1 || restoredRows[0]?.id !== requestId) {
@@ -328,7 +351,8 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     // The deletion RPC shares its advisory lock with reference-insert triggers.
     // Only after the row is gone may the verified Cloudinary asset be destroyed.
     let cloudinaryCleanupPending = false;
-    if (preparedGeneratedAsset) {
+    const mediaPreservedForCanonicalRequest = preparedGeneratedAsset?.sharedCanonicalAsset ?? false;
+    if (preparedGeneratedAsset && !mediaPreservedForCanonicalRequest) {
       try {
         await deleteVerifiedGeneratedCloudinaryVideo(preparedGeneratedAsset.verifiedAsset);
       } catch (cloudinaryError) {
@@ -346,12 +370,15 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
         metadata: {
           previousStatus: current.status,
           audience: audience.audience,
-          mediaAndReferencesVerifiedAbsent: true,
+          mediaAndReferencesVerifiedAbsent: !mediaPreservedForCanonicalRequest,
+          mediaPreservedForCanonicalRequest,
           duplicateCanonicalRequestId: canonicalDuplicateId,
           qaFailedGeneratedVideo: preparedGeneratedAsset?.qaFailed ?? false,
           pendingHumanReviewVideo: preparedGeneratedAsset?.pendingHumanReview ?? false,
           cloudinaryPublicId: preparedGeneratedAsset?.verifiedAsset.publicId ?? null,
-          cloudinaryCleanupStatus: preparedGeneratedAsset ? (cloudinaryCleanupPending ? 'pending' : 'deleted') : 'not_applicable',
+          cloudinaryCleanupStatus: mediaPreservedForCanonicalRequest
+            ? 'preserved_for_canonical'
+            : preparedGeneratedAsset ? (cloudinaryCleanupPending ? 'pending' : 'deleted') : 'not_applicable',
         },
       }),
       error => console.error('[api/admin/videos/[id]] delete audit failed after committed deletion:', error),
@@ -365,7 +392,12 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
         message: 'حُذف سجل الفيديو بأمان، لكن Cloudinary لم يؤكد إزالة الملف. راجع سجل تدقيق حذف الوسائط قبل إعادة المحاولة.',
       }, { status: 202, headers: { 'Cache-Control': 'no-store' } });
     }
-    return NextResponse.json({ ok: true, deletedId: id, auditRecorded }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({
+      ok: true,
+      deletedId: id,
+      auditRecorded,
+      mediaPreservedForCanonicalRequest,
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message === 'GENERATED_ASSET_RESTORE_REQUIRED') {
