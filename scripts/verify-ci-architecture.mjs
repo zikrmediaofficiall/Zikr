@@ -92,6 +92,9 @@ assert.ok(
     androidPublish.includes("ci/circleci: android-release-draft") &&
     androidPublish.includes("ci/circleci: android-release-dispatch") &&
     androidPublish.includes("ZIKR / Quality Gate") &&
+    androidPublish.includes("source_commit:") &&
+    androidPublish.includes("git diff --quiet \"$TAG_TARGET_SHA\"") &&
+    androidPublish.includes("RELEASE_SOURCE_SHA=$TAG_TARGET_SHA") &&
     !androidPublish.includes("github.event_name != 'workflow_dispatch'"),
   "Every Android publish/retry path must verify the exact tag source commit and all CI gates",
 );
@@ -178,8 +181,8 @@ const hadithTranslation = read("scripts/sync-hadith-english.ts");
 const androidRecovery = read(".github/workflows/dispatch-android-release-recovery.yml");
 assert.ok(androidRecovery.includes("workflow_dispatch:"), "Android recovery must be explicitly dispatched by the successful CircleCI release pipeline");
 assert.ok(
-  !androidRecovery.includes("\\n  status:") &&
-    androidRecovery.includes('branches:\\n      - "android-release-dispatch-v*"') &&
+  !androidRecovery.includes("\n  status:") &&
+    androidRecovery.includes('branches:\n      - "android-release-dispatch-v*"') &&
     androidRecovery.includes("github.actor == 'zikrofficial-X'") &&
     androidRecovery.includes("isPushRecoveryTrigger"),
   "Android recovery must not subscribe to every repository status and may use only the owner-restricted canonical release-dispatch push fallback",
