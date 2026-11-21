@@ -29,6 +29,27 @@ for (const [description, token] of requiredContracts) {
   assert.ok(smoke.includes(token), description);
 }
 
+assert.ok(
+  smoke.includes('const configuredIosAppId = process.env.IOS_ASSOCIATED_DOMAIN_APP_ID?.trim() ?? "";'),
+  "production smoke must read the Apple App ID supplied by the controlled release environment",
+);
+assert.ok(
+  smoke.includes("...(configuredIosAppId") && smoke.includes("appIds.includes(configuredIosAppId) && webCredentials.includes(configuredIosAppId)"),
+  "iOS association must be validated against the exact configured Apple Team ID and bundle ID only when configured",
+);
+assert.ok(
+  smoke.includes('path: "/.well-known/assetlinks.json"'),
+  "Android App Links signing association must remain part of every production smoke run",
+);
+assert.ok(
+  smoke.includes("WARN iOS Universal Links check skipped") && smoke.includes("optional Apple Team ID"),
+  "a web-only release must clearly report the intentionally unavailable optional iOS association",
+);
+assert.ok(
+  releaseWorkflow.includes("IOS_ASSOCIATED_DOMAIN_APP_ID={app_id}"),
+  "the controlled release must pass the validated production Apple App ID into the smoke-test environment",
+);
+
 const contentFallbackContracts = [
   [articleService, "const arabicSource = mapRow(row, \"ar\")", "English article requests fall back to the published Arabic source"],
   [articleService, "contentLocale: locale", "Article adapters preserve the actual returned content language"],
