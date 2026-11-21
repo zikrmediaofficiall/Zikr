@@ -36,6 +36,7 @@ export type SiteSettingValue = {
   twitterUrl?: string | null;
   instagramUrl?: string | null;
   visibility?: Record<string, boolean>;
+  order?: string[];
   audioSettings?: {
     prayer?: string | null;
     dhikr?: string | null;
@@ -109,6 +110,18 @@ export async function getSectionVisibility(): Promise<Record<string, boolean>> {
   // Preserve the previous /youtube control as an alias of the canonical /videos route.
   if (stored.youtube === false) visibility.videos = false;
   return visibility;
+}
+
+
+export async function getSectionDisplayOrder(): Promise<string[]> {
+  const setting = await getSiteSetting("section_visibility");
+  const defaultOrder = CATALOG_ITEMS.map((item) => getCatalogItemKey(item.href));
+  const storedOrder = Array.isArray(setting?.order)
+    ? setting.order.filter((key): key is string => typeof key === "string")
+    : [];
+  const validKeys = new Set(defaultOrder);
+  const uniqueStored = [...new Set(storedOrder)].filter((key) => validKeys.has(key));
+  return [...uniqueStored, ...defaultOrder.filter((key) => !uniqueStored.includes(key))];
 }
 
 export async function getPinnedMessages(limit = 3): Promise<PinnedMessage[]> {
