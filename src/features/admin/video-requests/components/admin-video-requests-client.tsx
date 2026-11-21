@@ -40,7 +40,9 @@ function isReadyForHumanApproval(content: unknown): boolean {
   const audience = resolveVideoRequestAudience(record);
   const snapshotHash = typeof record.approvalSnapshotHash === "string" ? record.approvalSnapshotHash : null;
   return audience.ok &&
+    audience.audience === "kids" &&
     record.approvalStatus === "approved" &&
+    record.approvalReviewerId === "system:zikr-video-factory" &&
     Boolean(snapshotHash) &&
     isVideoApprovalRecorded(record, snapshotHash);
 }
@@ -464,7 +466,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                         مراجعة واعتماد
                       </Button>
                     )}
-          {request.status === "failed" && (() => {
+                  {request.status === "failed" && (() => {
                     const retryAudience = resolveVideoRequestAudience(request.content);
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
                     return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
