@@ -30,7 +30,7 @@ assert.ok(releaseAction.includes("getAndroidReleaseSigningPreflightStatus"), "An
 assert.ok(releaseAction.includes("requestAndroidReleaseSigningPreflight"), "Android release action must expose a no-mutation preflight action");
 assert.ok(releaseAction.includes("recordAdminAuditEventSafely"), "Android release preparation must be audited after commit");
 
-const releaseAdminPage = read("src/app/admin/release/page.tsx");
+const releaseAdminRecoveryPage = read("src/app/admin/release/page.tsx");
 assert.ok(releaseManager.includes("recreateStuckAndroidRelease"), "Android release manager must expose guarded stuck-release recovery");
 assert.ok(releaseManager.includes('method: "DELETE"'), "Stuck-release recovery must remove the exact draft release and tag before retrying");
 assert.ok(releaseManager.includes("release.draft !== true") && releaseManager.includes("release.immutable === true"), "Stuck Android recovery must refuse published or immutable GitHub Releases");
@@ -40,8 +40,8 @@ assert.ok(releaseManager.includes("cancelWorkflowRunsForReleaseCommit"), "Stuck 
 assert.ok(releaseAction.includes("formData.get(\"confirmCleanup\") !== \"yes\""), "Destructive release recovery must require explicit confirmation");
 assert.ok(releaseAction.includes("Number.isFinite(startedAt)") && releaseAction.includes("Date.now() - startedAt >= 6 * 60 * 60 * 1000"), "Release cleanup must require a valid timestamp older than six hours or a known dispatch failure");
 assert.ok(releaseAction.includes('action: "android.release.recreate.retry"'), "Release cleanup and retry must be recorded in the admin audit log");
-assert.ok(releaseAdminPage.includes("operationCanRecover") && releaseAdminPage.includes('name="confirmCleanup"'), "Admin Release Center must expose a confirmation-gated recovery button");
-assert.ok(releaseAdminPage.includes("لن يتم حذف أي Release منشور"), "Admin Release Center must explain that published releases are protected");
+assert.ok(releaseAdminRecoveryPage.includes("operationCanRecover") && releaseAdminRecoveryPage.includes('name="confirmCleanup"'), "Admin Release Center must expose a confirmation-gated recovery button");
+assert.ok(releaseAdminRecoveryPage.includes("لن يتم حذف أي Release منشور"), "Admin Release Center must explain that published releases are protected");
 assert.ok(releaseAction.includes('requireAdminStepUp("release.manage", "/admin/release")'), "Android release preparation must honor step-up authentication");
 assert.ok(releaseAction.includes("assertNoActiveReleaseOperation"), "Android release action must prevent overlapping operations");
 const androidAdminAction = read("src/app/admin/android/actions.ts");
