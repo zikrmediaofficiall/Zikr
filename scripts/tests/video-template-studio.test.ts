@@ -122,6 +122,12 @@ assert.equal(videoTemplateScene("midnight-skyline"), "night");
 assert.equal(videoTemplateScene("oasis-dawn"), "dawn");
 
 const read = (path: string) => readFileSync(path, "utf8");
+const videoQaVerifier = read("scripts/verify-video-qa.mjs");
+assert.ok(
+  videoQaVerifier.includes(`CURRENT_VIDEO_RENDERER_VERSION = "${CURRENT_VIDEO_RENDERER_VERSION}"`),
+  "Video QA must validate the same renderer version as the template engine",
+);
+
 const migrationFiles = readdirSync("supabase/migrations").filter((filename) => filename.endsWith(".sql"));
 const migrationVersions = migrationFiles
   .map((filename) => filename.slice(0, 14))
