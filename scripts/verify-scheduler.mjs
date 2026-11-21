@@ -61,18 +61,12 @@ const githubWorker = contentSync.slice(githubWorkerStart);
 const githubQuranPosition = githubWorker.indexOf("pnpm sync:quran:en");
 const githubHadithPosition = githubWorker.indexOf("pnpm sync:hadith:en");
 const githubGeminiPosition = githubWorker.indexOf('if [[ -n "${GEMINI_API_KEY:-}" ]]');
-const restrictedEnglishPushPaths = [
-  ".github/workflows/english-content-sync.yml",
-  "scripts/sync-quran-english.ts",
-  "scripts/sync-hadith-english.ts",
-  "scripts/translate-published-articles-en.ts",
-  "scripts/translate-published-content-en.ts",
-  "supabase/migrations/20261121100000_quran_english_translation_provenance.sql",
-];
-const hasRestrictedEnglishPush =
-  contentSync.includes("push:") &&
-  contentSync.includes("branches: [main]") &&
-  restrictedEnglishPushPaths.every((path) => contentSync.includes(path));
+const hasSuccessfulReleaseTrigger =
+  contentSync.includes('workflows: ["ZIKR Finalization Controlled Release"]') &&
+  contentSync.includes("types: [completed]") &&
+  contentSync.includes("github.event.workflow_run.conclusion == 'success'") &&
+  contentSync.includes("github.event.workflow_run.head_branch == 'main'") &&
+  !contentSync.includes("\\n  push:");
 const hasProtectedEnglishBackup =
   contentSync.includes('cron: "15 7 * * *"') &&
   contentSync.includes("environment: production") &&
@@ -85,7 +79,7 @@ const hasProtectedEnglishBackup =
   githubQuranPosition >= 0 &&
   githubHadithPosition > githubQuranPosition &&
   githubGeminiPosition > githubHadithPosition &&
-  hasRestrictedEnglishPush &&
+  hasSuccessfulReleaseTrigger &&
   circleciConfig.includes('cron: "17 4 * * *"');
 if (contentSync.includes("\n  schedule:") && !hasProtectedEnglishBackup) {
   failures.push("GitHub English sync must retain its protected 07:15 UTC backup, validate Supabase before source writes, and run Quran/Hadith independently of the optional Gemini batches");
@@ -94,7 +88,7 @@ if (!contentSync.includes("pnpm translate:articles:en") || !contentSync.includes
 if (!circleciConfig.includes("pnpm sync:quran:en") || !circleciConfig.includes("quran_status")) failures.push("primary CircleCI must run and report the source-attributed Quran translation worker");
 if (contentSync.includes("seq 1 10")) failures.push("article translation must not rerun the same bounded batch ten times");
 if (!contentSync.includes("environment: production") || !contentSync.includes("if: github.ref == 'refs/heads/main'")) failures.push("English content sync must use production secrets on main only");
-if (contentSync.includes("\n  push:") && !hasRestrictedEnglishPush) failures.push("English source-sync push trigger must be restricted to the reviewed main-branch importer, workflow, and provenance migration paths");
+if (contentSync.includes("\\n  push:")) failures.push("English production sync must wait for the controlled release to apply and verify migrations");
 if (!contentSync.includes("workflow_dispatch:")) failures.push("English content sync must retain deliberate manual dispatch");
 const articleTranslator = read("scripts/translate-published-articles-en.ts");
 if (articleTranslator.includes("GEMINI_API_KEY_")) failures.push("article translation must not rotate through quota-pooling Gemini keys");
