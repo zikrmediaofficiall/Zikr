@@ -165,17 +165,45 @@ if (circleci.includes('cron: "17 3,9,15,21 * * *"')) failures.push("CircleCI mus
 if (circleci.includes("background-jobs:")) failures.push("CircleCI must not contain the production video/social worker job");
 if (circleci.includes("android-release-on-build-tag:")) failures.push("CircleCI must not retain the redundant Android build-tag workflow");
 const androidReleaseManager = read("src/features/releases/services/github-release-manager.ts");
-if (!androidReleaseManager.includes("/git/tags")) failures.push("Admin Android release manager must create the Git tag object");
-if (!androidReleaseManager.includes("/git/refs")) failures.push("Admin Android release manager must publish the Git tag ref");
-if (!androidReleaseManager.includes("/releases")) failures.push("Admin Android release manager must create the draft GitHub release");
-if (!androidReleaseManager.includes("draft: true")) failures.push("Admin Android release manager must create a draft release until artifacts pass");
+const androidSigningPreflight = read(".github/workflows/android-release-signing-preflight.yml");
+const androidTagSigning = read(".github/workflows/sign-android-release-tag.yml");
+if (!androidReleaseManager.includes("getAndroidReleaseSigningPreflightStatus") ||
+    !androidReleaseManager.includes("requestAndroidReleaseSigningPreflight")) {
+  failures.push("Admin Android release manager must verify protected signing readiness before preparing release metadata");
+}
+if (!androidReleaseManager.includes("dispatchPreparedAndroidReleaseTagSigning") ||
+    !androidReleaseManager.includes("sign-android-release-tag.yml")) {
+  failures.push("Admin Android release manager must delegate tag creation to the protected signing runner");
+}
+if (!androidReleaseManager.includes("createAtomicMainCommit")) {
+  failures.push("Admin Android release metadata must be committed atomically against the exact main SHA");
+}
+if (androidReleaseManager.includes('"/git/tags"') || androidReleaseManager.includes('"/git/refs"')) {
+  failures.push("Admin Android release manager must never create an unsigned Git tag through the REST API");
+}
 if (androidReleaseManager.includes("buildTag")) failures.push("Android release manager must not create a redundant -build tag");
+if (!androidSigningPreflight.includes("name: android-release-signing") ||
+    !androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY") ||
+    !androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_FINGERPRINT")) {
+  failures.push("Android signing preflight must run in the protected GPG environment and validate the owner-managed key");
+}
+if (!androidTagSigning.includes("name: android-release-signing") ||
+    !androidTagSigning.includes("git tag -s -u") ||
+    !androidTagSigning.includes("git verify-tag --raw") ||
+    !androidTagSigning.includes(".verification.verified") ||
+    !androidTagSigning.includes("reason") ||
+    !androidTagSigning.includes("Create the draft release only after GitHub tag verification")) {
+  failures.push("Android tag signing must create, locally verify, and remotely verify a signed tag before creating its draft release");
+}
 const androidPublish = read(".github/workflows/publish-android-release-assets.yml");
-if (androidPublish.includes("branches:\n      - main")) failures.push("Android release publishing must not trigger directly from main");
+if (androidPublish.includes("branches:\\n      - main")) failures.push("Android release publishing must not trigger directly from main");
 if (!androidPublish.includes("workflow_dispatch:")) failures.push("Android release publishing must retain explicit manual recovery");
 if (!androidPublish.includes("inputs.retry")) failures.push("Android manual recovery must require an explicit retry input");
 if (!androidPublish.includes("docs/finalization/RELEASE_RETRY.flag")) failures.push("Android asset retries must remain tied to an explicit release flag");
 if (!androidPublish.includes("github.ref_type == 'tag'")) failures.push("tagged Android release publishing must remain enabled");
+if (!androidPublish.includes("GitHub cryptographic tag signature and exact commit target")) {
+  failures.push("Android asset publisher must independently verify the signed tag and exact source commit before upload");
+}
 
 const runner = read("scripts/run-background-jobs.ts");
 if (!runner.includes("processTemplateVideoQueue")) failures.push("background runner must invoke the canonical video queue");
