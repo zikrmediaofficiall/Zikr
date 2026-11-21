@@ -55,6 +55,7 @@ export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOr
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const hiddenHrefSet = useMemo(() => new Set(hiddenHrefs), [hiddenHrefs]);
   const sectionOrderIndex = useMemo(() => new Map(sectionOrder.map((key, index) => [key, index])), [sectionOrder]);
+  const visibleBottomLinks = bottomLinks.filter((item) => !hiddenHrefSet.has(item.href));
   const catalogGroups = useMemo(() => SITE_CATALOG.map((group) => ({
     ...group,
     items: group.items
@@ -396,7 +397,7 @@ export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOr
         className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-gold/20 bg-brand-emeraldDeep/95 shadow-[0_-8px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:hidden"
       >
         <div className="mx-auto grid max-w-xl grid-cols-5 gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          {bottomLinks.map((item) => {
+          {visibleBottomLinks.map((item) => {
             const Icon = resolveIcon(item.icon);
             const current = isCurrentPath(pathname, item.href);
             return (
