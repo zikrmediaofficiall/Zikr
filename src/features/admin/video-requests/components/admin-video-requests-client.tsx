@@ -42,6 +42,38 @@ function getDuplicateCanonicalRequestId(request: VideoGenerationRequest): string
   return match?.[1] ?? null;
 }
 
+function isSafeDuplicateAssetCandidate(request: VideoGenerationRequest, canManageKids: boolean): boolean {
+  const audience = resolveVideoRequestAudience(request.content);
+  if (!audience.ok || (audience.audience === "kids" && !canManageKids)) return false;
+  if (
+    request.status !== "cancelled" ||
+    !getDuplicateCanonicalRequestId(request) ||
+    !request.video_url ||
+    request.thumbnail_url ||
+    request.youtube_id ||
+    request.facebook_id ||
+    request.heygen_video_id ||
+    request.provider_job_id
+  ) return false;
+  const content = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+    ? request.content as Record<string, unknown> : {};
+  const retainedContentKeys = ["audioUrl", "humanAudioUrl", "audioMediaAssetId", "audioMediaAssetOwnerId", "videoUrl", "generatedVideoUrl", "thumbnailUrl"];
+  if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim())) return false;
+  try {
+    const url = new URL(request.video_url);
+    const segments = url.pathname.split("/").filter(Boolean);
+    return url.protocol === "https:" &&
+      url.hostname.toLowerCase() === "res.cloudinary.com" &&
+      !url.username && !url.password && !url.search && !url.hash &&
+      segments.length === 5 &&
+      segments[1] === "video" && segments[2] === "upload" &&
+      /^v\\d+$/.test(segments[3]) &&
+      /^auto-[a-z0-9-]+\\.mp4$/i.test(segments[4]);
+  } catch {
+    return false;
+  }
+}
+
 function isSafelyDeletable(request: VideoGenerationRequest, canManageKids: boolean): boolean {
   const audience = resolveVideoRequestAudience(request.content);
   return audience.ok && (audience.audience !== "kids" || canManageKids) &&
@@ -175,7 +207,12 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   }
 
   async function deleteRequest(request: VideoGenerationRequest) {
-    if (!canDelete || !isSafelyDeletable(request, canManageKids) || !window.confirm(`تأكيد حذف طلب الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`)) return;
+    const duplicateAsset = isSafeDuplicateAssetCandidate(request, canManageKids);
+    if (!canDelete || (!isSafelyDeletable(request, canManageKids) && !duplicateAsset)) return;
+    const confirmation = duplicateAsset
+      ? `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
+      : `تأكيد حذف سجل الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`;
+    if (!window.confirm(confirmation)) return;
     setBusyId(request.id); setError(""); setMessage("");
     try {
       const response = await fetch(`/api/admin/videos/${encodeURIComponent(request.id)}`, {
@@ -185,7 +222,9 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       const data = await response.json().catch(() => ({}));
       if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
       if (!response.ok) throw new Error(data.error || "تعذر حذف طلب الفيديو.");
-      setMessage("حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
+      setMessage(duplicateAsset
+        ? "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
+        : "حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر حذف طلب الفيديو.");
@@ -337,6 +376,21 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
           const status = request.status as Status;
           return (
             <Card key={request.id} className="border-brand-gold/10 p-5">
+              {request.thumbnail_url && (
+                <div className="mb-4 flex items-center gap-4 rounded-xl border border-brand-gold/10 bg-black/20 p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={request.thumbnail_url}
+                    alt={`معاينة ${request.title}`}
+                    loading="lazy"
+                    className="h-28 w-20 rounded-lg bg-black object-cover"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs text-brand-cream/40">صورة حقيقية من إطار الفيديو</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-brand-cream/75">{request.title}</p>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -370,7 +424,11 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
                     return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
                   })()}
-                  {canDelete && isSafelyDeletable(request, canManageKids) && <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>حذف سجل الطلب</Button>}
+                  {canDelete && (isSafelyDeletable(request, canManageKids) || isSafeDuplicateAssetCandidate(request, canManageKids)) && (
+                    <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>
+                      {isSafeDuplicateAssetCandidate(request, canManageKids) ? "حذف الفيديو المكرر وملفه نهائيًا" : "حذف سجل الطلب"}
+                    </Button>
+                  )}
                 </div>
               </div>
               {request.error_message && (
