@@ -222,9 +222,13 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       const data = await response.json().catch(() => ({}));
       if (!response.ok && data.error === "step_up_required" && redirectToAdminStepUp(data.nextPath)) return;
       if (!response.ok) throw new Error(data.error || "تعذر حذف طلب الفيديو.");
-      setMessage(duplicateAsset
-        ? "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
-        : "حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
+      if (duplicateAsset && data.cloudinaryCleanupPending === true) {
+        setMessage("حُذف سجل النسخة المكررة بأمان، لكن Cloudinary لم يؤكد حذف الملف. تم تسجيل حالة تحتاج مراجعة؛ لا تعِد محاولة الحذف قبل مراجعة سجل التدقيق.");
+      } else {
+        setMessage(duplicateAsset
+          ? "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
+          : "حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
+      }
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر حذف طلب الفيديو.");
