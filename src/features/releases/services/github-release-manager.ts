@@ -341,6 +341,7 @@ const ACTIVE_WORKFLOW_STATUSES = new Set([
 async function cancelWorkflowRunsForReleaseCommit(commitSha: string) {
   for (const workflow of [
     "sign-android-release-tag.yml",
+    "dispatch-android-release-recovery.yml",
     "publish-android-release-assets.yml",
   ]) {
     const result = await githubJson<GitHubWorkflowRuns>(
