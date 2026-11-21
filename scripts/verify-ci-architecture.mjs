@@ -336,7 +336,7 @@ assert.ok(
     english.includes("types: [completed]") &&
     english.includes("github.event.workflow_run.conclusion == 'success'") &&
     english.includes("github.event.workflow_run.head_branch == 'main'") &&
-    !english.includes("\\n  push:") &&
+    !english.split(/\r?\n/).some((line) => line.trim() === "push:") &&
     englishQuranSyncPosition >= 0 && englishHadithSyncPosition > englishQuranSyncPosition &&
     englishGeminiBranchPosition > englishHadithSyncPosition &&
     englishArticlePosition > englishGeminiBranchPosition &&
