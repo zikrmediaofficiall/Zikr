@@ -58,7 +58,7 @@ function isSafeDuplicateAssetCandidate(request: VideoGenerationRequest, canManag
   const content = request.content && typeof request.content === "object" && !Array.isArray(request.content)
     ? request.content as Record<string, unknown> : {};
   const retainedContentKeys = ["audioUrl", "humanAudioUrl", "audioMediaAssetId", "audioMediaAssetOwnerId", "videoUrl", "generatedVideoUrl", "thumbnailUrl"];
-  if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim())) return false;
+  if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim()) || content.audioSource === "human_recording") return false;
   try {
     const url = new URL(request.video_url);
     const segments = url.pathname.split("/").filter(Boolean);
