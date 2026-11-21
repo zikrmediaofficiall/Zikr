@@ -50,7 +50,7 @@ jobs:
           test "$RELEASE_TAG" = "$TAG"
           NOTES="docs/releases/$PACKAGE_VERSION.md"
           test -s "$NOTES"
-          grep -Fq "Release tag: `$TAG`" "$NOTES"
+          grep -Fq "Release tag: \`$TAG\`" "$NOTES"
           if git ls-remote --exit-code --tags https://github.com/${GITHUB_REPOSITORY}.git "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "::error::Release tag already exists; immutable tags are never replaced"
             exit 1
