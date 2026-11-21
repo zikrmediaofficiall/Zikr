@@ -194,8 +194,8 @@ export default async function HomePage() {
         aria-label={isEnglish ? 'Home page' : 'الصفحة الرئيسية'}
       >
         <Container className="relative z-10 pb-8 pt-8 sm:pb-12 sm:pt-12">
-          <div className="mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)]" dir={dir}>
-            <div className="text-center lg:text-right">
+          <div className="mx-auto grid w-full min-w-0 max-w-6xl grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)]" dir={dir}>
+            <div className="w-full min-w-0 text-center lg:text-right">
             <p className="text-xs font-semibold tracking-[0.22em] text-brand-gold/50">
               {isEnglish ? 'ZIKR PLATFORM' : 'منصة ذِكر'}
             </p>
@@ -210,12 +210,12 @@ export default async function HomePage() {
               {homeTitle}
             </h1>
             <p
-              className="mx-auto mt-4 max-w-3xl text-base leading-8 text-brand-cream/65 sm:text-lg"
+              className="mx-auto mt-4 w-full min-w-0 max-w-3xl break-words text-base leading-8 text-brand-cream/65 sm:text-lg"
               style={{ fontFamily: 'var(--font-amiri), var(--font-noto-arabic)' }}
             >
               {homeBody}
             </p>
-            <form action="/search" method="get" role="search" className="mx-auto mt-7 max-w-3xl" dir={dir}>
+            <form action="/search" method="get" role="search" className="mx-auto mt-7 w-full min-w-0 max-w-3xl" dir={dir}>
               <label htmlFor="home-search" className="sr-only">
                 {isEnglish ? 'Search ZIKR' : 'البحث في ذِكر'}
               </label>
@@ -235,24 +235,24 @@ export default async function HomePage() {
                 </button>
               </div>
             </form>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-              <Link href="/sections" className="rounded-xl bg-brand-gold px-5 py-3 text-sm font-bold text-brand-emeraldDeep shadow-lg shadow-black/15 transition hover:bg-brand-goldSoft">
+            <div className="mt-5 flex w-full min-w-0 flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <Link href="/sections" className="inline-flex w-full max-w-full justify-center break-words rounded-xl bg-brand-gold px-5 py-3 text-center text-sm font-bold text-brand-emeraldDeep shadow-lg shadow-black/15 transition hover:bg-brand-goldSoft sm:w-auto">
                 {isEnglish ? 'Explore all sections' : 'استكشف كل أقسام ذِكر'}
               </Link>
-              <Link href="/wird" className="rounded-xl border border-brand-gold/30 bg-black/15 px-5 py-3 text-sm font-semibold text-brand-cream transition hover:border-brand-gold/60 hover:text-brand-gold">
+              <Link href="/wird" className="inline-flex w-full max-w-full justify-center break-words rounded-xl border border-brand-gold/30 bg-black/15 px-5 py-3 text-center text-sm font-semibold text-brand-cream transition hover:border-brand-gold/60 hover:text-brand-gold sm:w-auto">
                 {isEnglish ? 'Start a daily routine' : 'ابدأ وردك اليومي'}
               </Link>
             </div>
-            <div className="mt-5 flex flex-wrap justify-center gap-2 text-[11px] text-brand-cream/50 lg:justify-start">
+            <div className="mt-5 flex w-full min-w-0 flex-wrap justify-center gap-2 text-[11px] text-brand-cream/50 lg:justify-start">
               {[isEnglish ? 'Quran and verified references' : 'قرآن ومراجع قابلة للتحقق', isEnglish ? 'Reading, audio and daily tools' : 'قراءة وصوت وأدوات يومية', isEnglish ? 'A focused Kids experience' : 'تجربة مخصصة للأطفال'].map((item) => (
                 <span key={item} className="rounded-full border border-brand-gold/10 bg-black/15 px-3 py-1.5">{item}</span>
               ))}
             </div>
             </div>
-            <div className="relative mx-auto w-full max-w-[320px] sm:max-w-[380px] lg:max-w-[440px]">
+            <div className="relative mx-auto w-full min-w-0 max-w-[320px] sm:max-w-[380px] lg:max-w-[440px]">
               <div
                 aria-hidden="true"
-                className="aspect-[5/4] rounded-[2rem] border border-brand-gold/20 bg-[#0b251d] bg-center bg-no-repeat shadow-[0_28px_90px_rgba(0,0,0,.36)]"
+                className="aspect-[9/10] rounded-[2rem] border border-brand-gold/20 bg-[#0b251d] bg-center bg-no-repeat shadow-[0_28px_90px_rgba(0,0,0,.36)]"
                 style={{
                   backgroundImage: "linear-gradient(180deg,rgba(4,18,13,.02),rgba(4,18,13,.4)),url('/banners/homepage/home-visual.svg')",
                   backgroundSize: "100% 100%, contain",
@@ -262,7 +262,7 @@ export default async function HomePage() {
               />
               <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-brand-gold/25 bg-[#061610]/85 p-4 shadow-xl backdrop-blur-sm sm:inset-x-6 sm:bottom-6">
                 <p className="text-[10px] font-semibold tracking-[0.2em] text-brand-gold/60">{isEnglish ? "A CALMER WAY TO LEARN" : "معرفة وذكر في تجربة واحدة"}</p>
-                <p className="mt-2 text-lg font-bold leading-8 text-brand-cream sm:text-xl">{isEnglish ? "Read, listen, reflect and keep your daily practice close." : "اقرأ، واستمع، وتدبّر، واجعل وردك اليومي أقرب إليك."}</p>
+                <p className="mt-2 break-words text-lg font-bold leading-8 text-brand-cream sm:text-xl">{isEnglish ? "Read, listen, reflect and keep your daily practice close." : "اقرأ، واستمع، وتدبّر، واجعل وردك اليومي أقرب إليك."}</p>
                 <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-brand-cream/70">
                   <span className="rounded-full border border-brand-gold/20 px-3 py-1.5">{isEnglish ? "Quran" : "القرآن"}</span>
                   <span className="rounded-full border border-brand-gold/20 px-3 py-1.5">{isEnglish ? "Knowledge" : "المعرفة"}</span>
