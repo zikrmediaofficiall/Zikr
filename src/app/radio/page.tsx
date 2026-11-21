@@ -1,18 +1,56 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Container } from '@/components/ui/container';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getRadioChannels, type RadioCategory, type RadioChannel } from '@/features/audio/services/radio';
 
 const stations = getRadioChannels();
+const STORAGE_KEYS = {
+  current: 'zikr_radio_current_station_v1',
+  volume: 'zikr_radio_volume_v1',
+  recent: 'zikr_radio_recent_v1',
+} as const;
 
 const FILTERS: Array<{ id: 'all' | RadioCategory; label: string }> = [
   { id: 'all', label: 'كل الإذاعات' },
-  { id: 'quran', label: 'القرآن الكريم' },
-  { id: 'tawasheeh', label: 'تلاوات متنوعة' },
+  { id: 'quran', label: 'إذاعة القرآن' },
+  { id: 'reciter', label: 'إذاعات القرّاء' },
 ];
+
+function readRadioPreferences() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const rawVolume = Number(window.localStorage.getItem(STORAGE_KEYS.volume));
+    const volume = Number.isFinite(rawVolume) ? Math.max(0, Math.min(1, rawVolume)) : 0.8;
+    const recentValue = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.recent) || '[]') as unknown;
+    const validIds = new Set(stations.map((station) => station.id));
+    const recentIds = Array.isArray(recentValue)
+      ? recentValue.filter((id): id is string => typeof id === 'string' && validIds.has(id)).slice(0, 5)
+      : [];
+    const selectedId = window.localStorage.getItem(STORAGE_KEYS.current);
+    const current = stations.find((station) => station.id === selectedId) ?? null;
+    return { volume, recentIds, current };
+  } catch {
+    return { volume: 0.8, recentIds: [] as string[], current: null };
+  }
+}
+
+function storeRadioPreference(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Device storage can be unavailable or full; radio playback must still work.
+  }
+}
+
+function releaseAudio(audio: HTMLAudioElement | null) {
+  if (!audio) return;
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+}
 
 export default function RadioPage() {
   const [current, setCurrent] = useState<RadioChannel | null>(null);
@@ -23,6 +61,22 @@ export default function RadioPage() {
   const [filter, setFilter] = useState<'all' | RadioCategory>('all');
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const preferences = readRadioPreferences();
+    if (!preferences) return;
+    setVolume(preferences.volume);
+    setRecentIds(preferences.recentIds);
+    setCurrent(preferences.current);
+    // The previous station is restored as a ready-to-resume selection.
+    // Browsers require a user gesture before audible autoplay is allowed.
+  }, []);
+
+  useEffect(() => () => {
+    const audio = audioRef.current;
+    audioRef.current = null;
+    releaseAudio(audio);
+  }, []);
 
   const filteredStations = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -35,10 +89,13 @@ export default function RadioPage() {
 
   const playRadioChannel = (station: RadioChannel) => {
     setError(null);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-    }
+    setPlaying(false);
+    setCurrent(station);
+    storeRadioPreference(STORAGE_KEYS.current, station.id);
+
+    const previous = audioRef.current;
+    audioRef.current = null;
+    releaseAudio(previous);
 
     const audio = new Audio(station.streamUrl);
     audio.preload = 'none';
@@ -46,36 +103,66 @@ export default function RadioPage() {
     audioRef.current = audio;
 
     audio.addEventListener('error', () => {
-      setError('تعذر تشغيل المحطة. قد يكون المصدر الخارجي متوقفًا أو محجوبًا مؤقتًا.');
+      if (audioRef.current !== audio) return;
+      setError('تعذر تشغيل هذه المحطة. قد يكون البث الخارجي متوقفًا أو غير متاح من المتصفح؛ جرّب محطة أخرى.');
+      setPlaying(false);
+    });
+
+    audio.addEventListener('stalled', () => {
+      if (audioRef.current !== audio) return;
+      setError('توقف وصول بيانات البث مؤقتًا. انتظر قليلًا أو اختر محطة أخرى.');
       setPlaying(false);
     });
 
     audio
       .play()
       .then(() => {
-        setCurrent(station);
+        if (audioRef.current !== audio) return;
+        setError(null);
         setPlaying(true);
-        setRecentIds((currentIds) => [station.id, ...currentIds.filter((id) => id !== station.id)].slice(0, 5));
+        setRecentIds((currentIds) => {
+          const next = [station.id, ...currentIds.filter((id) => id !== station.id)].slice(0, 5);
+          storeRadioPreference(STORAGE_KEYS.recent, JSON.stringify(next));
+          return next;
+        });
       })
       .catch(() => {
-        setError('تعذر تشغيل المحطة. اضغط استماع مرة أخرى أو اختر محطة أخرى.');
+        if (audioRef.current !== audio) return;
+        setError('لم يسمح الجهاز بتشغيل البث أو تعذر الوصول إلى المصدر. اضغط استماع مرة أخرى أو اختر محطة أخرى.');
         setPlaying(false);
       });
   };
 
   const togglePlay = () => {
-    if (!audioRef.current || !current) return;
+    if (!current) return;
+    const audio = audioRef.current;
+    if (!audio) {
+      playRadioChannel(current);
+      return;
+    }
     if (playing) {
-      audioRef.current.pause();
+      audio.pause();
       setPlaying(false);
     } else {
-      audioRef.current.play().then(() => setPlaying(true)).catch(() => setError('تعذر استئناف التشغيل.'));
+      setError(null);
+      audio.play()
+        .then(() => {
+          if (audioRef.current === audio) setPlaying(true);
+        })
+        .catch(() => {
+          if (audioRef.current === audio) {
+            setError('تعذر استئناف التشغيل. تحقق من اتصال الإنترنت ثم حاول مجددًا.');
+            setPlaying(false);
+          }
+        });
     }
   };
 
   const changeVolume = (value: number) => {
-    setVolume(value);
-    if (audioRef.current) audioRef.current.volume = value;
+    const next = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.8;
+    setVolume(next);
+    storeRadioPreference(STORAGE_KEYS.volume, String(next));
+    if (audioRef.current) audioRef.current.volume = next;
   };
 
   const recentStations = recentIds
@@ -90,7 +177,8 @@ export default function RadioPage() {
             <p className='text-xs uppercase tracking-[0.25em] text-brand-cream/40'>ZIKR LIVE RADIO</p>
             <h1 className='text-4xl font-bold text-brand-gold'>إذاعة ذِكرٌ</h1>
             <p className='mt-2 max-w-3xl leading-8 arabic-muted'>
-              مجموعة موسعة من بثوث القرآن الكريم والتلاوات، مع بحث وفلاتر ومحطة حالية وتحكم كامل في الصوت.
+              بثوث القرآن الكريم وإذاعات القرّاء، مع بحث وتصنيفات صحيحة وتحكم بالصوت.
+              تُحفظ المحطة الأخيرة ومستوى الصوت على هذا الجهاز، ويمكنك استئنافها بضغطة واحدة.
             </p>
           </div>
           <div className='rounded-full border border-brand-gold/15 bg-brand-gold/5 px-4 py-2 text-sm text-brand-gold'>
@@ -120,13 +208,19 @@ export default function RadioPage() {
         </div>
       </section>
 
+      {error && (
+        <div role='alert' aria-live='polite' className='rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm leading-7 text-red-100'>
+          {error}
+        </div>
+      )}
+
       {current && (
         <Card className='space-y-5 border-brand-gold/20 bg-brand-gold/5 p-6'>
           <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
             <div>
               <span className='inline-flex items-center gap-2 text-xs text-emerald-300'>
-                <span className='h-2 w-2 animate-pulse rounded-full bg-emerald-400' />
-                {playing ? 'مباشر الآن' : 'متوقف مؤقتًا'}
+                <span className='h-2 w-2 rounded-full bg-emerald-400' />
+                {playing ? 'مباشر الآن' : 'جاهز للاستئناف'}
               </span>
               <h2 className='mt-2 text-2xl font-bold text-brand-gold'>{current.name}</h2>
               <p className='mt-1 text-sm arabic-muted'>{current.description}</p>
@@ -153,12 +247,6 @@ export default function RadioPage() {
               aria-label='مستوى الصوت'
             />
           </div>
-
-          {error && (
-            <div role='alert' className='rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100'>
-              {error}
-            </div>
-          )}
         </Card>
       )}
 
@@ -197,7 +285,7 @@ export default function RadioPage() {
             </div>
 
             <Button
-              onClick={() => playRadioChannel(station)}
+              onClick={() => current?.id === station.id && playing ? togglePlay() : playRadioChannel(station)}
               variant={current?.streamUrl === station.streamUrl && playing ? 'secondary' : 'primary'}
               className='w-full'
             >
@@ -217,8 +305,7 @@ export default function RadioPage() {
       <Card className='border-brand-gold/10 bg-black/10 p-5'>
         <h2 className='text-lg font-bold text-brand-gold'>ملاحظات حول البث</h2>
         <p className='mt-2 text-sm leading-7 arabic-muted'>
-          الإذاعات تعتمد على بثوث خارجية. قد تتوقف محطة مؤقتًا أو يتغير عنوانها دون أن يكون ذلك عطلًا في المنصة.
-          عند تعذر محطة، اختر محطة أخرى من الكتالوج.
+          الإذاعات تعتمد على بثوث خارجية. قد يتوقف المصدر مؤقتًا أو يمنع البث في بعض الشبكات والمتصفحات؛ لا يبدأ الصوت تلقائيًا بعد فتح الصفحة، ويمكنك استئناف آخر محطة محفوظة يدويًا.
         </p>
       </Card>
     </Container>
