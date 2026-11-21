@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   isVideoTemplateAssetAllowedForAudience,
   parseVideoTemplateConfig,
@@ -122,6 +122,16 @@ assert.equal(videoTemplateScene("midnight-skyline"), "night");
 assert.equal(videoTemplateScene("oasis-dawn"), "dawn");
 
 const read = (path: string) => readFileSync(path, "utf8");
+const migrationFiles = readdirSync("supabase/migrations").filter((filename) => filename.endsWith(".sql"));
+const migrationVersions = migrationFiles
+  .map((filename) => filename.slice(0, 14))
+  .filter((version) => /^\\d{14}$/.test(version));
+assert.equal(
+  new Set(migrationVersions).size,
+  migrationVersions.length,
+  "Supabase migration version prefixes must be unique across the entire repository",
+);
+
 const migration = read("supabase/migrations/20261106010000_admin_video_template_studio.sql");
 const visualCatalogMigration = read("supabase/migrations/20261121090000_expand_video_template_visual_catalog.sql");
 const blockerFixMigration = read("supabase/migrations/20261106090800_production_blockers_and_social_insights.sql");
