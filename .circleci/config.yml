@@ -459,10 +459,41 @@ jobs:
                   process.exit(0);
                 }
 
-                if (attempt < maxAttempts) {
-                  console.log("Waiting for the Admin Release service to create the unique draft for " + releaseTag + " (attempt " + attempt + "/" + maxAttempts + ").");
-                  await new Promise((resolve) => setTimeout(resolve, 5000));
+                // GitHub intentionally hides draft Releases from unauthenticated
+                // REST requests. This read-only job has no write-capable token by
+                // design, so an empty public release list is not proof that the
+                // Admin-created draft is missing. Verify the immutable signed tag
+                // here; the authenticated GitHub publisher verifies uniqueness,
+                // draft state, and release identity before it consumes any asset.
+                const privateDraftTagRef = await api("/git/ref/tags/" + encodeURIComponent(releaseTag));
+                if (privateDraftTagRef.status === 404) {
+                  if (attempt < maxAttempts) {
+                    console.log("Waiting for the Admin Release service to create the immutable tag " + releaseTag + " (attempt " + attempt + "/" + maxAttempts + ").");
+                    await new Promise((resolve) => setTimeout(resolve, 5000));
+                    continue;
+                  }
+                  throw new Error("The Admin Release service did not create the immutable tag " + releaseTag + " within the 2-minute verification window.");
                 }
+
+                let privateDraftTagTargetSha = privateDraftTagRef.data.object?.sha;
+                let privateDraftTagTargetType = privateDraftTagRef.data.object?.type;
+                if (privateDraftTagTargetType === "tag") {
+                  const privateDraftTagObject = await api("/git/tags/" + privateDraftTagTargetSha);
+                  if (privateDraftTagObject.status !== 200 ||
+                      privateDraftTagObject.data.verification?.verified !== true ||
+                      privateDraftTagObject.data.verification?.reason !== "valid") {
+                    throw new Error("The private-draft fallback requires a GitHub-verified GPG signature for " + releaseTag + ".");
+                  }
+                  privateDraftTagTargetSha = privateDraftTagObject.data.object?.sha;
+                  privateDraftTagTargetType = privateDraftTagObject.data.object?.type;
+                }
+
+                if (privateDraftTagTargetType !== "commit" || privateDraftTagTargetSha !== sourceSha) {
+                  throw new Error("The immutable Android tag does not resolve to the exact release-preparation commit; refusing to continue.");
+                }
+
+                console.log("Verified the GitHub-verified signed tag " + releaseTag + " -> " + privateDraftTagTargetSha + ". The draft is private and not enumerable without a GitHub token; the authenticated Android publisher must verify exactly one matching draft and draft state before any artifact is accepted.");
+                process.exit(0);
               }
 
               throw new Error("The Admin Release service did not create exactly one verified draft for " + releaseTag + " within the 2-minute verification window.");
