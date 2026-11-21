@@ -3,7 +3,7 @@ import { Container } from "@/components/ui/container";
 import { ArrowLeft, ArrowUpLeft, ChevronLeft, type LucideIcon } from "lucide-react";
 import * as Icons from "lucide-react";
 import { SITE_CATALOG, getCatalogItemKey } from "@/lib/navigation/catalog";
-import { getSectionVisibility } from "@/features/site-content/services/site-content";
+import { getSectionVisibility, getSectionDisplayOrder } from "@/features/site-content/services/site-content";
 import { getRequestLocale } from "@/lib/i18n/server";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -40,32 +40,42 @@ export default async function SectionsPage({
 }: {
   searchParams?: Promise<SearchParams>;
 }) {
-  const [params, locale, visibility] = await Promise.all([
+  const [params, locale, visibility, sectionOrder] = await Promise.all([
     searchParams ?? Promise.resolve({}),
     getRequestLocale(),
     getSectionVisibility(),
+    getSectionDisplayOrder(),
   ]);
   const isEnglish = locale === "en";
   const dir = isEnglish ? "ltr" : "rtl";
   const query = firstParam(params.q).trim();
   const selectedGroup = firstParam(params.group);
   const normalizedQuery = query.toLocaleLowerCase(isEnglish ? "en" : "ar");
+  const orderIndex = new Map(sectionOrder.map((key, index) => [key, index]));
 
   const visibleGroups = SITE_CATALOG
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) =>
-        visibility[getCatalogItemKey(item.href)] !== false &&
-        (!normalizedQuery || [
-          item.ar,
-          item.en,
-          item.descriptionAr,
-          item.descriptionEn,
-          group.ar,
-          group.en,
-        ].some((value) => value.toLocaleLowerCase(isEnglish ? "en" : "ar").includes(normalizedQuery))),
+      items: group.items
+        .filter((item) =>
+          visibility[getCatalogItemKey(item.href)] !== false &&
+          (!normalizedQuery || [
+            item.ar,
+            item.en,
+            item.descriptionAr,
+            item.descriptionEn,
+            group.ar,
+            group.en,
+          ].some((value) => value.toLocaleLowerCase(isEnglish ? "en" : "ar").includes(normalizedQuery))),
+        )
+        .sort((a, b) => (orderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER)),
     }))
-    .filter((group) => group.items.length > 0 && (!selectedGroup || group.id === selectedGroup));
+    .filter((group) => group.items.length > 0 && (!selectedGroup || group.id === selectedGroup))
+    .sort((a, b) => {
+      const aOrder = Math.min(...a.items.map((item) => orderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+      const bOrder = Math.min(...b.items.map((item) => orderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+      return aOrder - bOrder;
+    });
 
   const totalVisibleItems = visibleGroups.reduce((sum, group) => sum + group.items.length, 0);
   const totalVisibleGroups = visibleGroups.length;
