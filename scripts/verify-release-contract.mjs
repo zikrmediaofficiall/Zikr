@@ -232,7 +232,7 @@ assert.ok(androidDispatchJob.includes('RECOVERY_REF="$CIRCLE_TAG"'), "CircleCI t
 assert.ok(androidDispatchJob.includes('RECOVERY_REF="$CIRCLE_BRANCH"'), "CircleCI branch recovery must preserve the exact guarded branch");
 assert.ok(recoveryDispatch.includes("startsWith(github.ref, 'refs/tags/v')"), "Android recovery must accept the canonical release tag ref");
 assert.ok(recoveryDispatch.includes('const isTagDispatch = context.ref === "refs/tags/" + tag;'), "Android recovery must distinguish exact tag dispatch from branch recovery");
-assert.ok(recoveryDispatch.includes("ref: isTagDispatch ? tag : recoveryBranch"), "Android publisher must run from the exact tag or guarded recovery branch");
+assert.ok(recoveryDispatch.includes('ref: isPushRecoveryTrigger ? "main" : (isTagDispatch ? tag : recoveryBranch)') && recoveryDispatch.includes("source_commit: sourceSha"), "owner-only recovery must run the latest publisher from main while passing the exact immutable tag source SHA");
 
 
 assert.ok(circle.includes('REPOSITORY="zikrofficial-X/Zikr"') && circle.includes('https://github.com/${REPOSITORY}/releases/download/'), "CircleCI Android release metadata must use GitHub Releases in the canonical repository");
