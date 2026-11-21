@@ -95,6 +95,7 @@ export default async function VideosPage() {
   const xUrl = resolveOfficialSocialUrl(socialSettings?.xUrl ?? socialSettings?.twitterUrl, ["x.com", "twitter.com"]);
   const hasSocialChannels = Boolean(youtubeChannelUrl || facebookPageUrl || instagramUrl || xUrl);
   const youtubeChannelUrl = youtubeFeed.channel?.pageUrl
+    ?? resolveOfficialSocialUrl(socialSettings?.youtubeChannelUrl, ["youtube.com", "youtu.be"])
     ?? (youtubeFeed.channelId ? "https://www.youtube.com/channel/" + encodeURIComponent(youtubeFeed.channelId) : null);
 
   return (
@@ -189,6 +190,7 @@ export default async function VideosPage() {
               </Card>
             ) : null}
           </div>
+          {facebookPageUrl ? (
           <Card className="space-y-4 p-4">
             <h2 className="font-semibold text-brand-cream">{isEnglish ? "Latest Facebook Page posts" : "أحدث منشورات صفحة ذِكر على Facebook"}</h2>
             {facebookPosts.length ? (
@@ -218,6 +220,7 @@ export default async function VideosPage() {
               </p>
             )}
           </Card>
+          ) : null}
         </section>
       ) : null}
 
