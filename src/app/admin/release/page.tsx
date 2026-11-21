@@ -171,7 +171,7 @@ export default async function AdminReleasePage({
         <section role="alert" className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] p-5 text-sm leading-7 text-amber-100">
           <h2 className="font-bold text-amber-200">استرداد إصدار Android العالق</h2>
           <p className="mt-2 text-amber-100/80">
-            سيوقف النظام تشغيلات GitHub Actions للتوقيع والنشر العالقة المرتبطة بنفس commit، ثم يحذف مسودة GitHub Release والـTag غير المنشورين لهذا الإصدار فقط، ويعيد إنشاء نفس الـTag الموقّع وإرسال البناء مرة أخرى.
+            سيوقف النظام تشغيلات GitHub Actions للتوقيع والنشر العالقة المرتبطة بنفس commit، ثم يحذف مسودة GitHub Release والـTag غير المنشورين لهذا الإصدار فقط، ويعيد إنشاء نفس الـTag عبر أداة التوقيع المحمية وإرسال البناء مرة أخرى.
             لن يتم حذف أي Release منشور أو غير قابل للتغيير، ولن يتم إنشاء رقم إصدار أو commit جديد.
           </p>
           <p className="mt-2 break-all font-mono text-xs text-amber-100/60">
