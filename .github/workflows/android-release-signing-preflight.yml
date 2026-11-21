@@ -1,0 +1,81 @@
+name: Android tag signing preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Exact main commit whose signing readiness must be checked"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-signing-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Verify protected Android Git-tag signing configuration
+    runs-on: ubuntu-24.04
+    environment:
+      name: android-release-signing
+    steps:
+      - name: Checkout exact main snapshot
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate owner-managed GPG key and GitHub registration
+        shell: bash
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.ANDROID_RELEASE_TAG_GPG_PASSPHRASE }}
+          EXPECTED_FINGERPRINT: ${{ vars.ANDROID_RELEASE_TAG_GPG_FINGERPRINT }}
+          SIGNING_EMAIL: ${{ vars.ANDROID_RELEASE_SIGNING_EMAIL }}
+          SIGNING_NAME: ${{ vars.ANDROID_RELEASE_SIGNING_NAME }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+        run: |
+          set -euo pipefail
+          : "${GPG_PRIVATE_KEY:?Missing GitHub Environment secret ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY}"
+          : "${EXPECTED_FINGERPRINT:?Missing GitHub Environment variable ANDROID_RELEASE_TAG_GPG_FINGERPRINT}"
+          : "${SIGNING_EMAIL:?Missing GitHub Environment variable ANDROID_RELEASE_SIGNING_EMAIL}"
+          : "${SIGNING_NAME:?Missing GitHub Environment variable ANDROID_RELEASE_SIGNING_NAME}"
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid target SHA"; exit 1; }
+          EXPECTED_FINGERPRINT="$(printf '%s' "$EXPECTED_FINGERPRINT" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+          [[ "$EXPECTED_FINGERPRINT" =~ ^[A-F0-9]{40}$ ]] || { echo "::error::Expected a 40-character OpenPGP primary-key fingerprint"; exit 1; }
+          MAIN_SHA="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | awk '{print $1}')"
+          test "$MAIN_SHA" = "$TARGET_SHA" || { echo "::error::Preflight target is no longer the latest main commit"; exit 1; }
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          TMP_DIR="$(mktemp -d)"
+          export GNUPGHOME="$TMP_DIR/gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          trap 'rm -rf "$TMP_DIR"' EXIT
+          printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
+          ACTUAL_FINGERPRINT="$(gpg --batch --with-colons --fingerprint "$EXPECTED_FINGERPRINT" | awk -F: '$1 == "fpr" { print toupper($10); exit }')"
+          test "$ACTUAL_FINGERPRINT" = "$EXPECTED_FINGERPRINT" || { echo "::error::Private key does not match the configured fingerprint"; exit 1; }
+          printf '%s\n' "ZIKR Android release signing preflight $TARGET_SHA" > "$TMP_DIR/payload.txt"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+            --local-user "$EXPECTED_FINGERPRINT" --clearsign --output "$TMP_DIR/payload.asc" "$TMP_DIR/payload.txt"
+          gpg --batch --verify "$TMP_DIR/payload.asc" >/dev/null
+          curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/users/$OWNER/gpg_keys" > "$TMP_DIR/github-gpg-keys.json"
+          jq -e --arg email "$SIGNING_EMAIL" 'any(.[]; any(.emails[]?; .email == $email))' \
+            "$TMP_DIR/github-gpg-keys.json" >/dev/null || {
+              echo "::error::The configured signing email is not attached to an OpenPGP key on the GitHub owner account"; exit 1;
+            }
+          jq -r '.[].public_key // empty' "$TMP_DIR/github-gpg-keys.json" > "$TMP_DIR/github-public-keys.asc"
+          test -s "$TMP_DIR/github-public-keys.asc" || { echo "::error::GitHub owner has no registered public GPG key"; exit 1; }
+          gpg --batch --import "$TMP_DIR/github-public-keys.asc" >/dev/null 2>&1
+          if ! gpg --batch --with-colons --fingerprint | awk -F: '$1 == "fpr" { print toupper($10) }' | grep -Fxq "$EXPECTED_FINGERPRINT"; then
+            echo "::error::Configured fingerprint is not registered on the GitHub owner account"; exit 1
+          fi
+          echo "Verified GPG fingerprint: $EXPECTED_FINGERPRINT"
+          echo "Verified signer email: $SIGNING_EMAIL"
+          echo "Verified exact main SHA: $TARGET_SHA"
+          echo "::notice::Android Git-tag signing preflight passed."
