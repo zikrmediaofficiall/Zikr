@@ -1093,10 +1093,16 @@ const EXISTING_DEDICATED_GUIDE_ROUTES = new Set([
   '/kids/progress', '/kids/puzzle', '/kids/parent-dashboard',
 ]);
 
+const STATIC_KIDS_GUIDE_ROUTES = new Set([
+  '/kids/games', '/kids/audio', '/kids/adventures', '/kids/achievements',
+  '/kids/progress', '/kids/puzzle', '/kids/parent-dashboard',
+]);
+
 function resolvePage(pathname: string): Page | null {
   const path = normalizePath(pathname);
   const exact = PAGE_CONTENT[path];
   if (exact) return EXISTING_DEDICATED_GUIDE_ROUTES.has(path) ? null : exact;
+  if (STATIC_KIDS_GUIDE_ROUTES.has(path)) return null;
 
   const detailPrefix = Object.keys(DETAIL_CONTENT)
     .filter((prefix) => path.startsWith(prefix + '/'))
