@@ -28,14 +28,32 @@ type Preview = {
 };
 type Payload = { templates: Template[]; versions: Version[]; previews: Preview[] };
 
-const GENERAL_ASSETS = ["calm", "dawn", "emerald", "gold", "night", "paper", "rose", "andalusian-arch", "midnight-skyline", "oasis-dawn"];
-const KIDS_ASSETS = ["kids-garden", "kids-nature", "kids-neighborhood", "kids-workshop"];
+const GENERAL_ASSETS = ["calm","dawn","emerald","gold","night","paper","rose","andalusian-arch","midnight-skyline","oasis-dawn","desert-dusk","coastal-blue","botanical","library","geometric","marble","cinematic","starfield","mountain-dawn","heritage","minimal-studio","rainy-window"];
+const KIDS_ASSETS = ["kids-garden","kids-nature","kids-neighborhood","kids-workshop","kids-space","kids-ocean","kids-forest","kids-playground","kids-classroom","kids-adventure"];
 const ASSET_LABELS: Record<string, string> = {
   calm: "هادئ", dawn: "الفجر", emerald: "زمردي", gold: "ذهبي",
   night: "ليلي", paper: "ورقي", rose: "وردي",
   "andalusian-arch": "قوس أندلسي", "midnight-skyline": "أفق ليلي", "oasis-dawn": "واحة الفجر",
   "kids-garden": "حديقة الأطفال", "kids-nature": "طبيعة الأطفال",
   "kids-neighborhood": "حيّ الأطفال", "kids-workshop": "ورشة الأطفال",
+  "desert-dusk": "غروب الصحراء",
+  "coastal-blue": "ساحل أزرق",
+  "botanical": "حديقة زيتونية",
+  "library": "مكتبة المعرفة",
+  "geometric": "زخارف هندسية",
+  "marble": "رخام هادئ",
+  "cinematic": "إضاءة سينمائية",
+  "starfield": "سماء مرصعة",
+  "mountain-dawn": "قمم الفجر",
+  "heritage": "طراز تراثي",
+  "minimal-studio": "استوديو بسيط",
+  "rainy-window": "نافذة المطر",
+  "kids-space": "فضاء الأطفال",
+  "kids-ocean": "محيط الأطفال",
+  "kids-forest": "غابة الأطفال",
+  "kids-playground": "ملعب الألوان",
+  "kids-classroom": "فصل المعرفة",
+  "kids-adventure": "مغامرة الطبيعة",
 };
 const STATUS_LABELS: Record<string, string> = {
   draft: "مسودة", approved: "مراجع", active: "نشط", retired: "متوقف",

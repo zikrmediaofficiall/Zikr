@@ -12,6 +12,9 @@ assert.match(home, /featured-videos-heading/, "Home must include a dedicated pub
 assert.match(home, /استكشف كل أقسام ذِكر/, "Hero must include a clear route to section discovery");
 assert.match(home, /getSectionVisibility/, "Home must consume the persisted administrator visibility settings");
 assert.match(home, /getSectionDisplayOrder/, "Home must consume the persisted administrator section order");
+assert.match(home, /home-visual\.svg/, "Home hero must include its branded illustration");
+assert.match(home, /lg:grid-cols-\[minmax\(0,1\.08fr\)_minmax\(300px,0\.92fr\)\]/, "Home hero must use a responsive text and image layout");
+assert.match(home, /shadow-\[0_28px_90px_rgba\(0,0,0,\.36\)\]/, "Home hero illustration must have a dedicated visual frame");
 assert.match(home, /bySectionOrder\(QUICK_ACTIONS\.filter/, "Quick actions must follow the administrator display order");
 assert.match(home, /isSectionVisible\(item\.href\)/, "Home category previews must exclude hidden sections");
 assert.match(home, /showPrayerTimes !== false && isSectionVisible\('\/prayer-times'\)/, "Prayer times must respect both homepage settings and section visibility");

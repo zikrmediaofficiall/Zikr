@@ -45,7 +45,7 @@ import { resolveFreeVideoProviderDownloadUrl } from "../../src/features/videos/p
 import { getDefaultVideoVoiceProfile, getVideoVoiceProfile } from "../../src/features/videos/services/voice-profiles";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
 import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
-import { resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene } from "../../src/features/videos/services/video-creative-variation";
+import { GENERAL_VIDEO_SCENES, KIDS_VIDEO_SCENES, isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene, type VideoScene } from "../../src/features/videos/services/video-creative-variation";
 import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
@@ -225,7 +225,7 @@ type GeneratedRequest = {
 type AiVideoPlan = {
   reflection: string;
   socialCaption: string;
-  scene: "calm" | "dawn" | "night" | "gold" | "emerald" | "paper" | "rose";
+  scene: VideoScene;
   motion: "fade" | "slow";
 };
 
@@ -325,13 +325,14 @@ function backgroundAsset(scene: AiVideoPlan["scene"], content?: Record<string, u
     if (kidThemes[theme]) return kidThemes[theme];
   }
   const map: Record<AiVideoPlan["scene"], string> = {
-    calm: "public/video/templates/calm.svg",
-    dawn: "public/video/templates/dawn.svg",
-    night: "public/video/templates/night.svg",
-    gold: "public/video/templates/gold.svg",
-    emerald: "public/video/templates/emerald.svg",
-    paper: "public/video/templates/paper.svg",
-    rose: "public/video/templates/rose.svg",
+    calm:"public/video/templates/calm.svg",dawn:"public/video/templates/dawn.svg",night:"public/video/templates/night.svg",
+    gold:"public/video/templates/gold.svg",emerald:"public/video/templates/emerald.svg",paper:"public/video/templates/paper.svg",rose:"public/video/templates/rose.svg",
+    desert:"public/video/templates/desert-dusk.svg",coastal:"public/video/templates/coastal-blue.svg",botanical:"public/video/templates/botanical.svg",
+    library:"public/video/templates/library.svg",geometric:"public/video/templates/geometric.svg",marble:"public/video/templates/marble.svg",
+    cinematic:"public/video/templates/cinematic.svg",starfield:"public/video/templates/starfield.svg",mountain:"public/video/templates/mountain-dawn.svg",
+    heritage:"public/video/templates/heritage.svg",minimal:"public/video/templates/minimal-studio.svg",rainy:"public/video/templates/rainy-window.svg",
+    "kids-space":"public/video/templates/kids-space.svg","kids-ocean":"public/video/templates/kids-ocean.svg","kids-forest":"public/video/templates/kids-forest.svg",
+    "kids-playground":"public/video/templates/kids-playground.svg","kids-classroom":"public/video/templates/kids-classroom.svg","kids-adventure":"public/video/templates/kids-adventure.svg",
   };
   return map[scene] || map.calm;
 }
@@ -916,21 +917,12 @@ function aiPlanEnabled() {
   return isVideoAiPlanningEnabled();
 }
 
-function normalizeAiVideoPlan(value: unknown): AiVideoPlan {
+function normalizeAiVideoPlan(value: unknown, audience: unknown): AiVideoPlan {
   if (!value || typeof value !== "object") return { ...DEFAULT_AI_VIDEO_PLAN };
   const candidate = value as Record<string, unknown>;
   const reflection = typeof candidate.reflection === "string" ? candidate.reflection : "";
   const socialCaption = typeof candidate.socialCaption === "string" ? candidate.socialCaption : "";
-  const scene =
-    candidate.scene === "dawn" ||
-    candidate.scene === "night" ||
-    candidate.scene === "gold" ||
-    candidate.scene === "calm" ||
-    candidate.scene === "emerald" ||
-    candidate.scene === "paper" ||
-    candidate.scene === "rose"
-      ? candidate.scene
-      : "calm";
+  const scene: VideoScene = isVideoSceneAllowedForAudience(candidate.scene, audience) ? candidate.scene : audience === "kids" ? "kids-forest" : "calm";
   const motion = candidate.motion === "fade" || candidate.motion === "slow" ? candidate.motion : "slow";
   return {
     reflection: reflection.replace(/[<>]/g, "").replace(/\s+/g, " ").slice(0, 180),
@@ -994,14 +986,16 @@ const VIDEO_PLAN_SYSTEM_INSTRUCTION = [
   "المصدر موثق بالفعل، لكن النص الديني source-locked: لا تغيّره أو تعِد صياغته أو تكرر أجزاء واضحة منه داخل التأمل أو الكابشن.",
   "ممنوع اختراع حكم شرعي أو درجة حديث أو نسبة قول إلى الله أو النبي أو الصحابي أو العالم.",
   "اكتب التأمل والكابشن كتعليق تحريري أصلي فقط، دون علامات اقتباس ودون ألفاظ الإسناد.",
-  "صمّم خطة قصيرة لفيديو عمودي يُرندر محليًا بواسطة FFmpeg.",
+  "صمّم خطة فيديو بإيقاع واضح: افتتاحية تلفت الانتباه خلال أول ثانيتين، عرض مركز، ثم خلاصة واحدة قبل النهاية.",
   "أعد JSON فقط بالمفاتيح reflection وsocialCaption وscene وmotion.",
-  "reflection: تأمل عربي أصلي لا يتجاوز 110 أحرف، عام وغير منسوب لمصدر ديني.",
-  "socialCaption: كابشن عربي أصلي لا يتجاوز 220 حرفًا، يصف الفيديو دون إضافة معلومة غير موجودة في المصدر.",
-  "لا تكرر الجملة الأصلية ولا أي جزء واضح منها.",
-  "scene: اختر قيمة واحدة فقط من calm|dawn|night|gold|emerald|paper|rose.",
+  "reflection: تأمل عربي أصلي لا يتجاوز 110 أحرف، يضيف فائدة عملية مرتبطة بالمصدر دون نسبتها إلى مصدر ديني.",
+  "socialCaption: كابشن عربي أصلي لا يتجاوز 220 حرفًا؛ ابدأ بفكرة محددة، ثم وضّح قيمة الفيديو، واختم بدعوة هادئة للمشاهدة أو المشاركة.",
+  "اكتب بلغة عربية طبيعية تصلح للإلقاء، وتجنب الحشو والتكرار والعبارات العامة.",
+  "استخدم فضولًا صادقًا لا مبالغة فيه؛ ممنوع العناوين المضللة أو الوعود الكبيرة أو اختلاق النتائج.",
+  "لا تكرر النص الأصلي ولا تضف حقائق غير موجودة في المصدر.",
+  "scene: اختر مشهدًا واحدًا من القائمة التي يحددها النظام حسب الجمهور.",
   "motion: اختر fade أو slow فقط.",
-  "إذا كان audience=kids فاستخدم لغة مناسبة للأطفال، ولا تطلب أي بيانات شخصية أو تواصل خاص أو أسرار، ولا تضف أحداثًا غير موجودة في المصدر."
+  "إذا كان audience=kids فاستخدم لغة مناسبة للأطفال، ولا تطلب بيانات شخصية أو تواصلًا خاصًا أو أسرارًا، واختر مشاهد الأطفال فقط."
 ].join("\n");
 
 async function generateAiVideoPlan(request: GeneratedRequest, signal?: AbortSignal): Promise<AiVideoPlan> {
@@ -1011,7 +1005,11 @@ async function generateAiVideoPlan(request: GeneratedRequest, signal?: AbortSign
   if (!sourceText) return { ...DEFAULT_AI_VIDEO_PLAN };
 
   const model = (process.env.GEMINI_MODEL || "gemini-3.8-flash").trim();
-  const systemInstruction = [VIDEO_PLAN_SYSTEM_INSTRUCTION, aiVisualPolicyPromptLine()].join("\n\n");
+  const sceneOptions = request.content?.audience === "kids" ? KIDS_VIDEO_SCENES.join("|") : GENERAL_VIDEO_SCENES.join("|");
+  const systemInstruction = [
+    VIDEO_PLAN_SYSTEM_INSTRUCTION.replace("scene: اختر مشهدًا واحدًا من القائمة التي يحددها النظام حسب الجمهور.", "scene: اختر قيمة واحدة فقط من " + sceneOptions + "."),
+    aiVisualPolicyPromptLine(),
+  ].join("\n\n");
   const userPayload = JSON.stringify({
     task: "Create a short source-locked vertical video plan.",
     category: request.category,
@@ -1037,7 +1035,7 @@ async function generateAiVideoPlan(request: GeneratedRequest, signal?: AbortSign
   const payload = await response.json();
   const raw = payload.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text || "").join("").trim() || "";
   console.log(`[template-video] Gemini plan generated with ${model}`);
-  const plan = normalizeAiVideoPlan(parseGeminiJson(raw));
+  const plan = normalizeAiVideoPlan(parseGeminiJson(raw), request.content?.audience);
   try { return validateAiEditorialPlan(plan, request); } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn("[template-video] Gemini editorial plan rejected; using deterministic fallback: " + message);
@@ -1403,8 +1401,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       : null;
     const hasGeminiCreativePlan = persistedAi?.provider === "google-gemini";
     const isKnownScene = (value: unknown): value is AiVideoPlan["scene"] =>
-      value === "calm" || value === "dawn" || value === "night" || value === "gold" ||
-      value === "emerald" || value === "paper" || value === "rose";
+      isVideoSceneAllowedForAudience(value, request.content?.audience);
     const scene = boundTemplate
       ? videoTemplateScene(boundTemplate.config.assetKey)
       : hasGeminiCreativePlan && isKnownScene(persistedAi?.scene)

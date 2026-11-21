@@ -3,11 +3,13 @@ import { readFileSync } from "node:fs";
 import {
   isVideoTemplateAssetAllowedForAudience,
   parseVideoTemplateConfig,
+  VIDEO_TEMPLATE_ASSETS,
   videoTemplateAssetPath,
   videoTemplateScene,
 } from "../../src/features/videos/services/template-config";
 import { resolveVideoComposition } from "../../src/features/videos/services/video-composition";
 import { CURRENT_VIDEO_RENDERER_VERSION } from "../../src/features/videos/services/video-template-version";
+import { isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoScene } from "../../src/features/videos/services/video-creative-variation";
 
 const general = parseVideoTemplateConfig({
   assetKey: "emerald",
@@ -64,7 +66,23 @@ assert.ok(customComposition.panelLeft > standardComposition.panelLeft);
 assert.ok(customComposition.lineChars < standardComposition.lineChars);
 assert.equal(customComposition.captionStyle, "boxed");
 assert.equal(customComposition.sourceCardStyle, "compact");
-assert.equal(CURRENT_VIDEO_RENDERER_VERSION, "2026-11-07-template-controls-v10");
+assert.equal(CURRENT_VIDEO_RENDERER_VERSION, "2026-11-21-visual-catalog-v11");
+assert.equal(VIDEO_TEMPLATE_ASSETS.length, 32);
+assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => !asset.startsWith("kids-")).length, 22);
+assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => asset.startsWith("kids-")).length, 10);
+for (const asset of VIDEO_TEMPLATE_ASSETS) {
+  const audience = asset.startsWith("kids-") ? "kids" : "general";
+  assert.equal(isVideoTemplateAssetAllowedForAudience(asset, audience), true, asset);
+  assert.equal(videoTemplateAssetPath(asset, audience), `public/video/templates/${asset}.svg`);
+  assert.equal(parseVideoTemplateConfig({ assetKey: asset, defaultFormat: "vertical", motion: "slow" })?.assetKey, asset);
+}
+const generalScene = resolveDeterministicVideoScene({ id: "visual-general-01", category: "story" });
+const kidsScene = resolveDeterministicVideoScene({ id: "visual-kids-01", category: "story", audience: "kids" });
+assert.equal(isVideoSceneAllowedForAudience(generalScene, "general"), true);
+assert.equal(isVideoSceneAllowedForAudience(kidsScene, "kids"), true);
+assert.equal(isVideoSceneAllowedForAudience(kidsScene, "general"), false);
+assert.ok(resolveDeterministicVideoHook({ id: "hook-story-01", category: "story" }).length > 12);
+assert.ok(resolveDeterministicVideoHook({ id: "hook-kids-01", category: "story", audience: "kids" }).length > 12);
 assert.equal(parseVideoTemplateConfig({ assetKey: "../../secrets", defaultFormat: "vertical", motion: "slow" }), null);
 assert.equal(parseVideoTemplateConfig({ assetKey: "gold", defaultFormat: "square", motion: "slow" }), null);
 assert.equal(isVideoTemplateAssetAllowedForAudience("kids-garden", "kids"), true);
