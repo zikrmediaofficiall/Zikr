@@ -270,7 +270,8 @@ export async function recreateStuckAndroidReleaseAction(formData: FormData) {
   const isKnownDispatchFailure = operation.status === "signing_dispatch_failed";
   const isStaleOperation =
     (operation.status === "signing" || operation.status === "building") &&
-    (!Number.isFinite(startedAt) || Date.now() - startedAt >= 6 * 60 * 60 * 1000);
+    Number.isFinite(startedAt) &&
+    Date.now() - startedAt >= 6 * 60 * 60 * 1000;
 
   if (!isKnownDispatchFailure && !isStaleOperation) {
     redirect("/admin/release?android_release_error=" + encodeURIComponent("لا يمكن حذف الإصدار أثناء وجود عملية حديثة أو غير معروفة الحالة. انتظر انتهاء مهلة الست ساعات أو راجع سجل العملية."));
