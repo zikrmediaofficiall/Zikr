@@ -1,0 +1,56 @@
+name: ZIKR GPG Signing Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-signing:
+    name: Import GPG key and verify detached test signature
+    runs-on: ubuntu-24.04
+    environment:
+      name: android-release-signing
+    steps:
+      - name: Import and validate owner-managed GPG key
+        shell: bash
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.ANDROID_RELEASE_TAG_GPG_PASSPHRASE }}
+          EXPECTED_FINGERPRINT: ${{ vars.ANDROID_RELEASE_TAG_GPG_FINGERPRINT }}
+          SIGNING_EMAIL: ${{ vars.ANDROID_RELEASE_SIGNING_EMAIL }}
+        run: |
+          set -euo pipefail
+          : "${GPG_PRIVATE_KEY:?Missing Environment secret ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY}"
+          : "${GPG_PASSPHRASE:?Missing Environment secret ANDROID_RELEASE_TAG_GPG_PASSPHRASE}"
+          : "${EXPECTED_FINGERPRINT:?Missing Environment variable ANDROID_RELEASE_TAG_GPG_FINGERPRINT}"
+          : "${SIGNING_EMAIL:?Missing Environment variable ANDROID_RELEASE_SIGNING_EMAIL}"
+
+          EXPECTED_FINGERPRINT="$(printf '%s' "$EXPECTED_FINGERPRINT" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+          [[ "$EXPECTED_FINGERPRINT" =~ ^[A-F0-9]{40}$ ]] || {
+            echo "::error::Fingerprint must be exactly 40 hexadecimal characters."
+            exit 1
+          }
+
+          TMP_DIR="$(mktemp -d)"
+          export GNUPGHOME="$TMP_DIR/gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          trap 'rm -rf "$TMP_DIR"' EXIT
+
+          printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
+          ACTUAL_FINGERPRINT="$(gpg --batch --with-colons --fingerprint "$EXPECTED_FINGERPRINT" | awk -F: '$1 == "fpr" { print toupper($10); exit }')"
+          test "$ACTUAL_FINGERPRINT" = "$EXPECTED_FINGERPRINT" || {
+            echo "::error::Imported private key does not match configured fingerprint."
+            exit 1
+          }
+
+          printf '%s\n' "ZIKR signing verification test" > "$TMP_DIR/payload.txt"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+            --local-user "$EXPECTED_FINGERPRINT" --armor --detach-sign \
+            --output "$TMP_DIR/payload.txt.asc" "$TMP_DIR/payload.txt"
+
+          gpg --batch --verify "$TMP_DIR/payload.txt.asc" "$TMP_DIR/payload.txt"
+          echo "GPG_SIGNING_TEST=SUCCESS"
+          echo "Verified fingerprint: $EXPECTED_FINGERPRINT"
+          echo "Configured signer email: $SIGNING_EMAIL"
