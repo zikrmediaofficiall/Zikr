@@ -78,7 +78,13 @@ export default async function DuaPage() {
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="text-xl font-bold text-brand-gold">{isEnglish ? (dua.titleEn || "English translation unavailable.") : dua.titleAr}</h3>
                   {!isEnglish && dua.sourceAr && (
-                    <Badge variant="outline" className="shrink-0 text-xs">{dua.sourceAr}</Badge>
+                    <Badge variant="outline" className="shrink-0 text-xs">
+                      {dua.sourceUrl ? (
+                        <a href={dua.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                          {dua.sourceAr}
+                        </a>
+                      ) : dua.sourceAr}
+                    </Badge>
                   )}
                 </div>
                 <p
