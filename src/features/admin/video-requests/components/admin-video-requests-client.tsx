@@ -50,8 +50,10 @@ function isSafeGeneratedAssetDeletionCandidate(request: VideoGenerationRequest, 
     ? request.content as Record<string, unknown> : {};
   const duplicate = request.status === "cancelled" && Boolean(getDuplicateCanonicalRequestId(request));
   const qaFailed = request.status === "completed" && content.approvalStatus === "qa_failed";
-  if ((!duplicate && !qaFailed) || !request.video_url ||
-    request.thumbnail_url || request.youtube_id || request.facebook_id ||
+  const pendingReview = request.status === "completed" && content.approvalStatus === "awaiting_human_review";
+  const storedThumbnail = request.stored_thumbnail_url;
+  if ((!duplicate && !qaFailed && !pendingReview) || !request.video_url ||
+    (typeof storedThumbnail === "string" && storedThumbnail.trim().length > 0) || request.youtube_id || request.facebook_id ||
     request.heygen_video_id || request.provider_job_id) return false;
   const retainedContentKeys = ["audioUrl", "humanAudioUrl", "audioMediaAssetId", "audioMediaAssetOwnerId", "videoUrl", "generatedVideoUrl", "thumbnailUrl"];
   if (retainedContentKeys.some((key) => typeof content[key] === "string" && String(content[key]).trim()) ||
@@ -217,7 +219,9 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       ? qaFailedAsset
         ? `هذا الفيديو مكتمل تقنيًا لكنه رُفض في فحص الجودة ولم يُنشر. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب بعد التأكد من عدم ارتباطه بأي منشور أو مكتبة. لا يمكن استعادته بعد الحذف. متابعة؟`
         : `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
-      : `تأكيد حذف سجل الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`;
+      : pendingReview
+        ? `هذا الفيديو مكتمل لكنه لم يحصل على اعتماد بشري بعد. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب فقط بعد إثبات ملكية الملف وخلوه من أي رابط للمكتبة أو النشر. لا يمكن التراجع عن الحذف. متابعة؟`
+        : `تأكيد حذف سجل الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`;
     if (!window.confirm(confirmation)) return;
     setBusyId(request.id); setError(""); setMessage("");
     try {
@@ -234,7 +238,9 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
         setMessage(generatedAsset
           ? qaFailedAsset
             ? "تم حذف ملف الفيديو المرفوض في فحص الجودة وسجل طلبه بعد التحقق من عدم وجود أي مراجع. لم يتأثر أي فيديو منشور."
-            : "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
+            : pendingReview
+              ? "تم حذف ملف الفيديو غير المعتمد وسجل طلبه بعد إثبات الملكية وخلوه من مراجع المكتبة والنشر."
+              : "تم حذف ملف النسخة المكررة من Cloudinary وسجلها بعد فحص المراجع. الفيديو الأصلي لم يتأثر."
           : "حُذف سجل الطلب بعد التحقق الذري من عدم وجود وسائط أو مراجع نشر.");
       }
       await load();
@@ -433,7 +439,13 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>التفاصيل</Button>
-                  {request.status === "failed" && (() => {
+                  {request.status === "completed" && request.video_url && !isContentApproved(request.content) &&
+            (request.content as Record<string, unknown> | null)?.approvalStatus !== "qa_failed" && (
+              <Button variant="primary" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>
+                مراجعة واعتماد
+              </Button>
+          )}
+          {request.status === "failed" && (() => {
                     const retryAudience = resolveVideoRequestAudience(request.content);
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
                     return canRetry ? <Button variant="primary" disabled={busyId === request.id} onClick={() => void retry(request.id)}>{busyId === request.id ? "جاري التنفيذ…" : "إعادة المحاولة"}</Button> : null;
@@ -441,7 +453,11 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                   {canDelete && (isSafelyDeletable(request, canManageKids) || isSafeGeneratedAssetDeletionCandidate(request, canManageKids)) && (
                     <Button variant="outline" disabled={busyId === request.id} onClick={() => void deleteRequest(request)}>
                       {isSafeGeneratedAssetDeletionCandidate(request, canManageKids)
-                        ? isQaFailedGeneratedVideo(request) ? "حذف فيديو فشل فحص الجودة وملفه نهائيًا" : "حذف الفيديو المكرر وملفه نهائيًا"
+                        ? isQaFailedGeneratedVideo(request)
+                          ? "حذف فيديو فشل فحص الجودة وملفه نهائيًا"
+                          : request.status === "completed" && (request.content as Record<string, unknown> | null)?.approvalStatus === "awaiting_human_review"
+                            ? "حذف الفيديو غير المعتمد وملفه نهائيًا"
+                            : "حذف الفيديو المكرر وملفه نهائيًا"
                         : "حذف سجل الطلب"}
                     </Button>
                   )}
