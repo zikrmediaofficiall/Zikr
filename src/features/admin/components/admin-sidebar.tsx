@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { matchesAdminSearch } from "@/features/admin/utils/admin-search";
 import {
   Activity,
   Baby,
@@ -153,10 +154,8 @@ export function AdminSidebar({ groups }: { groups: AdminNavGroup[] }) {
   const [query, setQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const filteredGroups = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("ar");
-    if (!normalized) return groups;
     return groups
-      .map((group) => ({ ...group, items: group.items.filter((item) => item.label.toLocaleLowerCase("ar").includes(normalized)) }))
+      .map((group) => ({ ...group, items: group.items.filter((item) => matchesAdminSearch(query, item.label, item.href, group.group)) }))
       .filter((group) => group.items.length > 0);
   }, [groups, query]);
 
@@ -165,6 +164,7 @@ export function AdminSidebar({ groups }: { groups: AdminNavGroup[] }) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       if (!target || target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      if (!searchInputRef.current || searchInputRef.current.getClientRects().length === 0) return;
       event.preventDefault();
       searchInputRef.current?.focus();
     };
@@ -216,10 +216,9 @@ export function AdminMobileNav({ groups }: { groups: AdminNavGroup[] }) {
   const [mobileQuery, setMobileQuery] = useState("");
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const filteredMobileGroups = useMemo(() => {
-    const normalized = mobileQuery.trim().toLocaleLowerCase("ar");
-    if (!normalized) return [];
+    if (!mobileQuery.trim()) return [];
     return groups
-      .map((group) => ({ ...group, items: group.items.filter((item) => item.label.toLocaleLowerCase("ar").includes(normalized) || item.href.toLocaleLowerCase("ar").includes(normalized)) }))
+      .map((group) => ({ ...group, items: group.items.filter((item) => matchesAdminSearch(mobileQuery, item.label, item.href, group.group)) }))
       .filter((group) => group.items.length > 0);
   }, [groups, mobileQuery]);
 
@@ -229,6 +228,7 @@ export function AdminMobileNav({ groups }: { groups: AdminNavGroup[] }) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       if (!target || target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      if (!mobileSearchInputRef.current || mobileSearchInputRef.current.getClientRects().length === 0) return;
       event.preventDefault();
       mobileSearchInputRef.current?.focus();
     };

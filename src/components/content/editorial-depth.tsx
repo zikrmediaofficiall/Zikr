@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
+import { getEnglishEditorialPage } from './editorial-depth.en';
+import type { Locale } from '@/lib/i18n';
 
 export type EditorialSection = {
   heading: string;
@@ -894,27 +896,66 @@ function getGenericEditorialPage(pathname: string): EditorialPage | null {
   };
 }
 
-export function getEditorialPage(pathname: string): EditorialPage | null {
+const ENGLISH_REFERENCE_TITLES: Record<string, string> = {
+  "القرآن الكريم": "The Quran",
+  "القرآن الكريم — البقرة 185": "Quran 2:185",
+  "القرآن الكريم — ص 29": "Quran 38:29",
+  "القرآن الكريم — محمد 24": "Quran 47:24",
+  "القرآن الكريم — الأحزاب 41-42": "Quran 33:41–42",
+  "القرآن الكريم — غافر 60": "Quran 40:60",
+  "القرآن الكريم — البقرة 186": "Quran 2:186",
+  "القرآن الكريم — يوسف 3": "Quran 12:3",
+  "القرآن الكريم — طه 99": "Quran 20:99",
+  "القرآن الكريم — هود 120": "Quran 11:120",
+  "القرآن الكريم — التوبة 100": "Quran 9:100",
+  "القرآن الكريم — الفتح 18": "Quran 48:18",
+  "القرآن الكريم — الأنفال 1": "Quran 8:1",
+  "القرآن الكريم — آل عمران 121": "Quran 3:121",
+  "Sunnah.com — مكتبة الحديث": "Sunnah.com — Hadith library",
+  "حصن المسلم — مرجع أذكار مشهور": "Hisn al-Muslim — Adhkar reference",
+  "المكتبة الشاملة": "Al-Maktaba al-Shamela",
+  "الموسوعة الفقهية الكويتية — وزارة الأوقاف": "Kuwaiti Encyclopedia of Fiqh — Ministry of Awqaf",
+  "صفحة معايير التحرير والمصادر في ذِكرٌ": "ZIKR editorial and source standards",
+  "معايير التحرير والمصادر": "Editorial and source standards",
+  "الأسئلة الشائعة": "Frequently asked questions",
+  "تواصل معنا": "Contact ZIKR",
+  "تواصل معنا للإبلاغ عن خطأ": "Report a content issue",
+};
+
+export function getEditorialPage(pathname: string, locale: Locale = "ar"): EditorialPage | null {
   const normalized = normalizePath(pathname);
+  if (locale === "en") {
+    const english = getEnglishEditorialPage(normalized);
+    if (!english) return null;
+    const source = CONTENT[normalized] ?? getGenericEditorialPage(normalized);
+    return {
+      ...english,
+      references: (source?.references ?? []).map((reference) => ({
+        ...reference,
+        title: ENGLISH_REFERENCE_TITLES[reference.title] ?? reference.title,
+      })),
+    };
+  }
   return CONTENT[normalized] ?? getGenericEditorialPage(normalized);
 }
 
-export function EditorialDepth({ pathname }: { pathname: string }) {
+export function EditorialDepth({ pathname, locale = "ar" }: { pathname: string; locale?: Locale }) {
   // A missing pathname header must not make unrelated routes inherit the homepage guide.
   if (!pathname?.trim()) return null;
-  const page = getEditorialPage(pathname);
+  const page = getEditorialPage(pathname, locale);
   if (!page) return null;
+  const direction = locale === "ar" ? "rtl" : "ltr";
 
   return (
     <section
       className="border-y border-brand-gold/10 bg-black/20 px-3 py-12 sm:px-4 sm:py-16"
       aria-labelledby="editorial-depth-title"
-      dir="rtl"
+      dir={direction}
     >
       <div className="mx-auto max-w-5xl space-y-10">
         <header className="space-y-4 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-gold/45">
-            مادة تحريرية موثقة
+            {locale === "ar" ? "مادة تحريرية موثقة" : "VERIFIED EDITORIAL GUIDE"}
           </p>
           <h2 id="editorial-depth-title" className="text-3xl font-bold text-brand-gold">
             {page.label}
@@ -938,9 +979,9 @@ export function EditorialDepth({ pathname }: { pathname: string }) {
         </div>
 
         <aside className="rounded-2xl border border-brand-gold/15 bg-brand-gold/5 p-6">
-          <h3 className="text-xl font-bold text-brand-gold">مصادر ومراجع للقراءة والتحقق</h3>
+          <h3 className="text-xl font-bold text-brand-gold">{locale === "ar" ? "مصادر ومراجع للقراءة والتحقق" : "Sources and further reading"}</h3>
           <p className="mt-2 text-sm leading-7 text-brand-cream/60">
-            هذه الروابط مراجع للقراءة والتحقق، وليست بديلاً عن الرجوع إلى النص الأصلي أو المتخصص عند الحاجة. عند وجود مسألة شرعية أو تاريخية دقيقة، راجع المصدر الكامل وسياقه.
+            {locale === "ar" ? "هذه الروابط مراجع للقراءة والتحقق، وليست بديلاً عن الرجوع إلى النص الأصلي أو المتخصص عند الحاجة. عند وجود مسألة شرعية أو تاريخية دقيقة، راجع المصدر الكامل وسياقه." : "These references support further reading and verification. They do not replace the original source or specialist guidance when a question requires it. For a detailed religious or historical issue, review the complete reference and its context."}
           </p>
           <ul className="mt-4 space-y-2 text-sm">
             {page.references.map((reference) => (

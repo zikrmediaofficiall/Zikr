@@ -1,8 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { ADMIN_MODULES, ADMIN_ROUTE_ALIASES } from "../src/features/admin/config/modules";
+import { ADMIN_MODULES } from "../src/features/admin/config/modules";
 import { ADMIN_NAVIGATION } from "../src/features/admin/config/navigation";
 import { ADMIN_ROLE_PERMISSIONS } from "../src/features/admin/services/permissions";
-import { join } from "node:path";
 
 const failures: string[] = [];
 if (ADMIN_MODULES.length !== ADMIN_NAVIGATION.length) {
@@ -67,32 +66,8 @@ for (const adminModule of ADMIN_MODULES) {
   if (!adminModule.basePath.startsWith("/admin")) failures.push(`Invalid module path: ${adminModule.basePath}`);
   if (!adminModule.sourceTables.length) failures.push(`Module has no declared source tables: ${adminModule.key}`);
 }
-for (const alias of ADMIN_ROUTE_ALIASES) {
-  if (!alias.from.startsWith("/admin") || !alias.to.startsWith("/admin")) failures.push(`Invalid admin alias: ${alias.from}`);
-  if (String(alias.from) === String(alias.to)) failures.push(`Self-referencing admin alias: ${alias.from}`);
-  const fromPage = join("src/app", alias.from.slice(1), "page.tsx");
-  const toPage = join("src/app", alias.to.slice(1), "page.tsx");
-  if (!existsSync(fromPage)) failures.push(`Missing compatibility route page: ${alias.from}`);
-  if (!existsSync(toPage)) failures.push(`Alias target is not a canonical page: ${alias.to}`);
-  if (existsSync(fromPage) && !readFileSync(fromPage, "utf8").includes(`redirect("${alias.to}")`)) {
-    failures.push(`Compatibility route does not redirect to its registered target: ${alias.from} -> ${alias.to}`);
-  }
-}
-for (const required of [
-  "src/app/admin/queues/page.tsx",
-  "src/app/admin/video/page.tsx",
-  "src/app/admin/video/requests/page.tsx",
-  "src/app/admin/video/studio/page.tsx",
-  "src/app/admin/video/sources/page.tsx",
-  "src/app/admin/video/scripts/page.tsx",
-  "src/app/admin/video/voices/page.tsx",
-  "src/app/admin/video/visuals/page.tsx",
-  "src/app/admin/video/templates/page.tsx",
-  "src/app/admin/video/qa/page.tsx",
-]) {
-  if (!existsSync(required)) failures.push(`Missing canonical admin route: ${required}`);
-}
-for (const legacyPath of [
+const retiredAdminRouteFiles = [
+  "src/app/admin/videos/page.tsx",
   "src/app/admin/video-factory/page.tsx",
   "src/app/admin/video-factory/sources/page.tsx",
   "src/app/admin/video-factory/scripts/page.tsx",
@@ -100,12 +75,23 @@ for (const legacyPath of [
   "src/app/admin/video-factory/visuals/page.tsx",
   "src/app/admin/video-factory/templates/page.tsx",
   "src/app/admin/video-factory/qa/page.tsx",
-]) {
-  if (!existsSync(legacyPath)) failures.push(`Missing compatibility redirect: ${legacyPath}`);
+  "src/app/admin/video-factory/queue/page.tsx",
+  "src/app/admin/video-factory/scheduler/page.tsx",
+  "src/app/admin/video-factory/publishing/page.tsx",
+  "src/app/admin/ai-video/page.tsx",
+  "src/app/admin/ai-video/curated/page.tsx",
+  "src/app/admin/social/youtube-import/page.tsx",
+  "src/app/admin/alerts/page.tsx",
+  "src/app/admin/control/page.tsx",
+  "src/app/admin/media/page.tsx",
+  "src/app/admin/audio/site-audio/page.tsx",
+];
+for (const retiredPath of retiredAdminRouteFiles) {
+  if (existsSync(retiredPath)) failures.push("Retired admin compatibility route must be deleted: " + retiredPath);
 }
 
 if (failures.length) {
   failures.forEach((failure) => console.error(`❌ ${failure}`));
   process.exit(1);
 }
-console.log(`✅ Admin module registry passed: ${ADMIN_MODULES.length} modules, ${ADMIN_ROUTE_ALIASES.length} verified aliases, exact navigation ownership, and owner-role permission coverage.`);
+console.log(`✅ Admin module registry passed: ${ADMIN_MODULES.length} modules, canonical navigation ownership, no legacy route files, and owner-role permission coverage.`);

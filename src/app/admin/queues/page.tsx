@@ -1,7 +1,6 @@
 import { requireAdminPermission } from "@/features/admin/services/admin";
 import { hasAdminPermission } from "@/features/admin/services/permissions";
 import { readAdminRows } from "@/features/admin/services/safe-read";
-import { AdminBreadcrumbs } from "@/features/admin/components/admin-breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +64,6 @@ export default async function AdminQueuesPage() {
     ...(translation ? [{ key: "translation", title: "طابور الترجمة", href: "/admin/content", rows: translation.rows, ok: translation.ok, statuses: ["queued", "processing", "generated", "approved", "published", "completed", "failed"] }] : []),
   ];
   return <div className="mx-auto max-w-[1800px] space-y-6 p-4 md:p-8" dir="rtl">
-    <AdminBreadcrumbs current="مركز الطوابير" />
     <header><p className="text-xs tracking-[0.18em] text-brand-cream/30">OPERATIONS QUEUE CENTER</p><h1 className="mt-2 text-3xl font-bold text-brand-gold">مركز الطوابير</h1><p className="mt-2 max-w-3xl text-sm leading-7 text-brand-cream/50">قراءة موحدة للطوابير التشغيلية مع إبقاء حالة البيانات غير المتاحة واضحة.</p></header>
     <div className="grid gap-4 xl:grid-cols-2">{queues.length ? queues.map((queue) => <QueueCard key={queue.key} queue={queue} />) : <p className="rounded-xl border border-brand-gold/10 p-4 text-sm text-brand-cream/55">لا توجد طوابير متاحة حسب صلاحيات هذا الحساب.</p>}</div>
   </div>;

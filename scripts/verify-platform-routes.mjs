@@ -53,7 +53,6 @@ const requiredRoutes = [
   'src/app/admin/prophets/page.tsx',
   'src/app/admin/sections/page.tsx',
   'src/app/admin/users/page.tsx',
-  'src/app/admin/videos/page.tsx',
   'src/app/about/page.tsx',
   'src/app/contact/page.tsx',
   'src/app/privacy/page.tsx',
@@ -154,7 +153,7 @@ const apiPaths = new Set(apis.map((file) => normalizeRoutePath(file)));
 
 // The public Manus route manifest is consumed by external route smoke tests.
 // Keep it identical to the actual Next.js page inventory, including dynamic
-// parameters, admin compatibility redirects, and canonical routes.
+// parameters and active canonical routes. Retired admin aliases are not listed.
 const manusManifestPath = join(root, "public/manus-routes.json");
 if (!existsSync(manusManifestPath)) {
   failures.push("Missing public/manus-routes.json route manifest");

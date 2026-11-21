@@ -21,6 +21,30 @@ const pages = existsSync(appRoot)
   : [];
 
 if (!pages.length) failures.push("no admin page files discovered");
+if (pages.length !== 49) failures.push(`expected 49 active admin pages (48 navigation routes + 1 security step-up page), found ${pages.length}`);
+const retiredAdminRoutes = [
+  "src/app/admin/videos/page.tsx",
+  "src/app/admin/video-factory/page.tsx",
+  "src/app/admin/video-factory/sources/page.tsx",
+  "src/app/admin/video-factory/scripts/page.tsx",
+  "src/app/admin/video-factory/voices/page.tsx",
+  "src/app/admin/video-factory/visuals/page.tsx",
+  "src/app/admin/video-factory/templates/page.tsx",
+  "src/app/admin/video-factory/qa/page.tsx",
+  "src/app/admin/video-factory/queue/page.tsx",
+  "src/app/admin/video-factory/scheduler/page.tsx",
+  "src/app/admin/video-factory/publishing/page.tsx",
+  "src/app/admin/ai-video/page.tsx",
+  "src/app/admin/ai-video/curated/page.tsx",
+  "src/app/admin/social/youtube-import/page.tsx",
+  "src/app/admin/alerts/page.tsx",
+  "src/app/admin/control/page.tsx",
+  "src/app/admin/media/page.tsx",
+  "src/app/admin/audio/site-audio/page.tsx",
+];
+for (const retiredPath of retiredAdminRoutes) {
+  if (existsSync(retiredPath)) failures.push(`retired admin route must be deleted: ${retiredPath}`);
+}
 
 for (const page of pages) {
   const source = readFileSync(page, "utf8");

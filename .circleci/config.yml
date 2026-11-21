@@ -277,8 +277,9 @@ jobs:
     resource_class: small
     environment:
       NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
-      TRANSLATION_BATCH_SIZE: "5"
-      HADITH_TRANSLATION_BATCH_SIZE: "25"
+      TRANSLATION_BATCH_SIZE: "10"
+      CONTENT_TRANSLATION_BATCH_SIZE: "10"
+      HADITH_TRANSLATION_BATCH_SIZE: "75"
       GH_TOKEN: ""
       ANDROID_KEYSTORE_BASE64: ""
       ANDROID_KEYSTORE_PASSWORD: ""
@@ -314,6 +315,7 @@ jobs:
           command: |
             set -u
             article_status=0
+            content_status=0
             hadith_status=0
 
             if ! command -v timeout >/dev/null 2>&1; then
@@ -324,17 +326,20 @@ jobs:
               if [[ -n "${GEMINI_API_KEY:-}" ]]; then
                 echo "Translating at most ${TRANSLATION_BATCH_SIZE} published articles."
                 timeout --signal=TERM --kill-after=60s 40m pnpm translate:articles:en || article_status=$?
+                echo "Translating at most ${CONTENT_TRANSLATION_BATCH_SIZE} records per additional content category."
+                timeout --signal=TERM --kill-after=60s 40m pnpm translate:content:en || content_status=$?
               else
-                echo "Missing GEMINI_API_KEY; article translation cannot run." >&2
+                echo "Missing GEMINI_API_KEY; article and additional content translation cannot run." >&2
                 article_status=1
+                content_status=1
               fi
 
               echo "Synchronizing at most ${HADITH_TRANSLATION_BATCH_SIZE} Hadith records."
               timeout --signal=TERM --kill-after=60s 15m pnpm sync:hadith:en || hadith_status=$?
             fi
 
-            if (( article_status != 0 || hadith_status != 0 )); then
-              echo "English sync incomplete (articles=${article_status}, hadith=${hadith_status})." >&2
+            if (( article_status != 0 || content_status != 0 || hadith_status != 0 )); then
+              echo "English sync incomplete (articles=${article_status}, other-content=${content_status}, hadith=${hadith_status})." >&2
               exit 1
             fi
           no_output_timeout: 20m

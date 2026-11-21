@@ -101,6 +101,17 @@ const postCommitActions = [
 ] as const;
 for (const [path, expectedCalls] of postCommitActions) {
   const source = readFileSync(path, "utf8");
+  if (path === "src/app/admin/release/actions.ts" && source.includes("SIGNED_RELEASE_BLOCKER")) {
+    assert.match(source, /await requireAdminPermission\("release\.manage"\)/, "blocked release must still enforce its permission");
+    assert.match(source, /await requireAdminStepUp\("release\.manage"/, "blocked release must still enforce step-up authentication");
+    assert.match(source, /redirect\(.*SIGNED_RELEASE_BLOCKER/, "blocked release must clearly report why it stopped");
+    assert.doesNotMatch(
+      source,
+      /recordAdminAuditEvent|runPostCommitAudit|supabaseServerAdminRequest|prepareAndroidRelease/,
+      "a release action with no committed mutation must not write audit or release data",
+    );
+    continue;
+  }
   const safeCalls = source.split("recordAdminAuditEventSafely(").length - 1;
   assert.equal(safeCalls - 1, expectedCalls, `${path} must route every post-commit audit write through the best-effort wrapper`);
   assert.ok(source.includes("runPostCommitAudit("), `${path} must preserve the business result when audit persistence fails`);

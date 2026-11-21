@@ -258,29 +258,21 @@ if (hub.includes("/admin/video-factory/")) {
   failures.push("Canonical Video Hub must not link into the legacy video-factory route tree");
 }
 
-const legacyScheduler = read("src/app/admin/video-factory/scheduler/page.tsx");
-if (!legacyScheduler.includes('requireAdminPermission("system.manage")')) {
-  failures.push("Legacy video scheduler redirect must preserve the destination system.manage permission");
-}
-const legacyPublishing = read("src/app/admin/video-factory/publishing/page.tsx");
-if (!legacyPublishing.includes('requireAdminPermission("media.manage")')) {
-  failures.push("Legacy video publishing route must redirect to the protected internal media library");
-}
-
-for (const [legacyPath, destination] of [
-  ["src/app/admin/video-factory/page.tsx", "/admin/video"],
-  ["src/app/admin/video-factory/sources/page.tsx", "/admin/video/sources"],
-  ["src/app/admin/video-factory/scripts/page.tsx", "/admin/video/scripts"],
-  ["src/app/admin/video-factory/voices/page.tsx", "/admin/video/voices"],
-  ["src/app/admin/video-factory/visuals/page.tsx", "/admin/video/visuals"],
-  ["src/app/admin/video-factory/templates/page.tsx", "/admin/video/templates"],
-  ["src/app/admin/video-factory/qa/page.tsx", "/admin/video/qa"],
-  ["src/app/admin/video-factory/queue/page.tsx", "/admin/video/requests"],
-  ["src/app/admin/video-factory/scheduler/page.tsx", "/admin/automation"],
-  ["src/app/admin/video-factory/publishing/page.tsx", "/admin/memory"],
-]) {
-  const legacy = read(legacyPath);
-  if (!legacy.includes(`redirect("${destination}")`)) failures.push(`Legacy Video Factory route must redirect to ${destination}: ${legacyPath}`);
+const retiredAdminPages = [
+  "src/app/admin/videos/page.tsx",
+  "src/app/admin/video-factory/page.tsx",
+  "src/app/admin/video-factory/sources/page.tsx",
+  "src/app/admin/video-factory/scripts/page.tsx",
+  "src/app/admin/video-factory/voices/page.tsx",
+  "src/app/admin/video-factory/visuals/page.tsx",
+  "src/app/admin/video-factory/templates/page.tsx",
+  "src/app/admin/video-factory/qa/page.tsx",
+  "src/app/admin/video-factory/queue/page.tsx",
+  "src/app/admin/video-factory/scheduler/page.tsx",
+  "src/app/admin/video-factory/publishing/page.tsx",
+];
+for (const retiredPath of retiredAdminPages) {
+  if (existsSync(retiredPath)) failures.push("Retired admin compatibility page must be deleted, not redirected: " + retiredPath);
 }
 
 const page = read("src/app/admin/video/studio/page.tsx");
@@ -297,18 +289,8 @@ if (!socialClient.includes('href="/admin/video/requests"') || !socialClient.incl
   failures.push("Publishing video-review actions must link to the canonical protected video queue");
 }
 
-const legacyQueue = read("src/app/admin/videos/page.tsx");
-if (!legacyQueue.includes('redirect("/admin/video/requests")')) failures.push("Legacy /admin/videos route must redirect to /admin/video/requests");
-
 for (const adminPage of [
   "src/app/admin/video/page.tsx",
-  "src/app/admin/video-factory/page.tsx",
-  "src/app/admin/video-factory/sources/page.tsx",
-  "src/app/admin/video-factory/scripts/page.tsx",
-  "src/app/admin/video-factory/voices/page.tsx",
-  "src/app/admin/video-factory/visuals/page.tsx",
-  "src/app/admin/video-factory/templates/page.tsx",
-  "src/app/admin/video-factory/qa/page.tsx",
   "src/app/admin/audio/tts/page.tsx",
   "src/app/admin/audio/quran/page.tsx",
 ]) {
