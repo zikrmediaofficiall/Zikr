@@ -914,7 +914,7 @@ function normalizeAiVideoPlan(value: unknown, audience: unknown): AiVideoPlan {
   const candidate = value as Record<string, unknown>;
   const reflection = typeof candidate.reflection === "string" ? candidate.reflection : "";
   const socialCaption = typeof candidate.socialCaption === "string" ? candidate.socialCaption : "";
-  const scene: VideoScene = isVideoSceneAllowedForAudience(candidate.scene, audience) ? candidate.scene : audience === "kids" ? "kids-forest" : "calm";
+  const scene: VideoScene = isVideoSceneAllowedForAudience(candidate.scene, audience) ? candidate.scene : "calm";
   const motion = candidate.motion === "fade" || candidate.motion === "slow" ? candidate.motion : "slow";
   return {
     reflection: reflection.replace(/[<>]/g, "").replace(/\s+/g, " ").slice(0, 180),
