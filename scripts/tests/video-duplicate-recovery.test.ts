@@ -223,7 +223,7 @@ assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.qa_failed"));
 assert.ok(adminVideoDeleteRoute.includes("approvalStatus=eq.awaiting_human_review"));
 assert.ok(adminVideoDeleteRoute.includes("GENERATED_ASSET_RESTORE_REQUIRED"));
 const qaDeletionMigration = readFileSync("supabase/migrations/20261121080000_enable_safe_qa_failed_video_asset_deletion.sql", "utf8");
-const pendingReviewDeletionMigration = readFileSync("supabase/migrations/20261121110000_allow_safe_unapproved_review_video_deletion.sql", "utf8");
+const pendingReviewDeletionMigration = readFileSync("supabase/migrations/20261121095418_allow_safe_unapproved_review_video_deletion.sql", "utf8");
 assert.ok(qaDeletionMigration.includes("request.status = 'completed'"));
 assert.ok(qaDeletionMigration.includes("request.content ->> 'approvalStatus' = 'qa_failed'"));
 assert.ok(qaDeletionMigration.includes("hashtextextended(p_request_id::text, 741953)"));
