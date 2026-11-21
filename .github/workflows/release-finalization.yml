@@ -290,6 +290,7 @@ jobs:
               sys.exit(1)
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as github_env:
               github_env.write(f"SUPABASE_URL={supabase_url.rstrip('/')}\n")
+          github_env.write(f"IOS_ASSOCIATED_DOMAIN_APP_ID={app_id}\n")
           print("PASS: production Supabase URL matches the approved project.")
           PY
 
