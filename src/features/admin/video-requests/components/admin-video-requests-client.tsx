@@ -1,7 +1,6 @@
 "use client";
 
 import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video-publication";
-import { isVideoApprovalRecorded } from "@/features/videos/services/video-publish-approval";
 import { isKidsVideoContentMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
@@ -38,13 +37,31 @@ function isReadyForHumanApproval(content: unknown): boolean {
   if (!content || typeof content !== "object" || Array.isArray(content)) return false;
   const record = content as Record<string, unknown>;
   const audience = resolveVideoRequestAudience(record);
-  const snapshotHash = typeof record.approvalSnapshotHash === "string" ? record.approvalSnapshotHash : null;
+  const qa = record.automatedVideoQa && typeof record.automatedVideoQa === "object" && !Array.isArray(record.automatedVideoQa)
+    ? record.automatedVideoQa as Record<string, unknown> : null;
+  const review = record.qualityReview && typeof record.qualityReview === "object" && !Array.isArray(record.qualityReview)
+    ? record.qualityReview as Record<string, unknown> : null;
+  const qaChecks = qa?.checks && typeof qa.checks === "object" && !Array.isArray(qa.checks)
+    ? qa.checks as Record<string, unknown> : null;
+  const reviewAt = typeof record.approvalReviewedAt === "string" ? record.approvalReviewedAt : "";
+  const snapshotHash = typeof record.approvalSnapshotHash === "string" ? record.approvalSnapshotHash : "";
+  const requiredChecks: ApprovalCheckKey[] = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"];
   return audience.ok &&
     audience.audience === "kids" &&
     record.approvalStatus === "approved" &&
     record.approvalReviewerId === "system:zikr-video-factory" &&
-    Boolean(snapshotHash) &&
-    isVideoApprovalRecorded(record, snapshotHash);
+    /^[a-f0-9]{64}$/i.test(snapshotHash) &&
+    qa?.status === "passed" &&
+    qa.snapshotHash === snapshotHash &&
+    typeof qa.engine === "string" &&
+    typeof qa.engineVersion === "string" &&
+    review?.mode === "automated" &&
+    review.engine === qa.engine &&
+    review.engineVersion === qa.engineVersion &&
+    review.snapshotHash === snapshotHash &&
+    review.reviewedAt === reviewAt &&
+    Number.isFinite(Date.parse(reviewAt)) &&
+    requiredChecks.every((key) => qaChecks?.[key] === true && review[key] === true);
 }
 
 function isKidsVideoContent(content: unknown): boolean {
