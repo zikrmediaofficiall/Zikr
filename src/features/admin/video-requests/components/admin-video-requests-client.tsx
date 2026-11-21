@@ -315,7 +315,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
           <a href="#voices" className="rounded-xl border border-brand-gold/10 px-4 py-2 text-sm text-brand-cream/65 hover:border-brand-gold/25 hover:text-brand-gold">الأصوات</a>
           <span className="mx-1 h-6 w-px bg-brand-gold/10" aria-hidden="true" />
           <Link href="/admin/video/studio" className="rounded-xl border border-brand-gold/20 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">استوديو الإنشاء</Link>
-          <Link href="/admin/video/review" className="rounded-xl border border-brand-gold/20 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">مراجعة الفيديوهات المتوقفة</Link>
+          <Link href="/admin/video/review" className="rounded-xl border border-brand-gold/20 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">المراجعة والاعتماد</Link>
           <Link href="/admin/social" className="rounded-xl border border-brand-gold/10 px-4 py-2 text-sm text-brand-cream/65 hover:border-brand-gold/25 hover:text-brand-gold">النشر الاجتماعي</Link>
           <Link href="/admin/automation" className="rounded-xl border border-brand-gold/10 px-4 py-2 text-sm text-brand-cream/65 hover:border-brand-gold/25 hover:text-brand-gold">التشغيل الآلي</Link>
         </div>
@@ -324,10 +324,14 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
         <div>
           <p className="text-xs tracking-[0.2em] text-brand-cream/30">{reviewOnly ? "مراجعة الفيديو" : "طابور الفيديو"}</p>
           <h1 className="mt-2 text-3xl font-bold text-brand-gold">{reviewOnly ? "مراجعة الفيديوهات المتوقفة والجاهزة للنشر" : "طابور توليد الفيديو"}</h1>
-          <p className="mt-2 text-sm leading-7 text-brand-cream/50">هذه الصفحة للمراقبة وإعادة المحاولة والتفاصيل فقط. إنشاء الطلبات موجود في استوديو الفيديو حتى لا تتكرر أدوات الإنشاء.</p>
+          <p className="mt-2 text-sm leading-7 text-brand-cream/50">تابع طلبات التوليد، وافتح الفيديو لمراجعته واعتماده، أو احذف الملف غير المعتمد عندما يجتاز فحوص الحذف الآمن. إنشاء الطلبات من الاستوديو فقط.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/video/studio" className="rounded-xl border border-brand-gold/25 bg-brand-gold/10 px-4 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/20">استوديو إنشاء الفيديو</Link>
+          <Link href="/admin/social" className="rounded-xl border border-emerald-400/20 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-400/10">مركز النشر</Link>
+          <Link href={reviewOnly ? "/admin/video/requests" : "/admin/video/review"} className="rounded-xl border border-amber-400/20 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-400/10">
+            {reviewOnly ? "كل طلبات الفيديو" : "طلبات تحتاج مراجعة"}
+          </Link>
           <Button variant="outline" onClick={() => void load()} disabled={loading}>تحديث</Button>
         </div>
       </header>
