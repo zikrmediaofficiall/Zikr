@@ -89,10 +89,9 @@ export async function getSiteAudioLibrary(): Promise<SiteAudioAsset[]> {
       .order("is_primary", { ascending: false })
       .order("created_at", { ascending: true });
 
-    // A successful empty result is authoritative (for example, when an
-    // administrator intentionally unpublished all assets). Use the curated
-    // catalogue only when the database service is unavailable, not when it
-    // returns an empty published list.
+    // A successful empty result is authoritative for the database-managed
+    // rows, but must not leave a public audio category unusable. The curated
+    // catalogue fills only categories with no database rows below.
     if (error) throw error;
 
     const databaseAssets = (data ?? []).map(asset => {
