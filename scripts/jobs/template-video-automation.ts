@@ -315,6 +315,7 @@ function backgroundAsset(scene: AiVideoPlan["scene"], content?: Record<string, u
     if (assetPath) return assetPath;
   }
   if (content?.audience === "kids") {
+    if (scene.startsWith("kids-")) return `public/video/templates/${scene}.svg`;
     const kidThemes: Record<string, string> = {
       "kids-garden": "public/video/templates/kids-garden.svg",
       "kids-neighborhood": "public/video/templates/kids-neighborhood.svg",
