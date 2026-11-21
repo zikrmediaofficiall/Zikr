@@ -71,15 +71,15 @@ for (const verifiedRef of ["muslim:2699a", "bukhari:5027", "muslim:55a"]) {
   assert.ok(hadithFallback.includes(`ref:'${verifiedRef}'`), `Hadith fallback must cite verified reference ${verifiedRef}`);
 }
 
-assert.match(quranPage, /getRequestLocale\\(\\)/, "English Quran verse routes must respect the selected site language");
+assert.match(quranPage, /getRequestLocale\(\)/, "English Quran verse routes must respect the selected site language");
 assert.match(quranPage, /textEn/, "English ayah details must expose the selected translation text");
 assert.match(quranPage, /translationAvailable/, "untranslated verses must not render as blank");
-assert.match(quranPage, /en\\.pickthall|Marmaduke Pickthall/, "English Quran must show its translation edition");
-assert.match(surahPage, /getSurahFromDb\\(id, locale\\)/, "Surah reading must request the current locale");
+assert.match(quranPage, /en\.pickthall|Marmaduke Pickthall/, "English Quran must show its translation edition");
+assert.match(surahPage, /getSurahFromDb\(id, locale\)/, "Surah reading must request the current locale");
 assert.match(surahPage, /English translation is not available/, "untranslated verses must show a helpful fallback");
 assert.match(quranService, /text_en_edition/, "the Quran service must preserve translation provenance");
-assert.match(quranService, /translationAvailable: Boolean\\(ayah\\.text_en\\?\\.trim\\(\\)\\)/, "Quran mapping must expose translation availability");
-assert.match(quranService, /text_en\\.ilike/, "Quran search must include English translations");
+assert.match(quranService, /translationAvailable: Boolean\(ayah\.text_en\?\.trim\(\)\)/, "Quran mapping must expose translation availability");
+assert.match(quranService, /text_en\.ilike/, "Quran search must include English translations");
 assert.match(quranServer, /text_en_edition/, "server Quran reads must select the translation edition");
-assert.match(quranServer, /if \\(locale !== "en"\\)/, "English reading must bypass the Arabic-only local corpus");
+assert.match(quranServer, /if \(locale !== "en"\)/, "English reading must bypass the Arabic-only local corpus");
 console.log("Quran/Hadith routes, exact verse search links, skip navigation, verified references, share controls, and tafsir empty-state contracts passed.");
