@@ -34,7 +34,7 @@ const releaseAdminPage = read("src/app/admin/release/page.tsx");
 assert.ok(releaseManager.includes("recreateStuckAndroidRelease"), "Android release manager must expose guarded stuck-release recovery");
 assert.ok(releaseManager.includes('method: "DELETE"'), "Stuck-release recovery must remove the exact draft release and tag before retrying");
 assert.ok(releaseManager.includes("release.draft !== true") && releaseManager.includes("release.immutable === true"), "Stuck Android recovery must refuse published or immutable GitHub Releases");
-assert.ok(releaseManager.includes("tagObject.verification?.verified !== true") && releaseManager.includes('tagObject.verification.reason !== "valid"'), "Stuck Android recovery must verify the signed tag before deleting it");
+assert.ok(releaseManager.includes('tagRef.object?.type === "tag"') && releaseManager.includes("tagObject.object.sha !== commitSha"), "Stuck Android recovery must verify the annotated tag target before deleting it, even when signature verification is what failed");
 assert.ok(releaseManager.includes("tagObject.object.sha !== commitSha") && releaseManager.includes("currentMainSha !== commitSha"), "Stuck Android recovery must bind deletion and recreation to the exact current main commit");
 assert.ok(releaseManager.includes("cancelWorkflowRunsForReleaseCommit"), "Stuck Android recovery must stop in-flight signing/publishing workflows before cleanup");
 assert.ok(releaseAction.includes("formData.get(\"confirmCleanup\") !== \"yes\""), "Destructive release recovery must require explicit confirmation");
