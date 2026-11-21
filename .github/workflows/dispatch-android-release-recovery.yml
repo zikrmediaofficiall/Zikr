@@ -1,16 +1,19 @@
 name: Dispatch guarded Android release recovery
 
 on:
+  push:
+    branches:
+      - "android-release-dispatch-v*"
   workflow_dispatch:
 
 permissions:
   actions: write
-  contents: read
+  contents: write
   statuses: read
 
 jobs:
   dispatch:
-    if: github.event_name == 'workflow_dispatch' && (startsWith(github.ref, 'refs/heads/android-release-v') || startsWith(github.ref, 'refs/tags/v'))
+    if: github.actor == 'zikrofficial-X' && ((github.event_name == 'workflow_dispatch' && (startsWith(github.ref, 'refs/heads/android-release-v') || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/android-release-dispatch-v')))
     runs-on: ubuntu-24.04
     steps:
       - name: Dispatch publisher only for the exact guarded release with a successful signed build
@@ -20,12 +23,38 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const eventName = context.eventName;
-            const eventSha = String(
-              eventName === "status" ? context.payload.sha ?? "" : context.sha ?? ""
-            );
+            const eventSha = String(context.sha ?? "");
+            const isPushRecoveryTrigger =
+              eventName === "push" &&
+              /^refs\\/heads\\/android-release-dispatch-v[0-9]+\\.[0-9]+\\.[0-9]+$/.test(context.ref);
+            let requestedTag = "";
+            let sourceSha = eventSha;
 
-            if (!/^[0-9a-f]{40}$/i.test(eventSha)) {
-              core.info("Skipping: event has no valid source commit.");
+            if (eventName !== "workflow_dispatch" && !isPushRecoveryTrigger) {
+              core.info("Skipping: only an owner-triggered workflow dispatch or canonical recovery-trigger branch is allowed.");
+              return;
+            }
+
+            if (isPushRecoveryTrigger) {
+              requestedTag = context.ref.replace("refs/heads/android-release-dispatch-", "");
+              const { data: tagRef } = await github.rest.git.getRef({
+                owner, repo, ref: "tags/" + requestedTag,
+              });
+              sourceSha = tagRef.object.sha;
+              if (tagRef.object.type === "tag") {
+                const { data: tagObject } = await github.rest.git.getTag({
+                  owner, repo, tag_sha: tagRef.object.sha,
+                });
+                if (tagObject.object.type !== "commit") {
+                  core.setFailed("Android release tag does not resolve directly to a commit: " + requestedTag);
+                  return;
+                }
+                sourceSha = tagObject.object.sha;
+              }
+            }
+
+            if (!/^[0-9a-f]{40}$/i.test(sourceSha)) {
+              core.setFailed("The exact Android release source SHA could not be resolved.");
               return;
             }
 
@@ -40,9 +69,9 @@ jobs:
             };
 
             const [tagText, packageText, retryText] = await Promise.all([
-              readText(".release-tag", eventSha),
-              readText("package.json", eventSha),
-              readText("docs/finalization/RELEASE_RETRY.flag", eventSha),
+              readText(".release-tag", sourceSha),
+              readText("package.json", sourceSha),
+              readText("docs/finalization/RELEASE_RETRY.flag", sourceSha),
             ]);
 
             const tag = tagText.trim();
@@ -65,14 +94,16 @@ jobs:
 
             const recoveryBranch = "android-release-" + tag;
             const isTagDispatch = context.ref === "refs/tags/" + tag;
-            let sourceSha = eventSha;
 
             if (!isTagDispatch) {
               try {
                 const { data: branchData } = await github.rest.repos.getBranch({
                   owner, repo, branch: recoveryBranch,
                 });
-                sourceSha = branchData.commit.sha;
+                if (branchData.commit.sha !== sourceSha) {
+                  core.info("Skipping: the canonical Android recovery branch does not match the immutable tag target.");
+                  return;
+                }
               } catch (error) {
                 if (error.status !== 404) throw error;
                 core.info("Skipping: the guarded Android recovery branch does not exist.");
@@ -80,15 +111,17 @@ jobs:
               }
             }
 
-            if (eventName !== "workflow_dispatch") {
-              core.info("Skipping: recovery must be explicitly dispatched by the successful CircleCI release pipeline.");
+            if (eventName !== "workflow_dispatch" && !isPushRecoveryTrigger) {
+              core.info("Skipping: recovery must be started by the protected release pipeline or owner-only canonical trigger.");
               return;
             }
-            if (!isTagDispatch && !context.ref.startsWith("refs/heads/android-release-v")) {
-              core.info("Skipping: dispatch ref is neither the exact release tag nor a guarded recovery branch.");
+            if (!isTagDispatch &&
+                !context.ref.startsWith("refs/heads/android-release-v") &&
+                !isPushRecoveryTrigger) {
+              core.info("Skipping: dispatch ref is neither the exact release tag, guarded recovery branch, nor owner-only dispatch trigger.");
               return;
             }
-            if (sourceSha !== eventSha) {
+            if (!isPushRecoveryTrigger && sourceSha !== eventSha) {
               core.info("Skipping: dispatch SHA does not match the exact release source commit.");
               return;
             }
