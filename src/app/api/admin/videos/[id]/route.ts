@@ -281,8 +281,10 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     }
     if (current.updated_at !== body.expectedUpdatedAt) return NextResponse.json({ error: 'تغير الطلب بعد تحميله؛ حدّث القائمة قبل الحذف.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
     const canonicalDuplicateId = duplicateCanonicalId(current);
-    const preparedGeneratedAsset = canonicalDuplicateId && current.video_url
-      ? await deleteUnreferencedDuplicateAsset(current, id, body.expectedUpdatedAt)
+    const canDeleteGeneratedAsset = Boolean(current.video_url) &&
+      (Boolean(canonicalDuplicateId) || isQaFailedGeneratedVideo(current));
+    const preparedGeneratedAsset = canDeleteGeneratedAsset
+      ? await prepareGeneratedCloudinaryAssetDeletion(current, id, body.expectedUpdatedAt)
       : null;
     const deleteExpectedUpdatedAt = preparedGeneratedAsset?.clearedUpdatedAt ?? body.expectedUpdatedAt;
     let deletedRows: Array<{ deleted_id: string }> | null = null;
@@ -344,18 +346,14 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
         deletedId: id,
         auditRecorded,
         cloudinaryCleanupPending: true,
-        message: 'حُذف سجل النسخة المكررة بأمان، لكن Cloudinary لم يؤكد إزالة الملف. راجع سجل تدقيق حذف الوسائط قبل إعادة المحاولة.',
+        message: 'حُذف سجل الفيديو بأمان، لكن Cloudinary لم يؤكد إزالة الملف. راجع سجل تدقيق حذف الوسائط قبل إعادة المحاولة.',
       }, { status: 202, headers: { 'Cache-Control': 'no-store' } });
     }
     return NextResponse.json({ ok: true, deletedId: id, auditRecorded }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (message === 'DUPLICATE_FILE_DELETED_ROW_CLEANUP_PENDING') {
-      console.error('[api/admin/videos/[id]] obsolete duplicate deletion cleanup error reached:', message);
-      return NextResponse.json({ error: 'حُذف ملف النسخة المكررة من Cloudinary، لكن سجل الطلب لم يُحذف بسبب تعارض في البيانات. حدّث القائمة وتواصل مع المسؤول قبل أي إعادة نشر.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
-    }
     if (message === 'GENERATED_ASSET_RESTORE_REQUIRED') {
-      console.error('[api/admin/videos/[id]] duplicate asset link needs reconciliation.');
+      console.error('[api/admin/videos/[id]] generated asset link needs reconciliation.');
       return NextResponse.json({ error: 'تعذر الحذف الذري وتعذر استعادة رابط الملف تلقائيًا. لم يتم حذف ملف Cloudinary؛ يلزم فحص سجل الطلب.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
     }
     if (message === 'GENERATED_ASSET_CLEAR_POINTER_CONFLICT') {
