@@ -434,12 +434,15 @@ assert.ok(projectCopyDeleteRoute.includes('requireAdminStepUpApi("video.delete"'
 assert.ok(projectCopyDeleteRoute.includes("verifyGeneratedCloudinaryVideo"), "project-only media deletion must verify the exact Cloudinary-generated asset");
 assert.ok(projectCopyDeleteRoute.includes("deleteVerifiedGeneratedCloudinaryVideo"), "project-only media deletion must physically remove the verified Cloudinary video");
 assert.ok(projectCopyDeleteRoute.includes('createAdminClient().storage.from("videos")'), "project-only media deletion must remove its managed Supabase staging object");
-assert.ok(projectCopyDeleteRoute.includes("video_url: null"), "project-only media deletion must clear internal video URL pointers");
+assert.ok(projectCopyDeleteRoute.includes("video_url: row.video_url === assetUrl && assetUrl !== null ? null : row.video_url"), "deletion must only clear the exact targeted request URL");
+assert.ok(projectCopyDeleteRoute.includes("matchesVideoAsset && assetUrl !== null && row.video_url === assetUrl ? null : row.video_url"), "staging-copy cleanup must preserve unrelated queue video URLs");
+assert.ok(projectCopyDeleteRoute.includes("isKidsVideoContentMarker(current.content)"), "Kids content markers must require the dedicated Kids permission before deletion");
+assert.ok(projectCopyDeleteRoute.includes("catalogReferencesTargetedMedia(catalog, assetUrl, storagePaths)"), "catalog media pointers must be matched to the exact asset before being cleared");
 assert.ok(projectCopyDeleteRoute.includes('row.status === "published"'), "published social queue history must remain published");
 assert.ok(projectCopyDeleteRoute.includes("externalSocialPostsDeleted: false"), "external social posts must never be deleted by project-only cleanup");
 assert.ok(projectCopyDeleteRoute.includes("platformPublicationIdsPreserved: true"), "YouTube/Facebook publication IDs must be retained");
 assert.ok(projectCopyDeleteRoute.includes("socialQueueRowsPreserved: true"), "social queue history must be retained");
-assert.ok(!/youtube\\.com\\/.*delete|facebook\\.com\\/.*delete/i.test(projectCopyDeleteRoute), "the cleanup route must not invoke social-platform delete endpoints");
+assert.ok(!/youtube\.com\/.*delete|facebook\.com\/.*delete/i.test(projectCopyDeleteRoute), "the cleanup route must not invoke social-platform delete endpoints");
 assert.ok(adminReviewClient.includes("approveSelectedForPublishing") && adminReviewClient.includes("selectedReviewIds"), "the review screen must support selecting multiple review-ready videos");
 assert.ok(adminReviewClient.includes('action: "approve_publish"') && adminReviewClient.includes('fetch("/api/admin/video-generation"'), "bulk review must use the existing guarded approval endpoint");
 assert.ok(adminReviewClient.includes("batchApprovalChecks") && adminReviewClient.includes("APPROVAL_CHECKS.some"), "bulk review must require the complete human checklist");

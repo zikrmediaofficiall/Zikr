@@ -8,6 +8,7 @@ import { runPostCommitAudit } from "@/features/admin/services/post-commit-audit"
 import { createAdminClient, supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { verifyGeneratedCloudinaryVideo, deleteVerifiedGeneratedCloudinaryVideo } from "@/features/videos/services/generated-cloudinary-asset";
 import { getConfirmedYoutubeFallbackId, shouldKeepPublishedVideoAfterMediaPurge, wasPublishedBeforeMediaPurge } from "@/features/videos/services/video-media-contract";
+import { isKidsVideoContentMarker } from "@/features/videos/services/video-audience-visibility";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -53,6 +54,30 @@ function getProjectDeletion(value: unknown): Record<string, unknown> {
 
 function getStorageRetention(value: unknown): Record<string, unknown> {
   return asRecord(asRecord(value).storageRetention);
+}
+
+function catalogReferencesTargetedMedia(
+  catalog: CatalogRow,
+  assetUrl: string | null,
+  storagePaths: string[],
+): boolean {
+  const metadata = asRecord(catalog.metadata);
+  const deletion = getProjectDeletion(metadata);
+  const mediaUrls = [
+    metadata.generatedVideoUrl,
+    metadata.videoUrl,
+    metadata.video_url,
+    metadata.sourceVideoUrl,
+  ];
+  const referencesCloudinary = Boolean(assetUrl) &&
+    (mediaUrls.includes(assetUrl) || deletion.assetUrl === assetUrl);
+  const ownStoragePath = managedVideoStoragePath(getStorageRetention(metadata));
+  const markerPaths = Array.isArray(deletion.storagePaths)
+    ? deletion.storagePaths.map((value) => managedVideoStoragePath({ bucket: "videos", path: value })).filter(Boolean)
+    : [];
+  const referencesStorage = Boolean(ownStoragePath && storagePaths.includes(ownStoragePath)) ||
+    markerPaths.some((path) => typeof path === "string" && storagePaths.includes(path));
+  return referencesCloudinary || referencesStorage;
 }
 
 function managedVideoStoragePath(value: unknown): string | null {
@@ -269,6 +294,7 @@ async function removeStorageObjects(paths: string[]): Promise<number> {
 }
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  let deletionStarted = false;
   const auth = await requireAdminStepUpApi("video.delete", "/admin/video/requests");
   if (!auth.ok) {
     return NextResponse.json(
@@ -302,14 +328,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     const currentDeletion = getProjectDeletion(current.content);
     const pendingUrl = typeof currentDeletion.assetUrl === "string" ? currentDeletion.assetUrl : null;
-    const assetUrl = current.video_url || pendingUrl;
+    const currentContent = asRecord(current.content);
+    const contentUrl = [currentContent.generatedVideoUrl, currentContent.videoUrl, currentContent.video_url]
+      .find((value): value is string => typeof value === "string" && value.trim().length > 0) ?? null;
+    const assetUrl = current.video_url || pendingUrl || contentUrl;
     const targetStoragePath = managedVideoStoragePath(getStorageRetention(current.content));
     if (!assetUrl && !targetStoragePath && currentDeletion.state !== "purging") {
       return NextResponse.json({ error: "لا توجد نسخة فيديو أو عملية تنظيف معلقة لهذا الطلب." }, { status: 409, headers: { "Cache-Control": "no-store" } });
     }
 
-    const audience = asRecord(current.content).audience;
-    if (audience === "kids") {
+    if (isKidsVideoContentMarker(current.content)) {
       const kidsAuth = await requireAdminApi("kids.manage");
       if (!kidsAuth.ok || kidsAuth.profile.id !== auth.profile.id) {
         return NextResponse.json(
@@ -341,13 +369,23 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const updatedRequests: RequestRow[] = [];
     for (const row of linkedRequests) {
       const content = requestContentForDeletion(row, assetUrl, storagePaths, requestIds, requestedAt, requestedBy);
-      const nextStatus = ["pending", "processing", "retry_wait"].includes(row.status) ? "cancelled" : row.status;
+      const rowDeletion = getProjectDeletion(row.content);
+      const rowStoragePath = managedVideoStoragePath(getStorageRetention(row.content));
+      const matchesVideoAsset = assetUrl !== null &&
+        (row.video_url === assetUrl || rowDeletion.assetUrl === assetUrl ||
+          [asRecord(row.content).generatedVideoUrl, asRecord(row.content).videoUrl, asRecord(row.content).video_url].includes(assetUrl));
+      const matchesStorageCopy = rowStoragePath !== null && storagePaths.includes(rowStoragePath);
+      const nextStatus = (matchesVideoAsset || matchesStorageCopy) &&
+        ["pending", "processing", "retry_wait"].includes(row.status)
+        ? "cancelled"
+        : row.status;
       const filter = `id=eq.${encodeURIComponent(row.id)}&updated_at=eq.${encodeURIComponent(row.updated_at)}`;
       const updated = await patchRow<RequestRow>(
         `/rest/v1/video_generation_requests?${filter}&select=id,status,video_url,content,updated_at`,
-        { video_url: null, status: nextStatus, content, updated_at: requestedAt },
+        { video_url: row.video_url === assetUrl && assetUrl !== null ? null : row.video_url, status: nextStatus, content, updated_at: requestedAt },
       );
       if (updated.length !== 1) throw new Error("VIDEO_PROJECT_DELETE_REQUEST_CONFLICT");
+      deletionStarted = true;
       updatedRequests.push(updated[0]);
     }
 
@@ -358,18 +396,20 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       const matchesVideoAsset = assetUrl !== null && (row.video_url === assetUrl || pendingQueueDeletion.assetUrl === assetUrl);
       const matchesStorageCopy = queueStoragePath !== null && storagePaths.includes(queueStoragePath);
       if (!matchesVideoAsset && !matchesStorageCopy) continue;
-      const metadata = queueMetadataForDeletion(row, assetUrl, storagePaths, requestIds, requestedAt, requestedBy);
+      const relatedVideoUrl = matchesVideoAsset && assetUrl !== null && row.video_url === assetUrl ? assetUrl : null;
+      const metadata = queueMetadataForDeletion(row, relatedVideoUrl, storagePaths, requestIds, requestedAt, requestedBy);
       const nextStatus = row.status === "published"
         ? "published"
-        : ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
+        : matchesVideoAsset && ["queued", "processing", "retry_wait", "pending", "scheduled"].includes(row.status)
           ? "failed"
           : row.status;
       const queueFilter = `id=eq.${encodeURIComponent(row.id)}${row.updated_at ? `&updated_at=eq.${encodeURIComponent(row.updated_at)}` : ""}`;
       const updated = await patchRow<QueueRow>(
         `/rest/v1/social_publish_queue?${queueFilter}&select=id,content_id,status,video_url,metadata,updated_at`,
-        { video_url: null, status: nextStatus, metadata, updated_at: requestedAt },
+        { video_url: matchesVideoAsset && assetUrl !== null && row.video_url === assetUrl ? null : row.video_url, status: nextStatus, metadata, updated_at: requestedAt },
       );
       if (updated.length !== 1) throw new Error("VIDEO_PROJECT_DELETE_SOCIAL_QUEUE_CONFLICT");
+      deletionStarted = true;
       updatedQueues.push(updated[0]);
     }
 
@@ -377,6 +417,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     for (const requestRow of linkedRequests) {
       const catalogRows = await loadCatalogForRequest(requestRow.id);
       for (const catalog of catalogRows) {
+        if (!catalogReferencesTargetedMedia(catalog, assetUrl, storagePaths)) continue;
         const previousMetadata = asRecord(catalog.metadata);
         const fallbackId = getConfirmedYoutubeFallbackId(catalog);
         const keepPublishedFallback = shouldKeepPublishedVideoAfterMediaPurge(catalog, true);
@@ -408,6 +449,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
           },
         );
         if (updated.length !== 1) throw new Error("VIDEO_PROJECT_DELETE_CATALOG_CONFLICT");
+        deletionStarted = true;
         updatedCatalog.push(updated[0]);
       }
     }
@@ -528,7 +570,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
             ? "تعذر إكمال فحص مراجع نسخة المشروع. لم يبدأ حذف ملف Cloudinary؛ أعد المحاولة بعد تحديث البيانات."
             : "تعذر حذف نسخة المشروع. لم يتم حذف أي منشور خارجي.",
         code: message,
-        deletionStarted: false,
+        deletionStarted,
       },
       { status, headers: { "Cache-Control": "no-store" } },
     );

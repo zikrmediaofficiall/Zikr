@@ -162,7 +162,9 @@ function hasProjectVideoCopyForUi(request: VideoGenerationRequest): boolean {
   const marker = getProjectDeletionForUi(content);
   const retention = content.storageRetention && typeof content.storageRetention === "object" && !Array.isArray(content.storageRetention)
     ? content.storageRetention as Record<string, unknown> : {};
-  return Boolean(request.video_url) ||
+  const embeddedVideoUrl = [content.generatedVideoUrl, content.videoUrl, content.video_url]
+    .some((value) => typeof value === "string" && value.trim().length > 0);
+  return Boolean(request.video_url) || embeddedVideoUrl ||
     (marker.state === "purging" && (
       typeof marker.assetUrl === "string" ||
       (Array.isArray(marker.storagePaths) && marker.storagePaths.length > 0)
@@ -508,7 +510,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
         <div>
           <p className="text-xs tracking-[0.2em] text-brand-cream/30">{reviewOnly ? "مراجعة الفيديو" : "طابور الفيديو"}</p>
           <h1 className="mt-2 text-3xl font-bold text-brand-gold">{reviewOnly ? "مراجعة الفيديوهات المتوقفة والجاهزة للنشر" : "طابور توليد الفيديو"}</h1>
-          <p className="mt-2 text-sm leading-7 text-brand-cream/50">تابع طلبات التوليد، وافتح الفيديو لمراجعته واعتماده، أو احذف الملف غير المعتمد عندما يجتاز فحوص الحذف الآمن. إنشاء الطلبات من الاستوديو فقط.</p>
+          <p className="mt-2 text-sm leading-7 text-brand-cream/50">تابع طلبات التوليد وافتح الفيديو لمراجعته. يمكنك حذف نسخة ZIKR الداخلية في أي مرحلة مع الاحتفاظ بمنشورات YouTube وFacebook وسجلاتها الخارجية، كما يمكنك تحديد عدة فيديوهات جاهزة واعتمادها جماعيًا عبر الفحوص الرسمية.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/video/studio" className="rounded-xl border border-brand-gold/25 bg-brand-gold/10 px-4 py-2 text-sm font-semibold text-brand-gold hover:bg-brand-gold/20">استوديو إنشاء الفيديو</Link>
