@@ -67,8 +67,8 @@ function isSafeDuplicateAssetCandidate(request: VideoGenerationRequest, canManag
       !url.username && !url.password && !url.search && !url.hash &&
       segments.length === 5 &&
       segments[1] === "video" && segments[2] === "upload" &&
-      /^v\\d+$/.test(segments[3]) &&
-      /^auto-[a-z0-9-]+\\.mp4$/i.test(segments[4]);
+      /^v\d+$/.test(segments[3]) &&
+      /^auto-[a-z0-9-]+\.mp4$/i.test(segments[4]);
   } catch {
     return false;
   }
