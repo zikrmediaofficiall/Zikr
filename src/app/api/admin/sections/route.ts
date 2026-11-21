@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { requireAdminApi } from '@/features/admin/services/admin';
 import { readBoundedJsonBody } from '@/lib/request/bounded-json-body';
 import { recordAdminAuditEvent } from '@/features/admin/services/audit';
 import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
 import { supabaseServerAdminRequest } from '@/lib/supabase/server';
+import { CATALOG_ITEMS, getCatalogItemKey } from '@/lib/navigation/catalog';
 
 export const dynamic = 'force-dynamic';
 
 const SECTION_KEYS = new Set([
-  'quran', 'hadith', 'adhkar', 'dua', 'prayer-times', 'qibla', 'tasbeeh',
-  'prophets', 'companions', 'scholars', 'stories', 'articles', 'battles',
-  'conquests', 'memorization', 'spiritual-ai', 'kids', 'competitions',
-  'poetry', 'tawasheeh', 'reciters', 'radio', 'videos', 'youtube', 'tafsir',
-  'favorites', 'search', 'contact', 'about', 'faq',
+  ...CATALOG_ITEMS.map((item) => getCatalogItemKey(item.href)),
+  "youtube",
 ]);
 const SETTINGS_KEY = 'section_visibility';
 
@@ -74,6 +73,7 @@ export async function POST(request: Request) {
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify({ key: SETTINGS_KEY, value: { visibility }, updated_at: new Date().toISOString() }),
     });
+    revalidateTag('site-setting:section_visibility', 'max');
     const auditRecorded = await runPostCommitAudit(
       () => recordAdminAuditEvent({
       action: "admin.sections.visibility.update",
