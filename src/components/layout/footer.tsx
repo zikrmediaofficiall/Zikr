@@ -89,7 +89,7 @@ export function Footer({ socialLinks, showSmartLink = false, hiddenHrefs = [], s
   const sortLinks = (links: FooterLink[]) => [...links].sort((a, b) => (orderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER));
   const visibleSectionLinks = sortLinks(sectionLinks.filter((item) => !hidden.has(item.href)));
   const visibleToolLinks = sortLinks(toolLinks.filter((item) => !hidden.has(item.href)));
-  const visibleSupportLinks = supportLinks.filter((item) => !hidden.has(item.href));
+  const visibleSupportLinks = sortLinks(supportLinks.filter((item) => !hidden.has(item.href)));
   const [isWebRuntime, setIsWebRuntime] = useState(false);
 
   useEffect(() => {
