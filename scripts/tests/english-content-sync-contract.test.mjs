@@ -142,14 +142,33 @@ assert.ok(
   "Supabase credentials shared by both content-sync workers must be validated before the bounded worker step",
 );
 const geminiBranchStart = boundedSyncCommand.indexOf('if [[ -n "${GEMINI_API_KEY:-}" ]]');
-const geminiBranchEnd = boundedSyncCommand.indexOf("\n              fi\n\n              echo \"Importing the named English Quran edition", geminiBranchStart);
 const quranCommandPosition = boundedSyncCommand.indexOf("pnpm sync:quran:en");
 const hadithCommandPosition = boundedSyncCommand.indexOf("pnpm sync:hadith:en");
+const articleCommandPosition = boundedSyncCommand.indexOf("pnpm translate:articles:en");
 assert.ok(
-  geminiBranchStart >= 0 && geminiBranchEnd > geminiBranchStart &&
-    quranCommandPosition > geminiBranchEnd && hadithCommandPosition > quranCommandPosition,
-  "Quran and Hadith sync must both remain outside the optional Gemini article branch so they run even when article translation is unavailable",
+  quranCommandPosition >= 0 && hadithCommandPosition > quranCommandPosition &&
+    geminiBranchStart > hadithCommandPosition && articleCommandPosition > geminiBranchStart,
+  "Quran and Hadith sync must run before the optional Gemini branch so they complete independently of article/content translation",
 );
+
+const githubCredentialStart = circleWorkflow.indexOf("name: Validate Supabase credentials before installing dependencies");
+const githubCredentialEnd = circleWorkflow.indexOf("- uses: pnpm/action-setup", githubCredentialStart);
+const githubCredentialBlock = circleWorkflow.slice(githubCredentialStart, githubCredentialEnd);
+assert.ok(githubCredentialStart >= 0 && githubCredentialEnd > githubCredentialStart);
+assert.ok(!githubCredentialBlock.includes("GEMINI_API_KEY"),
+  "the protected GitHub workflow must not require Gemini credentials for source-backed Quran and Hadith imports");
+assert.ok(circleWorkflow.includes("push:") && circleWorkflow.includes("branches: [main]") &&
+  circleWorkflow.includes("supabase/migrations/20261121100000_quran_english_translation_provenance.sql") &&
+  circleWorkflow.includes("scripts/sync-quran-english.ts"),
+  "the protected English sync fallback must run when the Quran provenance migration and importer reach main");
+const githubWorkerStart = circleWorkflow.indexOf("name: Run one bounded article batch and one bounded Hadith batch");
+const githubWorker = circleWorkflow.slice(githubWorkerStart);
+const githubQuranPosition = githubWorker.indexOf("pnpm sync:quran:en");
+const githubHadithPosition = githubWorker.indexOf("pnpm sync:hadith:en");
+const githubGeminiStart = githubWorker.indexOf('if [[ -n "${GEMINI_API_KEY:-}" ]]');
+assert.ok(githubWorkerStart >= 0 && githubQuranPosition >= 0 &&
+  githubHadithPosition > githubQuranPosition && githubGeminiStart > githubHadithPosition,
+  "GitHub fallback must execute source-backed Quran and Hadith sync before optional Gemini translation batches");
 
 assert.ok(
   circleEnglishSync.includes("timeout --signal=TERM --kill-after=60s 40m pnpm translate:articles:en"),
