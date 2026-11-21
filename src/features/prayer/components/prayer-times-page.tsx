@@ -78,6 +78,14 @@ export function PrayerTimesPage() {
         const cached = getDevicePrayerTimesForLocation(lat, lon);
         if (cached) {
           setPrayerData(cached.data);
+          void persistPrayerLocation({
+            city: cached.city,
+            latitude: cached.latitude,
+            longitude: cached.longitude,
+            timezone: cached.timezone,
+            isDefault: true,
+            updatedAt: new Date().toISOString(),
+          }).catch(() => undefined);
           setError("تعذر الاتصال بالخدمة؛ نعرض مواقيت اليوم المحفوظة على هذا الجهاز لنفس الموقع.");
         } else {
           setError("فشل جلب مواقيت الصلاة، ولا توجد نسخة محفوظة صالحة لليوم والموقع الحالي.");
@@ -87,6 +95,14 @@ export function PrayerTimesPage() {
       const cached = getDevicePrayerTimesForLocation(lat, lon);
       if (cached) {
         setPrayerData(cached.data);
+        void persistPrayerLocation({
+          city: cached.city,
+          latitude: cached.latitude,
+          longitude: cached.longitude,
+          timezone: cached.timezone,
+          isDefault: true,
+          updatedAt: new Date().toISOString(),
+        }).catch(() => undefined);
         setError("الاتصال غير متاح؛ نعرض نسخة اليوم المحفوظة على هذا الجهاز.");
       } else {
         setError("حدث خطأ في جلب البيانات، ولا توجد نسخة يومية محفوظة لهذا الموقع.");
@@ -159,6 +175,14 @@ export function PrayerTimesPage() {
         if (cached) {
           setPrayerData(cached.data);
           setCurrentLocation({ lat: cached.latitude, lon: cached.longitude, city: cached.city });
+          void persistPrayerLocation({
+            city: cached.city,
+            latitude: cached.latitude,
+            longitude: cached.longitude,
+            timezone: cached.timezone,
+            isDefault: true,
+            updatedAt: new Date().toISOString(),
+          }).catch(() => undefined);
           setError("تعذر الاتصال بالخدمة؛ نعرض مواقيت اليوم المحفوظة لهذه المدينة.");
         } else {
           setError("لم يتم العثور على المدينة أو لا توجد نسخة مواقيت يومية محفوظة لها.");
@@ -169,6 +193,14 @@ export function PrayerTimesPage() {
       if (cached) {
         setPrayerData(cached.data);
         setCurrentLocation({ lat: cached.latitude, lon: cached.longitude, city: cached.city });
+        void persistPrayerLocation({
+          city: cached.city,
+          latitude: cached.latitude,
+          longitude: cached.longitude,
+          timezone: cached.timezone,
+          isDefault: true,
+          updatedAt: new Date().toISOString(),
+        }).catch(() => undefined);
         setError("الاتصال غير متاح؛ نعرض نسخة مواقيت اليوم المحفوظة لهذه المدينة.");
       } else {
         setError("حدث خطأ في البحث، ولا توجد نسخة يومية محفوظة لهذه المدينة.");
