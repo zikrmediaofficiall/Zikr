@@ -149,7 +149,7 @@ async function runAdminSchemaContractCheck() {
     console.log("PASS: admin_rate_limits schema contract (read-only HTTP " + tableResponse.status + ")");
 
     const requiredContracts = [
-      { name: "site_audio_upload_intents table", path: "/rest/v1/site_audio_upload_intents?select=id&limit=0" },
+      { name: "site_audio_upload_intents table", path: "/rest/v1/site_audio_upload_intents?select=storage_path&limit=0" },
       { name: "background_reminder_preferences.timezone", path: "/rest/v1/background_reminder_preferences?select=timezone&limit=0" },
       { name: "youtube_sync_state.playlists", path: "/rest/v1/youtube_sync_state?select=playlists&limit=0" },
       { name: "social_publish_queue.target_platforms", path: "/rest/v1/social_publish_queue?select=target_platforms&limit=0" },
