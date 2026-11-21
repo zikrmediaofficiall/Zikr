@@ -149,19 +149,22 @@ assert.ok(
     publish.includes("Android artifact/tag provenance mismatch"),
   "Every Android release path must bind signed artifact metadata to the immutable tag target commit",
 );
+const requiredReleaseContexts = publish.split("required_contexts=(")[1]?.split(")")[0] ?? "";
 assert.ok(
   publish.includes("required_contexts=(") &&
-    publish.includes("ci/circleci: config-guard") &&
-    publish.includes("ci/circleci: source-verify") &&
-    publish.includes("ci/circleci: application-build-docs") &&
-    publish.includes("ci/circleci: android-release-draft") &&
-    publish.includes("ci/circleci: supabase-production-gate") &&
-    publish.includes("ci/circleci: android-rebuild") &&
-    publish.includes("ci/circleci: android-release-dispatch") &&
+    requiredReleaseContexts.includes("ci/circleci: config-guard") &&
+    requiredReleaseContexts.includes("ci/circleci: source-verify") &&
+    requiredReleaseContexts.includes("ci/circleci: application-build-docs") &&
+    !requiredReleaseContexts.includes("ci/circleci: android-release-draft") &&
+    requiredReleaseContexts.includes("ci/circleci: supabase-production-gate") &&
+    requiredReleaseContexts.includes("ci/circleci: android-rebuild") &&
+    requiredReleaseContexts.includes("ci/circleci: android-release-dispatch") &&
+    publish.includes('select(.context != "ci/circleci: android-release-draft")') &&
+    publish.includes("authenticated release preflight verified the single eligible draft") &&
     publish.includes("ZIKR / Quality Gate") &&
     publish.includes("check-runs?per_page=100") &&
     !publish.includes("github.event_name != 'workflow_dispatch'"),
-  "Every Android publish/retry path must wait for the exact tag source commit's complete CircleCI and GitHub Quality Gate results",
+  "Android publishing must require every substantive CircleCI/GitHub gate and allow only the private-draft visibility check to be replaced by its authenticated release preflight",
 );
 assert.ok(publish.includes("checks: read") && publish.includes("statuses: read"), "Android publisher must have read-only permissions for commit statuses and check runs");
 assert.ok(
