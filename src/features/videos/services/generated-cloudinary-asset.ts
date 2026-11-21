@@ -139,8 +139,9 @@ export async function deleteVerifiedGeneratedCloudinaryVideo(
       signature,
     });
 
+    let destroyResponse: Response;
     try {
-      const destroyResponse = await fetcher(
+      destroyResponse = await fetcher(
         `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/video/destroy`,
         {
           method: "POST",
@@ -150,22 +151,24 @@ export async function deleteVerifiedGeneratedCloudinaryVideo(
           signal: AbortSignal.timeout(20_000),
         },
       );
-      const destroyPayload = await destroyResponse.json().catch(() => ({})) as CloudinaryDestroyResponse;
-      if (destroyResponse.ok && (destroyPayload.result === "ok" || destroyPayload.result === "not found")) {
-        return { publicId };
-      }
-
-      lastError = new Error(destroyPayload.error?.message || "رفض Cloudinary حذف ملف الفيديو المولّد.");
-      const retryable = destroyResponse.status === 408 ||
-        destroyResponse.status === 425 ||
-        destroyResponse.status === 429 ||
-        destroyResponse.status >= 500;
-      if (!retryable || attempt === 2) throw lastError;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       if (attempt === 2) throw lastError;
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+      continue;
     }
 
+    const destroyPayload = await destroyResponse.json().catch(() => ({})) as CloudinaryDestroyResponse;
+    if (destroyResponse.ok && (destroyPayload.result === "ok" || destroyPayload.result === "not found")) {
+      return { publicId };
+    }
+
+    lastError = new Error(destroyPayload.error?.message || "رفض Cloudinary حذف ملف الفيديو المولّد.");
+    const retryable = destroyResponse.status === 408 ||
+      destroyResponse.status === 425 ||
+      destroyResponse.status === 429 ||
+      destroyResponse.status >= 500;
+    if (!retryable || attempt === 2) throw lastError;
     await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
   }
 
