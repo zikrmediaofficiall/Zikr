@@ -642,3 +642,10 @@ The older `public.plan_background_reminder_deliveries(timestamptz)` function exi
 - CODEOWNERS requires `@Zikrmediaofficial`, but collaborator-permission lookup returned `permission: null`; review requests cannot register. Owner was asked in the PR conversation to add the account or update CODEOWNERS to an accessible team/account. Repository rulesets returned empty; reading `branches/main/protection` remains 403. PR mergeability is `clean`, but this is not proof of CODEOWNERS approval or protected-branch satisfaction. PRs #321–#325 still overlap.
 - No content generation, Gemini request, social publish, production DB mutation, Storage/media deletion, release, merge or deployment occurred. Owner review, migration approval/application, publisher hold/reconciliation, provider-account acceptance, signed device acceptance and post-deploy smoke tests remain open.
 
+## 2026-11-21 migration-history alignment
+
+| Remote version | Name | Repository file | Purpose |
+|---|---|---|---|
+| 20261121095418 | allow_safe_unapproved_review_video_deletion | `supabase/migrations/20261121095418_allow_safe_unapproved_review_video_deletion.sql` | Extends the server-only, reference-checked video request deletion RPC to permit completed renders explicitly awaiting human review. The migration was applied to the connected production project and verified in `supabase_migrations.schema_migrations`; the local filename is intentionally aligned to the exact version recorded remotely. |
+
+Verification: the RPC exists in production, supports `awaiting_human_review`, fails closed when the approval state is absent, grants execution to `service_role` and denies `authenticated`. No application rows or media were modified by the migration.
