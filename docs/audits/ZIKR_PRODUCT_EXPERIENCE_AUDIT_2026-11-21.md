@@ -16,6 +16,7 @@ This audit combines a public-route inventory, source-level inspection of page an
 - Hadith library content exists locally; the offline manifest records 2,964 hadith rows. The new fallback loader validates the local books and records, admits only rows marked published=true, rejects rows linked to unknown books, and removes duplicate book/number pairs.
 - The hadith snapshot is used only after a database transport failure. A successful empty published-only database result remains authoritative, so a deliberate unpublish is not silently undone by the local or external catalogue.
 - Dua, story, prophet, companion, scholar, article, and kids catalogues were found in the repository already. The work prioritizes reliable visibility, source attribution, and page-specific context rather than generating duplicate records.
+- The 12-item emergency dua fallback is expanded with eight additional Quranic supplications, and the 18 known fallback items with traceable references now expose direct Quran/Sunnah source links on both the index card and detail page.
 - Kids material remains subject to the existing publication/age-appropriateness gate. Content lacking the required review metadata is not surfaced merely to increase the visible item count.
 - On the adhkar page, virtue/reward copy now appears only when a direct source URL is present. Referenced items link to their hadith source; text without a verified source can remain readable without displaying an unsupported virtue claim.
 
