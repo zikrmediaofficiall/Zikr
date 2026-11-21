@@ -2,41 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { SITE_CATALOG, getCatalogItemKey } from '@/lib/navigation/catalog';
 
 // ─── Full site sections list ──────────────────────────────────────────────────
 const ALL_SECTIONS = [
-  { key: 'quran', label: 'القرآن الكريم', href: '/quran', desc: 'قراءة واستماع للقرآن الكريم', group: 'الأساسيات' },
-  { key: 'hadith', label: 'الأحاديث النبوية', href: '/hadith', desc: 'أحاديث صحيحة موثقة', group: 'الأساسيات' },
-  { key: 'adhkar', label: 'الأذكار اليومية', href: '/adhkar', desc: 'أذكار الصباح والمساء', group: 'الأساسيات' },
-  { key: 'dua', label: 'الأدعية المأثورة', href: '/dua', desc: 'أدعية نبوية لكل المناسبات', group: 'الأساسيات' },
-  { key: 'prayer-times', label: 'مواقيت الصلاة', href: '/prayer-times', desc: 'أوقات الصلاة حسب الموقع', group: 'الأساسيات' },
-  { key: 'qibla', label: 'اتجاه القبلة', href: '/qibla', desc: 'بوصلة القبلة', group: 'الأساسيات' },
-  { key: 'tasbeeh', label: 'عداد التسبيح', href: '/tasbeeh', desc: 'عداد رقمي للتسبيح', group: 'الأساسيات' },
-  { key: 'prophets', label: 'قصص الأنبياء', href: '/prophets', desc: 'سير الأنبياء والمرسلين', group: 'المعرفة' },
-  { key: 'companions', label: 'الصحابة الكرام', href: '/companions', desc: 'تراجم الصحابة', group: 'المعرفة' },
-  { key: 'scholars', label: 'العلماء', href: '/scholars', desc: 'تراجم العلماء', group: 'المعرفة' },
-  { key: 'stories', label: 'القصص الإسلامية', href: '/stories', desc: 'قصص ملهمة من التاريخ', group: 'المعرفة' },
-  { key: 'articles', label: 'المقالات', href: '/articles', desc: 'مقالات دينية وثقافية', group: 'المعرفة' },
-  { key: 'battles', label: 'الغزوات', href: '/battles', desc: 'غزوات النبي ﷺ', group: 'المعرفة' },
-  { key: 'conquests', label: 'الفتوحات الإسلامية', href: '/conquests', desc: 'تاريخ الفتوحات', group: 'المعرفة' },
-  { key: 'memorization', label: 'حفظ القرآن', href: '/memorization', desc: 'خطط وتتبع الحفظ', group: 'تفاعلي' },
-  { key: 'spiritual-ai', label: 'الرفيق الروحاني', href: '/spiritual-ai', desc: 'مساعد AI للأسئلة الدينية', group: 'تفاعلي' },
-  { key: 'kids', label: 'قسم الأطفال', href: '/kids', desc: 'محتوى تعليمي للأطفال', group: 'تفاعلي' },
-  { key: 'competitions', label: 'المسابقات', href: '/competitions', desc: 'مسابقات دينية وإسلامية', group: 'تفاعلي' },
-  { key: 'poetry', label: 'الشعر الإسلامي', href: '/poetry', desc: 'قصائد ومدائح', group: 'الإعلام' },
-  { key: 'tawasheeh', label: 'المداحون والتواشيح', href: '/tawasheeh', desc: 'تواشيح دينية', group: 'الإعلام' },
-  { key: 'reciters', label: 'قراء القرآن', href: '/reciters', desc: 'تلاوات القراء المميزين', group: 'الإعلام' },
-  { key: 'radio', label: 'إذاعة القرآن', href: '/radio', desc: 'بث مباشر للقرآن', group: 'الإعلام' },
-  { key: 'videos', label: 'الفيديوهات', href: '/videos', desc: 'فيديوهات دينية وتعليمية', group: 'الإعلام' },
-  { key: 'tafsir', label: 'التفسير', href: '/tafsir', desc: 'تفسير آيات القرآن', group: 'الأساسيات' },
-  { key: 'favorites', label: 'المفضلة', href: '/favorites', desc: 'المحتوى المحفوظ للمستخدم', group: 'تفاعلي' },
-  { key: 'search', label: 'البحث الشامل', href: '/search', desc: 'بحث في كل محتوى الموقع', group: 'تفاعلي' },
-  { key: 'contact', label: 'تواصل معنا', href: '/contact', desc: 'صفحة التواصل', group: 'عام' },
-  { key: 'about', label: 'عن المنصة', href: '/about', desc: 'معلومات عن ذِكرٌ', group: 'عام' },
-  { key: 'faq', label: 'الأسئلة الشائعة', href: '/faq', desc: 'أجوبة الأسئلة المتكررة', group: 'عام' },
+  ...SITE_CATALOG.flatMap((group) =>
+    group.items.map((item) => ({
+      key: getCatalogItemKey(item.href),
+      label: item.ar,
+      href: item.href,
+      desc: item.descriptionAr,
+      group: group.ar,
+    })),
+  ),
 ];
 
-const GROUPS = ['الكل', 'الأساسيات', 'المعرفة', 'تفاعلي', 'الإعلام', 'عام'];
+const GROUPS = ['الكل', ...SITE_CATALOG.map((group) => group.ar)];
 
 export default function AdminSectionsPage() {
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
