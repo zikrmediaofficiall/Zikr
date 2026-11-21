@@ -69,6 +69,7 @@ jobs:
           EXPECTED_FINGERPRINT: ${{ vars.ANDROID_RELEASE_TAG_GPG_FINGERPRINT }}
           SIGNING_EMAIL: ${{ vars.ANDROID_RELEASE_SIGNING_EMAIL }}
           SIGNING_NAME: ${{ vars.ANDROID_RELEASE_SIGNING_NAME }}
+          SIGNING_GITHUB_USER: ${{ vars.ANDROID_RELEASE_SIGNING_GITHUB_USER }}
           TAG: ${{ inputs.tag }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
@@ -76,10 +77,10 @@ jobs:
           : "${GPG_PRIVATE_KEY:?Missing protected signing key}"
           : "${EXPECTED_FINGERPRINT:?Missing trusted GPG fingerprint}"
           : "${SIGNING_EMAIL:?Missing verified signer email}"
-          : "${SIGNING_NAME:?Missing signer display name}"
+                    : "${SIGNING_NAME:?Missing signer display name}"
+          : "${SIGNING_GITHUB_USER:?Missing GitHub account that owns the signing key}"
           EXPECTED_FINGERPRINT="$(printf '%s' "$EXPECTED_FINGERPRINT" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
-          OWNER="${GITHUB_REPOSITORY%%/*}"
-          TMP_DIR="$(mktemp -d)"
+                    TMP_DIR="$(mktemp -d)"
           export GNUPGHOME="$TMP_DIR/gnupg"
           mkdir -m 700 "$GNUPGHOME"
           trap 'rm -rf "$TMP_DIR"' EXIT
@@ -89,7 +90,7 @@ jobs:
           curl --fail --silent --show-error \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/users/$OWNER/gpg_keys" > "$TMP_DIR/github-gpg-keys.json"
+            "https://api.github.com/users/$SIGNING_GITHUB_USER/gpg_keys" > "$TMP_DIR/github-gpg-keys.json"
           jq -r --arg email "$SIGNING_EMAIL" '.[] | select(any(.emails[]?; .email == $email)) | .public_key // empty' \
             "$TMP_DIR/github-gpg-keys.json" > "$TMP_DIR/github-matching-public-keys.asc"
           test -s "$TMP_DIR/github-matching-public-keys.asc" || { echo "::error::Signer email is not registered on a GitHub GPG key"; exit 1; }

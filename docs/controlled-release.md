@@ -76,5 +76,6 @@ Required environment variables:
 - `ANDROID_RELEASE_TAG_GPG_FINGERPRINT`: trusted 40-character primary key fingerprint.
 - `ANDROID_RELEASE_SIGNING_EMAIL`: email registered on the GitHub owner's GPG key.
 - `ANDROID_RELEASE_SIGNING_NAME`: tagger display name.
+- `ANDROID_RELEASE_SIGNING_GITHUB_USER`: GitHub user account where the public GPG key and signer email are registered (this may differ from the repository owner if the repository belongs to an organization).
 
 The public key must be uploaded to the repository owner's GitHub account with the same email and fingerprint. If any setting is absent or mismatched, the preflight fails without creating a version commit or tag. Never delete or retarget an existing immutable release to retrofit a signature.

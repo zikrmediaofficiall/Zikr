@@ -127,7 +127,7 @@ export default async function AdminReleasePage({
         <p className="mt-3 text-xs text-brand-cream/45">
           بيئة GitHub المحمية <code>android-release-signing</code> تحتاج سرّي
           <code>ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY</code> و<code>ANDROID_RELEASE_TAG_GPG_PASSPHRASE</code>،
-          والمتغيرات <code>ANDROID_RELEASE_TAG_GPG_FINGERPRINT</code> و<code>ANDROID_RELEASE_SIGNING_EMAIL</code> و<code>ANDROID_RELEASE_SIGNING_NAME</code>.
+          والمتغيرات <code>ANDROID_RELEASE_TAG_GPG_FINGERPRINT</code> و<code>ANDROID_RELEASE_SIGNING_EMAIL</code> و<code>ANDROID_RELEASE_SIGNING_NAME</code> و<code>ANDROID_RELEASE_SIGNING_GITHUB_USER</code>.
           يجب تسجيل المفتاح العام في حساب مالك المستودع بنفس البريد وبصمة المفتاح.
         </p>
       </section>

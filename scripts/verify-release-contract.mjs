@@ -313,7 +313,7 @@ for (const workflow of [signingPreflightWorkflow, signingWorkflow]) {
   for (const secret of ["ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY", "ANDROID_RELEASE_TAG_GPG_PASSPHRASE"]) {
     assert.ok(workflow.includes("secrets." + secret), "GPG workflows must use protected secret " + secret);
   }
-  for (const variable of ["ANDROID_RELEASE_TAG_GPG_FINGERPRINT", "ANDROID_RELEASE_SIGNING_EMAIL", "ANDROID_RELEASE_SIGNING_NAME"]) {
+  for (const variable of ["ANDROID_RELEASE_TAG_GPG_FINGERPRINT", "ANDROID_RELEASE_SIGNING_EMAIL", "ANDROID_RELEASE_SIGNING_NAME", "ANDROID_RELEASE_SIGNING_GITHUB_USER"]) {
     assert.ok(workflow.includes("vars." + variable), "GPG workflows must use protected variable " + variable);
   }
 }
