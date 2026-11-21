@@ -66,10 +66,37 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/users/$SIGNING_GITHUB_USER/gpg_keys" > "$TMP_DIR/github-gpg-keys.json"
-          jq -r --arg email "$SIGNING_EMAIL" '.[] | select(any(.emails[]?; .email == $email)) | .public_key // empty' \
-            "$TMP_DIR/github-gpg-keys.json" > "$TMP_DIR/github-matching-public-keys.asc"
-          test -s "$TMP_DIR/github-matching-public-keys.asc" || {
-            echo "::error::The configured signing email is not attached to a GitHub owner GPG key"; exit 1;
+          # GitHub's public_key field is an internal key blob, not an armored
+          # OpenPGP key. Use raw_key, which contains the original key material.
+          # Some API responses JSON-encode raw_key a second time.
+          jq -r --arg email "$SIGNING_EMAIL" '
+            .[]
+            | select(any(.emails[]?; .email == $email and .verified == true))
+            | (.raw_key // empty) as $key
+            | if $key == "" then empty else (try ($key | fromjson) catch $key) end
+          ' "$TMP_DIR/github-gpg-keys.json" > "$TMP_DIR/github-matching-public-keys.asc"
+
+          grep -q '^-----BEGIN PGP PUBLIC KEY BLOCK-----
+          if ! gpg --batch --with-colons --fingerprint | awk -F: '$1 == "fpr" { print toupper($10) }' | grep -Fxq "$EXPECTED_FINGERPRINT"; then
+            echo "::error::Configured fingerprint is not registered to the exact signer email"; exit 1
+          fi
+          echo "Verified GPG fingerprint: $EXPECTED_FINGERPRINT"
+          echo "Verified signer email: $SIGNING_EMAIL"
+          echo "Verified exact main SHA: $TARGET_SHA"
+          echo "::notice::Android Git-tag signing preflight passed."
+ "$TMP_DIR/github-matching-public-keys.asc" || {
+            echo "::error::GitHub did not return an armored public GPG key for the configured verified email"; exit 1;
+          }
+          grep -q '^-----END PGP PUBLIC KEY BLOCK-----
+          if ! gpg --batch --with-colons --fingerprint | awk -F: '$1 == "fpr" { print toupper($10) }' | grep -Fxq "$EXPECTED_FINGERPRINT"; then
+            echo "::error::Configured fingerprint is not registered to the exact signer email"; exit 1
+          fi
+          echo "Verified GPG fingerprint: $EXPECTED_FINGERPRINT"
+          echo "Verified signer email: $SIGNING_EMAIL"
+          echo "Verified exact main SHA: $TARGET_SHA"
+          echo "::notice::Android Git-tag signing preflight passed."
+ "$TMP_DIR/github-matching-public-keys.asc" || {
+            echo "::error::GitHub returned an incomplete armored public GPG key"; exit 1;
           }
           gpg --batch --import "$TMP_DIR/github-matching-public-keys.asc" >/dev/null 2>&1
           if ! gpg --batch --with-colons --fingerprint | awk -F: '$1 == "fpr" { print toupper($10) }' | grep -Fxq "$EXPECTED_FINGERPRINT"; then
