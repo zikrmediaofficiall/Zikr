@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdminPermission } from "@/features/admin/services/admin";
 import { requireAdminStepUp } from "@/features/admin/services/security";
 import {
+  dispatchPreparedAndroidReleaseTagSigning,
   getAndroidReleaseSigningPreflightStatus,
   prepareAndroidRelease,
   requestAndroidReleaseSigningPreflight,
@@ -40,6 +41,9 @@ async function assertNoActiveReleaseOperation() {
   const value = rows?.[0]?.value;
   if (!value || typeof value !== "object" || Array.isArray(value)) return;
   const state = value as { status?: string; startedAt?: string; tag?: string };
+  if (state.status === "signing_dispatch_failed") {
+    throw new Error("توجد عملية إصدار مجهزة لم يُرسل توقيعها بعد؛ استخدم زر إعادة المحاولة بدل بدء إصدار جديد.");
+  }
   if (state.status !== "signing" && state.status !== "building") return;
   const startedAt = Date.parse(state.startedAt ?? "");
   if (!Number.isFinite(startedAt)) {
@@ -117,8 +121,15 @@ export async function createAndroidReleaseAction() {
   }
 
   const startedAt = new Date().toISOString();
+  let signingDispatchError: string | null = null;
+  try {
+    await dispatchPreparedAndroidReleaseTagSigning(prepared.tag, prepared.commitSha);
+  } catch (error) {
+    signingDispatchError = errorMessage(error);
+  }
+
   await persistReleaseOperation({
-    status: "signing",
+    status: signingDispatchError ? "signing_dispatch_failed" : "signing",
     tag: prepared.tag,
     version: prepared.version,
     versionCode: prepared.versionCode,
@@ -127,7 +138,10 @@ export async function createAndroidReleaseAction() {
     releaseUrl: prepared.releaseUrl,
     startedAt,
     startedBy: null,
-    note: "تم تجهيز بيانات الإصدار على main وإرسال الـcommit نفسه إلى Runner التوقيع المحمي. لن يبدأ بناء Android حتى يؤكد GitHub صحة التوقيع.",
+    signingDispatchError,
+    note: signingDispatchError
+      ? "تم إنشاء commit الإصدار لكن تعذر إرسال عملية التوقيع. أعد إرسال نفس tag ونفس commit من زر إعادة المحاولة."
+      : "تم تجهيز بيانات الإصدار على main وإرسال الـcommit نفسه إلى Runner التوقيع المحمي. لن يبدأ بناء Android حتى يؤكد GitHub صحة التوقيع.",
   });
 
   await recordAdminAuditEventSafely({
@@ -145,10 +159,73 @@ export async function createAndroidReleaseAction() {
   });
 
   revalidatePath("/admin/release");
+  if (signingDispatchError) {
+    redirect(
+      "/admin/release?android_release_error=" +
+        encodeURIComponent("تم تجهيز الإصدار، لكن تعذر إرسال طلب التوقيع: " + signingDispatchError),
+    );
+  }
   redirect(
     "/admin/release?android_release_started=" +
       encodeURIComponent(prepared.tag) +
       "&commit_sha=" +
       encodeURIComponent(prepared.commitSha),
+  );
+}
+
+export async function retryAndroidReleaseSigningAction() {
+  await requireAdminPermission("release.manage");
+  await requireAdminStepUp("release.manage", "/admin/release");
+
+  let rows: Array<{ value?: unknown }>;
+  try {
+    rows = await supabaseServerAdminRequest<Array<{ value?: unknown }>>(
+      "/rest/v1/admin_settings?key=eq.android_release_operation&select=value&limit=1",
+      { method: "GET" },
+    );
+  } catch {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent("تعذر قراءة عملية الإصدار من Supabase."));
+  }
+
+  const value = rows?.[0]?.value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent("لا توجد عملية إصدار قابلة لإعادة الإرسال."));
+  }
+  const operation = value as {
+    status?: string; tag?: string; commitSha?: string; version?: string; versionCode?: number;
+  };
+  if (operation.status !== "signing_dispatch_failed" || !operation.tag || !operation.commitSha) {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent("لا توجد عملية توقيع فاشلة قابلة لإعادة المحاولة."));
+  }
+
+  try {
+    await dispatchPreparedAndroidReleaseTagSigning(operation.tag, operation.commitSha);
+  } catch (error) {
+    redirect("/admin/release?android_release_error=" + encodeURIComponent(errorMessage(error)));
+  }
+
+  const retriedAt = new Date().toISOString();
+  await persistReleaseOperation({
+    ...operation,
+    status: "signing",
+    startedAt: retriedAt,
+    signingDispatchError: null,
+    note: "أُعيد إرسال نفس tag ونفس commit إلى Runner التوقيع المحمي. لن يُنشأ إصدار أو commit جديد.",
+  });
+
+  await recordAdminAuditEventSafely({
+    action: "android.release.signing.retry",
+    permission: "release.manage",
+    resourceType: "android_release_operation",
+    resourceId: operation.tag,
+    metadata: { tag: operation.tag, commitSha: operation.commitSha, retry: true },
+  });
+
+  revalidatePath("/admin/release");
+  redirect(
+    "/admin/release?android_release_started=" +
+      encodeURIComponent(operation.tag) +
+      "&commit_sha=" +
+      encodeURIComponent(operation.commitSha),
   );
 }

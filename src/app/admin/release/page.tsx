@@ -7,7 +7,7 @@ import { getAdminHealth } from "@/features/admin/services/platform";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { getLatestStableAndroidRelease } from "@/features/releases/services/github-android-release";
 import { getAndroidReleaseSigningPreflightStatus } from "@/features/releases/services/github-release-manager";
-import { createAndroidReleaseAction, runAndroidReleaseSigningPreflightAction } from "./actions";
+import { createAndroidReleaseAction, retryAndroidReleaseSigningAction, runAndroidReleaseSigningPreflightAction } from "./actions";
 
 export const metadata: Metadata = { title: "مركز الإصدار | الأدمن" };
 
@@ -31,6 +31,7 @@ type Operation = {
   startedAt?: string;
   startedBy?: string | null;
   note?: string;
+  signingDispatchError?: string | null;
 };
 
 export default async function AdminReleasePage({
@@ -64,7 +65,8 @@ export default async function AdminReleasePage({
       Date.now() - operationStartedAt >= 6 * 60 * 60 * 1000,
   );
   const operationNeedsReview = Boolean(
-    (operation?.status === "building" || operation?.status === "signing") && !Number.isFinite(operationStartedAt),
+    operation?.status === "signing_dispatch_failed" ||
+      ((operation?.status === "building" || operation?.status === "signing") && !Number.isFinite(operationStartedAt)),
   );
 
   const releaseError = typeof params.android_release_error === "string" ? params.android_release_error.slice(0, 300) : null;
@@ -128,7 +130,7 @@ export default async function AdminReleasePage({
           بيئة GitHub المحمية <code>android-release-signing</code> تحتاج سرّي
           <code>ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY</code> و<code>ANDROID_RELEASE_TAG_GPG_PASSPHRASE</code>،
           والمتغيرات <code>ANDROID_RELEASE_TAG_GPG_FINGERPRINT</code> و<code>ANDROID_RELEASE_SIGNING_EMAIL</code> و<code>ANDROID_RELEASE_SIGNING_NAME</code> و<code>ANDROID_RELEASE_SIGNING_GITHUB_USER</code>.
-          يجب تسجيل المفتاح العام في حساب مالك المستودع بنفس البريد وبصمة المفتاح.
+          يجب تسجيل المفتاح العام في حساب GitHub المحدد في متغير signer بنفس البريد والبصمة.
         </p>
       </section>
 
@@ -141,8 +143,17 @@ export default async function AdminReleasePage({
       ) : null}
 
       {operationNeedsReview ? (
-        <section role="alert" className="rounded-2xl border border-red-500/25 bg-red-500/5 p-4 text-sm leading-7 text-red-200">
-          وقت بدء العملية السابقة غير صالح؛ تم إيقاف الإطلاق احتياطيًا حتى تتم مراجعة حالتها.
+        <section role="alert" className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] p-4 text-sm leading-7 text-amber-100">
+          {operation?.status === "signing_dispatch_failed"
+            ? "بيانات الإصدار محفوظة على main، لكن لم يتم تأكيد إرسال طلب التوقيع. أعد إرسال العملية نفسها دون إنشاء Tag أو commit أو رقم إصدار جديد."
+            : "وقت بدء العملية السابقة غير صالح؛ تم إيقاف الإطلاق احتياطيًا حتى تتم مراجعة حالتها."}
+          {operation?.status === "signing_dispatch_failed" ? (
+            <form action={retryAndroidReleaseSigningAction} className="mt-3">
+              <button type="submit" className="rounded-lg border border-amber-200/30 px-4 py-2 font-semibold hover:bg-amber-100/10">
+                إعادة إرسال توقيع نفس الإصدار
+              </button>
+            </form>
+          ) : null}
         </section>
       ) : null}
 

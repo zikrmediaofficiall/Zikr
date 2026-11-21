@@ -293,6 +293,25 @@ export async function requestAndroidReleaseSigningPreflight() {
   };
 }
 
+export async function dispatchPreparedAndroidReleaseTagSigning(tag: string, commitSha: string) {
+  if (!/^v\d+\.\d+\.\d+$/.test(tag) || !/^[0-9a-f]{40}$/.test(commitSha)) {
+    throw new Error("بيانات إعادة إرسال توقيع Android غير صالحة.");
+  }
+  const currentMainSha = await getCurrentMainSha();
+  if (currentMainSha !== commitSha) {
+    throw new Error("تغير main بعد تجهيز الإصدار؛ لن أرسل الوسم على commit مختلف عن commit الإصدار المسجل.");
+  }
+  await dispatchGitHubWorkflow("sign-android-release-tag.yml", {
+    tag,
+    commit_sha: commitSha,
+  });
+  return {
+    tag,
+    commitSha,
+    workflowUrl: "https://github.com/" + REPO + "/actions/workflows/sign-android-release-tag.yml",
+  };
+}
+
 async function createAtomicMainCommit(baseSha: string, files: Record<string, string>) {
   const baseCommit = await githubJson<GitHubGitCommit>(
     "/repos/" + REPO + "/git/commits/" + baseSha,
@@ -564,14 +583,8 @@ export async function prepareAndroidRelease() {
 
   const preparedCommitSha = await createAtomicMainCommit(baseSha, files);
 
-  // The REST tag API cannot supply a cryptographic signature. The protected
-  // GitHub Environment runner owns GPG signing and creates the Draft Release
-  // only after GitHub reports the exact tag as verified.
-  await dispatchGitHubWorkflow("sign-android-release-tag.yml", {
-    tag,
-    commit_sha: preparedCommitSha,
-  });
-
+  // The server action dispatches the protected signer after it records the
+  // prepared commit. This leaves a recoverable operation if dispatch fails.
   return {
     tag,
     version: nextVersion,
