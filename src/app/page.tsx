@@ -146,7 +146,7 @@ export default async function HomePage() {
   const showEditorialLibrary = homepageSetting?.showEditorialLibrary !== false && isSectionVisible('/articles');
   const showDailyTools = homepageSetting?.showDailyTools !== false;
   const showDailyVerse = homepageSetting?.showDailyVerse !== false && isSectionVisible('/quran');
-  const showFeaturedVideos = homepageSetting?.showFeaturedVideos !== false && isSectionVisible('/videos');
+  const showFeaturedVideos = isSectionVisible('/videos');
   const homeTitle =
     !isEnglish && homepageSetting?.title?.trim()
       ? homepageSetting.title.trim()
