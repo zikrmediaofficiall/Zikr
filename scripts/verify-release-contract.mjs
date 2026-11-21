@@ -38,7 +38,7 @@ assert.ok(releaseManager.includes("tagObject.verification?.verified !== true") &
 assert.ok(releaseManager.includes("tagObject.object.sha !== commitSha") && releaseManager.includes("currentMainSha !== commitSha"), "Stuck Android recovery must bind deletion and recreation to the exact current main commit");
 assert.ok(releaseManager.includes("cancelWorkflowRunsForReleaseCommit"), "Stuck Android recovery must stop in-flight signing/publishing workflows before cleanup");
 assert.ok(releaseAction.includes("formData.get(\"confirmCleanup\") !== \"yes\""), "Destructive release recovery must require explicit confirmation");
-assert.ok(releaseAction.includes("Date.now() - startedAt >= 6 * 60 * 60 * 1000"), "Release cleanup must be limited to stale operations or known dispatch failures");
+assert.ok(releaseAction.includes("Number.isFinite(startedAt)") && releaseAction.includes("Date.now() - startedAt >= 6 * 60 * 60 * 1000"), "Release cleanup must require a valid timestamp older than six hours or a known dispatch failure");
 assert.ok(releaseAction.includes('action: "android.release.recreate.retry"'), "Release cleanup and retry must be recorded in the admin audit log");
 assert.ok(releaseAdminPage.includes("operationCanRecover") && releaseAdminPage.includes('name="confirmCleanup"'), "Admin Release Center must expose a confirmation-gated recovery button");
 assert.ok(releaseAdminPage.includes("لن يتم حذف أي Release منشور"), "Admin Release Center must explain that published releases are protected");
