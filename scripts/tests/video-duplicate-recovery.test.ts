@@ -223,7 +223,7 @@ assert.ok(projectCopyDeleteRoute.includes('requireAdminStepUpApi("video.delete"'
 assert.ok(projectCopyDeleteRoute.includes("verifyGeneratedCloudinaryVideo"), "project-copy deletion must verify the exact generated Cloudinary asset");
 assert.ok(projectCopyDeleteRoute.includes("deleteVerifiedGeneratedCloudinaryVideo"), "project-copy deletion must physically remove the verified Cloudinary asset");
 assert.ok(projectCopyDeleteRoute.includes('createAdminClient().storage.from("videos")'), "project-copy deletion must remove the owned Supabase staging copy");
-assert.ok(projectCopyDeleteRoute.includes("video_url: null"), "project-copy deletion must detach the internal playback URL");
+assert.ok(projectCopyDeleteRoute.includes("video_url: row.video_url === assetUrl && assetUrl !== null ? null : row.video_url"), "project-copy deletion must detach only the exact internal playback URL");
 assert.ok(projectCopyDeleteRoute.includes("externalSocialPostsDeleted: false"), "project-copy deletion must preserve external social posts");
 assert.ok(projectCopyDeleteRoute.includes("platformPublicationIdsPreserved: true"), "project-copy deletion must preserve external publication IDs");
 assert.ok(projectCopyDeleteRoute.includes("socialQueueRowsPreserved: true"), "project-copy deletion must preserve historical social queue rows");
