@@ -456,6 +456,7 @@ assert.ok(
 );
 assert.ok(androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY") && androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_FINGERPRINT"), "Android signing preflight must validate owner-managed key material and fingerprint");
 assert.ok(androidTagSigning.includes("git tag -s -u") && androidTagSigning.includes("git verify-tag --raw"), "Protected Android signer must create and locally verify a GPG-signed annotated tag");
+assert.ok(androidTagSigning.includes("NF >= 12 ? $NF : $3"), "Protected Android signer must extract the primary GPG fingerprint safely from VALIDSIG output");
 assert.ok(androidTagSigning.includes(".verification.verified") && androidTagSigning.includes("reason"), "Protected Android signer must require GitHub's cryptographic signature verification");
 assert.ok(androidTagSigning.includes("Create the draft release only after GitHub tag verification"), "Android Draft Release must be created only after GitHub verifies the tag");
 assert.ok(androidPublish.includes("GitHub cryptographic tag signature and exact commit target"), "Android asset publisher must independently verify the signed tag before upload");
