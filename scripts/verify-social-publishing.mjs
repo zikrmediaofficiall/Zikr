@@ -43,6 +43,7 @@ const facebookCallback = read("src/app/api/admin/social/facebook/callback/route.
 const adminClient = read("src/app/admin/social/social-client.tsx");
 const environmentVariablesDoc = read("docs/environment-variables.md");
 const envModule = read("src/lib/env.ts");
+const envExample = read(".env.example");
 const socialOperationsDoc = read("docs/admin/SOCIAL_PUBLISHING_OPERATIONS.md");
 const writtenWorker = read("scripts/jobs/written-content-automation.ts");
 const writtenPostService = read("src/features/social/services/written-content.ts");
@@ -560,6 +561,8 @@ console.log("✅ Scheduled, event-driven automated-QA social publishing and inte
 if (!envModule.includes('SOCIAL_PUBLISH_FACEBOOK_ENABLED: validatedEnv.SOCIAL_PUBLISH_FACEBOOK_ENABLED || "false"') ||
     !envModule.includes('SOCIAL_PUBLISH_YOUTUBE_ENABLED: validatedEnv.SOCIAL_PUBLISH_YOUTUBE_ENABLED || "false"') ||
     !environmentVariablesDoc.includes("SOCIAL_PUBLISH_FACEBOOK_ENABLED") ||
-    !environmentVariablesDoc.includes("SOCIAL_PUBLISH_YOUTUBE_ENABLED")) {
+    !environmentVariablesDoc.includes("SOCIAL_PUBLISH_YOUTUBE_ENABLED") ||
+    !envExample.includes("SOCIAL_PUBLISH_FACEBOOK_ENABLED=false") ||
+    !envExample.includes("SOCIAL_PUBLISH_YOUTUBE_ENABLED=false")) {
   failures.push("admin social readiness must read both platform enable flags from the production server environment and document them");
 }
