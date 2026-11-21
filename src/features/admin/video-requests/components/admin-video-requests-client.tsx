@@ -1,6 +1,7 @@
 "use client";
 
 import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video-publication";
+import { isVideoApprovalRecorded } from "@/features/videos/services/video-publish-approval";
 import { isKidsVideoContentMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
@@ -31,6 +32,17 @@ function isContentApproved(content: unknown): boolean {
   return audience.audience === "kids"
     ? hasHumanKidsVideoApproval(record)
     : record.approvalStatus === "approved";
+}
+
+function isReadyForHumanApproval(content: unknown): boolean {
+  if (!content || typeof content !== "object" || Array.isArray(content)) return false;
+  const record = content as Record<string, unknown>;
+  const audience = resolveVideoRequestAudience(record);
+  const snapshotHash = typeof record.approvalSnapshotHash === "string" ? record.approvalSnapshotHash : null;
+  return audience.ok &&
+    record.approvalStatus === "approved" &&
+    Boolean(snapshotHash) &&
+    isVideoApprovalRecorded(record, snapshotHash);
 }
 
 function isKidsVideoContent(content: unknown): boolean {
@@ -447,11 +459,11 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>التفاصيل</Button>
                   {request.status === "completed" && request.video_url && !isContentApproved(request.content) &&
-            (request.content as Record<string, unknown> | null)?.approvalStatus !== "qa_failed" && (
-              <Button variant="primary" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>
-                مراجعة واعتماد
-              </Button>
-          )}
+                    isReadyForHumanApproval(request.content) && (
+                      <Button variant="primary" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>
+                        مراجعة واعتماد
+                      </Button>
+                    )}
           {request.status === "failed" && (() => {
                     const retryAudience = resolveVideoRequestAudience(request.content);
                     const canRetry = retryAudience.ok && (retryAudience.audience !== "kids" || canManageKids);
@@ -559,6 +571,10 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
               <section className="mt-6 space-y-4 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-5">
                 {isContentApproved(details.content) ? (
                   <div role="status" className="font-semibold text-emerald-200">تم تسجيل الاعتماد البشري؛ سيُعاد التحقق من الفيديو قبل أي نشر مجدول.</div>
+                ) : !isReadyForHumanApproval(details.content) ? (
+                  <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
+                    لا يمكن تسجيل اعتماد بشري قبل نجاح فحص الجودة الآلي ووجود بصمة مصدر وفيديو مطابقة. لم يتم تجاوز أي فحص؛ أعد تجهيز الطلب أو أصلح سبب توقف فحص الجودة أولًا.
+                  </div>
                 ) : isKidsVideoContent(details.content) && !canManageKids ? (
                   <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
                     اعتماد فيديوهات الأطفال يتطلب صلاحية إدارة محتوى الأطفال بالإضافة إلى صلاحية إدارة الفيديوهات. يمكنك مراجعة التفاصيل، لكن لا يمكنك تسجيل الاعتماد.
