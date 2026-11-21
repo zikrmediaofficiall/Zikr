@@ -49,8 +49,8 @@ async function showNativeNotification(
       id: notificationId(tag),
       title,
       body,
-      sound: nativeAudio?.sound,
-      channelId: nativeAudio?.channelId,
+      ...(nativeAudio?.sound ? { sound: nativeAudio.sound } : {}),
+      ...(nativeAudio?.channelId ? { channelId: nativeAudio.channelId } : {}),
     });
     return true;
   } catch (error) {
