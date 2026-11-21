@@ -8,10 +8,10 @@ import * as Icons from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { logoutAction } from "@/app/auth/actions";
 import { createClient } from "@/lib/supabase/client";
-import { SITE_CATALOG } from "@/lib/navigation/catalog";
+import { SITE_CATALOG, getCatalogItemKey } from "@/lib/navigation/catalog";
 import { useLanguage } from "./language-provider";
 
-type MobileNavProps = { isAuthenticated?: boolean; hiddenHrefs?: string[] };
+type MobileNavProps = { isAuthenticated?: boolean; hiddenHrefs?: string[]; sectionOrder?: string[] };
 
 type IconName = string;
 
@@ -44,7 +44,7 @@ function isCurrentPath(pathname: string, href: string) {
   return pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
 }
 
-export function MobileNav({ isAuthenticated = false, hiddenHrefs = [] }: MobileNavProps) {
+export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOrder = [] }: MobileNavProps) {
   const pathname = usePathname() ?? "/";
   const { isEnglish, dir } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -54,10 +54,17 @@ export function MobileNav({ isAuthenticated = false, hiddenHrefs = [] }: MobileN
   const drawerRef = useRef<HTMLElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const hiddenHrefSet = useMemo(() => new Set(hiddenHrefs), [hiddenHrefs]);
+  const sectionOrderIndex = useMemo(() => new Map(sectionOrder.map((key, index) => [key, index])), [sectionOrder]);
   const catalogGroups = useMemo(() => SITE_CATALOG.map((group) => ({
     ...group,
-    items: group.items.filter((item) => !hiddenHrefSet.has(item.href)),
-  })).filter((group) => group.items.length > 0), [hiddenHrefSet]);
+    items: group.items
+      .filter((item) => !hiddenHrefSet.has(item.href))
+      .sort((a, b) => (sectionOrderIndex.get(getCatalogItemKey(a.href)) ?? Number.MAX_SAFE_INTEGER) - (sectionOrderIndex.get(getCatalogItemKey(b.href)) ?? Number.MAX_SAFE_INTEGER)),
+  })).filter((group) => group.items.length > 0).sort((a, b) => {
+    const aOrder = Math.min(...a.items.map((item) => sectionOrderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+    const bOrder = Math.min(...b.items.map((item) => sectionOrderIndex.get(getCatalogItemKey(item.href)) ?? Number.MAX_SAFE_INTEGER));
+    return aOrder - bOrder;
+  }), [hiddenHrefSet, sectionOrderIndex]);
   const [user, setUser] = useState<User | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
 
