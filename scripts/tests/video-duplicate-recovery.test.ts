@@ -219,6 +219,9 @@ assert.ok(adminReviewClient.includes("request.thumbnail_url"));
 assert.ok(adminReviewClient.includes("request.stored_thumbnail_url"), "derived preview posters must not be treated as persisted media references when checking deletion eligibility");
 assert.ok(adminReviewClient.includes("content.approvalStatus === \"awaiting_human_review\""), "completed unapproved review renders must be available for the guarded deletion action");
 assert.ok(adminReviewClient.includes("مراجعة واعتماد"), "the review queue must provide a direct review-and-approve action");
+assert.ok(adminReviewClient.includes("isReadyForHumanApproval(request.content)"), "the visible approval action must require a source-locked QA-passed approval snapshot");
+assert.ok(adminReviewClient.includes('record.approvalReviewerId === "system:zikr-video-factory"'), "manual Kids approval must upgrade only a verified system-QA approval, never override failed or incomplete QA");
+assert.ok(adminReviewClient.includes("لا يمكن تسجيل اعتماد بشري قبل نجاح فحص الجودة الآلي"), "the details panel must explain why requests without verified automated QA cannot be approved");
 assert.ok(adminReviewClient.includes("فتح الطلب الأصلي للمراجعة"));
 
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
