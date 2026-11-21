@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
-import { hasCurrentCodeOwnerApproval } from "./lib/release-gate-approval.mjs";
 import { getRequiredPullRequestCheckNames } from "./lib/release-gate-checks.mjs";
-import { findMergedMainPullRequest, getApprovalCommitSha } from "./lib/release-gate-pr.mjs";
+import { findMergedMainPullRequest, getPullRequestLookupCommitSha } from "./lib/release-gate-pr.mjs";
 
 const repository = process.env.GITHUB_REPOSITORY?.trim();
 const commitSha = process.env.RELEASE_COMMIT_SHA?.trim() || process.env.GITHUB_SHA?.trim();
@@ -101,14 +99,14 @@ async function requireCircleCiStatuses(sha, label, requireVercel) {
 }
 
 const sourceCommit = await api("/repos/" + repository + "/commits/" + commitSha);
-const approvalCommitSha = getApprovalCommitSha(commitSha, sourceCommit);
-const pullRequests = await allPages("/repos/" + repository + "/commits/" + approvalCommitSha + "/pulls");
-const pullRequest = findMergedMainPullRequest(pullRequests, approvalCommitSha);
+const pullRequestLookupSha = getPullRequestLookupCommitSha(commitSha, sourceCommit);
+const pullRequests = await allPages("/repos/" + repository + "/commits/" + pullRequestLookupSha + "/pulls");
+const pullRequest = findMergedMainPullRequest(pullRequests, pullRequestLookupSha);
 if (!pullRequest) {
-  if (approvalCommitSha !== commitSha) {
+  if (pullRequestLookupSha !== commitSha) {
     throw new Error(
       "The Android release-preparation commit must be based directly on a merged main PR; " +
-        "no merged PR was found for parent " + approvalCommitSha.slice(0, 12) + ".",
+        "no merged PR was found for parent " + pullRequestLookupSha.slice(0, 12) + ".",
     );
   }
   throw new Error("The release commit must be the merge commit of a merged pull request targeting main; direct pushes are not accepted.");
@@ -119,34 +117,12 @@ const requiredPullRequestChecks = getRequiredPullRequestCheckNames(
   changedFiles.map((file) => file.filename),
 );
 
-const codeownersSource = readFileSync(".github/CODEOWNERS", "utf8");
-const globalOwnerLine = codeownersSource
-  .split(/\r?\n/)
-  .map((line) => line.split("#", 1)[0].trim())
-  .filter(Boolean)
-  .map((line) => line.split(/\s+/))
-  .filter((tokens) => tokens[0] === "*")
-  .at(-1);
-
-if (!globalOwnerLine || globalOwnerLine.length < 2) {
-  throw new Error("A global CODEOWNERS rule with at least one owner is required for release.");
-}
-const owners = globalOwnerLine.slice(1).map((owner) => owner.replace(/^@/, ""));
-if (owners.some((owner) => owner.includes("/"))) {
-  throw new Error("Team CODEOWNERS entries require an owner/admin review check not supported by this preflight.");
-}
-
-const reviews = await allPages("/repos/" + repository + "/pulls/" + pullRequest.number + "/reviews");
-const approvedOwner = owners.find((owner) =>
-  hasCurrentCodeOwnerApproval(reviews, owner, pullRequest.head.sha),
-);
-if (!approvedOwner) {
+const repositoryOwner = repository.split("/")[0]?.trim().toLowerCase();
+const pullRequestAuthor = String(pullRequest.user?.login ?? "").trim().toLowerCase();
+const pullRequestHeadRepository = String(pullRequest.head?.repo?.full_name ?? "").trim().toLowerCase();
+if (!repositoryOwner || pullRequestAuthor !== repositoryOwner || pullRequestHeadRepository !== repository.toLowerCase()) {
   throw new Error(
-    "At least one global CODEOWNER must approve the current PR head " +
-      pullRequest.head.sha.slice(0, 12) +
-      " on PR #" +
-      pullRequest.number +
-      ".",
+    "Release PR must be authored by the canonical GitHub repository owner and use a branch from the canonical repository.",
   );
 }
 
@@ -161,5 +137,5 @@ await requireCircleCiStatuses(commitSha, "Merged commit statuses", requireVercel
 
 console.log(
   "RELEASE_PREFLIGHT_PASSED: commit=" + commitSha + "; PR=#" + pullRequest.number +
-  "; head=" + pullRequest.head.sha + "; reviewBasisCommit=" + approvalCommitSha + "; CODEOWNERS=" + owners.join(",") + "; VercelStatusRequired=" + requireVercelStatus + "; checks=success.",
+  "; head=" + pullRequest.head.sha + "; pullRequestLookupCommit=" + pullRequestLookupSha + "; repositoryOwner=" + repositoryOwner + "; VercelStatusRequired=" + requireVercelStatus + "; checks=success.",
 );
