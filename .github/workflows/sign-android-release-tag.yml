@@ -1,6 +1,9 @@
 name: Sign Android release tag
 
 on:
+  push:
+    branches:
+      - "android-release-sign-v*"
   workflow_dispatch:
     inputs:
       tag:
@@ -14,14 +17,16 @@ on:
 
 permissions:
   contents: write
+  checks: read
 
 concurrency:
-  group: android-release-sign-${{ inputs.tag }}
+  group: android-release-sign-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   sign:
     name: Sign, verify, and create the Android Draft Release
+    if: github.event_name == 'workflow_dispatch' || github.actor == 'zikrofficial-X'
     runs-on: ubuntu-24.04
     environment:
       name: android-release-signing
@@ -29,21 +34,34 @@ jobs:
       - name: Checkout exact release-preparation commit
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.commit_sha }}
+          ref: ${{ inputs.commit_sha || 'main' }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Validate exact main source and release metadata
         shell: bash
         env:
-          TAG: ${{ inputs.tag }}
-          COMMIT_SHA: ${{ inputs.commit_sha }}
+          REQUESTED_TAG: ${{ inputs.tag || '' }}
+          REQUESTED_COMMIT_SHA: ${{ inputs.commit_sha || '' }}
         run: |
           set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            TAG="$REQUESTED_TAG"
+            COMMIT_SHA="$REQUESTED_COMMIT_SHA"
+          else
+            [[ "$GITHUB_REF_NAME" =~ ^android-release-sign-v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+              echo "::error::Push-triggered signing requires the canonical android-release-sign-vX.Y.Z branch."
+              exit 1
+            }
+            TAG="${GITHUB_REF_NAME#android-release-sign-}"
+            COMMIT_SHA="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | awk '{print $1}')"
+          fi
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Invalid semantic release tag"; exit 1; }
           [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid release commit SHA"; exit 1; }
           MAIN_SHA="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | awk '{print $1}')"
           test "$MAIN_SHA" = "$COMMIT_SHA" || { echo "::error::Release commit is not the current main HEAD"; exit 1; }
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "COMMIT_SHA=$COMMIT_SHA" >> "$GITHUB_ENV"
           PACKAGE_VERSION="$(node -p 'require("./package.json").version')"
           RELEASE_TAG="$(tr -d '\r\n' < .release-tag)"
           test "v$PACKAGE_VERSION" = "$TAG"
@@ -60,6 +78,31 @@ jobs:
             exit 1
           fi
 
+      - name: Require successful exact-commit GPG signing preflight
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            CHECK_RUNS="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${COMMIT_SHA}/check-runs?per_page=100")"
+            PREFLIGHT="$(jq -c '[.check_runs[]? | select(.name == "Verify protected Android Git-tag signing configuration")] | sort_by(.started_at // .created_at) | last // {}' <<< "$CHECK_RUNS")"
+            STATUS="$(jq -r '.status // empty' <<< "$PREFLIGHT")"
+            CONCLUSION="$(jq -r '.conclusion // empty' <<< "$PREFLIGHT")"
+            if [[ "$STATUS" == "completed" && "$CONCLUSION" == "success" ]]; then
+              echo "PASS: Protected GPG preflight succeeded for exact release commit $COMMIT_SHA."
+              exit 0
+            fi
+            if [[ "$STATUS" == "completed" && -n "$CONCLUSION" && "$CONCLUSION" != "success" ]]; then
+              echo "::error::Protected GPG preflight completed with conclusion=$CONCLUSION for $COMMIT_SHA."
+              exit 1
+            fi
+            echo "Waiting for exact-commit GPG signing preflight (attempt $attempt/30; status=${STATUS:-missing})."
+            sleep 10
+          done
+          echo "::error::Timed out waiting for successful exact-commit GPG signing preflight."
+          exit 1
+
       - name: Import owner-managed OpenPGP key and create signed tag
         id: sign
         shell: bash
@@ -71,8 +114,6 @@ jobs:
           SIGNING_NAME: ${{ vars.ANDROID_RELEASE_SIGNING_NAME }}
           SIGNING_GITHUB_USER: ${{ vars.ANDROID_RELEASE_SIGNING_GITHUB_USER }}
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
-          COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
           : "${GPG_PRIVATE_KEY:?Missing protected signing key}"
@@ -141,7 +182,6 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$TAG:refs/tags/$TAG"
@@ -150,8 +190,6 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
-          COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
           for attempt in $(seq 1 10); do
@@ -175,8 +213,6 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
-          COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"

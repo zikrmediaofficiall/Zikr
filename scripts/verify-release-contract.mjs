@@ -55,6 +55,13 @@ assert.ok(!releaseManager.includes("buildTag"), "Android release manager must no
 const androidTagSigningWorkflow = read(".github/workflows/sign-android-release-tag.yml");
 const expectedNotesGuard = 'grep -Fq "Release tag: \\`$TAG\\`" "$NOTES"';
 assert.ok(androidTagSigningWorkflow.includes(expectedNotesGuard), "Signed release workflow must compare literal backtick-delimited notes without shell command substitution");
+assert.ok(androidTagSigningWorkflow.includes('android-release-sign-v*'), "Protected Android signer must support the guarded branch-triggered signing path");
+assert.ok(androidTagSigningWorkflow.includes('GITHUB_REF_NAME#android-release-sign-'), "Push-triggered signing must derive its tag only from the canonical release-sign branch name");
+assert.ok(androidTagSigningWorkflow.includes("Release commit is not the current main HEAD"), "Branch-triggered signing must bind the signed tag to the exact current main commit");
+assert.ok(androidTagSigningWorkflow.includes("Verify protected Android Git-tag signing configuration"), "Tag signing must require a successful preflight for the exact release commit");
+assert.ok(androidTagSigningWorkflow.includes("checks: read"), "Tag signing must have read-only permission to verify the exact-commit preflight result");
+assert.ok(androidTagSigningWorkflow.includes("github.actor == 'zikrofficial-X'"), "Push-triggered signing must be restricted to the repository owner identity");
+
 
 const androidCircle = read(".circleci/config.yml");
 const androidDraftJob = androidCircle.split("  android-release-draft:")[1]?.split("\n  android-rebuild:")[0] ?? "";
