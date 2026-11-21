@@ -41,7 +41,7 @@ export default async function SectionsPage({
   searchParams?: Promise<SearchParams>;
 }) {
   const [params, locale, visibility, sectionOrder] = await Promise.all([
-    searchParams ?? Promise.resolve({}),
+    searchParams ?? Promise.resolve<SearchParams>({}),
     getRequestLocale(),
     getSectionVisibility(),
     getSectionDisplayOrder(),
