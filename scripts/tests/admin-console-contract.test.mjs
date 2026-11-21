@@ -9,6 +9,7 @@ const moduleDirectory = read("src/features/admin/components/admin-module-directo
 const releasePage = read("src/app/admin/release/page.tsx");
 const releaseAction = read("src/app/admin/release/actions.ts");
 const adminCommandCenter = read("src/features/admin/components/admin-platform-command-center.tsx");
+const videoRequests = read("src/features/admin/video-requests/components/admin-video-requests-client.tsx");
 
 assert.ok(layout.includes("<AdminRouteBreadcrumbs groups={visibleGroups} />"), "Admin breadcrumbs must use permission-filtered navigation groups");
 assert.ok(sidebar.includes("matchesAdminSearch(query") && sidebar.includes("matchesAdminSearch(mobileQuery"), "Desktop and mobile nav search must share matching behavior");
@@ -27,4 +28,7 @@ for (const route of ["/admin/video", "/admin/social", "/admin/sections", "/admin
 }
 assert.match(adminCommandCenter, /quickActionCandidates\.filter\(\(\[, href\]\) => availableHrefs\.has\(href\)\)/, "quick actions must remain permission-filtered");
 
-console.log("Admin console navigation and signed-release safety contracts passed.");
+assert.match(videoRequests, /belongs to request\\s+\\(\[0-9a-f\]/i, "duplicate renders must resolve the canonical request ID from the worker explanation");
+assert.ok(videoRequests.includes("فتح الطلب الأصلي للمراجعة"), "duplicate renders must offer a direct action to review the canonical request");
+
+console.log("Admin console navigation, video duplicate review, and signed-release safety contracts passed.");
