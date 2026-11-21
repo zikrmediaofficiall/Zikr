@@ -210,3 +210,12 @@ assert.ok(circleWorkflow.includes("pnpm translate:content:en") && circleWorkflow
   "manual English sync must run and report the additional content worker independently");
 
 console.log("English content sync concurrency and retry contracts passed.");
+
+assert.match(circleWorkflow, /schedule:\\s*[\\s\\S]*?cron: "15 7 \\* \\* \\*"/,
+  "the protected GitHub workflow must provide a daily backup after the primary CircleCI translation schedule");
+assert.match(circleWorkflow, /environment: production/,
+  "the scheduled translation backup must use protected production environment credentials");
+assert.match(circleWorkflow, /GEMINI_API_KEY: \\$\\{\\{ secrets\\.GEMINI_API_KEY \\}\\}/,
+  "the scheduled backup must receive Gemini credentials only through the protected GitHub environment");
+assert.match(circleWorkflow, /test -n "\\$\\{GEMINI_API_KEY:-\\}"/,
+  "the backup must reject a missing Gemini credential before running translation writes");
