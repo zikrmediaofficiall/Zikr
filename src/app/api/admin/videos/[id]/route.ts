@@ -332,11 +332,11 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message === 'DUPLICATE_FILE_DELETED_ROW_CLEANUP_PENDING') {
-      console.error('[api/admin/videos/[id]] Cloudinary asset was deleted but request-row cleanup needs reconciliation:', id);
+      console.error('[api/admin/videos/[id]] obsolete duplicate deletion cleanup error reached:', message);
       return NextResponse.json({ error: 'حُذف ملف النسخة المكررة من Cloudinary، لكن سجل الطلب لم يُحذف بسبب تعارض في البيانات. حدّث القائمة وتواصل مع المسؤول قبل أي إعادة نشر.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
     }
     if (message === 'DUPLICATE_ASSET_RESTORE_REQUIRED') {
-      console.error('[api/admin/videos/[id]] duplicate asset link needs reconciliation:', id);
+      console.error('[api/admin/videos/[id]] duplicate asset link needs reconciliation.');
       return NextResponse.json({ error: 'تعذر الحذف الذري وتعذر استعادة رابط الملف تلقائيًا. لم يتم حذف ملف Cloudinary؛ يلزم فحص سجل الطلب.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
     }
     if (message === 'DUPLICATE_ASSET_CLEAR_POINTER_CONFLICT') {
