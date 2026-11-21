@@ -18,7 +18,7 @@ assert.ok(commandPalette.includes("matchesAdminSearch(query"), "Command palette 
 assert.ok(!moduleDirectory.includes('event.key.toLowerCase() === "k"') && !moduleDirectory.includes('event.key === "/"'), "Module directory must not register colliding global search shortcuts");
 assert.ok(releasePage.includes("android-signing-preflight") && releasePage.includes("runAndroidReleaseSigningPreflightAction"), "Release center must offer a protected GPG preflight action");
 assert.ok(releasePage.includes("disabled={!signingPreflight?.ready || operationIsActive || operationNeedsReview}"), "Release action must remain disabled until the exact-main GPG preflight passes");
-assert.ok(releasePage.includes("ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY") && releasePage.includes("ANDROID_RELEASE_TAG_GPG_FINGERPRINT"), "Release UI must list owner-managed protected signing settings");
+assert.ok(releasePage.includes("ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY") && releasePage.includes("ANDROID_RELEASE_TAG_GPG_FINGERPRINT") && releasePage.includes("ANDROID_RELEASE_SIGNING_GITHUB_USER"), "Release UI must list owner-managed protected signing settings");
 assert.ok(!releasePage.includes("SIGNED_RELEASE_BLOCKER") && !releaseAction.includes("SIGNED_RELEASE_BLOCKER"), "Release UI and action must not hard-code a permanent signing blocker");
 assert.ok(releaseAction.includes("prepareAndroidRelease") && releaseAction.includes("assertNoActiveReleaseOperation"), "Release action must prepare canonical metadata and prevent overlapping operations");
 assert.ok(releaseAction.includes("recordAdminAuditEventSafely"), "Release preparation must preserve the admin audit trail");

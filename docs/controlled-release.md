@@ -78,4 +78,4 @@ Required environment variables:
 - `ANDROID_RELEASE_SIGNING_NAME`: tagger display name.
 - `ANDROID_RELEASE_SIGNING_GITHUB_USER`: GitHub user account where the public GPG key and signer email are registered (this may differ from the repository owner if the repository belongs to an organization).
 
-The public key must be uploaded to the repository owner's GitHub account with the same email and fingerprint. If any setting is absent or mismatched, the preflight fails without creating a version commit or tag. Never delete or retarget an existing immutable release to retrofit a signature.
+The public key must be uploaded to the GitHub user account named by `ANDROID_RELEASE_SIGNING_GITHUB_USER`, with the same signer email and fingerprint. That user may differ from the organization/repository owner. If any setting is absent or mismatched, the preflight fails without creating a version commit or tag. Never delete or retarget an existing immutable release to retrofit a signature.

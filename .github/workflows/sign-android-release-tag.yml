@@ -77,10 +77,10 @@ jobs:
           : "${GPG_PRIVATE_KEY:?Missing protected signing key}"
           : "${EXPECTED_FINGERPRINT:?Missing trusted GPG fingerprint}"
           : "${SIGNING_EMAIL:?Missing verified signer email}"
-                    : "${SIGNING_NAME:?Missing signer display name}"
+          : "${SIGNING_NAME:?Missing signer display name}"
           : "${SIGNING_GITHUB_USER:?Missing GitHub account that owns the signing key}"
           EXPECTED_FINGERPRINT="$(printf '%s' "$EXPECTED_FINGERPRINT" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
-                    TMP_DIR="$(mktemp -d)"
+          TMP_DIR="$(mktemp -d)"
           export GNUPGHOME="$TMP_DIR/gnupg"
           mkdir -m 700 "$GNUPGHOME"
           trap 'rm -rf "$TMP_DIR"' EXIT
