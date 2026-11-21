@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AudioLines, ExternalLink, Headphones, Mic2, Sparkles } from "lucide-react";
 import {
   getAudioSettingsFromStorage,
+  getSiteAudioChoiceKey,
   persistAudioSettings,
   registerAudioChoices,
   type AudioChoice,
@@ -32,7 +33,7 @@ const slotFor = (kind: AudioKind): AudioSlot => kind === "adhan" ? "prayer" : ki
 
 function toChoice(asset: AudioAsset): AudioChoice {
   return {
-    key: "site:id:" + asset.id,
+    key: getSiteAudioChoiceKey(asset.id),
     label: asset.title ?? "مقطع صوتي",
     webUrl: asset.url,
     nativeFile: null,
@@ -81,7 +82,7 @@ export function AudioLibrary() {
 
   const choose = (asset: AudioAsset) => {
     const slot = slotFor(asset.kind);
-    const next = persistAudioSettings({ ...selected, [slot]: "site:id:" + asset.id });
+    const next = persistAudioSettings({ ...selected, [slot]: getSiteAudioChoiceKey(asset.id) });
     setSelected(next);
   };
 
@@ -103,7 +104,7 @@ export function AudioLibrary() {
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {items.map(asset => {
                 const slot = slotFor(asset.kind);
-                const key = "site:id:" + asset.id;
+                const key = getSiteAudioChoiceKey(asset.id);
                 const activeChoice = selected[slot] === key;
                 return (
                   <article key={asset.id} className={"rounded-2xl border p-4 transition " + (activeChoice ? "border-brand-gold/45 bg-brand-gold/5" : "border-brand-cream/10 bg-black/15")}>
