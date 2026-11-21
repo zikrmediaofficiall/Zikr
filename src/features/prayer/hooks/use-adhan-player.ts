@@ -3,7 +3,6 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   AZAN_CLIP_URL,
-  playAzanTone,
   refreshSiteAudio,
   unlockAudioContext,
 } from '@/lib/audio/spiritual-tones';
@@ -90,7 +89,6 @@ export function useAdhanPlayer(): UseAdhanPlayerReturn {
       await audio.play();
       setIsPlaying(true);
     } catch {
-      playAzanTone();
       setIsPlaying(false);
     }
   }, []);
