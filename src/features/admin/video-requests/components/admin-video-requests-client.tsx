@@ -214,14 +214,17 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   async function deleteRequest(request: VideoGenerationRequest) {
     const generatedAsset = isSafeGeneratedAssetDeletionCandidate(request, canManageKids);
     const qaFailedAsset = isQaFailedGeneratedVideo(request);
+    const requestContent = request.content && typeof request.content === "object" && !Array.isArray(request.content)
+      ? request.content as Record<string, unknown> : {};
+    const pendingReview = request.status === "completed" && requestContent.approvalStatus === "awaiting_human_review";
     if (!canDelete || (!isSafelyDeletable(request, canManageKids) && !generatedAsset)) return;
     const confirmation = generatedAsset
       ? qaFailedAsset
         ? `هذا الفيديو مكتمل تقنيًا لكنه رُفض في فحص الجودة ولم يُنشر. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب بعد التأكد من عدم ارتباطه بأي منشور أو مكتبة. لا يمكن استعادته بعد الحذف. متابعة؟`
-        : `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
-      : pendingReview
-        ? `هذا الفيديو مكتمل لكنه لم يحصل على اعتماد بشري بعد. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب فقط بعد إثبات ملكية الملف وخلوه من أي رابط للمكتبة أو النشر. لا يمكن التراجع عن الحذف. متابعة؟`
-        : `تأكيد حذف سجل الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`;
+        : pendingReview
+          ? `هذا الفيديو مكتمل لكنه لم يحصل على اعتماد بشري بعد. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب فقط بعد إثبات ملكية الملف وخلوه من أي رابط للمكتبة أو النشر. لا يمكن التراجع عن الحذف. متابعة؟`
+          : `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
+      : `تأكيد حذف سجل الفيديو المنتهي «${request.title}»؟ لن يُحذف أي ملف أو سجل نشر.`;
     if (!window.confirm(confirmation)) return;
     setBusyId(request.id); setError(""); setMessage("");
     try {
