@@ -56,9 +56,10 @@ async function prepareGeneratedCloudinaryAssetDeletion(
     Boolean(canonicalId) &&
     /duplicate generated content; publication skipped/i.test(requestRow.error_message ?? '');
   const originalVideoUrl = requestRow.video_url;
+  if (!originalVideoUrl) throw new Error('GENERATED_ASSET_NOT_ELIGIBLE');
   const contentPreparation = prepareGeneratedVideoContentForDeletion(requestRow.content, originalVideoUrl);
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim() ?? '';
-  if ((!duplicate && !qaFailed && !pendingHumanReview && !terminalGeneratedAsset) || !originalVideoUrl || !cloudName) {
+  if ((!duplicate && !qaFailed && !pendingHumanReview && !terminalGeneratedAsset) || !cloudName) {
     throw new Error('GENERATED_ASSET_NOT_ELIGIBLE');
   }
   if (
