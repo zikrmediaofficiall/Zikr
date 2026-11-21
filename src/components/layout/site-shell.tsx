@@ -58,8 +58,8 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
         <Navbar />
         <main id="main-content" tabIndex={-1}>
           {children}
-          <EditorialDepth pathname={pathname} locale={initialLocale} />
-          <EditorialUtilityDepth pathname={pathname} locale={initialLocale} />
+          <EditorialDepth pathname={pathname} />
+          <EditorialUtilityDepth pathname={pathname} />
           <ContentExpansion pathname={pathname} />
         </main>
         <Footer socialLinks={{

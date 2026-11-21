@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DEFAULT_AUDIO_SETTINGS, getAudioChoice, getNativeAudio, normalizeAudioSettings, registerAudioChoices } from "../../src/lib/audio/config";
+import { CURATED_AUDIO_LIBRARY } from "../../src/lib/audio/curated-library";
 import { ensureNativeNotificationChannels } from "../../src/features/notifications/services/native-notification-channels";
 import { getNotificationPermission, requestNotificationPermission } from "../../src/features/notifications/services/notifications";
 import { hasDismissedNotificationBanner, persistNotificationBannerDismissal } from "../../src/features/notifications/services/notification-banner-storage";
@@ -35,12 +36,12 @@ const iosDhikr = getNativeAudio("dhikr", "ios");
 const iosSalawat = getNativeAudio("salawat", "ios");
 
 assert.equal(iosPrayer.sound, "adhan.wav");
-assert.equal(iosDhikr.sound, "adhan.wav");
+assert.equal(iosDhikr.sound, undefined, "iOS must not substitute an adhan for a dhikr reminder");
 assert.equal(iosSalawat.sound, "salawat.wav");
 assert.ok(!iosPrayer.sound.endsWith(".mp3"));
 assert.ok(!iosSalawat.sound.endsWith(".mp3"));
 
-for (const sound of [iosPrayer.sound, iosDhikr.sound, iosSalawat.sound]) {
+for (const sound of [iosPrayer.sound, iosDhikr.sound, iosSalawat.sound].filter((value): value is string => Boolean(value))) {
   assert.ok(
     existsSync(resolve(process.cwd(), "ios/App/App/Resources", sound)),
     `iOS notification sound must exist in the native app bundle: ${sound}`,
@@ -50,7 +51,8 @@ for (const sound of [iosPrayer.sound, iosDhikr.sound, iosSalawat.sound]) {
 const androidPrayer = getNativeAudio("prayer", "android");
 const androidDhikr = getNativeAudio("dhikr", "android");
 const androidSalawat = getNativeAudio("salawat", "android");
-for (const sound of [androidPrayer.sound, androidDhikr.sound, androidSalawat.sound]) {
+assert.equal(androidDhikr.sound, undefined, "Android must use the system default rather than an adhan for dhikr reminders");
+for (const sound of [androidPrayer.sound, androidDhikr.sound, androidSalawat.sound].filter((value): value is string => Boolean(value))) {
   assert.ok(
     existsSync(resolve(process.cwd(), "android/app/src/main/res/raw", sound)),
     `Android notification sound must exist in res/raw: ${sound}`,
@@ -69,7 +71,7 @@ const androidChannels: Array<{
   name: string;
   description: string;
   importance: number;
-  sound: string;
+  sound?: string;
   vibration: boolean;
   visibility: number;
 }> = [];
@@ -101,6 +103,16 @@ assert.equal(
   getAudioChoice("salawat-wav", "prayer").key,
   "adhan-01",
   "slot-aware lookup must fall back to the correct bundled audio instead of playing another slot's sound",
+);
+assert.equal(
+  getAudioChoice("missing-dhikr-choice", "dhikr").slot,
+  "dhikr",
+  "missing dhikr choices must fall back to another dhikr recording, never an adhan",
+);
+assert.match(
+  getAudioChoice("missing-dhikr-choice", "dhikr").key,
+  /^site:dhikr:/,
+  "the dhikr fallback must come from the curated human dhikr catalogue",
 );
 
 const staleRemoteChoice = {
@@ -143,6 +155,9 @@ assert.deepEqual(
 assert.ok(androidChannels.some(channel =>
   channel.id === getNativeAudio("dhikr", "android").channelId,
 ));
+const dhikrChannel = androidChannels.find(channel => channel.id === androidDhikr.channelId);
+assert.ok(dhikrChannel);
+assert.equal(dhikrChannel.sound, undefined, "the dhikr notification channel must not be configured with an adhan file");
 
 let iosChannelCount = 0;
 await ensureNativeNotificationChannels(
@@ -153,11 +168,25 @@ assert.equal(iosChannelCount, 0);
 
 const audioConfigSource = readFileSync(resolve(process.cwd(), "src/lib/audio/config.ts"), "utf8");
 const audioLibrarySource = readFileSync(resolve(process.cwd(), "src/components/audio/audio-library.tsx"), "utf8");
+const siteAudioServiceSource = readFileSync(resolve(process.cwd(), "src/features/audio/services/site-audio.ts"), "utf8");
+assert.equal(CURATED_AUDIO_LIBRARY.filter(asset => asset.kind === "adhan").length, 10);
+assert.equal(CURATED_AUDIO_LIBRARY.filter(asset => asset.kind === "salawat").length, 10);
+assert.equal(CURATED_AUDIO_LIBRARY.filter(asset => asset.kind === "dhikr").length, 10);
+assert.match(siteAudioServiceSource, /const missingKindFallbacks = getCuratedFallbackLibrary\(\)\.filter/);
+assert.match(siteAudioServiceSource, /return \[\.\.\.databaseAssets, \.\.\.missingKindFallbacks\]/);
+assert.match(audioLibrarySource, /import \{ CURATED_AUDIO_LIBRARY \} from "@\/lib\/audio\/curated-library"/,
+  "the browser audio library must import the reviewed public catalogue for a first-render fallback");
+assert.match(audioLibrarySource, /useState<AudioAsset\[]>\(\(\) => getCuratedFallbackLibrary\(\)\)/,
+  "public audio cards must render immediately instead of waiting for a successful API request");
+assert.match(audioLibrarySource, /const nextLibrary = payload\.library\?\.length[\s\S]*?getCuratedFallbackLibrary\(\)/,
+  "an empty successful API response must not leave all audio categories blank");
+assert.match(audioLibrarySource, /\.catch\(\(\) => \{[\s\S]*?registerAudioChoices\(fallback\.map\(toChoice\)\)/,
+  "an unavailable API must register and display the bundled audio choices");
 assert.ok(audioConfigSource.includes("if (audioResponse.ok) registerAudioChoices(remote)"),
   "a failed site-audio response must not clear the last known-good remote audio snapshot");
 assert.ok(audioLibrarySource.includes("asset.attribution"), "the public audio library must display the creator attribution supplied by the catalog");
 assert.ok(audioLibrarySource.includes("if (!response.ok) throw new Error") &&
-  audioLibrarySource.indexOf("if (!response.ok) throw new Error") < audioLibrarySource.indexOf("registerAudioChoices(choices)"),
+  audioLibrarySource.indexOf("if (!response.ok) throw new Error") < audioLibrarySource.indexOf("registerAudioChoices(nextLibrary.map(toChoice))"),
   "the audio library must replace its snapshot only after a successful catalog response");
 
 const bridgeSource = readFileSync(

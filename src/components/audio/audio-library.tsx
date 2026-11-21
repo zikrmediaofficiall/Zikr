@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CURATED_AUDIO_LIBRARY } from "@/lib/audio/curated-library";
 import { AudioLines, ExternalLink, Headphones, Mic2, Sparkles } from "lucide-react";
 import {
   getAudioSettingsFromStorage,
+  getSiteAudioChoiceKey,
   persistAudioSettings,
   registerAudioChoices,
   type AudioChoice,
@@ -28,11 +30,32 @@ type AudioResponse = {
   library?: AudioAsset[];
 };
 
+const DEFAULT_CURATED_KEYS = new Set([
+  "adhan:beautiful",
+  "salawat:muhammad-pbuh",
+  "dhikr:subhanallah-1",
+]);
+
+function getCuratedFallbackLibrary(): AudioAsset[] {
+  return CURATED_AUDIO_LIBRARY.map(audio => ({
+    id: "curated:" + audio.key,
+    kind: audio.kind,
+    title: audio.title,
+    url: audio.webUrl,
+    isPrimary: DEFAULT_CURATED_KEYS.has(audio.key),
+    isHuman: audio.human,
+    sourceUrl: audio.sourceUrl,
+    sourceName: audio.sourceName,
+    license: audio.license,
+    attribution: audio.attribution ?? null,
+  }));
+}
+
 const slotFor = (kind: AudioKind): AudioSlot => kind === "adhan" ? "prayer" : kind;
 
 function toChoice(asset: AudioAsset): AudioChoice {
   return {
-    key: "site:id:" + asset.id,
+    key: getSiteAudioChoiceKey(asset.id),
     label: asset.title ?? "مقطع صوتي",
     webUrl: asset.url,
     nativeFile: null,
@@ -50,7 +73,7 @@ const GROUPS = [
 ];
 
 export function AudioLibrary() {
-  const [library, setLibrary] = useState<AudioAsset[]>([]);
+  const [library, setLibrary] = useState<AudioAsset[]>(() => getCuratedFallbackLibrary());
   const [selected, setSelected] = useState<Record<AudioSlot, string>>(() => getAudioSettingsFromStorage());
   const [failedAssets, setFailedAssets] = useState<Record<string, boolean>>({});
 
@@ -63,13 +86,18 @@ export function AudioLibrary() {
       })
       .then(payload => {
         if (!active) return;
-        const choices = (payload.library ?? []).map(toChoice);
-        registerAudioChoices(choices);
-        setLibrary(payload.library ?? []);
+        const nextLibrary = payload.library?.length
+          ? payload.library
+          : getCuratedFallbackLibrary();
+        registerAudioChoices(nextLibrary.map(toChoice));
+        setLibrary(nextLibrary);
         setSelected(getAudioSettingsFromStorage());
       })
       .catch(() => {
-        if (active) setLibrary([]);
+        if (!active) return;
+        const fallback = getCuratedFallbackLibrary();
+        registerAudioChoices(fallback.map(toChoice));
+        setLibrary(fallback);
       });
     return () => { active = false; };
   }, []);
@@ -81,7 +109,7 @@ export function AudioLibrary() {
 
   const choose = (asset: AudioAsset) => {
     const slot = slotFor(asset.kind);
-    const next = persistAudioSettings({ ...selected, [slot]: "site:id:" + asset.id });
+    const next = persistAudioSettings({ ...selected, [slot]: getSiteAudioChoiceKey(asset.id) });
     setSelected(next);
   };
 
@@ -103,7 +131,7 @@ export function AudioLibrary() {
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {items.map(asset => {
                 const slot = slotFor(asset.kind);
-                const key = "site:id:" + asset.id;
+                const key = getSiteAudioChoiceKey(asset.id);
                 const activeChoice = selected[slot] === key;
                 return (
                   <article key={asset.id} className={"rounded-2xl border p-4 transition " + (activeChoice ? "border-brand-gold/45 bg-brand-gold/5" : "border-brand-cream/10 bg-black/15")}>

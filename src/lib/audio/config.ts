@@ -41,14 +41,31 @@ export type AudioSettings = Record<AudioSlot, string>;
 const AUDIO_SETTINGS_KEY = "zikr_audio_settings";
 let remoteAudioChoices: AudioChoice[] = [];
 
+/** Stable key shared by the database-backed library and its curated fallback. */
+export function getSiteAudioChoiceKey(id: string): string {
+  return id.startsWith("curated:")
+    ? "site:" + id.slice("curated:".length)
+    : "site:id:" + id;
+}
+
 function allChoices(): readonly AudioChoice[] {
   return [...AUDIO_CHOICES, ...remoteAudioChoices];
 }
 
-function getBundledFallback(slot: AudioSlot): AudioChoice {
+function getFallbackAudioChoice(slot: AudioSlot): AudioChoice {
+  // Never substitute audio from another category. Dhikr has no bundled native
+  // recording, so its web fallback must come from the curated dhikr catalogue.
   return (
     BUNDLED_AUDIO_CHOICES.find(choice => choice.slot === slot) ??
-    BUNDLED_AUDIO_CHOICES[0]
+    AUDIO_CHOICES.find(choice => choice.slot === slot) ??
+    {
+      key: `unavailable:${slot}`,
+      label: "لا يوجد تسجيل متاح",
+      webUrl: "",
+      nativeFile: null,
+      slot,
+      human: false,
+    }
   );
 }
 
@@ -83,7 +100,7 @@ export function normalizeAudioSettings(
 }
 
 export function getAudioChoice(key: string, slot: AudioSlot = "prayer"): AudioChoice {
-  return allChoices().find(choice => choice.key === key && choice.slot === slot) ?? getBundledFallback(slot);
+  return allChoices().find(choice => choice.key === key && choice.slot === slot) ?? getFallbackAudioChoice(slot);
 }
 
 export function getAudioSettingsFromStorage(): AudioSettings {
@@ -144,7 +161,7 @@ export async function loadAudioSettings(): Promise<AudioSettings> {
     const remote = (audioPayload.library ?? []).map(choice => {
       const slot: AudioSlot = choice.kind === "adhan" ? "prayer" : choice.kind;
       return {
-        key: "site:id:" + choice.id,
+        key: getSiteAudioChoiceKey(choice.id),
         label: choice.title ?? "مقطع صوتي",
         webUrl: choice.url,
         nativeFile: null,
@@ -167,7 +184,7 @@ export async function loadAudioSettings(): Promise<AudioSettings> {
         .filter(item => item.isPrimary)
         .map(item => {
           const slot: AudioSlot = item.kind === "adhan" ? "prayer" : item.kind;
-          return [slot, "site:id:" + item.id];
+          return [slot, getSiteAudioChoiceKey(item.id)];
         }),
     );
 
@@ -185,23 +202,28 @@ export function getNativeAudio(
   slot: AudioSlot,
   platform: string = Capacitor.getPlatform(),
 ): {
-  sound: string;
+  sound?: string;
   channelId: string;
 } {
   const settings = getAudioSettingsFromStorage();
-  const choice = getAudioChoice(settings[slot], slot);
-  const native = choice.nativeFile ? choice : getBundledFallback(slot);
 
-  // iOS notification sounds must be present in the native app bundle and use
-  // supported WAV/CAF formats. The iOS target ships only adhan.wav/salawat.wav;
-  // remote choices and the Android-only MP3 fallback remain foreground audio.
-  const sound = platform === "ios"
-    ? slot === "salawat" ? "salawat.wav" : "adhan.wav"
-    : native.nativeFile as string;
+  // Native notification bundles contain adhan and salawat only. A dhikr
+  // reminder must never borrow an adhan file; omit the custom sound and let
+  // Android/iOS use the user's normal notification sound instead.
+  let sound: string | undefined;
+  if (slot === "prayer") {
+    sound = platform === "ios"
+      ? "adhan.wav"
+      : BUNDLED_AUDIO_CHOICES.find(choice => choice.slot === "prayer")?.nativeFile ?? undefined;
+  } else if (slot === "salawat") {
+    sound = platform === "ios"
+      ? "salawat.wav"
+      : BUNDLED_AUDIO_CHOICES.find(choice => choice.slot === "salawat")?.nativeFile ?? undefined;
+  }
 
   return {
-    sound,
-    channelId: "zikr-audio-" + slot + "-" + settings[slot] + "-v3",
+    ...(sound ? { sound } : {}),
+    channelId: "zikr-audio-" + slot + "-" + settings[slot] + "-v4",
   };
 }
 
