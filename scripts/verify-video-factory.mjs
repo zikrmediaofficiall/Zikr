@@ -19,7 +19,10 @@ const template = read("scripts/jobs/template-video-automation.ts");
 const durationService = read("src/features/videos/services/render-duration.ts");
 for (const scene of ["emerald", "paper", "rose"]) {
   read(`public/video/templates/${scene}.svg`);
-  if (!template.includes(`public/video/templates/${scene}.svg`)) failures.push(`new visual template is not wired: ${scene}`);
+  if (!templateConfig.includes('"'+scene+'"')) failures.push(`legacy visual template is not registered: ${scene}`);
+}
+if (!template.includes("legacySceneAssets") || !template.includes("videoTemplateAssetPath")) {
+  failures.push("renderer must resolve legacy scene classes through the shared audience-safe visual asset registry");
 }
 if (!durationService.includes("MAX_AUTO_VIDEO_SECONDS = 60")) failures.push("automated video duration policy must support narrated shorts up to 60 seconds");
 if (!template.includes("resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS)")) failures.push("video renderer must use the shared tested render-duration policy");
