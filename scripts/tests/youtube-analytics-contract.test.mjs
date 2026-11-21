@@ -24,5 +24,5 @@ assert.match(panel, /مصادر الزيارات إلى فيديوهات الق�
 assert.match(panel, /متوسط مدة المشاهدة/);
 console.log("✅ YouTube Analytics authorization and reporting contracts passed.");
 
-assert.match(panel, /Google رفض تجديد جلسة OAuth الحالية/);
+assert.match(panel, /YouTube Analytics لم تسمح بقراءة التقرير/);
 assert.doesNotMatch(panel, /يحتاج إلى youtube\.upload/);
