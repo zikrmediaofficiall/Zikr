@@ -118,7 +118,8 @@ assert.ok(
 assert.doesNotMatch(workflow, /Quality gate:\s*PASSED/i, "the workflow must not hardcode a successful quality-gate claim");
 
 assert.match(gate, /CODEOWNERS/);
-assert.match(gate, /merge_commit_sha === approvalCommitSha/);
+assert.ok(gate.includes("findMergedMainPullRequest(pullRequests, approvalCommitSha)"),
+  "release preflight must delegate exact merged-main commit matching to its validated helper");
 const approval = readFileSync("scripts/lib/release-gate-approval.mjs", "utf8");
 assert.match(approval, /APPROVED/);
 assert.ok(gate.includes("hasCurrentCodeOwnerApproval(reviews, owner, pullRequest.head.sha)"),
