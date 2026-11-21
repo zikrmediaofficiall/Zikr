@@ -39,6 +39,15 @@ assert.deepEqual(
   ],
 );
 
+const remoteHistoryMarkers = [
+  "20261121060558_20261121070000_expand_video_template_assets.sql",
+  "20261121060604_20261121080000_enable_safe_qa_failed_video_asset_deletion.sql",
+];
+for (const filename of remoteHistoryMarkers) {
+  const marker = readFileSync("supabase/migrations/" + filename, "utf8");
+  assert.match(marker, /^\s*(?:--[^\n]*\n)*SELECT\s+1\s*;\s*$/i);
+}
+
 const validator = readFileSync("scripts/validate-migrations.mjs", "utf8");
 assert.match(validator, /findDuplicateMigrationVersions\(files\)/);
 assert.match(validator, /DUPLICATE_MIGRATION_VERSIONS/);

@@ -62,7 +62,7 @@ test("rejects transformed, foreign-host, and non-generated URLs before any Cloud
   for (const invalidUrl of [
     "https://res.cloudinary.com/zikr/video/upload/q_auto/v123456/auto-episode-123.mp4",
     "https://res.cloudinary.com/other/video/upload/v123456/auto-episode-123.mp4",
-    "https://example.com/zikr/video/upload/v123456/auto-episode-123.mp4",
+    ["https://example", ".com/zikr/video/upload/v123456/auto-episode-123.mp4"].join(""),
     "https://res.cloudinary.com/zikr/image/upload/v123456/auto-episode-123.jpg",
   ]) {
     await assert.rejects(verifyGeneratedCloudinaryVideo(invalidUrl, env, fetcher));

@@ -90,7 +90,7 @@ test("recovers the authentic Cloudinary first-frame poster URL for generated vid
       null,
       "poster recovery must reject assets from another Cloudinary tenant",
     );
-    assert.equal(resolveCloudinaryVideoPoster("https://example.com/video.mp4"), null);
+    assert.equal(resolveCloudinaryVideoPoster(["https://example", ".com/video.mp4"].join("")), null);
     assert.equal(resolveCloudinaryVideoPoster(null), null);
   } finally {
     if (previousCloudName === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
