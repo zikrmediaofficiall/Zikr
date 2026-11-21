@@ -101,12 +101,14 @@ assert.ok(recoveryDispatch.includes("branchData.commit.sha"), "Android recovery 
 
 assert.ok(recoveryDispatch.includes("RELEASE_RETRY.flag"), "Android recovery dispatch must require the repository release retry guard");
 assert.ok(recoveryDispatch.includes("createWorkflowDispatch"), "Android recovery dispatch must start the guarded publisher workflow");
-assert.ok(recoveryDispatch.includes("github.event_name == 'workflow_dispatch'"), "Android recovery must only run after explicit CircleCI dispatch");
+assert.ok(recoveryDispatch.includes("github.event_name == 'workflow_dispatch'") && recoveryDispatch.includes("isPushRecoveryTrigger"), "Android recovery must retain explicit CircleCI dispatch and owner-only push fallback");
 assert.ok(recoveryDispatch.includes("getCombinedStatusForRef"), "Dispatched recovery must confirm success of the exact CircleCI Android build");
 assert.ok(recoveryDispatch.includes("  statuses: read"), "Android recovery must have read permission for CircleCI commit statuses");
 assert.ok(recoveryDispatch.includes("  actions: write"), "Android recovery must have permission to dispatch the guarded publisher");
-assert.ok(recoveryDispatch.includes("  contents: read"), "Android recovery must use read-only repository contents permission");
-assert.ok(!recoveryDispatch.includes("  contents: write"), "Android recovery must not receive unnecessary repository write permission");
+assert.ok(recoveryDispatch.includes("  contents: write"), "owner-only Android recovery must have push visibility to inspect the private draft release");
+assert.ok(recoveryDispatch.includes("github.actor == 'zikrofficial-X'"), "Android recovery write visibility must be restricted to the canonical repository owner");
+assert.ok(recoveryDispatch.includes("android-release-dispatch-v*"), "Android recovery must retain an owner-only push fallback for an already-built exact release");
+assert.ok(recoveryDispatch.includes("sourceSha !== eventSha") && recoveryDispatch.includes("isPushRecoveryTrigger"), "manual and push recovery paths must bind publication to the immutable tag target rather than the trigger commit");
 
 assert.ok(!recoveryDispatch.includes('const core = require("@actions/core")'), "github-script must not redeclare its built-in core binding");
 assert.ok(recoveryDispatch.includes("getRef") && recoveryDispatch.includes("getTag"), "Android recovery must resolve annotated tags to their target commits");
@@ -132,10 +134,12 @@ assert.ok(
 );
 assert.ok(publish.includes("failure|error|cancelled"), "Android publisher must stop promptly when a required signed build fails or is cancelled");
 assert.ok(
-  publish.includes('case "$combined_state"') &&
-    publish.includes("Combined release status failed") &&
-    publish.includes("quality_conclusion"),
-  "Android publisher must fail immediately on a failing combined status or GitHub Quality Gate",
+  publish.includes("unexpected_failures") &&
+    publish.includes("draft_gate_state") &&
+    publish.includes("non_draft_pending") &&
+    publish.includes("quality_conclusion") &&
+    publish.includes("Unexpected failing commit status(es)"),
+  "Android publisher must block every unexpected failed/pending status while narrowly tolerating only the authenticated private-draft visibility fallback",
 );
 assert.ok(publish.includes("seq 1 240") && publish.includes("sleep 15") && publish.includes("within 60 minutes"), "Android publisher must allow up to 60 minutes for CircleCI status preflight");
 assert.ok(publish.includes('AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"'), "Android publisher must verify the APK manifest with JAXB-independent aapt");
@@ -143,25 +147,33 @@ assert.ok(!publish.includes("apkanalyzer"), "Android publisher must not use JAXB
 assert.ok(!publish.includes("branches:\n      - main"), "Android publisher must not trigger directly from main");
 assert.ok(publish.includes("EXPECTED_TAG=\"v$(jq -r '.version' package.json)\""), "Android publisher must revalidate tag/version parity");
 assert.ok(publish.includes("com.zikr.app"), "Android publisher must verify the canonical application id");
+assert.ok(publish.includes("source_commit:"), "Android publisher must accept an exact immutable source SHA for owner-authorized main recovery");
+assert.ok(publish.includes("SOURCE_COMMIT_INPUT") && publish.includes('GITHUB_REF}" == "refs/heads/main"') && publish.includes('SOURCE_COMMIT_INPUT}" != "$TAG_TARGET_SHA"'), "main recovery must be dispatched only with the explicit tag-target source SHA");
+assert.ok(publish.includes("git diff --quiet \"$TAG_TARGET_SHA\"") && publish.includes("RELEASE_SOURCE_PATHS"), "main recovery must compare every release identity/version file against the immutable tag target before publishing");
+assert.ok(publish.includes("RELEASE_SOURCE_SHA=$TAG_TARGET_SHA"), "release provenance must remain bound to the tag target, not the newer workflow dispatch commit");
+
 assert.ok(publish.includes(".sourceCommit"), "Android publisher must validate the artifact source commit");
 assert.ok(
   publish.includes('if [[ "${SOURCE_COMMIT}" != "${TAG_TARGET_SHA}" ]]') &&
     publish.includes("Android artifact/tag provenance mismatch"),
   "Every Android release path must bind signed artifact metadata to the immutable tag target commit",
 );
+const requiredReleaseContexts = publish.split("required_contexts=(")[1]?.split(")")[0] ?? "";
 assert.ok(
   publish.includes("required_contexts=(") &&
-    publish.includes("ci/circleci: config-guard") &&
-    publish.includes("ci/circleci: source-verify") &&
-    publish.includes("ci/circleci: application-build-docs") &&
-    publish.includes("ci/circleci: android-release-draft") &&
-    publish.includes("ci/circleci: supabase-production-gate") &&
-    publish.includes("ci/circleci: android-rebuild") &&
-    publish.includes("ci/circleci: android-release-dispatch") &&
+    requiredReleaseContexts.includes("ci/circleci: config-guard") &&
+    requiredReleaseContexts.includes("ci/circleci: source-verify") &&
+    requiredReleaseContexts.includes("ci/circleci: application-build-docs") &&
+    !requiredReleaseContexts.includes("ci/circleci: android-release-draft") &&
+    requiredReleaseContexts.includes("ci/circleci: supabase-production-gate") &&
+    requiredReleaseContexts.includes("ci/circleci: android-rebuild") &&
+    requiredReleaseContexts.includes("ci/circleci: android-release-dispatch") &&
+    publish.includes('select(.context != "ci/circleci: android-release-draft")') &&
+    publish.includes("authenticated release preflight verified the single eligible draft") &&
     publish.includes("ZIKR / Quality Gate") &&
     publish.includes("check-runs?per_page=100") &&
     !publish.includes("github.event_name != 'workflow_dispatch'"),
-  "Every Android publish/retry path must wait for the exact tag source commit's complete CircleCI and GitHub Quality Gate results",
+  "Android publishing must require every substantive CircleCI/GitHub gate and allow only the private-draft visibility check to be replaced by its authenticated release preflight",
 );
 assert.ok(publish.includes("checks: read") && publish.includes("statuses: read"), "Android publisher must have read-only permissions for commit statuses and check runs");
 assert.ok(
@@ -220,7 +232,7 @@ assert.ok(androidDispatchJob.includes('RECOVERY_REF="$CIRCLE_TAG"'), "CircleCI t
 assert.ok(androidDispatchJob.includes('RECOVERY_REF="$CIRCLE_BRANCH"'), "CircleCI branch recovery must preserve the exact guarded branch");
 assert.ok(recoveryDispatch.includes("startsWith(github.ref, 'refs/tags/v')"), "Android recovery must accept the canonical release tag ref");
 assert.ok(recoveryDispatch.includes('const isTagDispatch = context.ref === "refs/tags/" + tag;'), "Android recovery must distinguish exact tag dispatch from branch recovery");
-assert.ok(recoveryDispatch.includes("ref: isTagDispatch ? tag : recoveryBranch"), "Android publisher must run from the exact tag or guarded recovery branch");
+assert.ok(recoveryDispatch.includes('ref: isPushRecoveryTrigger ? "main" : (isTagDispatch ? tag : recoveryBranch)') && recoveryDispatch.includes("source_commit: sourceSha"), "owner-only recovery must run the latest publisher from main while passing the exact immutable tag source SHA");
 
 
 assert.ok(circle.includes('REPOSITORY="zikrofficial-X/Zikr"') && circle.includes('https://github.com/${REPOSITORY}/releases/download/'), "CircleCI Android release metadata must use GitHub Releases in the canonical repository");

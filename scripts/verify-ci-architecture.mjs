@@ -92,6 +92,9 @@ assert.ok(
     androidPublish.includes("ci/circleci: android-release-draft") &&
     androidPublish.includes("ci/circleci: android-release-dispatch") &&
     androidPublish.includes("ZIKR / Quality Gate") &&
+    androidPublish.includes("source_commit:") &&
+    androidPublish.includes("git diff --quiet \"$TAG_TARGET_SHA\"") &&
+    androidPublish.includes("RELEASE_SOURCE_SHA=$TAG_TARGET_SHA") &&
     !androidPublish.includes("github.event_name != 'workflow_dispatch'"),
   "Every Android publish/retry path must verify the exact tag source commit and all CI gates",
 );
@@ -100,6 +103,10 @@ const circle = read(".circleci/config.yml");
 const androidDraftJob = circle.split("  android-release-draft:")[1]?.split("\n  android-rebuild:")[0] ?? "";
 assert.ok(androidDraftJob.includes('"/releases?per_page=100&page=1"'), "CircleCI Android release gate must inspect draft releases through the collection endpoint");
 assert.ok(androidDraftJob.includes("matchingReleases.length > 1"), "CircleCI Android release gate must reject duplicate release records");
+assert.ok(androidDraftJob.includes("GitHub intentionally hides draft Releases from unauthenticated"), "CircleCI read-only draft verification must account for private GitHub draft visibility");
+assert.ok(androidDraftJob.includes("verification?.verified !== true") && androidDraftJob.includes('verification?.reason !== "valid"'), "the unauthenticated fallback must still require a GitHub-verified signed tag");
+assert.ok(androidDraftJob.includes("privateDraftTagTargetSha !== sourceSha"), "the private-draft fallback must bind the signed tag to the exact release-preparation commit");
+
 assert.ok(androidDraftJob.includes("if (isReleasePreparationCommit)") && androidDraftJob.includes("process.exit(0)"), "CircleCI must fail closed for a new release but avoid breaking ordinary main CI for legacy duplicate drafts.");
 assert.ok(!androidDraftJob.includes('api("/releases", "POST"') && !androidDraftJob.includes('api("/git/tags", "POST"'), "CircleCI must verify, not create, Admin Release manager artifacts");
 const sourceVerifyJob = circle.slice(circle.indexOf("  source-verify:"), circle.indexOf("  application-build-docs:"));
@@ -173,7 +180,13 @@ const articleTranslation = read("scripts/translate-published-articles-en.ts");
 const hadithTranslation = read("scripts/sync-hadith-english.ts");
 const androidRecovery = read(".github/workflows/dispatch-android-release-recovery.yml");
 assert.ok(androidRecovery.includes("workflow_dispatch:"), "Android recovery must be explicitly dispatched by the successful CircleCI release pipeline");
-assert.ok(!androidRecovery.includes("\n  status:") && !androidRecovery.includes("\n  push:"), "Android recovery must not subscribe to every repository status or push event");
+assert.ok(
+  !androidRecovery.includes("\n  status:") &&
+    androidRecovery.includes('branches:\n      - "android-release-dispatch-v*"') &&
+    androidRecovery.includes("github.actor == 'zikrofficial-X'") &&
+    androidRecovery.includes("isPushRecoveryTrigger"),
+  "Android recovery must not subscribe to every repository status and may use only the owner-restricted canonical release-dispatch push fallback",
+);
 assert.ok(androidRecovery.includes("github.event_name == 'workflow_dispatch'"), "Android recovery must accept only an explicit workflow dispatch");
 assert.ok(circle.includes("android-release-dispatch:"), "CircleCI must dispatch Android recovery only after android-rebuild succeeds");
 assert.ok(circle.includes("api.github.com/repos/zikrofficial-X/Zikr/actions/workflows/dispatch-android-release-recovery.yml/dispatches"), "CircleCI must invoke the guarded Android recovery workflow");

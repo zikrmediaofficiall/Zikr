@@ -14,6 +14,11 @@ on:
         required: true
         default: "false"
         type: boolean
+      source_commit:
+        description: "Exact immutable tag-target SHA for owner-authorized recovery dispatched from main"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -68,6 +73,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT_INPUT: ${{ inputs.source_commit }}
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
@@ -103,14 +109,42 @@ jobs:
             exit 1
           fi
           if [[ "${GITHUB_REF_TYPE}" == "tag" || "${GITHUB_REF_NAME}" =~ ^android-release-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            if [[ "$TAG_TARGET_SHA" != "$GITHUB_SHA" ]]; then
+            if [[ "$TAG_TARGET_SHA" != "${GITHUB_SHA}" ]]; then
               echo "::error title=Android release tag/source mismatch::Tag ${TAG} points to ${TAG_TARGET_SHA}, but this run is checking out ${GITHUB_SHA}. Rebuild from the exact tag commit; do not publish recovery-branch binaries under an older immutable tag." >&2
               exit 1
             fi
+            if [[ -n "${SOURCE_COMMIT_INPUT}" ]]; then
+              echo "::error title=Unexpected source commit input::source_commit is accepted only for the owner-authorized main recovery path." >&2
+              exit 1
+            fi
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            if [[ ! "${SOURCE_COMMIT_INPUT}" =~ ^[0-9a-f]{40}$ || "${SOURCE_COMMIT_INPUT}" != "$TAG_TARGET_SHA" ]]; then
+              echo "::error title=Android recovery source mismatch::main recovery must provide the exact immutable tag target SHA." >&2
+              exit 1
+            fi
+            git fetch --no-tags origin "$TAG_TARGET_SHA" --depth=1
+            RELEASE_SOURCE_PATHS=(
+              package.json
+              .release-tag
+              "docs/releases/${TAG#v}.md"
+              android/app/build.gradle
+              src/components/layout/footer.tsx
+              ios/App/App.xcodeproj/project.pbxproj
+              ios/App/App/Info.plist
+            )
+            if ! git diff --quiet "$TAG_TARGET_SHA" -- "${RELEASE_SOURCE_PATHS[@]}"; then
+              echo "::error title=Android recovery metadata drift::The current main tree differs from the exact tag target in release identity/version files. Refusing to publish assets built from the tag." >&2
+              exit 1
+            fi
+            echo "Verified release identity files on main are byte-for-byte identical to immutable source $TAG_TARGET_SHA."
+          else
+            echo "::error title=Unsupported Android recovery ref::Publisher must run from the exact tag/recovery branch or the guarded main source_commit path." >&2
+            exit 1
           fi
 
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "TAG_TARGET_SHA=$TAG_TARGET_SHA" >> "$GITHUB_ENV"
+          echo "RELEASE_SOURCE_SHA=$TAG_TARGET_SHA" >> "$GITHUB_ENV"
           echo "tag_target_sha=$TAG_TARGET_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Verify GitHub cryptographic tag signature and exact commit target
@@ -177,7 +211,12 @@ jobs:
             echo "::error title=Android recovery release state is not eligible::Manual publisher dispatch requires a draft, non-prerelease GitHub Release for ${TAG}." >&2
             exit 1
           fi
-          if [[ "${TAG_TARGET_SHA}" != "${GITHUB_SHA}" ]]; then
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            if [[ "${SOURCE_COMMIT_INPUT:-}" != "${TAG_TARGET_SHA}" || "${RELEASE_SOURCE_SHA:-}" != "${TAG_TARGET_SHA}" ]]; then
+              echo "::error title=Android recovery source mismatch::main dispatch must provide and validate the exact immutable tag target commit." >&2
+              exit 1
+            fi
+          elif [[ "${TAG_TARGET_SHA}" != "${GITHUB_SHA}" ]]; then
             echo "::error title=Android recovery source mismatch::Manual publisher dispatch must run from the exact immutable tag target; tag target ${TAG_TARGET_SHA}, dispatch SHA ${GITHUB_SHA}." >&2
             exit 1
           fi
@@ -285,7 +324,6 @@ jobs:
             "ci/circleci: config-guard"
             "ci/circleci: source-verify"
             "ci/circleci: application-build-docs"
-            "ci/circleci: android-release-draft"
             "ci/circleci: supabase-production-gate"
             "ci/circleci: android-rebuild"
             "ci/circleci: android-release-dispatch"
@@ -324,17 +362,28 @@ jobs:
               pending=true
             fi
 
-            case "$combined_state" in
-              success) ;;
-              failure|error)
-                echo "::error title=Combined release status failed::The source commit has a failing commit status; refusing to publish Android assets."
-                exit 1
-                ;;
-              *)
-                echo "Waiting for combined commit status success on ${TAG_TARGET_SHA} (state='${combined_state}')."
-                pending=true
-                ;;
-            esac
+            # This one CircleCI context is a read-only visibility check. GitHub
+            # hides draft Releases from unauthenticated REST clients, so CircleCI
+            # may report failure even while the exact draft exists. The earlier
+            # authenticated release preflight in this workflow has already
+            # required one matching draft and verified its draft/non-prerelease
+            # state. Permit only this exact context failure; every other failure
+            # remains blocking.
+            draft_gate_state="$(latest_context_state "ci/circleci: android-release-draft" <<< "$statuses")"
+            unexpected_failures="$(jq -r '[.[]? | select(.state == "failure" or .state == "error" or .state == "cancelled") | select(.context != "ci/circleci: android-release-draft") | .context] | unique | join(", ")' <<< "$statuses")"
+            if [[ -n "$unexpected_failures" ]]; then
+              echo "::error title=Required release status failed::Unexpected failing commit status(es): ${unexpected_failures}. Refusing to publish Android assets."
+              exit 1
+            fi
+            if [[ "$draft_gate_state" == "failure" || "$draft_gate_state" == "error" || "$draft_gate_state" == "cancelled" ]]; then
+              echo "::warning::CircleCI could not enumerate the private draft without a GitHub token; the authenticated release preflight verified the single eligible draft for ${TAG}."
+            fi
+
+            non_draft_pending="$(jq -r '[.[]? | select(.state == "pending") | select(.context != "ci/circleci: android-release-draft") | .context] | unique | join(", ")' <<< "$statuses")"
+            if [[ -n "$non_draft_pending" ]]; then
+              echo "Waiting for other commit status(es): ${non_draft_pending}."
+              pending=true
+            fi
 
             if [[ "$pending" == "false" ]]; then
               echo "All required CircleCI contexts and the GitHub Quality Gate passed for ${TAG_TARGET_SHA}."
