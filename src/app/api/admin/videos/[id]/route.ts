@@ -15,7 +15,7 @@ const VIDEO_REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 function duplicateCanonicalId(request: VideoGenerationRequest): string | null {
   if (request.status !== 'cancelled' || !/duplicate generated content/i.test(request.error_message ?? '')) return null;
-  const match = (request.error_details ?? '').match(/belongs to request\\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  const match = (request.error_details ?? '').match(/belongs to request\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
   return match?.[1] ?? null;
 }
 
