@@ -19,7 +19,7 @@ assert.match(page, /window\.localStorage\.getItem/);
 assert.match(page, /window\.localStorage\.setItem/);
 assert.match(page, /Math\.max\(0, Math\.min\(1, rawVolume\)\)/);
 assert.match(page, /audioRef\.current = null;\s*releaseAudio\(previous\)/);
-assert.match(page, /return \(\) => \{\s*const audio = audioRef\.current;\s*audioRef\.current = null;\s*releaseAudio\(audio\);/);
+assert.match(page, /useEffect\(\(\) => \(\) => \{\s*const audio = audioRef\.current;\s*audioRef\.current = null;\s*releaseAudio\(audio\);/);
 assert.match(page, /if \(audioRef\.current !== audio\) return/);
 assert.match(page, /audio\.addEventListener\('stalled'/);
 assert.match(page, /audio\.removeAttribute\('src'\)/);
