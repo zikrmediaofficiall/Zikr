@@ -28,11 +28,12 @@ type Preview = {
 };
 type Payload = { templates: Template[]; versions: Version[]; previews: Preview[] };
 
-const GENERAL_ASSETS = ["calm", "dawn", "emerald", "gold", "night", "paper", "rose"];
+const GENERAL_ASSETS = ["calm", "dawn", "emerald", "gold", "night", "paper", "rose", "andalusian-arch", "midnight-skyline", "oasis-dawn"];
 const KIDS_ASSETS = ["kids-garden", "kids-nature", "kids-neighborhood", "kids-workshop"];
 const ASSET_LABELS: Record<string, string> = {
   calm: "هادئ", dawn: "الفجر", emerald: "زمردي", gold: "ذهبي",
   night: "ليلي", paper: "ورقي", rose: "وردي",
+  "andalusian-arch": "قوس أندلسي", "midnight-skyline": "أفق ليلي", "oasis-dawn": "واحة الفجر",
   "kids-garden": "حديقة الأطفال", "kids-nature": "طبيعة الأطفال",
   "kids-neighborhood": "حيّ الأطفال", "kids-workshop": "ورشة الأطفال",
 };
