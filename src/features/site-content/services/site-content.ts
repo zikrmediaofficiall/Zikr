@@ -97,9 +97,10 @@ export async function getSiteSetting(key: string): Promise<SiteSettingValue | nu
 
 export async function getSectionVisibility(): Promise<Record<string, boolean>> {
   const setting = await getSiteSetting("section_visibility");
+  const legacySetting = setting as (SiteSettingValue & Record<string, unknown>) | null;
   const stored = setting?.visibility && typeof setting.visibility === "object"
     ? setting.visibility
-    : {};
+    : legacySetting ?? {};
   const visibility = Object.fromEntries(
     CATALOG_ITEMS.map((item) => {
       const key = getCatalogItemKey(item.href);
