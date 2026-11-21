@@ -148,7 +148,7 @@ assert.ok(!publish.includes("branches:\n      - main"), "Android publisher must 
 assert.ok(publish.includes("EXPECTED_TAG=\"v$(jq -r '.version' package.json)\""), "Android publisher must revalidate tag/version parity");
 assert.ok(publish.includes("com.zikr.app"), "Android publisher must verify the canonical application id");
 assert.ok(publish.includes("source_commit:"), "Android publisher must accept an exact immutable source SHA for owner-authorized main recovery");
-assert.ok(publish.includes("SOURCE_COMMIT_INPUT") && publish.includes("github.ref == \"refs/heads/main\""), "main recovery must be dispatched only with the explicit tag-target source SHA");
+assert.ok(publish.includes("SOURCE_COMMIT_INPUT") && publish.includes('GITHUB_REF}" == "refs/heads/main"') && publish.includes('SOURCE_COMMIT_INPUT}" != "$TAG_TARGET_SHA"'), "main recovery must be dispatched only with the explicit tag-target source SHA");
 assert.ok(publish.includes("git diff --quiet \"$TAG_TARGET_SHA\"") && publish.includes("RELEASE_SOURCE_PATHS"), "main recovery must compare every release identity/version file against the immutable tag target before publishing");
 assert.ok(publish.includes("RELEASE_SOURCE_SHA=$TAG_TARGET_SHA"), "release provenance must remain bound to the tag target, not the newer workflow dispatch commit");
 
