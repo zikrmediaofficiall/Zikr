@@ -37,15 +37,22 @@ function validSnapshot(value: unknown): value is DevicePrayerTimesSnapshot {
     record.longitude < -180 ||
     record.longitude > 180 ||
     typeof record.timezone !== "string" ||
+    !record.timezone.trim() ||
     typeof record.dateKey !== "string" ||
     !/^\d{4}-\d{2}-\d{2}$/.test(record.dateKey) ||
     typeof record.savedAt !== "string" ||
+    !Number.isFinite(Date.parse(record.savedAt)) ||
     !data ||
     data.code !== 200 ||
     data.status !== "OK" ||
     !data.data?.timings ||
     !data.data?.meta ||
-    !data.data?.date?.hijri
+    !data.data?.date?.hijri ||
+    data.data.meta.timezone !== record.timezone ||
+    typeof data.data.meta.latitude !== "number" ||
+    typeof data.data.meta.longitude !== "number" ||
+    Math.abs(data.data.meta.latitude - record.latitude) > 0.0001 ||
+    Math.abs(data.data.meta.longitude - record.longitude) > 0.0001
   ) return false;
 
   const timings = data.data.timings;
