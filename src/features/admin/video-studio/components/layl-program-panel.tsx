@@ -101,7 +101,7 @@ export default function LaylProgramPanel() {
             workflow: "layl-program", seriesId: LAYL_PROGRAM_ID, seriesTitle: LAYL_PROGRAM_TITLE,
             seasonNumber: 1, episodeNumber: activeEpisode.number, episodeTitle: activeEpisode.title,
             voiceProfile: LAYL_VOICE_PROFILE, language: "ar-EG", audience: "general",
-            contentFormat: "series_episode", videoFormat: "vertical", resolution: "1080x1920",
+            contentFormat: "weekly_program_episode", videoFormat: "vertical", resolution: "1080x1920",
             visualTheme: LAYL_VISUAL_THEME, sourceType: "editorial",
             sourceLabel: activeEpisode.referenceLabel, sourceUrl: activeEpisode.referenceUrl,
             editorialNote: activeEpisode.editorialNote, skipSocialPublish: true,
