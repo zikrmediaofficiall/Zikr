@@ -644,6 +644,7 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
     language: "ar-EG",
     voiceProfile: LAYL_VOICE_PROFILE,
     visualTheme: LAYL_VISUAL_THEME,
+    visualBackground: episode.visualBackground,
     videoFormat: "vertical",
     resolution: "1080x1920",
     maxDurationSeconds: 120,
@@ -1915,7 +1916,8 @@ export function buildAutomatedVideoQaChecklist(
         episode.number === Number(content.episodeNumber) &&
         episode.referenceLabel === sourceLabel &&
         episode.referenceUrl === sourceUrl &&
-        episode.editorialNote === content.editorialNote)
+        episode.editorialNote === content.editorialNote &&
+        episode.visualBackground === content.visualBackground)
     : undefined;
   const isVerifiedLaylEditorial = category === "other" &&
     content.audience !== "kids" &&
