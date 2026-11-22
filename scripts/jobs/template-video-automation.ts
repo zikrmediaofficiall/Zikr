@@ -1240,7 +1240,7 @@ async function getVerifiedQuranAyahAudioUrl(surahId: number, ayahNumber: number,
   return null;
 }
 
-async function assertPlayableOutput(outputPath: string, expectedWidth: number, expectedHeight: number, signal?: AbortSignal): Promise<number> {
+async function assertPlayableOutput(outputPath: string, expectedWidth: number, expectedHeight: number, maxDurationSeconds: number = MAX_AUTO_VIDEO_SECONDS, signal?: AbortSignal): Promise<number> {
   const probe = await probeMedia(outputPath, signal);
   const streams = probe.streams ?? [];
   const video = streams.find((stream) => stream.codec_type === "video");
@@ -1248,7 +1248,7 @@ async function assertPlayableOutput(outputPath: string, expectedWidth: number, e
   if (!video) throw new Error("Rendered output has no video stream.");
   if (!audio) throw new Error("Rendered output has no narration/audio stream.");
   const duration = Number(probe.format?.duration ?? 0);
-  if (!Number.isFinite(duration) || duration < 1 || duration > MAX_AUTO_VIDEO_SECONDS) throw new Error("Rendered output has an invalid duration.");
+  if (!Number.isFinite(duration) || duration < 1 || duration > maxDurationSeconds) throw new Error("Rendered output has an invalid duration for the requested program.");
   if ((video.width ?? 0) !== expectedWidth || (video.height ?? 0) !== expectedHeight) {
     throw new Error("Rendered output resolution mismatch: expected " + expectedWidth + "x" + expectedHeight + ", got " + (video.width || 0) + "x" + (video.height || 0) + ".");
   }
@@ -1322,6 +1322,8 @@ function requestedVideoShape(request: GeneratedRequest) {
 async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
   throwIfVideoLeaseAborted(signal);
   const renderStartedAt = Date.now();
+  const isLaylProgram = request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl";
+  const maxDurationSeconds = isLaylProgram ? 120 : MAX_AUTO_VIDEO_SECONDS;
   await validateSourceContent(request);
   throwIfVideoLeaseAborted(signal);
   const boundTemplate = await bindTemplateVersion(request);
@@ -1405,7 +1407,10 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         ? persistedAi.motion
         : resolveDeterministicVideoMotion(request.id);
     const audience: VideoTemplateAudience = request.content?.audience === "kids" ? "kids" : "general";
-    const visualTheme = boundTemplate?.config.assetKey ?? resolveDeterministicVideoVisualTheme({
+    const requestedVisualTheme = typeof request.content?.visualTheme === "string" && isVideoTemplateAssetAllowedForAudience(request.content.visualTheme as VideoTemplateAsset, audience)
+      ? request.content.visualTheme as VideoTemplateAsset
+      : null;
+    const visualTheme = boundTemplate?.config.assetKey ?? requestedVisualTheme ?? resolveDeterministicVideoVisualTheme({
       id: request.id,
       category: request.category,
       audience,
@@ -1575,7 +1580,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     throwIfVideoLeaseAborted(signal);
     const audioProbe = await probeMedia(audioPath, signal);
     const audioDuration = Number(audioProbe.format?.duration ?? 0);
-    const duration = resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS);
+    const duration = resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS, maxDurationSeconds);
     const composition = resolveVideoComposition({
       category: request.category,
       audience: request.content?.audience,
@@ -1661,7 +1666,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       outputPath,
     ];
     await execFileAsync("ffmpeg", args, { maxBuffer: 4 * 1024 * 1024, signal });
-    const renderedDurationSeconds = await assertPlayableOutput(outputPath, width, height, signal);
+    const renderedDurationSeconds = await assertPlayableOutput(outputPath, width, height, maxDurationSeconds, signal);
     await assertAudibleAudio(outputPath, signal);
     throwIfVideoLeaseAborted(signal);
     const renderDurationMs = Date.now() - renderStartedAt;
@@ -2053,7 +2058,7 @@ async function registerGeneratedVideoOnSite(
     description: request.description ?? null,
     youtube_id: null,
     thumbnail_url: resolveCloudinaryVideoPoster(rendered.videoUrl),
-    duration: resolveVideoCatalogDuration(rendered.durationSeconds),
+    duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl" ? 120 : MAX_AUTO_VIDEO_SECONDS),
     views: 0,
     published: false,
     category_id: categoryRows?.[0]?.id ?? null,
