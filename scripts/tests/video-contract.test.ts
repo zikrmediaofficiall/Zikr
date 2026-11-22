@@ -294,7 +294,7 @@ assert.ok(videoWorker.includes("durationSeconds: renderedDurationSeconds"));
 assert.ok(videoWorker.includes("duration > maxDurationSeconds"));
 assert.ok(videoWorker.includes("return duration;"));
 assert.ok(videoWorker.includes("renderDurationSeconds: rendered.durationSeconds"));
-assert.ok(videoWorker.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds)"));
+assert.ok(videoWorker.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === \"layl-program\" && request.content?.programId === \"dakitayn-ma3-layl\" ? 120 : MAX_AUTO_VIDEO_SECONDS)"));
 const videoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
 assert.ok(videoCreateRoute.includes("resolveVideoResolution(content.resolution, content.videoFormat)"));
 
