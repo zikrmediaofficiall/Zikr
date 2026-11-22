@@ -84,7 +84,7 @@ assert.ok(worker.includes('skipSocialPublish: true'), "scheduled Layl episodes m
 assert.ok(worker.includes('automation_key: automationKey'), "each scheduled Layl episode must use the canonical weekly key in the queue");
 
 const mascot = readFileSync("public/video/templates/layl.svg", "utf8");
-assert.ok(mascot.includes("public"), "mascot template must be a valid local text SVG");
+assert.ok(mascot.startsWith("<svg") && mascot.includes('viewBox="0 0 1080 1920"'), "mascot template must be a valid local vertical SVG");
 assert.ok(mascot.includes("../../icons/icon-512.png"), "the only explicit watermark source must be the original ZIKR app icon");
 
 const panel = readFileSync("src/features/admin/video-studio/components/layl-program-panel.tsx", "utf8");
