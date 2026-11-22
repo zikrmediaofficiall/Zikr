@@ -160,6 +160,16 @@ jobs:
             --output "$RUNNER_TEMP/zikr-arabic-tts-smoke.mp3"
           test -s "$RUNNER_TEMP/zikr-arabic-tts-smoke.mp3"
           test "$(stat -c '%s' "$RUNNER_TEMP/zikr-arabic-tts-smoke.mp3")" -ge 1024
+          # Layl is pinned to the Egyptian male neural voice; verify that exact voice
+          # before processing any queued episode instead of allowing a generic fallback.
+          "$GITHUB_WORKSPACE/.automation-venv/bin/python" scripts/generate-arabic-voice.py \
+            --text "أهلاً بيكم في دقيقتين مع ليل من منصة ذكر." \
+            --voice "ar-EG-ShakirNeural" \
+            --rate="-7%" \
+            --pitch="0Hz" \
+            --output "$RUNNER_TEMP/zikr-layl-egyptian-tts-smoke.mp3"
+          test -s "$RUNNER_TEMP/zikr-layl-egyptian-tts-smoke.mp3"
+          test "$(stat -c '%s' "$RUNNER_TEMP/zikr-layl-egyptian-tts-smoke.mp3")" -ge 1024
           ffmpeg -version | head -n 1
 
       - name: Gemini audio evaluation smoke test
