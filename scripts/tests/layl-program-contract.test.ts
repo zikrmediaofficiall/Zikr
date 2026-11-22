@@ -61,9 +61,11 @@ assert.ok(api.includes("submittedContent.sourceUrl === episode?.referenceUrl"), 
 assert.ok(api.includes('voiceProfile: "egyptian_male_story"'), "the server must choose the Egyptian male voice profile");
 assert.ok(api.includes("submittedContent.visualBackground === episode?.visualBackground"), "the API must reject a mismatched episode background");
 assert.ok(api.includes("visualBackground: episode.visualBackground"), "the API must pin the canonical episode background server-side");
-assert.ok(api.includes('if (currentContent.workflow === "layl-program" && currentContent.programId === LAYL_PROGRAM_ID)'), "only the approved Layl video may create a site publication queue item after human review");
-assert.ok(api.includes('"content_publish_queue"'), "the Layl approval endpoint must enqueue internal site publication only after approval");
-assert.ok(api.includes('laylSitePublishQueueStatus === "queue_error"'), "post-approval queue errors must be returned as an explicit warning without masking the committed approval");
+const approvalApi = readFileSync("src/app/api/admin/video-generation/route.ts", "utf8");
+assert.ok(approvalApi.includes('if (currentContent.workflow === "layl-program" && currentContent.programId === LAYL_PROGRAM_ID)'), "only the approved Layl video may create a site publication queue item after human review");
+assert.ok(approvalApi.includes('"content_publish_queue"'), "the Layl approval endpoint must enqueue internal site publication only after approval");
+assert.ok(approvalApi.includes('laylSitePublishQueueStatus = "queue_error"'), "post-approval queue errors must be returned as an explicit warning without masking the committed approval");
+assert.ok(approvalApi.includes('laylSitePublishQueueStatus === "queue_error"'), "the approval response must surface a site queue warning when queue creation fails");
 assert.ok(api.includes('visualTheme: "layl"'), "the server must choose the branded Layl mascot scene");
 assert.ok(api.includes("maxDurationSeconds: 120"), "the server must explicitly authorize the dedicated two-minute ceiling");
 assert.ok(api.includes("skipSocialPublish: true"), "Layl generation must not auto-publish to external social platforms");
