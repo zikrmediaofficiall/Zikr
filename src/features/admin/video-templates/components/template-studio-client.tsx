@@ -28,7 +28,7 @@ type Preview = {
 };
 type Payload = { templates: Template[]; versions: Version[]; previews: Preview[] };
 
-const GENERAL_ASSETS = ["calm","dawn","emerald","gold","night","paper","rose","andalusian-arch","midnight-skyline","oasis-dawn","desert-caravan","geometric-mosaic","lantern-glow","manuscript-library","moonlit-sea","olive-grove","desert-dusk","coastal-blue","botanical","library","geometric","marble","cinematic","starfield","mountain-dawn","heritage","minimal-studio","rainy-window","watercolor-sky","old-city","desert-rose","mosaic-blue","satin-night","sunlit-arch","olive-branch","minimal-cream"];
+const GENERAL_ASSETS = ["calm","dawn","emerald","gold","night","paper","rose","andalusian-arch","midnight-skyline","oasis-dawn","desert-caravan","geometric-mosaic","lantern-glow","layl","manuscript-library","moonlit-sea","olive-grove","desert-dusk","coastal-blue","botanical","library","geometric","marble","cinematic","starfield","mountain-dawn","heritage","minimal-studio","rainy-window","watercolor-sky","old-city","desert-rose","mosaic-blue","satin-night","sunlit-arch","olive-branch","minimal-cream"];
 const KIDS_ASSETS = ["kids-garden","kids-nature","kids-neighborhood","kids-workshop","kids-space","kids-ocean","kids-forest","kids-playground","kids-classroom","kids-adventure","kids-jungle","kids-robotics","kids-animals","kids-weather"];
 const ASSET_LABELS: Record<string, string> = {
   calm: "هادئ", dawn: "الفجر", emerald: "زمردي", gold: "ذهبي",
@@ -51,6 +51,7 @@ const ASSET_LABELS: Record<string, string> = {
   "desert-caravan": "قافلة الصحراء",
   "geometric-mosaic": "فسيفساء هندسية",
   "lantern-glow": "وهج الفوانيس",
+  "layl": "شخصية ليل",
   "manuscript-library": "مكتبة المخطوطات",
   "moonlit-sea": "بحر مضاء بالقمر",
   "olive-grove": "بستان الزيتون",
@@ -77,7 +78,7 @@ const ASSET_LABELS_EN: Record<string, string> = {
   calm: "Calm", dawn: "Dawn", emerald: "Emerald", gold: "Warm Gold",
   night: "Night Sky", paper: "Paper Texture", rose: "Rose",
   "andalusian-arch": "Andalusian Arch", "midnight-skyline": "Midnight Skyline", "oasis-dawn": "Oasis at Dawn",
-  "desert-caravan": "Desert Caravan", "geometric-mosaic": "Geometric Mosaic", "lantern-glow": "Lantern Glow",
+  "desert-caravan": "Desert Caravan", "geometric-mosaic": "Geometric Mosaic", "lantern-glow": "Lantern Glow", "layl": "Layl Mascot",
   "manuscript-library": "Manuscript Library", "moonlit-sea": "Moonlit Sea", "olive-grove": "Olive Grove",
   "desert-dusk": "Desert Dusk", "coastal-blue": "Coastal Blue", botanical: "Botanical Garden",
   library: "Knowledge Library", geometric: "Geometric Patterns", marble: "Quiet Marble",
