@@ -2276,6 +2276,12 @@ async function registerGeneratedVideoOnSite(
     }
   }
 
+  // Layl videos remain unpublished and outside the site-publication queue until a
+  // human explicitly approves them from the Admin video review flow.
+  if (request.content.workflow === "layl-program" && request.content.programId === LAYL_PROGRAM_ID) {
+    return { videoId, published: false, queued: false };
+  }
+
   const queueRows = await adminRequest<Array<{ id: string; status: string; updated_at: string | null }>>(
     "/rest/v1/content_publish_queue?content_table=eq.videos&content_id=eq." +
       encodeURIComponent(videoId) + "&select=id,status,updated_at&order=created_at.desc&limit=1",
