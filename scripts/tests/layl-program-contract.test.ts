@@ -38,6 +38,8 @@ assert.ok(worker.includes('request.content?.programId === "dakitayn-ma3-layl"'),
 assert.ok(worker.includes("resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS, maxDurationSeconds)"), "the worker must apply the request-scoped duration contract");
 assert.ok(worker.includes("assertPlayableOutput(outputPath, width, height, maxDurationSeconds, signal)"), "the final media probe must enforce the same duration ceiling");
 assert.ok(worker.includes("requestedVisualTheme"), "the renderer must honor an allowed, server-pinned Layl theme");
+assert.ok(worker.includes('if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal);'), "Layl must not call Gemini for its fixed editorial script or planning");
+assert.ok(worker.includes('      !isLaylProgram &&\n      !boundTemplate &&\n      engineConfig().aiEnabled &&'), "Layl must bypass external AI video providers and remain on the local branded renderer");
 
 const voice = readFileSync("scripts/generate-arabic-voice.py", "utf8");
 assert.ok(voice.includes('voice.strip().lower().startswith("ar-eg-")'), "Egyptian neural voice requests must not silently fall back to generic Arabic");
