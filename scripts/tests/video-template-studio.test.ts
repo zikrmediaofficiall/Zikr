@@ -85,7 +85,7 @@ assert.ok(resolveDeterministicVideoHook({ id: "hook-story-01", category: "story"
 assert.ok(resolveDeterministicVideoHook({ id: "hook-kids-01", category: "story", audience: "kids" }).length > 12);
 const addedAssets = [
   "watercolor-sky", "old-city", "desert-rose", "mosaic-blue", "satin-night", "sunlit-arch", "olive-branch", "minimal-cream",
-  "kids-jungle", "kids-robotics", "kids-animals", "kids-weather", "layl",
+  "kids-jungle", "kids-robotics", "kids-animals", "kids-weather",
 ] as const;
 for (const asset of addedAssets) {
   const audience = asset.startsWith("kids-") ? "kids" : "general";
@@ -176,8 +176,8 @@ for (const asset of VIDEO_TEMPLATE_ASSETS) {
 
 const studioGeneralAssets = studioClient.match(/const GENERAL_ASSETS = \[(.*?)\];/)?.[1] ?? "";
 const studioKidsAssets = studioClient.match(/const KIDS_ASSETS = \[(.*?)\];/)?.[1] ?? "";
-assert.equal((studioGeneralAssets.match(/"[^"]+"/g) ?? []).length, 36,
-  "Template Studio must expose all 36 general visual scenes");
+assert.equal((studioGeneralAssets.match(/"[^"]+"/g) ?? []).length, 37,
+  "Template Studio must expose all 37 general visual scenes");
 assert.equal((studioKidsAssets.match(/"[^"]+"/g) ?? []).length, 14,
   "Template Studio must expose all 14 Kids visual scenes");
 for (const asset of VIDEO_TEMPLATE_ASSETS) {
