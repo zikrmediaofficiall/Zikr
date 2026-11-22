@@ -90,13 +90,14 @@ assert.ok(worker.includes("const maximumReviewedDuration = isLaylProgram ? 120 :
 
 const mascot = readFileSync("public/video/templates/layl.svg", "utf8");
 assert.ok(mascot.startsWith("<svg") && mascot.includes('viewBox="0 0 1080 1920"'), "mascot template must be a valid local vertical SVG");
+assert.ok(mascot.includes('id="layl-character"'), "the program mascot must be the consistent cartoon young Egyptian presenter");
 assert.ok(mascot.includes("../../icons/icon-512.png"), "the only explicit watermark source must be the original ZIKR app icon");
 
 const panel = readFileSync("src/features/admin/video-studio/components/layl-program-panel.tsx", "utf8");
 const studio = readFileSync("src/features/admin/video-studio/components/admin-video-studio-client.tsx", "utf8");
 assert.ok(panel.includes("/api/admin/videos/create"), "Layl must submit into the existing production queue");
 assert.ok(panel.includes("/api/admin/video-generation"), "Layl must read its actual production queue");
-assert.ok(panel.includes("/icons/icon-512.png"), "the admin panel must show the actual ZIKR app icon");
+assert.ok(panel.includes("/video/templates/layl.svg"), "the admin panel must preview the actual Layl cartoon presenter");
 assert.ok(studio.includes("<LaylProgramPanel />"), "the Layl program panel must be mounted in the site/mobile admin studio");
 assert.ok(!panel.includes('contentFormat: "series_episode"'), "general-audience Layl videos must not be misclassified by the Kids audience contract");
 
