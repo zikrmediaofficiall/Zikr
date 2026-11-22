@@ -144,7 +144,7 @@ export default function LaylProgramPanel() {
           </div>
         </div>
         <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-3xl border border-brand-gold/30 bg-[#061322] p-3 shadow-xl shadow-black/30">
-          <Image src="/icons/icon-512.png" alt="ليل، الشخصية الكرتونية لبرنامج دقيقتين مع ليل" width={144} height={144} className="h-full w-full rounded-2xl object-cover" priority />
+          <Image src="/video/templates/layl.svg" alt="ليل، الشخصية الكرتونية لبرنامج دقيقتين مع ليل" width={144} height={144} className="h-full w-full rounded-2xl object-cover" priority />
         </div>
       </div>
 
