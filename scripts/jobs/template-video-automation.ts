@@ -1423,6 +1423,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     const isVertical = height >= width;
 
     const narrationProfile = narrationProfileForRequest(request);
+    const ttsVoice = (isLaylProgram ? narrationProfile.voice : process.env.ARABIC_TTS_VOICE?.trim() || narrationProfile.voice) ?? "";
+    const ttsRate = isLaylProgram ? narrationProfile.rate : process.env.ARABIC_TTS_RATE?.trim() || narrationProfile.rate;
+    const ttsPitch = isLaylProgram ? narrationProfile.pitch : process.env.ARABIC_TTS_PITCH?.trim() || narrationProfile.pitch;
     const narrationText = contentText(request);
     const narrationTextQuality = evaluateArabicNarrationText(narrationText, request.category);
     if (!narrationTextQuality.ok) {
@@ -1562,9 +1565,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
             "scripts/generate-arabic-voice.py",
             "--text", narrationText,
             "--output", audioPath,
-            "--voice", process.env.ARABIC_TTS_VOICE?.trim() || narrationProfile.voice,
-            `--rate=${process.env.ARABIC_TTS_RATE?.trim() || narrationProfile.rate}`,
-            `--pitch=${process.env.ARABIC_TTS_PITCH?.trim() || narrationProfile.pitch}`,
+            "--voice", ttsVoice,
+            `--rate=${ttsRate}`,
+            `--pitch=${ttsPitch}`,
           ],
           { maxBuffer: 4 * 1024 * 1024, signal },
         );
@@ -1684,12 +1687,10 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       ...request.content,
       audio: {
         kind: audioKind,
-        voice: audioKind === "arabic_tts_narration"
-          ? process.env.ARABIC_TTS_VOICE?.trim() || narrationProfile.voice || null
-          : null,
+        voice: audioKind === "arabic_tts_narration" ? ttsVoice || null : null,
         voiceProfile: narrationProfile.id,
-        rate: narrationProfile.rate,
-        pitch: narrationProfile.pitch,
+        rate: ttsRate,
+        pitch: ttsPitch,
         sourceUrl: audioUrl || null,
         generatedAt: new Date().toISOString(),
       },
