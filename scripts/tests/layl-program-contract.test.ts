@@ -82,6 +82,11 @@ assert.ok(worker.includes("resolveNextScheduledLaylEpisode(now, latest)"), "the 
 assert.ok(worker.includes('content->>seriesId=eq.'), "weekly scheduling must inspect the canonical program queue records");
 assert.ok(worker.includes('skipSocialPublish: true'), "scheduled Layl episodes must remain internal until explicitly approved");
 assert.ok(worker.includes('automation_key: automationKey'), "each scheduled Layl episode must use the canonical weekly key in the queue");
+assert.ok(worker.includes("const isVerifiedLaylEditorial = category === \"other\""), "the QA gate must recognize only the eight canonical Layl episode references");
+assert.ok(worker.includes("episode.referenceLabel === sourceLabel"), "Layl source labels must match the canonical season references");
+assert.ok(worker.includes("episode.referenceUrl === sourceUrl"), "Layl source URLs must match the canonical season references");
+assert.ok(worker.includes("!isLaylProgram || voiceProfile === LAYL_VOICE_PROFILE"), "the audio QA gate must require the Egyptian male profile for Layl");
+assert.ok(worker.includes("const maximumReviewedDuration = isLaylProgram ? 120 : 60"), "the QA duration exception must be limited to verified Layl episodes");
 
 const mascot = readFileSync("public/video/templates/layl.svg", "utf8");
 assert.ok(mascot.startsWith("<svg") && mascot.includes('viewBox="0 0 1080 1920"'), "mascot template must be a valid local vertical SVG");
