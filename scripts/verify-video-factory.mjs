@@ -26,7 +26,7 @@ if (!template.includes("legacySceneAssets") || !template.includes("videoTemplate
   failures.push("renderer must resolve legacy scene classes through the shared audience-safe visual asset registry");
 }
 if (!durationService.includes("MAX_AUTO_VIDEO_SECONDS = 60")) failures.push("automated video duration policy must support narrated shorts up to 60 seconds");
-if (!template.includes("resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS)")) failures.push("video renderer must use the shared tested render-duration policy");
+if (!template.includes("resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS, maxDurationSeconds)")) failures.push("video renderer must use the shared tested render-duration policy and scoped Layl duration ceiling");
 const renderContract = read("src/features/videos/services/video-render-contract.ts");
 if (!renderContract.includes("1080x1920") || !renderContract.includes("1920x1080")) failures.push("automated renders must be restricted to the two QA-approved resolutions");
 if (!template.includes("resolveVideoResolution(request.content?.resolution, request.content?.videoFormat)")) failures.push("video worker must reject arbitrary render dimensions before invoking FFmpeg");
