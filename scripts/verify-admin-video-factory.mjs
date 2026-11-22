@@ -348,7 +348,7 @@ const contentPublisher = read("scripts/jobs/content-publishing.ts");
 const backgroundRunner = read("scripts/run-background-jobs.ts");
 if (!worker.includes("async function bindTemplateVersion")) failures.push("video worker must bind requests to an immutable template version");
 if (!worker.includes("request.content.templatePreview === true")) failures.push("template preview mode must be recognized by the renderer");
-if (!worker.includes("if (!isTemplatePreview) aiPlan = await generateAiVideoPlan(request, signal)")) failures.push("internal template previews must avoid external generative planning");
+if (!worker.includes("if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal)")) failures.push("internal template previews and scripted Layl episodes must avoid external generative planning");
 if (!worker.includes("registerGeneratedVideoOnSite(request, rendered, {}, signal)") || !worker.includes('generator: "zikr_internal_video_factory"')) {
   failures.push("successfully generated videos must be persisted in the internal ZIKR catalog");
 }
@@ -509,14 +509,21 @@ const atomicVideoApprovalEnd = approvalRoute.indexOf('if (action === "retry_publ
 const atomicVideoApprovalBlock = atomicVideoApprovalStart >= 0 && atomicVideoApprovalEnd > atomicVideoApprovalStart
   ? approvalRoute.slice(atomicVideoApprovalStart, atomicVideoApprovalEnd)
   : "";
+// The approval itself must use one atomic service-only RPC. Layl may then
+// compare-and-set its separate internal content_publish_queue row; that PATCH
+// is queue recovery, not a direct request/catalog approval mutation.
+const atomicApprovalRpcEnd = atomicVideoApprovalBlock.indexOf("let laylSitePublishQueueStatus");
+const atomicApprovalMutationBlock = atomicApprovalRpcEnd >= 0
+  ? atomicVideoApprovalBlock.slice(0, atomicApprovalRpcEnd)
+  : atomicVideoApprovalBlock;
 if (
   !atomicVideoApprovalBlock.includes("/rest/v1/rpc/admin_approve_video_generation_request") ||
   !atomicVideoApprovalBlock.includes("p_expected_request_updated_at") ||
   !atomicVideoApprovalBlock.includes("p_expected_catalog_updated_at") ||
   !atomicVideoApprovalBlock.includes("p_approved_content") ||
   !atomicVideoApprovalBlock.includes("p_catalog_metadata") ||
-  atomicVideoApprovalBlock.includes("method: 'PATCH'") ||
-  atomicVideoApprovalBlock.includes('method: "PATCH"')
+  atomicApprovalMutationBlock.includes("method: 'PATCH'") ||
+  atomicApprovalMutationBlock.includes('method: "PATCH"')
 ) {
   failures.push("Human video approval must atomically compare-and-set the request and catalog through the service-only approval RPC");
 }
