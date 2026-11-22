@@ -50,6 +50,8 @@ import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type 
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+import { LAYL_EPISODES, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
+import { isoWeekKey, resolveNextScheduledLaylEpisode } from "../../src/features/videos/services/layl-program-schedule";
 
 const execFileAsync = promisify(execFile);
 const BATCH_SIZE = Math.max(1, Number(process.env.AUTO_VIDEO_BATCH_SIZE ?? process.env.DAILY_VIDEO_TARGET ?? 10));
@@ -584,12 +586,146 @@ class VideoRequestLeaseLostError extends Error {
 
 export const KIDS_SERIES_START_DAY_INDEX = dayIndex(new Date("2026-10-21T00:00:00.000Z"));
 
+async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
+  if (now.getUTCDay() !== 0) return 0;
+  const week = isoWeekKey(now);
+  if (!week) return 0;
+
+  const existingKey = "layl-weekly:season-1:" + week;
+  if (await findByAutomationKey("video_generation_requests", existingKey)) return 0;
+
+  const latestRows = await supabaseServerAdminRequest<Array<{
+    id: string;
+    status: string;
+    content: unknown;
+    created_at: string;
+  }>>(
+    "/rest/v1/video_generation_requests?content->>seriesId=eq." +
+      encodeURIComponent(LAYL_PROGRAM_ID) +
+      "&content->>seasonNumber=eq.1&select=id,status,content,created_at&order=created_at.desc&limit=20",
+  );
+  const latestRow = latestRows?.[0] ?? null;
+  const latestContent = latestRow?.content && typeof latestRow.content === "object" && !Array.isArray(latestRow.content)
+    ? latestRow.content as Record<string, unknown>
+    : {};
+  const latestEpisodeNumber = Number(latestContent.episodeNumber);
+  const latest = latestRow && Number.isInteger(latestEpisodeNumber)
+    ? {
+        episodeNumber: latestEpisodeNumber,
+        status: latestRow.status,
+        createdAt: latestRow.created_at,
+      }
+    : null;
+
+  const episode = resolveNextScheduledLaylEpisode(now, latest);
+  if (!episode) return 0;
+
+  const automationKey =
+    "layl-weekly:season-1:episode-" + episode.number + ":" + week;
+  if (await findByAutomationKey("video_generation_requests", automationKey)) return 0;
+
+  const narration = episode.script.trim();
+  const content: Record<string, unknown> = {
+    renderer: "template",
+    type: "layl_program_episode",
+    workflow: "layl-program",
+    programId: LAYL_PROGRAM_ID,
+    seriesId: LAYL_PROGRAM_ID,
+    seriesTitle: LAYL_PROGRAM_TITLE,
+    seasonNumber: 1,
+    episodeNumber: episode.number,
+    episodeTitle: episode.title,
+    sourceType: "editorial",
+    sourceLabel: episode.referenceLabel,
+    sourceUrl: episode.referenceUrl,
+    editorialNote: episode.editorialNote,
+    textAr: narration,
+    text: narration,
+    script: narration,
+    prompt: narration,
+    narration,
+    audience: "general",
+    language: "ar-EG",
+    voiceProfile: LAYL_VOICE_PROFILE,
+    visualTheme: LAYL_VISUAL_THEME,
+    videoFormat: "vertical",
+    resolution: "1080x1920",
+    maxDurationSeconds: 120,
+    skipSocialPublish: true,
+    approvalStatus: "awaiting_human_review",
+    automationKey,
+    aiMode: "layl-scripted",
+    contentFormat: "weekly_program_episode",
+  };
+  const payload: Record<string, unknown> = {
+    title: LAYL_PROGRAM_TITLE + " — الحلقة " + episode.number + ": " + episode.title,
+    description: episode.description,
+    category: "other",
+    content,
+    duration: 120,
+    status: "pending",
+    automation_key: automationKey,
+  };
+  const contentHash = videoContentHash({
+    category: "other",
+    sourceId: LAYL_PROGRAM_ID + ":season-1:episode-" + episode.number,
+    text: narration,
+    format: "vertical",
+    templateVersion: VIDEO_TEMPLATE_VERSION,
+    language: "ar-EG",
+    style: LAYL_VISUAL_THEME,
+  });
+  const sourceHashValue = sourceHash({
+    sourceId: LAYL_PROGRAM_ID + ":season-1:episode-" + episode.number,
+    sourceUrl: episode.referenceUrl,
+    text: narration,
+  });
+  payload.content = {
+    ...content,
+    contentHash,
+    sourceHash: sourceHashValue,
+    templateVersion: VIDEO_TEMPLATE_VERSION,
+  };
+
+  if (engineConfig().dryRun) {
+    console.log("[template-video] dry-run planned " + automationKey + " (" + contentHash.slice(0, 12) + ")");
+    return 1;
+  }
+
+  try {
+    await supabaseServerAdminRequest("/rest/v1/video_generation_requests", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        ...payload,
+        content_hash: contentHash,
+        source_hash: sourceHashValue,
+        provider: "template",
+        template_version: VIDEO_TEMPLATE_VERSION,
+      }),
+    });
+    console.log("[template-video] Seeded weekly Layl episode " + episode.number + " for " + week + "; social publishing is disabled.");
+    return 1;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const duplicateAutomationKey =
+      message.includes("duplicate key value violates unique constraint") &&
+      message.toLowerCase().includes("automation_key");
+    if (isContentHashConflict(error) || duplicateAutomationKey) {
+      console.info("[template-video] Weekly Layl request already exists for " + week + "; skipped duplicate.");
+      return 0;
+    }
+    console.error("[template-video] Weekly Layl scheduling failed safely:", message.slice(0, 500));
+    return 0;
+  }
+}
+
 export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   if (process.env.AUTO_VIDEO_ENABLED?.toLowerCase() === "false") return 0;
   if (await isVideoGenerationPaused()) return 0;
   const now = new Date();
   const day = dayIndex(now);
-  let created = 0;
+  let created = await seedWeeklyLaylEpisodeRequest(now);
 
   // Daily quota: keys are unique per UTC day (kind:day:counter) so every run can create new
   // videos, and the DAILY_VIDEO_TARGET is spread evenly across the day instead of bursting.
