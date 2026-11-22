@@ -277,7 +277,9 @@ export async function PATCH(request: NextRequest) {
         );
       }
       let laylSitePublishQueueStatus: string | null = null;
-      if (currentContent.workflow === "layl-program" && currentContent.programId === LAYL_PROGRAM_ID) {
+      let laylSitePublishQueueError: string | null = null;
+      try {
+        if (currentContent.workflow === "layl-program" && currentContent.programId === LAYL_PROGRAM_ID) {
         const queueRows = await supabaseServerAdminRequest<Array<{ id: string; status: string; updated_at: string | null }>>(
           "/rest/v1/content_publish_queue?content_table=eq.videos&content_id=eq." +
             encodeURIComponent(catalog.id) +
@@ -320,6 +322,11 @@ export async function PATCH(request: NextRequest) {
         } else {
           laylSitePublishQueueStatus = existingQueue.status;
         }
+        }
+      } catch (queueError) {
+        laylSitePublishQueueStatus = "queue_error";
+        laylSitePublishQueueError = queueError instanceof Error ? queueError.message.slice(0, 400) : "Unknown site queue error";
+        console.error("[api/admin/video-generation] Layl approval was committed but its site queue action failed:", queueError);
       }
       const auditRecorded = await runPostCommitAudit(
         () => recordAdminAuditEvent({
@@ -327,15 +334,18 @@ export async function PATCH(request: NextRequest) {
         permission: "video.manage",
         resourceType: "video_generation_requests",
         resourceId: id,
-        metadata: { category: current.category, approvalChecks: REQUIRED_VIDEO_APPROVAL_CHECKS.length, approvalSnapshotHash, catalogVideoId: catalog.id, catalogApprovalRecorded: true, ...(laylSitePublishQueueStatus ? { laylSitePublishQueueStatus } : {}) },
+        metadata: { category: current.category, approvalChecks: REQUIRED_VIDEO_APPROVAL_CHECKS.length, approvalSnapshotHash, catalogVideoId: catalog.id, catalogApprovalRecorded: true, ...(laylSitePublishQueueStatus ? { laylSitePublishQueueStatus } : {}), ...(laylSitePublishQueueError ? { laylSitePublishQueueError } : {}) },
         }),
         (auditError) => console.error("[api/admin/video-generation] audit event failed after committed mutation:", auditError),
       );
       return NextResponse.json({ ok: true, auditRecorded, approvalStatus: 'approved', catalogApprovalRecorded: true,
         laylSitePublishQueueStatus,
-        note: laylSitePublishQueueStatus
-          ? 'تم اعتماد الحلقة بشريًا وإضافتها لطابور نشر الموقع الداخلي فقط. لن يتم نشرها على منصات التواصل؛ وسيعيد العامل فحص المصدر والوسائط قبل النشر المجدول.'
-          : 'تم تسجيل الاعتماد البشري للمكتبة الداخلية. لن يحدث نشر فوري؛ سيعيد العامل التحقق من بصمة الفيديو والوسائط والقنوات قبل أي نشر مجدول.' });
+        laylSitePublishQueueError,
+        note: laylSitePublishQueueStatus === "queue_error"
+          ? 'تم تسجيل اعتماد الحلقة، لكن تعذّر تأكيد إدخالها إلى طابور نشر الموقع. راجع الطابور قبل إعادة أي عملية؛ ولن يتم نشرها على السوشيال تلقائيًا.'
+          : laylSitePublishQueueStatus
+            ? 'تم اعتماد الحلقة بشريًا وإضافتها لطابور نشر الموقع الداخلي فقط. لن يتم نشرها على منصات التواصل؛ وسيعيد العامل فحص المصدر والوسائط قبل النشر المجدول.'
+            : 'تم تسجيل الاعتماد البشري للمكتبة الداخلية. لن يحدث نشر فوري؛ سيعيد العامل التحقق من بصمة الفيديو والوسائط والقنوات قبل أي نشر مجدول.' });
     }
 
     if (action === "retry_publish") {
