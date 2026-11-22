@@ -124,11 +124,11 @@ assert.ok(videoDetailPage.includes('parsed.hostname === "res.cloudinary.com"'), 
 
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 assert.ok(
-  worker.includes('`--rate=${process.env.ARABIC_TTS_RATE?.trim() || narrationProfile.rate}`'),
+  worker.includes('`--rate=${ttsRate}`'),
   "Arabic TTS rate must use --rate=<value> because negative rates are parsed as CLI options by argparse",
 );
 assert.ok(
-  worker.includes('`--pitch=${process.env.ARABIC_TTS_PITCH?.trim() || narrationProfile.pitch}`'),
+  worker.includes('`--pitch=${ttsPitch}`'),
   "Arabic TTS pitch must use --pitch=<value> because negative pitches are parsed as CLI options by argparse",
 );
 
