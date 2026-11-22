@@ -207,7 +207,7 @@ export default function LaylProgramPanel() {
             <Button className="mt-5 w-full" onClick={() => void generateEpisode()} disabled={busy}>
               {busy ? "جارٍ إنشاء طلب الحلقة…" : "ولّد الحلقة بالصوت المصري"}
             </Button>
-            <p className="mt-3 text-xs leading-6 text-brand-cream/45">الصوت مولّد بتقنية Neural باستخدام الصوت المصري Shakir، مش تسجيل بشري حقيقي. الفيديو بيتكوّن محليًا من قالب ليل وحركة الكاميرا والترجمة، من غير مولّد فيديو خارجي. لو خدمة الصوت المصري تعطلت، الحلقة بتقف بدل ما تستخدم لهجة عربية عامة.</p>
+            <p className="mt-3 text-xs leading-6 text-brand-cream/45">الصوت مولّد بتقنية Neural باستخدام الصوت المصري Shakir، مش تسجيل بشري حقيقي. الفيديو بيتكوّن محليًا من قالب ليل وحركة الكاميرا والترجمة، من غير مولّد فيديو خارجي. كل يوم أحد بيجهّز النظام الحلقة التالية بعد اكتمال اللي قبلها؛ وتفضل داخل ZIKR للمراجعة من غير نشر تلقائي.</p>
           </div>
           <div className="rounded-xl border border-brand-gold/15 bg-black/10 p-4">
             <div className="flex items-center justify-between gap-2">
