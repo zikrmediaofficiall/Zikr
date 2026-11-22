@@ -318,7 +318,6 @@ function backgroundAsset(scene: AiVideoPlan["scene"], content?: Record<string, u
     return "public/video/templates/night.svg";
   }
   const pinnedConfig = parseVideoTemplateConfig(content?.templateConfigSnapshot);
-  const audience: VideoTemplateAudience = content?.audience === "kids" ? "kids" : "general";
   const pinnedAudience: VideoTemplateAudience | null =
     content?.templateAudience === "kids" ? "kids" :
     content?.templateAudience === "general" ? "general" : null;
