@@ -88,6 +88,10 @@ assert.ok(worker.includes('      !isLaylProgram &&\n      !boundTemplate &&\n   
 const voice = readFileSync("scripts/generate-arabic-voice.py", "utf8");
 assert.ok(voice.includes('voice.strip().lower().startswith("ar-eg-")'), "Egyptian neural voice requests must not silently fall back to generic Arabic");
 assert.ok(voice.includes("generic Arabic fallback is disabled"), "the TTS fallback policy must fail clearly for the Egyptian voice");
+const generationWorkflow = readFileSync(".github/workflows/generate-ai-video.yml", "utf8");
+assert.ok(generationWorkflow.includes('--voice "ar-EG-ShakirNeural"'), "the production worker must smoke-test the exact Egyptian male Layl voice before queue work");
+assert.ok(generationWorkflow.includes('--rate="-7%"'), "the Egyptian voice smoke test must use Layl's pinned narration rate");
+assert.ok(generationWorkflow.includes('--pitch="0Hz"'), "the Egyptian voice smoke test must use Layl's pinned pitch");
 assert.ok(worker.includes("const ttsVoice = (isLaylProgram ? narrationProfile.voice"), "Layl must ignore a global non-Egyptian voice override");
 assert.ok(worker.includes("const ttsRate = isLaylProgram ? narrationProfile.rate"), "Layl must use its own speech rate instead of a global override");
 assert.ok(worker.includes('"--voice", ttsVoice'), "the generated narration must use the pinned Egyptian voice ID");
