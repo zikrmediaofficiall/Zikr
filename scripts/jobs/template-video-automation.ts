@@ -591,8 +591,8 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
   const week = isoWeekKey(now);
   if (!week) return 0;
 
-  const existingKey = "layl-weekly:season-1:" + week;
-  if (await findByAutomationKey("video_generation_requests", existingKey)) return 0;
+  const automationKey = "layl-weekly:season-1:" + week;
+  if (await findByAutomationKey("video_generation_requests", automationKey)) return 0;
 
   const latestRows = await supabaseServerAdminRequest<Array<{
     id: string;
@@ -619,10 +619,6 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
 
   const episode = resolveNextScheduledLaylEpisode(now, latest);
   if (!episode) return 0;
-
-  const automationKey =
-    "layl-weekly:season-1:episode-" + episode.number + ":" + week;
-  if (await findByAutomationKey("video_generation_requests", automationKey)) return 0;
 
   const narration = episode.script.trim();
   const content: Record<string, unknown> = {
