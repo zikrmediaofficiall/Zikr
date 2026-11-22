@@ -308,6 +308,15 @@ async function bindTemplateVersion(request: GeneratedRequest): Promise<BoundTemp
 }
 
 function backgroundAsset(scene: AiVideoPlan["scene"], content?: Record<string, unknown>) {
+  const audience: VideoTemplateAudience = content?.audience === "kids" ? "kids" : "general";
+  if (content?.workflow === "layl-program" && content.programId === LAYL_PROGRAM_ID) {
+    const episodeBackground = typeof content.visualBackground === "string" ? content.visualBackground : "";
+    if (episodeBackground && isVideoTemplateAssetAllowedForAudience(episodeBackground as VideoTemplateAsset, audience)) {
+      const episodeAssetPath = videoTemplateAssetPath(episodeBackground as VideoTemplateAsset, audience);
+      if (episodeAssetPath) return episodeAssetPath;
+    }
+    return "public/video/templates/night.svg";
+  }
   const pinnedConfig = parseVideoTemplateConfig(content?.templateConfigSnapshot);
   const audience: VideoTemplateAudience = content?.audience === "kids" ? "kids" : "general";
   const pinnedAudience: VideoTemplateAudience | null =
@@ -335,6 +344,18 @@ async function renderBackground(temp: string, scene: AiVideoPlan["scene"], width
   const source = path.join(process.cwd(), backgroundAsset(scene, content));
   const output = path.join(temp, "background.png");
   await execFileAsync("rsvg-convert", ["-w", String(width), "-h", String(height), source, "-o", output], { maxBuffer: 2 * 1024 * 1024, signal });
+  if (content?.workflow === "layl-program" && content.programId === LAYL_PROGRAM_ID) {
+    const characterSource = path.join(process.cwd(), "public/video/templates/layl-character.svg");
+    const characterOutput = path.join(temp, "layl-character.png");
+    const composedOutput = path.join(temp, "layl-composed-background.png");
+    await execFileAsync("rsvg-convert", ["-w", String(width), "-h", String(height), characterSource, "-o", characterOutput], { maxBuffer: 2 * 1024 * 1024, signal });
+    await execFileAsync("ffmpeg", [
+      "-y", "-i", output, "-i", characterOutput,
+      "-filter_complex", "[0:v][1:v]overlay=0:0:format=auto",
+      "-frames:v", "1", "-update", "1", composedOutput,
+    ], { maxBuffer: 8 * 1024 * 1024, signal });
+    return composedOutput;
+  }
   return output;
 }
 
