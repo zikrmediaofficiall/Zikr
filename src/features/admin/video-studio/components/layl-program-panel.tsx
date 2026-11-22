@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -137,17 +138,13 @@ export default function LaylProgramPanel() {
           <p className="max-w-3xl text-sm leading-7 text-brand-cream/75">اختار حلقة من الموسم الأول، راجع النص وعدّله، وبعدها أنشئ التعليق الصوتي المصري والفيديو الرأسي من نفس لوحة التحكم.</p>
           <div className="flex flex-wrap gap-2 text-xs">
             <span className="rounded-full border border-brand-gold/30 px-3 py-1 text-brand-cream/80">8 حلقات في الموسم الأول</span>
-            <span className="rounded-full border border-brand-gold/30 px-3 py-1 text-brand-cream/80">صوت مصري عصبي</span>
-            <span className="rounded-full border border-brand-gold/30 px-3 py-1 text-brand-cream/80">حتى دقيقتين للحلقة</span>
+            <span className="rounded-full border border-brand-gold/30 px-3 py-1 text-brand-cream/80">صوت مصري بتقنية Neural</span>
+            <span className="rounded-full border border-brand-gold/30 px-3 py-1 text-brand-cream/80">حتى 120 ثانية للحلقة</span>
             <span className="rounded-full border border-brand-gold/30 px-3 py-1 text-brand-cream/80">مراجعة قبل النشر</span>
           </div>
         </div>
         <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-3xl border border-brand-gold/30 bg-[#061322] p-3 shadow-xl shadow-black/30">
-          <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#102d43] to-[#061322]">
-            <span className="absolute -right-2 -top-5 text-8xl text-brand-gold/15">☾</span>
-            <span className="relative text-center text-5xl drop-shadow-[0_0_18px_rgba(245,196,92,.45)]">🌙</span>
-            <span className="absolute bottom-2 text-[10px] font-bold tracking-widest text-brand-cream/75">ZIKR</span>
-          </div>
+          <Image src="/icons/icon-512.png" alt="أيقونة تطبيق ذِكر" width={144} height={144} className="h-full w-full rounded-2xl object-contain" priority />
         </div>
       </div>
 
@@ -210,7 +207,7 @@ export default function LaylProgramPanel() {
             <Button className="mt-5 w-full" onClick={() => void generateEpisode()} disabled={busy}>
               {busy ? "جارٍ إنشاء طلب الحلقة…" : "ولّد الحلقة بالصوت المصري"}
             </Button>
-            <p className="mt-3 text-xs leading-6 text-brand-cream/45">الصوت عصبي مولّد آليًا باللهجة المصرية، وليس تسجيلًا بشريًا حقيقيًا. لا نستخدم صوتًا عربيًا عامًا بديلًا إذا تعذر الصوت المصري.</p>
+            <p className="mt-3 text-xs leading-6 text-brand-cream/45">الصوت مولّد بتقنية Neural باستخدام الصوت المصري Shakir. ده مش تسجيل بشري حقيقي، ولو مزوّد الصوت المصري تعذّر، الحلقة بتقف بدل ما تستخدم لهجة عربية عامة.</p>
           </div>
           <div className="rounded-xl border border-brand-gold/15 bg-black/10 p-4">
             <div className="flex items-center justify-between gap-2">
