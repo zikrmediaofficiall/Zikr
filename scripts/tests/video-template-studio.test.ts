@@ -67,8 +67,8 @@ assert.ok(customComposition.lineChars < standardComposition.lineChars);
 assert.equal(customComposition.captionStyle, "boxed");
 assert.equal(customComposition.sourceCardStyle, "compact");
 assert.equal(CURRENT_VIDEO_RENDERER_VERSION, "2026-11-21-visual-catalog-v12");
-assert.equal(VIDEO_TEMPLATE_ASSETS.length, 50);
-assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => !asset.startsWith("kids-")).length, 36);
+assert.equal(VIDEO_TEMPLATE_ASSETS.length, 51);
+assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => !asset.startsWith("kids-")).length, 37);
 assert.equal(VIDEO_TEMPLATE_ASSETS.filter((asset) => asset.startsWith("kids-")).length, 14);
 for (const asset of VIDEO_TEMPLATE_ASSETS) {
   const audience = asset.startsWith("kids-") ? "kids" : "general";
@@ -85,7 +85,7 @@ assert.ok(resolveDeterministicVideoHook({ id: "hook-story-01", category: "story"
 assert.ok(resolveDeterministicVideoHook({ id: "hook-kids-01", category: "story", audience: "kids" }).length > 12);
 const addedAssets = [
   "watercolor-sky", "old-city", "desert-rose", "mosaic-blue", "satin-night", "sunlit-arch", "olive-branch", "minimal-cream",
-  "kids-jungle", "kids-robotics", "kids-animals", "kids-weather",
+  "kids-jungle", "kids-robotics", "kids-animals", "kids-weather", "layl",
 ] as const;
 for (const asset of addedAssets) {
   const audience = asset.startsWith("kids-") ? "kids" : "general";
