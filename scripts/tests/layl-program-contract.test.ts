@@ -77,11 +77,11 @@ assert.ok(worker.includes("const ttsVoice = (isLaylProgram ? narrationProfile.vo
 assert.ok(worker.includes("const ttsRate = isLaylProgram ? narrationProfile.rate"), "Layl must use its own speech rate instead of a global override");
 assert.ok(worker.includes('"--voice", ttsVoice'), "the generated narration must use the pinned Egyptian voice ID");
 assert.ok(worker.includes("async function seedWeeklyLaylEpisodeRequest(now: Date)"), "the existing production worker must own weekly Layl scheduling");
-assert.ok(worker.includes('const existingKey = "layl-weekly:season-1:" + week'), "weekly generation must use an ISO-week idempotency key");
+assert.ok(worker.includes('const automationKey = "layl-weekly:season-1:" + week'), "weekly generation must use one canonical ISO-week idempotency key");
 assert.ok(worker.includes("resolveNextScheduledLaylEpisode(now, latest)"), "the weekly worker must only advance after the last episode completed");
 assert.ok(worker.includes('content->>seriesId=eq.'), "weekly scheduling must inspect the canonical program queue records");
 assert.ok(worker.includes('skipSocialPublish: true'), "scheduled Layl episodes must remain internal until explicitly approved");
-assert.ok(worker.includes('"layl-weekly:season-1:episode-"'), "weekly episode generation must use a unique episode automation key");
+assert.ok(worker.includes('automation_key: automationKey'), "each scheduled Layl episode must use the canonical weekly key in the queue");
 
 const mascot = readFileSync("public/video/templates/layl.svg", "utf8");
 assert.ok(mascot.includes("public"), "mascot template must be a valid local text SVG");
