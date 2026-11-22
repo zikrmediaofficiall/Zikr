@@ -1369,13 +1369,13 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     const isTemplatePreview = request.content.templatePreview === true;
     let aiPlan: AiVideoPlan = { ...DEFAULT_AI_VIDEO_PLAN };
     try {
-      if (!isTemplatePreview) aiPlan = await generateAiVideoPlan(request, signal);
+      if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal);
       throwIfVideoLeaseAborted(signal);
       request.content = {
         ...request.content,
         ai: {
-          provider: isTemplatePreview ? "template-preview" : aiPlanEnabled() ? "google-gemini" : "deterministic-fallback",
-          model: !isTemplatePreview && aiPlanEnabled() ? (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite").trim() : null,
+          provider: isTemplatePreview ? "template-preview" : isLaylProgram ? "layl-local-template" : aiPlanEnabled() ? "google-gemini" : "deterministic-fallback",
+          model: !isTemplatePreview && !isLaylProgram && aiPlanEnabled() ? (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite").trim() : null,
           reflection: aiPlan.reflection || null,
           socialCaption: aiPlan.socialCaption || null,
           scene: aiPlan.scene,
@@ -1461,6 +1461,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
 
     if (
       !isTemplatePreview &&
+      !isLaylProgram &&
       !boundTemplate &&
       engineConfig().aiEnabled &&
       engineConfig().order.some((provider) => provider !== "template") &&
@@ -1531,7 +1532,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
           ? null
           : aiResult.error || "AI providers unavailable",
       };
-    } else if (!isTemplatePreview && !boundTemplate && engineConfig().aiEnabled && aiAttemptsUsed >= getAiAttemptsPerRunLimit()) {
+    } else if (!isTemplatePreview && !isLaylProgram && !boundTemplate && engineConfig().aiEnabled && aiAttemptsUsed >= getAiAttemptsPerRunLimit()) {
       request.content = {
         ...request.content,
         aiProvider: null,
