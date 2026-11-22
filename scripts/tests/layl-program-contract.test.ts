@@ -63,7 +63,7 @@ assert.ok(api.includes("submittedContent.visualBackground === episode?.visualBac
 assert.ok(api.includes("visualBackground: episode.visualBackground"), "the API must pin the canonical episode background server-side");
 const approvalApi = readFileSync("src/app/api/admin/video-generation/route.ts", "utf8");
 assert.ok(approvalApi.includes('if (currentContent.workflow === "layl-program" && currentContent.programId === LAYL_PROGRAM_ID)'), "only the approved Layl video may create a site publication queue item after human review");
-assert.ok(approvalApi.includes('"content_publish_queue"'), "the Layl approval endpoint must enqueue internal site publication only after approval");
+assert.ok(approvalApi.includes('/rest/v1/content_publish_queue'), "the Layl approval endpoint must enqueue internal site publication only after approval");
 assert.ok(approvalApi.includes('laylSitePublishQueueStatus = "queue_error"'), "post-approval queue errors must be returned as an explicit warning without masking the committed approval");
 assert.ok(approvalApi.includes('laylSitePublishQueueStatus === "queue_error"'), "the approval response must surface a site queue warning when queue creation fails");
 assert.ok(api.includes('visualTheme: "layl"'), "the server must choose the branded Layl mascot scene");
