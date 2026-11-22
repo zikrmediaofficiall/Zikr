@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { LAYL_EPISODES, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
 import { resolveRenderDuration, MAX_AUTO_VIDEO_SECONDS } from "../../src/features/videos/services/render-duration";
+import { isoWeekKey, resolveNextScheduledLaylEpisode } from "../../src/features/videos/services/layl-program-schedule";
 import { resolveVideoCatalogDuration } from "../../src/features/videos/services/video-render-contract";
 
 assert.equal(LAYL_PROGRAM_ID, "dakitayn-ma3-layl");
@@ -9,6 +10,34 @@ assert.equal(LAYL_PROGRAM_TITLE, "دقيقتين مع ليل");
 assert.equal(LAYL_VOICE_PROFILE, "egyptian_male_story");
 assert.equal(LAYL_VISUAL_THEME, "layl");
 assert.equal(LAYL_EPISODES.length, 8);
+
+const sundayWeek47 = new Date("2026-11-22T04:00:00.000Z");
+const sundayWeek48 = new Date("2026-11-29T04:00:00.000Z");
+const mondayWeek48 = new Date("2026-11-23T04:00:00.000Z");
+assert.equal(isoWeekKey(sundayWeek47), "2026-W47");
+assert.equal(isoWeekKey(sundayWeek48), "2026-W48");
+assert.equal(resolveNextScheduledLaylEpisode(sundayWeek47, null)?.number, 1);
+assert.equal(resolveNextScheduledLaylEpisode(mondayWeek48, null), null, "weekly Layl scheduling must only run on Sunday");
+assert.equal(
+  resolveNextScheduledLaylEpisode(sundayWeek47, { episodeNumber: 1, status: "completed", createdAt: "2026-11-22T01:00:00.000Z" }),
+  null,
+  "a completed episode must not be duplicated again in the same ISO week",
+);
+assert.equal(
+  resolveNextScheduledLaylEpisode(sundayWeek48, { episodeNumber: 1, status: "completed", createdAt: "2026-11-22T01:00:00.000Z" })?.number,
+  2,
+  "the following Sunday may seed the next episode only after the previous episode completed",
+);
+assert.equal(
+  resolveNextScheduledLaylEpisode(sundayWeek48, { episodeNumber: 1, status: "processing", createdAt: "2026-11-22T01:00:00.000Z" }),
+  null,
+  "a processing or failed previous episode must block advancing the weekly series",
+);
+assert.equal(
+  resolveNextScheduledLaylEpisode(sundayWeek48, { episodeNumber: 8, status: "completed", createdAt: "2026-11-22T01:00:00.000Z" }),
+  null,
+  "the first season must stop after episode eight",
+);
 
 for (const episode of LAYL_EPISODES) {
   assert.ok(episode.title.trim().length >= 5, "each Layl episode needs a title");
@@ -47,6 +76,12 @@ assert.ok(voice.includes("generic Arabic fallback is disabled"), "the TTS fallba
 assert.ok(worker.includes("const ttsVoice = (isLaylProgram ? narrationProfile.voice"), "Layl must ignore a global non-Egyptian voice override");
 assert.ok(worker.includes("const ttsRate = isLaylProgram ? narrationProfile.rate"), "Layl must use its own speech rate instead of a global override");
 assert.ok(worker.includes('"--voice", ttsVoice'), "the generated narration must use the pinned Egyptian voice ID");
+assert.ok(worker.includes("async function seedWeeklyLaylEpisodeRequest(now: Date)"), "the existing production worker must own weekly Layl scheduling");
+assert.ok(worker.includes('const existingKey = "layl-weekly:season-1:" + week'), "weekly generation must use an ISO-week idempotency key");
+assert.ok(worker.includes("resolveNextScheduledLaylEpisode(now, latest)"), "the weekly worker must only advance after the last episode completed");
+assert.ok(worker.includes('content->>seriesId=eq.'), "weekly scheduling must inspect the canonical program queue records");
+assert.ok(worker.includes('skipSocialPublish: true'), "scheduled Layl episodes must remain internal until explicitly approved");
+assert.ok(worker.includes('"layl-weekly:season-1:episode-"'), "weekly episode generation must use a unique episode automation key");
 
 const mascot = readFileSync("public/video/templates/layl.svg", "utf8");
 assert.ok(mascot.includes("public"), "mascot template must be a valid local text SVG");
