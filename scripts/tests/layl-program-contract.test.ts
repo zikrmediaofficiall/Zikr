@@ -61,6 +61,9 @@ assert.ok(api.includes("submittedContent.sourceUrl === episode?.referenceUrl"), 
 assert.ok(api.includes('voiceProfile: "egyptian_male_story"'), "the server must choose the Egyptian male voice profile");
 assert.ok(api.includes("submittedContent.visualBackground === episode?.visualBackground"), "the API must reject a mismatched episode background");
 assert.ok(api.includes("visualBackground: episode.visualBackground"), "the API must pin the canonical episode background server-side");
+assert.ok(api.includes('if (currentContent.workflow === "layl-program" && currentContent.programId === LAYL_PROGRAM_ID)'), "only the approved Layl video may create a site publication queue item after human review");
+assert.ok(api.includes('"content_publish_queue"'), "the Layl approval endpoint must enqueue internal site publication only after approval");
+assert.ok(api.includes('laylSitePublishQueueStatus === "queue_error"'), "post-approval queue errors must be returned as an explicit warning without masking the committed approval");
 assert.ok(api.includes('visualTheme: "layl"'), "the server must choose the branded Layl mascot scene");
 assert.ok(api.includes("maxDurationSeconds: 120"), "the server must explicitly authorize the dedicated two-minute ceiling");
 assert.ok(api.includes("skipSocialPublish: true"), "Layl generation must not auto-publish to external social platforms");
@@ -72,6 +75,8 @@ assert.ok(worker.includes("assertPlayableOutput(outputPath, width, height, maxDu
 assert.ok(worker.includes("requestedVisualTheme"), "the renderer must honor an allowed, server-pinned Layl theme");
 assert.ok(worker.includes("episode.visualBackground === content.visualBackground"), "the QA gate must verify each episode's canonical topic background");
 assert.ok(worker.includes("public/video/templates/layl-character.svg"), "all episode scenes must reuse the same approved Layl cartoon character layer");
+assert.ok(worker.includes('request.content.workflow === "layl-program" && request.content.programId === LAYL_PROGRAM_ID'), "the Layl renderer must isolate the program from the generic publication flow");
+assert.ok(worker.includes('return { videoId, published: false, queued: false }'), "Layl generation must keep the internal video unpublished and out of the site publication queue until approval");
 assert.ok(worker.includes("overlay=0:0:format=auto"), "the renderer must composite Layl over the topic-specific local scene");
 assert.ok(worker.includes("content.visualBackground"), "the renderer must select the background from the active episode's topic");
 
