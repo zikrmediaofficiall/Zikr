@@ -1,4 +1,4 @@
-import { LAYL_EPISODES, type LaylEpisode } from "@/features/videos/data/layl-program";
+import { LAYL_EPISODES, type LaylEpisode } from "../data/layl-program";
 
 export type LatestLaylEpisodeState = {
   episodeNumber: number;
