@@ -10,6 +10,7 @@ assert.equal(LAYL_PROGRAM_TITLE, "دقيقتين مع ليل");
 assert.equal(LAYL_VOICE_PROFILE, "egyptian_male_story");
 assert.equal(LAYL_VISUAL_THEME, "layl");
 assert.equal(LAYL_EPISODES.length, 8);
+assert.equal(new Set(LAYL_EPISODES.map((episode) => episode.visualBackground)).size, 8, "every episode must have its own topic-specific visual background");
 
 const sundayWeek47 = new Date("2026-11-22T04:00:00.000Z");
 const sundayWeek48 = new Date("2026-11-29T04:00:00.000Z");
@@ -58,6 +59,8 @@ assert.ok(api.includes("LAYL_EPISODES, LAYL_PROGRAM_ID"), "the server route must
 assert.ok(api.includes('content.workflow === "layl-program"'), "the server must recognize only the dedicated Layl workflow");
 assert.ok(api.includes("submittedContent.sourceUrl === episode?.referenceUrl"), "the server must pin each episode to its canonical reference");
 assert.ok(api.includes('voiceProfile: "egyptian_male_story"'), "the server must choose the Egyptian male voice profile");
+assert.ok(api.includes("submittedContent.visualBackground === episode?.visualBackground"), "the API must reject a mismatched episode background");
+assert.ok(api.includes("visualBackground: episode.visualBackground"), "the API must pin the canonical episode background server-side");
 assert.ok(api.includes('visualTheme: "layl"'), "the server must choose the branded Layl mascot scene");
 assert.ok(api.includes("maxDurationSeconds: 120"), "the server must explicitly authorize the dedicated two-minute ceiling");
 assert.ok(api.includes("skipSocialPublish: true"), "Layl generation must not auto-publish to external social platforms");
@@ -67,6 +70,11 @@ assert.ok(worker.includes('request.content?.programId === "dakitayn-ma3-layl"'),
 assert.ok(worker.includes("resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS, maxDurationSeconds)"), "the worker must apply the request-scoped duration contract");
 assert.ok(worker.includes("assertPlayableOutput(outputPath, width, height, maxDurationSeconds, signal)"), "the final media probe must enforce the same duration ceiling");
 assert.ok(worker.includes("requestedVisualTheme"), "the renderer must honor an allowed, server-pinned Layl theme");
+assert.ok(worker.includes("episode.visualBackground === content.visualBackground"), "the QA gate must verify each episode's canonical topic background");
+assert.ok(worker.includes("public/video/templates/layl-character.svg"), "all episode scenes must reuse the same approved Layl cartoon character layer");
+assert.ok(worker.includes("overlay=0:0:format=auto"), "the renderer must composite Layl over the topic-specific local scene");
+assert.ok(worker.includes("content.visualBackground"), "the renderer must select the background from the active episode's topic");
+
 assert.ok(worker.includes('if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal);'), "Layl must not call Gemini for its fixed editorial script or planning");
 assert.ok(worker.includes('      !isLaylProgram &&\n      !boundTemplate &&\n      engineConfig().aiEnabled &&'), "Layl must bypass external AI video providers and remain on the local branded renderer");
 
@@ -89,6 +97,9 @@ assert.ok(worker.includes("!isLaylProgram || voiceProfile === LAYL_VOICE_PROFILE
 assert.ok(worker.includes("const maximumReviewedDuration = isLaylProgram ? 120 : 60"), "the QA duration exception must be limited to verified Layl episodes");
 
 const mascot = readFileSync("public/video/templates/layl.svg", "utf8");
+const character = readFileSync("public/video/templates/layl-character.svg", "utf8");
+assert.ok(character.includes('id="layl-character"'), "the transparent character foreground must retain the same presenter identity");
+assert.ok(character.includes("../../icons/icon-512.png"), "the presenter foreground must use only the official ZIKR app watermark");
 assert.ok(mascot.startsWith("<svg") && mascot.includes('viewBox="0 0 1080 1920"'), "mascot template must be a valid local vertical SVG");
 assert.ok(mascot.includes('id="layl-character"'), "the program mascot must be the consistent cartoon young Egyptian presenter");
 assert.ok(mascot.includes("../../icons/icon-512.png"), "the only explicit watermark source must be the original ZIKR app icon");
@@ -98,6 +109,7 @@ const studio = readFileSync("src/features/admin/video-studio/components/admin-vi
 assert.ok(panel.includes("/api/admin/videos/create"), "Layl must submit into the existing production queue");
 assert.ok(panel.includes("/api/admin/video-generation"), "Layl must read its actual production queue");
 assert.ok(panel.includes("/video/templates/layl.svg"), "the admin panel must preview the actual Layl cartoon presenter");
+assert.ok(panel.includes("visualBackground: activeEpisode.visualBackground"), "the admin panel must send the selected episode's visual background");
 assert.ok(studio.includes("<LaylProgramPanel />"), "the Layl program panel must be mounted in the site/mobile admin studio");
 assert.ok(!panel.includes('contentFormat: "series_episode"'), "general-audience Layl videos must not be misclassified by the Kids audience contract");
 
