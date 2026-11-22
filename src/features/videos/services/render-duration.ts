@@ -1,9 +1,9 @@
 /**
  * Resolve the render duration without truncating the audio track.
  *
- * Automated vertical videos allow up to 60 seconds. The 0.8s tail provides
- * room for the end of speech and audio fade; longer narrations fail clearly
- * instead of silently cutting off verified or child-safe content.
+ * Standard automated vertical videos remain limited to 60 seconds. A bounded
+ * 120-second ceiling is available only to the server-authorized Layl program.
+ * The 0.8s tail preserves the end of speech and the audio fade.
  */
 export const MAX_AUTO_VIDEO_SECONDS = 60;
 
@@ -28,7 +28,7 @@ export function resolveRenderDuration(
       "Narration is too long for an automated short: " +
         audioDuration.toFixed(1) +
         "s > " +
-        MAX_AUTO_VIDEO_SECONDS.toFixed(1) +
+        maxAllowed.toFixed(1) +
         "s max.",
     );
   }
