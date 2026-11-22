@@ -205,7 +205,8 @@ export async function POST(request: NextRequest) {
         submittedContent.seriesId === LAYL_PROGRAM_ID &&
         Boolean(episode) &&
         submittedContent.sourceLabel === episode?.referenceLabel &&
-        submittedContent.sourceUrl === episode?.referenceUrl;
+        submittedContent.sourceUrl === episode?.referenceUrl &&
+        submittedContent.visualBackground === episode?.visualBackground;
       if (!validEpisodeRequest || !episode) {
         return NextResponse.json(
           { error: "بيانات حلقة برنامج ليل أو مرجعها غير معتمد." },
@@ -218,6 +219,7 @@ export async function POST(request: NextRequest) {
         maxDurationSeconds: 120,
         voiceProfile: "egyptian_male_story",
         visualTheme: "layl",
+        visualBackground: episode.visualBackground,
         skipSocialPublish: true,
         sourceType: "editorial",
         sourceLabel: episode.referenceLabel,
