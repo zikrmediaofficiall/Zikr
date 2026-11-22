@@ -1906,9 +1906,27 @@ export function buildAutomatedVideoQaChecklist(
     content.sourceType === "editorial" &&
     sourceLabel === "محتوى تحريري أصلي من منصة ذِكر" &&
     !hasSuspiciousReligiousAttribution(contentText(request));
+  const laylEpisode = content.workflow === "layl-program" &&
+    content.programId === LAYL_PROGRAM_ID &&
+    content.seriesId === LAYL_PROGRAM_ID &&
+    content.seriesTitle === LAYL_PROGRAM_TITLE &&
+    Number(content.seasonNumber) === 1
+    ? LAYL_EPISODES.find((episode) =>
+        episode.number === Number(content.episodeNumber) &&
+        episode.referenceLabel === sourceLabel &&
+        episode.referenceUrl === sourceUrl &&
+        episode.editorialNote === content.editorialNote)
+    : undefined;
+  const isVerifiedLaylEditorial = category === "other" &&
+    content.audience !== "kids" &&
+    content.sourceType === "editorial" &&
+    content.voiceProfile === LAYL_VOICE_PROFILE &&
+    Boolean(laylEpisode) &&
+    !hasSuspiciousReligiousAttribution(contentText(request));
+  const isLaylProgram = Boolean(isVerifiedLaylEditorial);
   const sourceVerified = sourceCategories.has(category)
     ? Boolean(sourceId && /^https:\/\//i.test(sourceUrl) && sourceLabel.trim() && render.sourceLocked === true)
-    : isKidsSeries || isOriginalEditorial;
+    : isKidsSeries || isOriginalEditorial || isVerifiedLaylEditorial;
 
   const audioKind = typeof audio.kind === "string" ? audio.kind : "";
   const voiceProfile = typeof audio.voiceProfile === "string" ? audio.voiceProfile : "";
@@ -1917,6 +1935,7 @@ export function buildAutomatedVideoQaChecklist(
     "documentary_female_msa", "egyptian_female_story", "egyptian_male_story", "levant_male_story",
   ]);
   const audioReviewed = approvedVoiceProfiles.has(voiceProfile) &&
+    (!isLaylProgram || voiceProfile === LAYL_VOICE_PROFILE) &&
     (category === "quran"
       ? audioKind === "verified_quran_recitation"
       : audioKind === "arabic_tts_narration" ||
@@ -1937,6 +1956,7 @@ export function buildAutomatedVideoQaChecklist(
     typeof media.publicId === "string" && Boolean(media.publicId.trim()) &&
     Number(media.bytes) >= 1024;
   const renderDuration = Number(render.durationSeconds);
+  const maximumReviewedDuration = isLaylProgram ? 120 : 60;
   const resolutionValid = render.resolution === "1080x1920" || render.resolution === "1920x1080";
   const visualAudience: VideoTemplateAudience = content.audience === "kids" ? "kids" : "general";
   const visualTheme = typeof content.visualTheme === "string" ? content.visualTheme : "";
@@ -1949,7 +1969,7 @@ export function buildAutomatedVideoQaChecklist(
     render.aiVisualPolicyVersion === AI_VISUAL_POLICY_VERSION &&
     typeof render.composition === "string" && Boolean(render.composition.trim()) &&
     providerAllowed && cloudinaryVerified && resolutionValid &&
-    Number.isFinite(renderDuration) && renderDuration >= 1 && renderDuration <= 60 &&
+    Number.isFinite(renderDuration) && renderDuration >= 1 && renderDuration <= maximumReviewedDuration &&
     rendered.templateVersion === render.templateVersion;
 
   const narration = contentText(request);
