@@ -67,6 +67,7 @@ function isReadyForAutomatedKidsApproval(content: unknown): boolean {
     qa.engine === "zikr_video_factory" &&
     qa.engineVersion === "2026-11-07-auto-qa-v1" &&
     review?.mode === "automated" &&
+    review.reviewerId === "system:zikr-video-factory" &&
     review.engine === "zikr_video_factory" &&
     review.engineVersion === "2026-11-07-auto-qa-v1" &&
     review.snapshotHash === snapshotHash &&
