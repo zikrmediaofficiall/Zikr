@@ -6,7 +6,7 @@ import { recordAdminAuditEvent } from '@/features/admin/services/audit';
 import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
 import { supabaseServerAdminRequest } from '@/lib/supabase/server';
 import { readBoundedJsonBody } from '@/lib/request/bounded-json-body';
-import { buildVideoApprovalSnapshotHash, buildVideoCatalogApprovalPatch, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, resolveKidsVideoQaStatusForApproval, REQUIRED_VIDEO_APPROVAL_CHECKS } from '@/features/videos/services/video-publish-approval';
+import { buildVideoApprovalSnapshotHash, buildVideoCatalogApprovalPatch, hasCompleteVideoApprovalChecklist, REQUIRED_VIDEO_APPROVAL_CHECKS } from '@/features/videos/services/video-publish-approval';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,23 +123,16 @@ export async function PATCH(request: NextRequest) {
         );
       }
       const isKidsVideo = audience === 'kids';
-      // Video managers may review general-audience assets, but Kids publication
-      // approval also changes the public child-directed content surface.
-      // Require the separate Kids permission before reading or mutating the catalog.
+      // Kids videos are approved only by the source-locked automated QA pipeline.
+      // A manual API request must not override a failed, stale, or missing Kids QA result.
       if (isKidsVideo) {
-        const kidsAuth = await requireAdminApi('kids.manage');
-        if (!kidsAuth.ok) {
-          return NextResponse.json(
-            { error: kidsAuth.error },
-            { status: kidsAuth.status, headers: { 'Cache-Control': 'no-store' } },
-          );
-        }
-        if (kidsAuth.profile.id !== auth.profile.id) {
-          return NextResponse.json(
-            { error: 'Unauthorized' },
-            { status: 401, headers: { 'Cache-Control': 'no-store' } },
-          );
-        }
+        return NextResponse.json(
+          {
+            error: 'فيديوهات الأطفال تعتمد تلقائيًا بعد اجتياز فحوص الجودة الخمسة وفحص أمان الأطفال وتطابق بصمة المصدر والوسائط. الاعتماد اليدوي متوقف.',
+            code: 'KIDS_AUTOMATED_QA_ONLY',
+          },
+          { status: 410, headers: { 'Cache-Control': 'no-store' } },
+        );
       }
       const catalogSlug = "zikr-" + id.toLowerCase().replace(/[^a-z0-9-]/g, "");
       const catalogRows = await supabaseServerAdminRequest<Array<{
@@ -151,28 +144,7 @@ export async function PATCH(request: NextRequest) {
       if (!catalog?.id || !catalog.updated_at || !Number.isFinite(Date.parse(catalog.updated_at))) {
         return NextResponse.json({ error: 'سجل الفيديو الداخلي غير جاهز للاعتماد؛ لم يتم تغيير حالة العملية.' }, { status: 409 });
       }
-      const automatedQa = currentContent.automatedVideoQa && typeof currentContent.automatedVideoQa === 'object' && !Array.isArray(currentContent.automatedVideoQa)
-        ? currentContent.automatedVideoQa as Record<string, unknown>
-        : {};
-      const verifiedKidsVideoQaStatus = isKidsVideo ? resolveKidsVideoQaStatusForApproval({
-        requestContent: currentContent,
-        catalogMetadata: catalog.metadata,
-        requestId: id,
-        videoUrl: current.video_url,
-        sourceHash: current.source_hash,
-        contentHash: current.content_hash,
-        templateVersion: current.template_version,
-      }) : null;
-      if (isKidsVideo && (
-        verifiedKidsVideoQaStatus !== 'passed' ||
-        automatedQa.status !== 'passed' ||
-        !hasCompleteKidsVideoSeriesMetadata(currentContent)
-      )) {
-        return NextResponse.json({ error: 'فحص أمان فيديو الأطفال أو بيانات السلسلة غير مكتملة؛ لا يمكن اعتماد النشر.' }, { status: 409 });
-      }
-      const reviewContent = isKidsVideo
-        ? { ...currentContent, kidsVideoQaStatus: verifiedKidsVideoQaStatus }
-        : currentContent;
+      const reviewContent = currentContent;
       if (new Set(['quran', 'hadith', 'story', 'dua', 'adhkar']).has(current.category)) {
         const sourceUrl = typeof currentContent.sourceUrl === 'string' ? currentContent.sourceUrl : '';
         const sourceLabel = typeof currentContent.sourceLabel === 'string' ? currentContent.sourceLabel.trim() : '';
@@ -191,7 +163,7 @@ export async function PATCH(request: NextRequest) {
         templateVersion: current.template_version,
         videoUrl: current.video_url,
         audience,
-        kidsVideoQaStatus: isKidsVideo ? String(reviewContent.kidsVideoQaStatus) : null,
+        kidsVideoQaStatus: null,
       });
       if (!approvalSnapshotHash) {
         return NextResponse.json({ error: 'بصمة المصدر أو المحتوى أو ملف الفيديو غير مكتملة؛ أعد تجهيز الفيديو قبل اعتماده.' }, { status: 422 });
