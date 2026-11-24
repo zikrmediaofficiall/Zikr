@@ -820,7 +820,7 @@ export default function AdminSocialClient({ canPublish, canReviewVideos = false 
           <button type="button" onClick={() => setActiveView("queue")} className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-right transition hover:bg-amber-400/10">
             <span className="text-xs text-brand-cream/55">موقوف — فحوص الجودة الآلية غير مكتملة</span>
             <span className="mt-1 block text-2xl font-bold text-amber-200">{readiness.approvalPending}</span>
-            <span className="mt-1 block text-xs text-brand-cream/40">اعتماد بشري لفيديو الأطفال أو استكمال فحص الجودة</span>
+            <span className="mt-1 block text-xs text-brand-cream/40">فحوص الجودة الآلية الخمسة وسلامة محتوى الأطفال وبيانات السلسلة</span>
           </button>
           <button type="button" onClick={() => setActiveView("published")} className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-right transition hover:bg-emerald-400/10">
             <span className="text-xs text-brand-cream/55">فيديوهات منشورة</span>
