@@ -44,7 +44,7 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 4 THEN
+  IF visible_rows <> 5 THEN
     RAISE EXCEPTION 'authenticated non-admin must read only legacy general, explicit general, and Kids rows with complete automated QA approval; found %', visible_rows;
   END IF;
   IF EXISTS (
@@ -54,7 +54,8 @@ BEGIN
       'legacy-sql-null-metadata',
       'legacy-no-audience',
       'explicit-general',
-      'kids-approved'
+      'kids-approved',
+      'kids-youtube-fallback'
     )
   ) THEN
     RAISE EXCEPTION 'authenticated non-admin can read Kids rows without matching automated QA approval, Kids-category rows with missing or conflicting metadata, conflicting general/Kids provenance markers, unknown audience, malformed metadata, or unpublished video rows';
@@ -163,7 +164,8 @@ BEGIN
       OR policy_qual NOT ILIKE '%curatedSourceId%'
       OR policy_qual NOT ILIKE '%publicPath%'
       OR policy_qual NOT ILIKE '%public_path%'
-     OR policy_qual NOT ILIKE '%video_catalog_has_current_automated_kids_qa%' THEN
+     OR policy_qual NOT ILIKE '%video_catalog_has_current_automated_kids_qa%'
+      OR policy_qual NOT ILIKE '%youtubePublishedUrl%' THEN
     RAISE EXCEPTION 'video public-read policy must enforce canonical metadata, Kids QA, matching automated QA approval, and a current linked request';
   END IF;
   IF policy_roles NOT ILIKE '%anon%'
@@ -184,6 +186,7 @@ BEGIN
      OR restrictive_policy_qual NOT ILIKE '%audience%'
      OR restrictive_policy_qual NOT ILIKE '%cloudinary_master%'
      OR restrictive_policy_qual NOT ILIKE '%video_catalog_has_current_automated_kids_qa%'
+     OR restrictive_policy_qual NOT ILIKE '%youtubePublishedUrl%'
      OR restrictive_policy_roles NOT ILIKE '%anon%'
      OR restrictive_policy_roles NOT ILIKE '%authenticated%'
      OR restrictive_policy_roles ILIKE '%public%' THEN
