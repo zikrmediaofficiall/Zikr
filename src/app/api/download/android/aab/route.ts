@@ -21,7 +21,7 @@ export async function GET() {
       );
     }
 
-    const signedUrl = await getSignedGitHubAssetUrl(aab.id);
+    const signedUrl = await getSignedGitHubAssetUrl(aab.id, aab.browser_download_url);
     if (!signedUrl) {
       return NextResponse.json(
         { error: "تعذر إنشاء رابط تنزيل آمن للـAAB حاليًا." },
