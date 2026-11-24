@@ -3,7 +3,7 @@ import { getServerEnv } from "@/lib/env";
 import { isGitHubWorkflowDispatchAllowed } from "./workflow-dispatch-policy";
 
 const GITHUB_API = "https://api.github.com";
-const DEFAULT_REPOSITORY = "zikrofficial-X/Zikr";
+const DEFAULT_REPOSITORY = "zikrmediaofficiall/Zikr";
 
 type WorkflowInputs = Record<string, string>;
 
