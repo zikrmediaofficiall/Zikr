@@ -95,7 +95,7 @@ if (articleTranslator.includes("GEMINI_API_KEY_")) failures.push("article transl
 if (
   !articleTranslator.includes("GEMINI_FALLBACK_MODEL") ||
   !articleTranslator.includes("const modelNames = [...new Set([configured, fallback])];") ||
-  !articleTranslator.includes("const retryable = /\\\\b429\\\\b|\\\\b500\\\\b|\\\\b502\\\\b|\\\\b503\\\\b|\\\\b504\\\\b|unavailable|high demand|overloaded|temporarily unavailable/i.test(message)") ||
+  !articleTranslator.includes("const retryable = /\\b429\\b|\\b500\\b|\\b502\\b|\\b503\\b|\\b504\\b|unavailable|high demand|overloaded|temporarily unavailable/i.test(message)") ||
   !articleTranslator.includes("if (!retryable) throw error;") ||
   !articleTranslator.includes("gemini-3.5-flash-lite")
 ) {
