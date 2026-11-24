@@ -10,6 +10,7 @@ import { createAdminClient, supabaseServerAdminRequest } from "@/lib/supabase/se
 import { getConfirmedYoutubeFallbackId, shouldKeepPublishedVideoAfterMediaPurge, wasPublishedBeforeMediaPurge } from "@/features/videos/services/video-media-contract";
 import { isGeneratedCloudinaryVideoUrl } from "@/features/videos/services/video-media-url";
 import { isVideoAutomationEnabled } from "@/features/videos/services/background-job-settings";
+import { findGeneratedVideoReferences, findUnmanagedGeneratedVideoReferences } from "@/features/videos/services/video-media-reference-audit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,6 +35,84 @@ type CloudinarySearchPage = {
   next_cursor?: string;
   total_count?: number;
 };
+
+function collectGeneratedVideoCandidateValues(...sources: unknown[]): string[] {
+  const candidates = new Set<string>();
+  const addText = (value: string) => {
+    const text = value.trim();
+    if (!text) return;
+    for (const match of text.matchAll(/auto-[A-Za-z0-9_-]+/g)) candidates.add(match[0]);
+    for (const match of text.matchAll(/automated\/[A-Za-z0-9_./-]+/g)) {
+      const path = match[0].split(/[?#"'\s]/)[0];
+      if (path && !path.split("/").some(part => part === "." || part === "..")) candidates.add(path.replace(/\/$/, ""));
+    }
+    try {
+      const parsed = new URL(text);
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      const storageMarker = segments.findIndex((segment, index) => segment === "videos" && segments[index - 1] === "public");
+      if (storageMarker >= 0 && segments[storageMarker + 1] === "automated") {
+        const path = decodeURIComponent(segments.slice(storageMarker + 1).join("/"));
+        if (path.startsWith("automated/") && !path.split("/").some(part => part === "." || part === "..")) candidates.add(path);
+      }
+      if (parsed.hostname.toLowerCase() === "res.cloudinary.com") {
+        const uploadIndex = segments.indexOf("upload");
+        if (uploadIndex >= 0) {
+          const tail = segments.slice(uploadIndex + 1).filter(segment => !/^v\d+$/.test(segment));
+          const generatedIndex = tail.findIndex(segment => segment.includes("auto-"));
+          if (generatedIndex >= 0) {
+            const publicId = tail.slice(generatedIndex).join("/").replace(/\.(mp4|webm|mov|m4v)$/i, "");
+            if (publicId) candidates.add(publicId);
+          }
+        }
+      }
+    } catch {
+      // Plain public IDs and Storage paths are also valid candidates.
+    }
+  };
+  const visit = (value: unknown): void => {
+    if (typeof value === "string") addText(value);
+    else if (Array.isArray(value)) for (const item of value) visit(item);
+    else if (value && typeof value === "object") {
+      for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+        visit(key);
+        visit(item);
+      }
+    }
+  };
+  for (const source of sources) visit(source);
+  return [...candidates];
+}
+
+function hasConfirmedSocialDelivery(row: {
+  status: string;
+  target_platforms: unknown;
+  metadata: unknown;
+}): boolean {
+  if (row.status !== "published" || !Array.isArray(row.target_platforms) || row.target_platforms.length === 0) return false;
+  const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+    ? row.metadata as Record<string, unknown>
+    : {};
+  const rawResults = metadata.platformResults;
+  const results: Record<string, unknown> = {};
+  if (Array.isArray(rawResults)) {
+    for (const item of rawResults) {
+      if (item && typeof item === "object" && !Array.isArray(item)) {
+        const entry = item as Record<string, unknown>;
+        if (typeof entry.platform === "string") results[entry.platform] = entry;
+      }
+    }
+  } else if (rawResults && typeof rawResults === "object") {
+    Object.assign(results, rawResults);
+  }
+  const supported = new Set(["facebook", "facebook_reels", "youtube"]);
+  return row.target_platforms.every((target) => {
+    if (typeof target !== "string" || !supported.has(target)) return false;
+    const result = results[target];
+    if (!result || typeof result !== "object" || Array.isArray(result)) return false;
+    const delivery = result as Record<string, unknown>;
+    return delivery.ok === true && typeof delivery.remoteId === "string" && delivery.remoteId.trim().length > 0;
+  });
+}
 
 function cloudinaryConfig() {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim() ?? "";
@@ -309,14 +388,6 @@ async function getActiveVideoWork(): Promise<{ generation: number; publications:
   };
 }
 
-async function deleteRows(table: string, filter: string): Promise<number> {
-  const rows = await supabaseServerAdminRequest<Array<{ id: string }>>(
-    `/rest/v1/${table}?${filter}&select=id`,
-    { method: "DELETE", headers: { Prefer: "return=representation" } },
-  );
-  return rows?.length ?? 0;
-}
-
 export async function GET() {
   const auth = await requireAdminApi("video.delete");
   if (!auth.ok) return NextResponse.json({ allowed: false }, { status: auth.status });
@@ -361,39 +432,6 @@ export async function POST(request: NextRequest) {
     }
     const includeFiles = scope === "files" || scope === "both";
     const includeMemory = scope === "memory" || scope === "both";
-
-    // File deletion is deliberately disabled until this endpoint has a complete,
-    // bounded cross-table reference inventory for both Cloudinary and Supabase
-    // Storage. The separate retention workflow has a stronger inventory contract;
-    // this admin endpoint must not infer that an asset is unreferenced from tags
-    // or the social queue alone.
-    if (includeFiles) {
-      return NextResponse.json(
-        {
-          error: "File purge is disabled until a complete cross-table reference inventory proves that every Cloudinary and Supabase Storage asset is unreferenced. No files or project data were changed.",
-          deletionStarted: false,
-          filesPurgeAvailable: false,
-          retryRequired: false,
-        },
-        { status: 409, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-
-    // Memory cleanup also deletes generation-request rows. Their IDs are soft
-    // references in video catalog metadata and historical social queue rows;
-    // preserve those relationships until a complete archival/detachment
-    // contract has been implemented and verified across every consumer.
-    if (includeMemory) {
-      return NextResponse.json(
-        {
-          error: "Project-memory purge is disabled until generation-request, video-catalog metadata, social-queue, automation-run, and audit-event references are inventoried and safely preserved or detached. No database rows were changed.",
-          deletionStarted: false,
-          memoryPurgeAvailable: false,
-          retryRequired: false,
-        },
-        { status: 409, headers: { "Cache-Control": "no-store" } },
-      );
-    }
 
     const cloudinary = includeFiles ? cloudinaryConfig() : null;
     const lockToken = randomUUID();
@@ -527,8 +565,8 @@ export async function POST(request: NextRequest) {
       throw new Error("Generated video catalog exceeded the safe purge batch; no files or catalog rows were changed.");
     }
     const generatedRequests = includeMemory
-      ? await supabaseServerAdminRequest<Array<{ id: string }>>(
-          "/rest/v1/video_generation_requests?automation_key=not.is.null&select=id&limit=1000",
+      ? await supabaseServerAdminRequest<Array<{ id: string; video_url: string | null; thumbnail_url: string | null; content: Record<string, unknown> | null }>>(
+          "/rest/v1/video_generation_requests?automation_key=not.is.null&select=id,video_url,thumbnail_url,content&limit=1000",
         )
       : [];
     if (includeMemory && (generatedRequests ?? []).length >= 1000) {
@@ -544,11 +582,61 @@ export async function POST(request: NextRequest) {
     }
 
     const assets = includeFiles ? await listGeneratedVideos() : [];
-    const storagePaths = includeFiles ? await listAutomatedStorageObjects() : [];
+    // Inventory the dedicated project Storage prefix for both file and memory scopes.
+    // Memory-only cleanup leaves every physical object untouched.
+    const storagePaths = includeFiles || includeMemory ? await listAutomatedStorageObjects() : [];
     const processingAfterPreflight = await getActiveVideoWork();
     if (processingAfterPreflight.generation > 0 || processingAfterPreflight.publications > 0) {
       throw new Error(
         `Video generation or scheduled publication became active during purge preflight (${processingAfterPreflight.generation} generation request(s), ${processingAfterPreflight.publications} publication(s)); no deletion started.`,
+      );
+    }
+
+    const referenceCandidates = collectGeneratedVideoCandidateValues(
+      storagePaths,
+      assets.map((asset) => asset.public_id ?? ""),
+      generatedCatalogRows,
+      generatedRequests,
+    );
+    const socialQueueInventory = await supabaseServerAdminRequest<Array<{
+      id: string;
+      status: string;
+      target_platforms: unknown;
+      video_url: string | null;
+      image_url: string | null;
+      metadata: Record<string, unknown> | null;
+    }>>("/rest/v1/social_publish_queue?select=id,status,target_platforms,video_url,image_url,metadata&limit=1000");
+    if ((socialQueueInventory ?? []).length >= 1000) {
+      throw new Error("Social publication history exceeded the safe reference-audit limit; refusing cleanup.");
+    }
+    const unresolvedSocialReferences = (socialQueueInventory ?? [])
+      .filter((row) => findGeneratedVideoReferences(row, referenceCandidates).length > 0)
+      .filter((row) => !hasConfirmedSocialDelivery(row));
+    const unmanagedReferences = await findUnmanagedGeneratedVideoReferences(
+      createAdminClient(),
+      referenceCandidates,
+    );
+    if (unresolvedSocialReferences.length > 0 || unmanagedReferences.length > 0) {
+      await restoreVideoAutomation(automationWasEnabled);
+      if (purgeLockToken) {
+        await releasePurgeLock(purgeLockToken);
+        purgeLockToken = null;
+      }
+      return NextResponse.json(
+        {
+          error: "تعذر الحذف بأمان: ما زالت هناك مراجع نشطة أو غير محسومة لملفات الفيديو. أكمل النشر أو أزل الارتباط من المحتوى أولًا ثم أعد المحاولة.",
+          deletionStarted: false,
+          paused: false,
+          retryRequired: true,
+          unresolvedSocialReferences: unresolvedSocialReferences.slice(0, 10).map((row) => row.id),
+          unmanagedReferenceCount: unmanagedReferences.length,
+          unmanagedReferenceSamples: unmanagedReferences.slice(0, 10).map((hit) => ({
+            table: hit.table,
+            column: hit.column,
+            recordId: hit.recordId,
+          })),
+        },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
       );
     }
     if (includeFiles && assets.length > 0) destructiveWorkStarted = true;
@@ -566,6 +654,21 @@ export async function POST(request: NextRequest) {
 
     if (includeFiles && storagePaths.length > 0) destructiveWorkStarted = true;
     const storageObjectsDeleted = includeFiles ? await deleteAutomatedStorageObjects(storagePaths) : 0;
+    if (includeFiles && storagePaths.length > 0) {
+      const remainingStoragePaths = new Set(await listAutomatedStorageObjects());
+      const remaining = storagePaths.filter((path) => remainingStoragePaths.has(path));
+      if (remaining.length > 0) {
+        throw new Error(`Supabase Storage still contains ${remaining.length} generated video object(s); refusing to finalize purge.`);
+      }
+    }
+    if (includeFiles && assets.length > 0) {
+      const deletedPublicIds = new Set(assets.map((asset) => asset.public_id).filter((value): value is string => Boolean(value)));
+      const remainingAssets = await listGeneratedVideos();
+      const remaining = remainingAssets.filter((asset) => asset.public_id && deletedPublicIds.has(asset.public_id));
+      if (remaining.length > 0) {
+        throw new Error(`Cloudinary still reports ${remaining.length} generated video asset(s) after deletion; refusing to finalize purge.`);
+      }
+    }
     // Remove Cloudinary masters without hiding videos that already have a
     // verified YouTube publication fallback. Unconfirmed IDs are never treated
     // as a playback fallback, and unpublished records remain unpublished.
@@ -578,26 +681,61 @@ export async function POST(request: NextRequest) {
       const keepPublishedFallback = shouldKeepPublishedVideoAfterMediaPurge(row, includeFiles);
       if (keepPublishedFallback) catalogFallbackRowsKeptPublished += 1;
       else catalogRecordsHidden += 1;
-      const nextMetadata = {
-        ...previousMetadata,
-        ...(includeFiles
-          ? {
-              generatedVideoUrl: null,
-              videoUrl: null,
-              mediaState: "purged",
-              mediaFallbackAvailable: fallbackId !== null,
-              mediaPurgedFromPublished: wasPublishedBeforeMediaPurge(row),
-            }
-          : { mediaState: "unlinked" }),
-        mediaPurgedAt: includeFiles ? new Date().toISOString() : previousMetadata.mediaPurgedAt ?? null,
-        memoryUnlinkedAt: new Date().toISOString(),
-      };
+      const now = new Date().toISOString();
+      const nextMetadata = includeMemory
+        ? {
+            ...previousMetadata,
+            generatedVideoUrl: null,
+            videoUrl: null,
+            video_url: null,
+            sourceVideoUrl: null,
+            thumbnailUrl: null,
+            sourceUrl: null,
+            sourceLabel: null,
+            sourceHash: null,
+            contentHash: null,
+            templateVersion: null,
+            storyText: null,
+            socialCaption: null,
+            caption: null,
+            automatedVideoQa: null,
+            qualityReview: null,
+            approvalStatus: null,
+            approvalReviewerId: null,
+            approvalReviewedAt: null,
+            approvalSnapshotHash: null,
+            contentFormat: null,
+            aiMode: null,
+            sourceType: null,
+            seriesId: null,
+            seriesTitle: null,
+            learningObjective: null,
+            seasonNumber: null,
+            episodeNumber: null,
+            mediaState: includeFiles ? "purged" : "unlinked",
+            mediaFallbackAvailable: includeFiles && fallbackId !== null,
+            mediaPurgedFromPublished: includeFiles ? wasPublishedBeforeMediaPurge(row) : false,
+            mediaPurgedAt: includeFiles ? now : previousMetadata.mediaPurgedAt ?? null,
+            memoryPurgedAt: now,
+            videoMemoryPurged: true,
+          }
+        : {
+            ...previousMetadata,
+            generatedVideoUrl: null,
+            videoUrl: null,
+            mediaState: "purged",
+            mediaFallbackAvailable: fallbackId !== null,
+            mediaPurgedFromPublished: wasPublishedBeforeMediaPurge(row),
+            mediaPurgedAt: now,
+          };
       await supabaseServerAdminRequest("/rest/v1/videos?id=eq." + encodeURIComponent(row.id), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
         body: JSON.stringify({
           published: keepPublishedFallback,
-          ...(keepPublishedFallback && fallbackId ? { youtube_id: fallbackId } : {}),
+          ...(includeMemory
+            ? { youtube_id: keepPublishedFallback && fallbackId ? fallbackId : null }
+            : (keepPublishedFallback && fallbackId ? { youtube_id: fallbackId } : {})),
           metadata: nextMetadata,
           updated_at: new Date().toISOString(),
         }),
@@ -623,21 +761,65 @@ export async function POST(request: NextRequest) {
     }
         // Historical external platform queue records are never read or modified.
     const socialQueueRowsPreserved = true;
-    let generationRowsDeleted = 0;
-    if ((generatedRequests ?? []).length > 0) destructiveWorkStarted = true;
+    let generationRowsRedacted = 0;
+    let automationRunsRedacted = 0;
+    if (includeMemory && (generatedRequests ?? []).length > 0) destructiveWorkStarted = true;
     for (const generatedRequest of generatedRequests ?? []) {
-      generationRowsDeleted += await deleteRows(
-        "video_generation_requests",
-        "id=eq." + encodeURIComponent(generatedRequest.id),
+      const purgedAt = new Date().toISOString();
+      await supabaseServerAdminRequest(
+        "/rest/v1/video_generation_requests?id=eq." + encodeURIComponent(generatedRequest.id),
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({
+            title: "سجل فيديو تمت إزالة ذاكرته",
+            description: null,
+            content: { memoryPurged: true, purgedAt, retainedRequestId: generatedRequest.id },
+            duration: null,
+            thumbnail_url: null,
+            status: "cancelled",
+            youtube_id: null,
+            facebook_id: null,
+            error_message: "Project video memory was purged by an administrator.",
+            error_details: null,
+            heygen_video_id: null,
+            heygen_status: null,
+            heygen_submitted_at: null,
+            heygen_last_polled_at: null,
+            video_url: null,
+            content_hash: null,
+            source_hash: null,
+            provider: null,
+            provider_job_id: null,
+            template_version: null,
+            generation_attempts: 0,
+            last_attempt_at: null,
+            next_retry_at: null,
+            publish_status: null,
+            scene: null,
+            render_duration_ms: null,
+            updated_at: purgedAt,
+          }),
+        },
       );
+      generationRowsRedacted += 1;
     }
-    let automationRunsDeleted = 0;
-    if ((automationRuns ?? []).length > 0) destructiveWorkStarted = true;
+    if (includeMemory && (automationRuns ?? []).length > 0) destructiveWorkStarted = true;
     for (const run of automationRuns ?? []) {
-      automationRunsDeleted += await deleteRows(
-        "video_automation_runs",
-        "id=eq." + encodeURIComponent(run.id),
+      const purgedAt = new Date().toISOString();
+      await supabaseServerAdminRequest(
+        "/rest/v1/video_automation_runs?id=eq." + encodeURIComponent(run.id),
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({
+            provider_stats: { memoryPurged: true, purgedAt },
+            error_summary: null,
+            metadata: { generator: "multi-provider-free-ai", memoryPurged: true, purgedAt },
+          }),
+        },
       );
+      automationRunsRedacted += 1;
     }
 
     dataCleanupFinished = true;
@@ -663,10 +845,10 @@ export async function POST(request: NextRequest) {
         generatedCatalogRecordsHidden: catalogRecordsHidden,
         catalogRecordsHidden,
         catalogFallbackRowsKeptPublished,
-        generationMemoryDeleted: includeMemory,
+        generationMemoryRedacted: includeMemory,
         physicalFilesDeleted: includeFiles,
-        generationRowsDeleted,
-        automationRunsDeleted,
+        generationRowsRedacted,
+        automationRunsRedacted,
         externalSocialPostsDeleted: false,
       },
       }),
@@ -697,8 +879,8 @@ export async function POST(request: NextRequest) {
         catalogFallbackRowsKeptPublished,
         generationMemoryDeleted: includeMemory,
         physicalFilesDeleted: includeFiles,
-        generationRowsDeleted,
-        automationRunsDeleted,
+        generationRowsRedacted,
+        automationRunsRedacted,
         externalSocialPostsDeleted: false,
         note: includeFiles && includeMemory
           ? "تم حذف ملفات التوليد ورفعها من الذاكرة الداخلية، مع إبقاء سجل التدقيق والعناوين الأساسية. سجلات المنصات الخارجية لم تُعدّل."
