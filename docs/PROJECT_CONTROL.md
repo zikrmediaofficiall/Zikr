@@ -1,14 +1,16 @@
 # ZIKR — Project Control and Release Identity
 
-**Effective date:** 21 November 2026
+**Effective date:** 24 November 2026
 
 ## Canonical project identity
 
-- GitHub repository: `zikrmediaofficiall/Zikr`
+- GitHub repository: `zikrmediaofficiall/Zikr` (repository ID `1416064644`)
 - GitHub control account: `zikrmediaofficiall` (repository owner; Admin permission verified)
-- Vercel account username: `zikrofficial-x`
-- Vercel team: `zikr3`
+- Vercel account username: `zikrmediacontact-7177`
+- Vercel team: `zikrmediaofficial` / `zikrmediaofficial1`
+- Vercel team ID: `team_AIjRfjTq0HWRiTWbvTVpVolg`
 - Vercel project: `zikr`
+- Vercel project ID: `prj_aruq5Q3gsE8DhgV86iIvz2WrVzEj`
 - Linked source: `zikrmediaofficiall/Zikr`
 - Production domain: `https://zikrmediaofficial.vercel.app`
 - Canonical Supabase project: `zqtssvlvmkzeeyqghqfk`
