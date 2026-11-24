@@ -350,3 +350,25 @@ assert.ok(
     adminCommandCenter.includes("الحذف معطّل مؤقتًا"),
   "the admin command center must explain why failed request records are retained",
 );
+
+
+const mediaReferenceAudit = read("src/features/videos/services/video-media-reference-audit.ts");
+for (const token of [
+  '["video_generation_requests", "video_url", "id"]',
+  '["video_generation_requests", "thumbnail_url", "id"]',
+  '["video_generation_requests", "content", "id"]',
+  '["video_generation_requests", "error_details", "id"]',
+  '["video_automation_runs", "metadata", "id"]',
+  '["video_automation_runs", "provider_stats", "id"]',
+  '["admin_audit_events", "metadata", "id"]',
+  '["quran_audio", "metadata", "id"]',
+  '["videos", "description", "id"]',
+  '["videos", "thumbnail_url", "id"]',
+]) {
+  assert.ok(mediaReferenceAudit.includes(token), "Cross-table purge audit is missing reference coverage: " + token);
+}
+assert.ok(
+  route.includes("video_generation_requests: new Set((generatedRequests ?? []).map((row) => row.id))") &&
+    route.includes("video_automation_runs: new Set((automationRuns ?? []).map((run) => run.id))"),
+  "the preflight may exclude only generation/run records that this exact purge operation rewrites; unmanaged references must continue to block deletion",
+);
