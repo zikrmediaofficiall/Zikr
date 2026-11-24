@@ -44,6 +44,7 @@ function isContentApproved(content: unknown): boolean {
     qa.engineVersion === "2026-11-07-auto-qa-v1" &&
     qa.snapshotHash === snapshotHash &&
     review?.mode === "automated" &&
+    review.reviewerId === "system:zikr-video-factory" &&
     review.engine === "zikr_video_factory" &&
     review.engineVersion === "2026-11-07-auto-qa-v1" &&
     review.snapshotHash === snapshotHash &&
