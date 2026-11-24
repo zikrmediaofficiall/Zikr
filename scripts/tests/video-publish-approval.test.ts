@@ -602,8 +602,20 @@ const createKidsPermissionGuard = adminVideoCreateRoute.slice(createKidsPermissi
 assert.ok(createKidsPermissionGuard.includes('requireAdminApi("kids.manage")'), "Kids generation must require the separate Kids permission");
 assert.ok(createKidsPermissionGuard.includes("kidsAuth.profile.id !== auth.profile.id"), "Kids permission must belong to the same authenticated admin");
 
-assert.match(adminVideoGenerationRoute, /resolveKidsVideoQaStatusForApproval/);
-assert.match(adminVideoGenerationRoute, /requestContent: currentContent/);
-assert.match(adminVideoGenerationRoute, /kidsVideoQaStatus: verifiedKidsVideoQaStatus/);
+const manualKidsApprovalGuard = adminVideoGenerationRoute.indexOf("KIDS_AUTOMATED_QA_ONLY");
+const manualKidsApprovalCatalogLookup = adminVideoGenerationRoute.indexOf("const catalogSlug =", manualKidsApprovalGuard);
+const manualKidsApprovalRpc = adminVideoGenerationRoute.indexOf("admin_approve_video_generation_request", manualKidsApprovalGuard);
+assert.ok(
+  manualKidsApprovalGuard >= 0 &&
+    adminVideoGenerationRoute.includes("status: 410") &&
+    manualKidsApprovalCatalogLookup > manualKidsApprovalGuard &&
+    manualKidsApprovalRpc > manualKidsApprovalGuard,
+  "manual Kids approval must be rejected before catalog mutation or the atomic approval RPC",
+);
+assert.ok(
+  !adminVideoGenerationRoute.includes("verifiedKidsVideoQaStatus") &&
+    !adminVideoGenerationRoute.includes("kidsVideoQaStatus: verifiedKidsVideoQaStatus"),
+  "Kids approval must come only from the automated worker, not a manual API review",
+);
 
 console.log("Video publishing approval contract passed.");
