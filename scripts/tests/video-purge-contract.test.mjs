@@ -211,6 +211,12 @@ assert.ok(route.includes("remainingStoragePaths") &&
   route.includes("remainingAssets") &&
   route.includes("refusing to finalize purge"),
   "file deletion must verify Supabase Storage and Cloudinary objects are absent before completing");
+assert.ok(route.includes("scrubGeneratedVideoReferences") &&
+  route.includes("generationMediaPointersCleared") &&
+  route.includes("keepSnapshotForYouTubeFallback"),
+  "file-only purge must remove stale request media pointers but retain the exact generation fingerprint only for publisher-confirmed YouTube fallback rows");
+assert.ok(route.includes("youtubePublishedUrl") || route.includes("getConfirmedYoutubeFallbackId"),
+  "purge must keep only the verified YouTube fallback and its canonical URL when preserving a published catalog row");
 assert.ok(!route.includes("filesPurgeAvailable: false") &&
   !route.includes("memoryPurgeAvailable: false"),
   "both explicit purge scopes must be enabled behind their dynamic reference preflight");
