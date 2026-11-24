@@ -123,9 +123,18 @@ export async function PATCH(request: NextRequest) {
           { status: 409, headers: { 'Cache-Control': 'no-store' } },
         );
       }
-      // Kids videos are approved only by the source-locked automated QA pipeline.
-      // A manual API request must not override a failed, stale, or missing Kids QA result.
+      // Kids requests still require the Kids management permission even though
+      // this endpoint intentionally refuses manual approval for Kids publication.
       if (audience === 'kids') {
+        const kidsAuth = await requireAdminApi("kids.manage");
+        if (!kidsAuth.ok) {
+          return NextResponse.json(
+            { error: kidsAuth.error },
+            { status: kidsAuth.status, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        // Kids videos are approved only by the source-locked automated QA pipeline.
+        // A manual API request must not override a failed, stale, or missing Kids QA result.
         return NextResponse.json(
           {
             error: 'فيديوهات الأطفال تعتمد تلقائيًا بعد اجتياز فحوص الجودة الخمسة وفحص أمان الأطفال وتطابق بصمة المصدر والوسائط. الاعتماد اليدوي متوقف.',
