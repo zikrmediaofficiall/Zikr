@@ -1,6 +1,6 @@
 {
-  "version": "20261120-20261120125036",
-  "generatedAt": "2026-11-20T12:50:36.357Z",
+  "version": "20261124-20261124125400",
+  "generatedAt": "2026-11-24T12:54:00.032Z",
   "source": "Zikr Supabase public-content snapshot; the exporter retains the last validated tafsir corpus only if live quran_tafsir falls below its safety floor",
   "licenseNote": "Quran and hadith records retain source attribution. Editorial records are Zikr content. External audio remains a reference unless the file is explicitly packaged locally.",
   "staleDatasets": [],
@@ -73,13 +73,13 @@
     },
     "articles": {
       "path": "/offline-content/v1/articles.json",
-      "count": 75,
+      "count": 88,
       "source": "supabase",
       "stale": false
     },
     "duas": {
       "path": "/offline-content/v1/duas.json",
-      "count": 43,
+      "count": 50,
       "source": "supabase",
       "stale": false
     },
