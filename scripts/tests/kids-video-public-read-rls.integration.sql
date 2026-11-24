@@ -8,7 +8,7 @@ DECLARE
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
   IF visible_rows <> 4 THEN
-    RAISE EXCEPTION 'anon must read only legacy general, explicit general, and Kids rows with complete human approval; found %', visible_rows;
+    RAISE EXCEPTION 'anon must read only legacy general, explicit general, and Kids rows with complete automated QA approval; found %', visible_rows;
   END IF;
   IF EXISTS (
     SELECT 1
@@ -20,7 +20,7 @@ BEGIN
       'kids-approved'
     )
   ) THEN
-    RAISE EXCEPTION 'anon can read Kids rows without matching human approval, Kids-category rows with missing or conflicting metadata, conflicting general/Kids provenance markers, unknown audience, malformed metadata, or unpublished video rows';
+    RAISE EXCEPTION 'anon can read Kids rows without matching automated QA approval, Kids-category rows with missing or conflicting metadata, conflicting general/Kids provenance markers, unknown audience, malformed metadata, or unpublished video rows';
   END IF;
 END
 $anon_read$;
@@ -44,7 +44,7 @@ DECLARE
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
   IF visible_rows <> 4 THEN
-    RAISE EXCEPTION 'authenticated non-admin must read only legacy general, explicit general, and Kids rows with complete human approval; found %', visible_rows;
+    RAISE EXCEPTION 'authenticated non-admin must read only legacy general, explicit general, and Kids rows with complete automated QA approval; found %', visible_rows;
   END IF;
   IF EXISTS (
     SELECT 1
@@ -56,7 +56,7 @@ BEGIN
       'kids-approved'
     )
   ) THEN
-    RAISE EXCEPTION 'authenticated non-admin can read Kids rows without matching human approval, Kids-category rows with missing or conflicting metadata, conflicting general/Kids provenance markers, unknown audience, malformed metadata, or unpublished video rows';
+    RAISE EXCEPTION 'authenticated non-admin can read Kids rows without matching automated QA approval, Kids-category rows with missing or conflicting metadata, conflicting general/Kids provenance markers, unknown audience, malformed metadata, or unpublished video rows';
   END IF;
 END
 $authenticated_read$;
@@ -104,7 +104,7 @@ BEGIN
   FROM pg_catalog.pg_policies
   WHERE schemaname = 'public' AND tablename = 'videos'
     AND cmd = 'SELECT' AND permissive = 'RESTRICTIVE'
-    AND policyname = 'videos_kids_category_requires_current_human_approval';
+    AND policyname = 'videos_kids_category_requires_current_automated_qa';
   IF policy_count <> 1 THEN
     RAISE EXCEPTION 'public.videos must have exactly one restrictive Kids-category SELECT policy, found %', policy_count;
   END IF;
@@ -126,6 +126,8 @@ BEGIN
       OR policy_qual NOT ILIKE '%approvalReviewedAt%'
       OR policy_qual NOT ILIKE '%approvalSnapshotHash%'
       OR policy_qual NOT ILIKE '%qualityReview%'
+      OR policy_qual NOT ILIKE '%zikr_video_factory%'
+      OR policy_qual NOT ILIKE '%system:zikr-video-factory%'
       OR policy_qual NOT ILIKE '%videoGenerationRequestId%'
       OR policy_qual NOT ILIKE '%generatedVideoUrl%'
       OR policy_qual NOT ILIKE '%mediaState%'
@@ -135,7 +137,7 @@ BEGIN
       OR policy_qual NOT ILIKE '%contentHash%'
       OR policy_qual NOT ILIKE '%templateVersion%'
       OR policy_qual NOT ILIKE '%snapshotHash%'
-      OR policy_qual NOT ILIKE '%human%'
+      OR policy_qual NOT ILIKE '%engineVersion%'
       OR policy_qual NOT ILIKE '%reviewerId%'
       OR policy_qual NOT ILIKE '%reviewedAt%'
       OR policy_qual NOT ILIKE '%sourceVerified%'
@@ -161,7 +163,7 @@ BEGIN
       OR policy_qual NOT ILIKE '%publicPath%'
       OR policy_qual NOT ILIKE '%public_path%'
      OR policy_qual NOT ILIKE '%video_catalog_has_current_human_kids_approval%' THEN
-    RAISE EXCEPTION 'video public-read policy must enforce canonical metadata, Kids QA, matching human approval, and a current linked request';
+    RAISE EXCEPTION 'video public-read policy must enforce canonical metadata, Kids QA, matching automated QA approval, and a current linked request';
   END IF;
   IF policy_roles NOT ILIKE '%anon%'
      OR policy_roles NOT ILIKE '%authenticated%'
@@ -174,7 +176,7 @@ BEGIN
   FROM pg_catalog.pg_policies
   WHERE schemaname = 'public'
     AND tablename = 'videos'
-    AND policyname = 'videos_kids_category_requires_current_human_approval';
+    AND policyname = 'videos_kids_category_requires_current_automated_qa';
   IF restrictive_policy_qual IS NULL
      OR restrictive_policy_qual NOT ILIKE '%video_category_is_kids%'
      OR restrictive_policy_qual NOT ILIKE '%category_id%'
@@ -219,12 +221,12 @@ BEGIN
     RAISE EXCEPTION 'generation request rows must remain private to the server and service role';
   END IF;
 
-  IF NOT has_function_privilege('anon', 'private.video_catalog_has_current_human_kids_approval(jsonb)', 'EXECUTE')
-     OR NOT has_function_privilege('authenticated', 'private.video_catalog_has_current_human_kids_approval(jsonb)', 'EXECUTE') THEN
+  IF NOT has_function_privilege('anon', 'private.video_catalog_has_current_automated_kids_qa(jsonb)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'private.video_catalog_has_current_automated_kids_qa(jsonb)', 'EXECUTE') THEN
     RAISE EXCEPTION 'public roles must be able to evaluate the private approval predicate through RLS';
   END IF;
 
-  IF pg_get_functiondef('private.video_catalog_has_current_human_kids_approval(jsonb)'::regprocedure) NOT ILIKE '%extensions.digest%' THEN
+  IF pg_get_functiondef('private.video_catalog_has_current_automated_kids_qa(jsonb)'::regprocedure) NOT ILIKE '%extensions.digest%' THEN
     RAISE EXCEPTION 'public Kids video RLS must recompute the current request approval snapshot hash';
   END IF;
 
