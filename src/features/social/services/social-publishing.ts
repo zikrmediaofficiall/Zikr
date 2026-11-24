@@ -645,7 +645,7 @@ async function publishPlatform(
       };
     }
     if (!(await hasVideoApprovalForQueueItem(item))) {
-      return { platform, ok: false, approvalBlocked: true, error: "Video held because automated QA or Kids human review is missing, incomplete or stale." };
+      return { platform, ok: false, approvalBlocked: true, error: "Video held because automated QA, Kids safety, source provenance, or the current media fingerprint is missing, incomplete or stale." };
     }
     const catalogApproval = await checkVideoCatalogPublication(item);
     if (catalogApproval.status === "blocked") {
