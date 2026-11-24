@@ -602,7 +602,7 @@ export async function POST(request: NextRequest) {
     }
 
     const assets = includeFiles ? await listGeneratedVideos() : [];
-    // Inventory the dedicated project Storage prefix for both file and memory scopes.
+    // Inventory the dedicated project Storage prefix only for file and combined scopes.
     // Memory-only cleanup leaves every physical object untouched.
     const storagePaths = includeFiles ? await listAutomatedStorageObjects() : [];
     const processingAfterPreflight = await getActiveVideoWork();
@@ -770,9 +770,7 @@ export async function POST(request: NextRequest) {
                 youtube_id: keepPublishedFallback && fallbackId ? fallbackId : null,
               }
             : {
-                description: keepPublishedFallback && fallbackId
-                  ? scrubGeneratedVideoReferences(row.description, new Set(referenceCandidates)) as string | null
-                  : scrubGeneratedVideoReferences(row.description, new Set(referenceCandidates)) as string | null,
+                description: scrubGeneratedVideoReferences(row.description, new Set(referenceCandidates)) as string | null,
                 thumbnail_url: keepPublishedFallback && fallbackId
                   ? "https://i.ytimg.com/vi/" + encodeURIComponent(fallbackId) + "/hqdefault.jpg"
                   : null,
@@ -920,7 +918,6 @@ export async function POST(request: NextRequest) {
         catalogRecordsHidden,
         catalogFallbackRowsKeptPublished,
         generationMemoryRedacted: includeMemory,
-        generationMediaPointersCleared: includeFiles && !includeMemory ? (generatedRequests ?? []).length : 0,
         generationMediaPointersCleared: includeFiles && !includeMemory ? (generatedRequests ?? []).length : 0,
         physicalFilesDeleted: includeFiles,
         generationRowsRedacted,
