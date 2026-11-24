@@ -239,8 +239,8 @@ export default function AdminSocialClient({ canPublish, canReviewVideos = false 
     enabled: true,
     provider: "GitHub Actions",
     trigger: "after_video_generation_or_manual",
-    approvalRequired: true,
-    note: "الفيديوهات العامة وفيديوهات الأطفال بعد اجتياز فحوص الجودة الآلية الخمسة والتحقق من المصدر وبصمة الوسائط.",
+    approvalRequired: false,
+    note: "الفيديوهات العامة المؤهلة تنتقل للنشر تلقائيًا، وفيديوهات الأطفال تعتمد تلقائيًا بعد اجتياز فحوص الجودة الخمسة وفحص أمان الأطفال والتحقق من المصدر وبصمة الوسائط.",
   });
   const [oldestQueuedAt, setOldestQueuedAt] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | Status>("all");
@@ -279,7 +279,7 @@ export default function AdminSocialClient({ canPublish, canReviewVideos = false 
         enabled: false,
         provider: "GitHub Actions",
         trigger: "after_video_generation_or_manual",
-        approvalRequired: true,
+        approvalRequired: false,
         note: "تعذر التحقق من حالة النشر؛ يظل النشر متوقفًا بأمان.",
       });
       setOldestQueuedAt(payload.oldestQueuedAt ?? null);
@@ -1184,7 +1184,7 @@ export default function AdminSocialClient({ canPublish, canReviewVideos = false 
               الإجراءات السريعة
             </h2>
             <p className="text-xs text-brand-cream/40">
-              العناصر التي لم تجتز الفحص لا تُنشر. فيديوهات الأطفال تعتمد تلقائيًا بعد اجتياز فحوص الجودة الخمسة والتحقق من المصدر وبصمة الوسائط؛ جميع الفيديوهات المؤهلة تنتقل للنشر تلقائيًا. تبقى نتائج القنوات الناجحة محفوظة لمنع التكرار.
+              العناصر التي لم تجتز الفحص لا تُنشر. فيديوهات الأطفال تعتمد تلقائيًا بعد اجتياز فحوص الجودة الخمسة وفحص أمان الأطفال والتحقق من المصدر وبصمة الوسائط؛ الفيديوهات العامة المؤهلة تنتقل للنشر تلقائيًا. تبقى نتائج القنوات الناجحة محفوظة لمنع التكرار.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
