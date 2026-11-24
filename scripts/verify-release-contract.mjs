@@ -217,7 +217,7 @@ for (const [name, source] of [["APK download", androidApkDownload], ["AAB downlo
   assert.ok(!source.includes("verifiedSupabaseUrl"), name + " must never redirect Android binaries to Supabase Storage");
   assert.ok(!source.includes("storage/v1/object/public/android-releases"), name + " must keep binary delivery on GitHub Releases");
 }
-assert.ok(androidApkDownload.includes("getSignedGitHubAssetUrl") && androidAabDownload.includes("getSignedGitHubAssetUrl"), "APK and AAB download endpoints must resolve assets through GitHub Releases");
+assert.ok(androidApkDownload.includes("getSignedGitHubAssetUrl(apk.id, apk.browser_download_url)") && androidAabDownload.includes("getSignedGitHubAssetUrl(aab.id, aab.browser_download_url)"), "APK and AAB download endpoints must use the public browser_download_url from GitHub release metadata");
 assert.ok(androidAppVersion.includes("RELEASE_DOWNLOAD_ENDPOINT") && androidAppVersion.includes("getSelectedAndroidRelease"), "Native app update metadata must advertise GitHub-backed release endpoints using the shared selected release");
 for (const [name, source] of [["APK download", androidApkDownload], ["AAB download", androidAabDownload], ["App version metadata", androidAppVersion]]) {
   assert.ok(source.includes("getSelectedAndroidRelease"), name + " must use the same admin-selected stable release");
@@ -225,8 +225,12 @@ for (const [name, source] of [["APK download", androidApkDownload], ["AAB downlo
 const androidReleaseService = read("src/features/releases/services/github-android-release.ts");
 assert.ok(androidReleaseService.includes("return selectAndroidRelease(latestStable, pinnedRelease)"), "The shared Android release resolver must honor the validated admin pin before automatic latest selection");
 assert.ok(androidReleaseService.includes("function hasAab("), "Android release discovery must explicitly detect AAB assets");
+assert.ok(androidReleaseService.includes("async function fetchGitHubResponse(") && androidReleaseService.includes("response.status === 401 && token"), "public Android release metadata must retry without a rejected GitHub PAT");
+assert.ok(androidReleaseService.includes("return isPublicReleaseAssetUrl(browserDownloadUrl) ? browserDownloadUrl") || androidReleaseService.includes("if (isPublicReleaseAssetUrl(browserDownloadUrl)) return browserDownloadUrl"), "public release asset downloads must not depend on a GitHub PAT");
+assert.ok(!androidReleaseService.includes("if (!token) return null"), "public Android release discovery must not treat a missing PAT as a missing release");
 assert.ok(androidReleaseService.includes("hasApk(release) &&\n        hasAab(release)"), "Latest stable Android release must have both APK and AAB assets");
 assert.ok(androidReleaseService.includes("!hasApk(release) || !hasAab(release)"), "Pinned Android releases missing either APK or AAB must be rejected");
+assert.ok(!androidAppVersion.includes("hasGitHubReleaseAccess"), "public app-version metadata must not be gated on a private GitHub token");
 
 const circle = read(".circleci/config.yml");
 assert.ok(androidDraftJob.includes('"/releases?per_page=100&page=1"'), "CircleCI must inspect all draft and published release records for the canonical tag");
@@ -282,6 +286,9 @@ const finalization = read(".github/workflows/release-finalization.yml");
 const appleAssociationChecks = finalization.match(/- name: Verify Apple App Site Association configuration before production build/g) ?? [];
 assert.equal(appleAssociationChecks.length, 1, "production release workflow must contain exactly one Apple App Site Association preflight");
 assert.ok(finalization.includes("github.ref == 'refs/heads/main'"), "web production release must be main-only");
+assert.ok(finalization.includes("VERCEL_ORG_ID: team_AIjRfjTq0HWRiTWbvTVpVolg"), "controlled release must target the current Vercel team");
+assert.ok(finalization.includes("VERCEL_PROJECT_ID: prj_aruq5Q3gsE8DhgV86iIvz2WrVzEj"), "controlled release must target the current Vercel project");
+assert.ok(!finalization.includes("team_RxPjmgZoSFmKGjScefYmwIVv") && !finalization.includes("prj_bnBQb7DIXB5iE2mZJAghtAoZuKGs"), "controlled release must not retain retired Vercel identities");
 assert.ok(finalization.includes("environment:\n      name: production"), "web production release must use the protected production environment");
 assert.ok(finalization.includes("secrets.ZIKR_VERCEL_TOKEN"), "web production release must prefer the dedicated Vercel credential secret");
 assert.ok(finalization.includes("secrets.VERCEL_DEPLOY_TOKEN") && finalization.includes("secrets.VERCEL_TOKEN"), "web production release must support common alternate GitHub secret names");
@@ -376,5 +383,12 @@ assert.ok(publish.includes("GitHub cryptographic tag signature and exact commit 
 const applicationBuildDocsJob = releaseWorkflow.split("- application-build-docs:")[1]?.split("\n      - ")[0] ?? "";
 assert.ok(applicationBuildDocsJob.includes("branches:\n              only:\n                - main"), "Application build/docs verification must remain required for main");
 assert.ok(applicationBuildDocsJob.includes("tags:\n              ignore: /.*/"), "Android semantic tags must not trigger the unrelated web application build/docs job");
+
+const contentTranslationWorker = read("scripts/translate-published-content-en.ts");
+const articleTranslationWorker = read("scripts/translate-published-articles-en.ts");
+for (const [name, source] of [["additional-content translation", contentTranslationWorker], ["article translation", articleTranslationWorker]]) {
+  assert.ok(source.includes("GEMINI_FALLBACK_MODEL") && source.includes("gemini-3.5-flash-lite"), name + " must define a supported fallback model");
+  assert.ok(source.includes("temporarily unavailable") && source.includes("Switching") || source.includes("switching to fallback model"), name + " must retry transient Gemini provider outages and fall back to an alternate model");
+}
 
 console.log("✅ Release contract checks passed");
