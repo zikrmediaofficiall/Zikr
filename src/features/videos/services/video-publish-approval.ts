@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { isKidsVideoContentMarker, normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
-import { hasHumanKidsVideoApproval } from "./kids-video-publication";
 
 export const REQUIRED_VIDEO_APPROVAL_CHECKS = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"] as const;
 export type VideoApprovalCheck = (typeof REQUIRED_VIDEO_APPROVAL_CHECKS)[number];
@@ -299,8 +298,23 @@ export function isVideoApprovalRecorded(content: unknown, expectedSnapshotHash: 
   return true;
 }
 
-export function isHumanVideoApprovalRecorded(content: unknown, expectedSnapshotHash: string | null): boolean {
-  return hasHumanKidsVideoApproval(content, expectedSnapshotHash) && isVideoApprovalRecorded(content, expectedSnapshotHash);
+export function isAutomatedKidsVideoApprovalRecorded(content: unknown, expectedSnapshotHash: string | null): boolean {
+  const data = record(content);
+  const review = record(data?.qualityReview);
+  const automated = record(data?.automatedVideoQa);
+  return normalizeVideoAudience(data?.audience, false) === "kids" &&
+    normalizeVideoMarker(data?.kidsVideoQaStatus) === "passed" &&
+    data?.approvalReviewerId === AUTOMATED_VIDEO_QA_REVIEWER_ID &&
+    isVideoApprovalRecorded(data, expectedSnapshotHash) &&
+    review?.mode === "automated" &&
+    review.engine === AUTOMATED_VIDEO_QA_ENGINE &&
+    review.engineVersion === AUTOMATED_VIDEO_QA_VERSION &&
+    review.snapshotHash === expectedSnapshotHash &&
+    automated?.status === "passed" &&
+    automated.engine === AUTOMATED_VIDEO_QA_ENGINE &&
+    automated.engineVersion === AUTOMATED_VIDEO_QA_VERSION &&
+    automated.snapshotHash === expectedSnapshotHash &&
+    hasCompleteVideoApprovalChecklist(automated.checks);
 }
 
 export type VideoPublishRequestSnapshot = {
@@ -426,12 +440,12 @@ export function inspectVideoQueueItemExternalApproval(input: {
     reason: "بصمة مراجعة فيديو الأطفال غير مكتملة؛ تم إيقاف النشر الخارجي.",
     missingChecks: [],
   };
-  if (isHumanVideoApprovalRecorded(content, snapshotHash)) return diagnostics;
+  if (isAutomatedKidsVideoApprovalRecorded(content, snapshotHash)) return diagnostics;
 
   return {
     ...diagnostics,
     approved: false,
-    reason: "اجتاز فيديو الأطفال فحص الجودة الآلي فقط؛ يلزم اعتماد بشري موثق قبل النشر الخارجي.",
+    reason: "فيديو الأطفال لم يجتز اعتماد الجودة الآلي الكامل أو لا تطابق بصمته ملف الفيديو الحالي.",
     missingChecks: [],
   };
 }
