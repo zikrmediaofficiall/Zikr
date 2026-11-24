@@ -83,6 +83,22 @@ function collectGeneratedVideoCandidateValues(...sources: unknown[]): string[] {
   return [...candidates];
 }
 
+function scrubGeneratedVideoReferences(value: unknown, candidates: ReadonlySet<string>): unknown {
+  if (typeof value === "string") {
+    return findGeneratedVideoReferences(value, candidates).length > 0 ? null : value;
+  }
+  if (Array.isArray(value)) return value.map((item) => scrubGeneratedVideoReferences(item, candidates));
+  if (value && typeof value === "object") {
+    const next: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (findGeneratedVideoReferences(key, candidates).length > 0) continue;
+      next[key] = scrubGeneratedVideoReferences(item, candidates);
+    }
+    return next;
+  }
+  return value;
+}
+
 function hasConfirmedSocialDelivery(row: {
   status: string;
   target_platforms: unknown;
@@ -568,7 +584,7 @@ export async function POST(request: NextRequest) {
     if ((generatedCatalogRows ?? []).length >= 1000) {
       throw new Error("Generated video catalog exceeded the safe purge batch; no files or catalog rows were changed.");
     }
-    const generatedRequests = includeMemory
+    const generatedRequests = includeMemory || includeFiles
       ? await supabaseServerAdminRequest<Array<{ id: string; video_url: string | null; thumbnail_url: string | null; content: Record<string, unknown> | null }>>(
           "/rest/v1/video_generation_requests?automation_key=not.is.null&select=id,video_url,thumbnail_url,content&limit=1000",
         )
@@ -619,6 +635,9 @@ export async function POST(request: NextRequest) {
     const unmanagedReferences = await findUnmanagedGeneratedVideoReferences(
       createAdminClient(),
       referenceCandidates,
+      {
+        videos: new Set((generatedCatalogRows ?? []).map((row) => row.id)),
+      },
     );
     if (unresolvedSocialReferences.length > 0 || unmanagedReferences.length > 0) {
       await restoreVideoAutomation(automationWasEnabled);
@@ -769,6 +788,30 @@ export async function POST(request: NextRequest) {
     if (catalogUpdateErrors.length) {
       throw new Error("Some internal catalog records or scheduled publication entries could not be safely unlinked: " + catalogUpdateErrors.slice(0, 3).join(" | "));
     }
+    if (includeFiles && !includeMemory && (generatedRequests ?? []).length > 0) {
+      let requestMediaReferencesCleared = 0;
+      for (const generatedRequest of generatedRequests ?? []) {
+        const currentContent = generatedRequest.content && typeof generatedRequest.content === "object"
+          ? generatedRequest.content
+          : {};
+        const cleanedContent = scrubGeneratedVideoReferences(currentContent, new Set(referenceCandidates));
+        await supabaseServerAdminRequest(
+          "/rest/v1/video_generation_requests?id=eq." + encodeURIComponent(generatedRequest.id),
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({
+              video_url: null,
+              thumbnail_url: null,
+              content: cleanedContent,
+              updated_at: new Date().toISOString(),
+            }),
+          },
+        );
+        requestMediaReferencesCleared += 1;
+      }
+      console.log("[api/admin/video-purge] cleared video-file pointers from " + requestMediaReferencesCleared + " generation request(s); source and QA history retained.");
+    }
         // Historical social queue rows are read-only audited; neither the queue nor external platform posts are modified.
     const socialQueueRowsPreserved = true;
     let generationRowsRedacted = 0;
@@ -895,7 +938,7 @@ export async function POST(request: NextRequest) {
         note: includeFiles && includeMemory
           ? "تم حذف الملفات المولّدة من التخزين وحجب ذاكرة التوليد. احتُفظ بمعرّفات سجلات التوليد كعلامات تاريخية كي لا تنكسر مراجع الطابور. لم تُحذف منشورات Facebook أو YouTube."
           : includeFiles
-            ? "تم حذف ملفات الفيديو المولّدة فقط مع الاحتفاظ بسجلات التوليد وبيانات المصدر، بعد التحقق من خلو الملفات من المراجع النشطة. لم تُحذف المنشورات الخارجية."
+            ? "تم حذف ملفات الفيديو المولّدة فقط مع الاحتفاظ بسجل المصدر والجودة، وإزالة مؤشرات الملفات المحذوفة من طلبات التوليد. لم تُحذف المنشورات الخارجية."
             : "تم حجب محتوى الفيديوهات المولّدة وسجلات الطلبات مع الاحتفاظ بمعرّفاتها وملفات التخزين. لم تُحذف أو تُعدّل المنشورات الخارجية.",
       },
       { headers: { "Cache-Control": "no-store" } },
