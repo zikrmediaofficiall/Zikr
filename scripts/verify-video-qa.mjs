@@ -188,9 +188,11 @@ if (!approvalService.includes("export function isAutomatedKidsVideoApprovalRecor
   failures.push("Kids external publishing must use a matching, complete five-part automated QA record");
 }
 if (!adminVideoRequestsClient.includes("system:zikr-video-factory") ||
-    !adminVideoRequestsClient.includes("اجتاز الفيديو فحوص الجودة الآلية الخمسة") ||
-    adminVideoRequestsClient.includes("مراجعة بشرية إلزامية لفيديو الأطفال")) {
-  failures.push("the admin video request screen must report automated Kids QA and must not require manual approval");
+    !adminVideoRequestsClient.includes("اجتاز فيديو الأطفال فحوص الجودة الآلية الخمسة وفحص أمان الأطفال") ||
+    !adminVideoRequestsClient.includes("لن يظهر زر اعتماد يدوي؛ سيُنشر فقط بعد نجاح الفحوص تلقائيًا.") ||
+    adminVideoRequestsClient.includes("مراجعة بشرية إلزامية لفيديو الأطفال") ||
+    !adminVideoRequestsClient.includes("مراجعة واعتماد الفيديو العام")) {
+  failures.push("the admin video request screen must show automated Kids QA, exclude Kids from manual review, and retain general-video review");
 }
 if (/DELETE FROM|TRUNCATE TABLE|DROP TABLE|DISABLE ROW LEVEL SECURITY/i.test(kidsVideoPublicReadMigration)) {
   failures.push("Kids video public-read migration must not mutate video data or disable RLS");
