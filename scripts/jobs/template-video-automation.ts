@@ -50,6 +50,8 @@ import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type 
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+import { LAYL_EPISODES, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
+import { isoWeekKey, resolveNextScheduledLaylEpisode } from "../../src/features/videos/services/layl-program-schedule";
 
 const execFileAsync = promisify(execFile);
 const BATCH_SIZE = Math.max(1, Number(process.env.AUTO_VIDEO_BATCH_SIZE ?? process.env.DAILY_VIDEO_TARGET ?? 10));
@@ -306,8 +308,16 @@ async function bindTemplateVersion(request: GeneratedRequest): Promise<BoundTemp
 }
 
 function backgroundAsset(scene: AiVideoPlan["scene"], content?: Record<string, unknown>) {
-  const pinnedConfig = parseVideoTemplateConfig(content?.templateConfigSnapshot);
   const audience: VideoTemplateAudience = content?.audience === "kids" ? "kids" : "general";
+  if (content?.workflow === "layl-program" && content.programId === LAYL_PROGRAM_ID) {
+    const episodeBackground = typeof content.visualBackground === "string" ? content.visualBackground : "";
+    if (episodeBackground && isVideoTemplateAssetAllowedForAudience(episodeBackground as VideoTemplateAsset, audience)) {
+      const episodeAssetPath = videoTemplateAssetPath(episodeBackground as VideoTemplateAsset, audience);
+      if (episodeAssetPath) return episodeAssetPath;
+    }
+    return "public/video/templates/night.svg";
+  }
+  const pinnedConfig = parseVideoTemplateConfig(content?.templateConfigSnapshot);
   const pinnedAudience: VideoTemplateAudience | null =
     content?.templateAudience === "kids" ? "kids" :
     content?.templateAudience === "general" ? "general" : null;
@@ -333,6 +343,18 @@ async function renderBackground(temp: string, scene: AiVideoPlan["scene"], width
   const source = path.join(process.cwd(), backgroundAsset(scene, content));
   const output = path.join(temp, "background.png");
   await execFileAsync("rsvg-convert", ["-w", String(width), "-h", String(height), source, "-o", output], { maxBuffer: 2 * 1024 * 1024, signal });
+  if (content?.workflow === "layl-program" && content.programId === LAYL_PROGRAM_ID) {
+    const characterSource = path.join(process.cwd(), "public/video/templates/layl-character.svg");
+    const characterOutput = path.join(temp, "layl-character.png");
+    const composedOutput = path.join(temp, "layl-composed-background.png");
+    await execFileAsync("rsvg-convert", ["-w", String(width), "-h", String(height), characterSource, "-o", characterOutput], { maxBuffer: 2 * 1024 * 1024, signal });
+    await execFileAsync("ffmpeg", [
+      "-y", "-i", output, "-i", characterOutput,
+      "-filter_complex", "[0:v][1:v]overlay=0:0:format=auto",
+      "-frames:v", "1", "-update", "1", composedOutput,
+    ], { maxBuffer: 8 * 1024 * 1024, signal });
+    return composedOutput;
+  }
   return output;
 }
 
@@ -584,12 +606,143 @@ class VideoRequestLeaseLostError extends Error {
 
 export const KIDS_SERIES_START_DAY_INDEX = dayIndex(new Date("2026-10-21T00:00:00.000Z"));
 
+async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
+  if (now.getUTCDay() !== 0) return 0;
+  const week = isoWeekKey(now);
+  if (!week) return 0;
+
+  const automationKey = "layl-weekly:season-1:" + week;
+  if (await findByAutomationKey("video_generation_requests", automationKey)) return 0;
+
+  const latestRows = await supabaseServerAdminRequest<Array<{
+    id: string;
+    status: string;
+    content: unknown;
+    created_at: string;
+  }>>(
+    "/rest/v1/video_generation_requests?content->>seriesId=eq." +
+      encodeURIComponent(LAYL_PROGRAM_ID) +
+      "&content->>seasonNumber=eq.1&select=id,status,content,created_at&order=created_at.desc&limit=20",
+  );
+  const latestRow = latestRows?.[0] ?? null;
+  const latestContent = latestRow?.content && typeof latestRow.content === "object" && !Array.isArray(latestRow.content)
+    ? latestRow.content as Record<string, unknown>
+    : {};
+  const latestEpisodeNumber = Number(latestContent.episodeNumber);
+  const latest = latestRow && Number.isInteger(latestEpisodeNumber)
+    ? {
+        episodeNumber: latestEpisodeNumber,
+        status: latestRow.status,
+        createdAt: latestRow.created_at,
+      }
+    : null;
+
+  const episode = resolveNextScheduledLaylEpisode(now, latest);
+  if (!episode) return 0;
+
+  const narration = episode.script.trim();
+  const content: Record<string, unknown> = {
+    renderer: "template",
+    type: "layl_program_episode",
+    workflow: "layl-program",
+    programId: LAYL_PROGRAM_ID,
+    seriesId: LAYL_PROGRAM_ID,
+    seriesTitle: LAYL_PROGRAM_TITLE,
+    seasonNumber: 1,
+    episodeNumber: episode.number,
+    episodeTitle: episode.title,
+    sourceType: "editorial",
+    sourceLabel: episode.referenceLabel,
+    sourceUrl: episode.referenceUrl,
+    editorialNote: episode.editorialNote,
+    textAr: narration,
+    text: narration,
+    script: narration,
+    prompt: narration,
+    narration,
+    audience: "general",
+    language: "ar-EG",
+    voiceProfile: LAYL_VOICE_PROFILE,
+    visualTheme: LAYL_VISUAL_THEME,
+    visualBackground: episode.visualBackground,
+    videoFormat: "vertical",
+    resolution: "1080x1920",
+    maxDurationSeconds: 120,
+    skipSocialPublish: true,
+    approvalStatus: "awaiting_human_review",
+    automationKey,
+    aiMode: "layl-scripted",
+    contentFormat: "weekly_program_episode",
+  };
+  const payload: Record<string, unknown> = {
+    title: LAYL_PROGRAM_TITLE + " — الحلقة " + episode.number + ": " + episode.title,
+    description: episode.description,
+    category: "other",
+    content,
+    duration: 120,
+    status: "pending",
+    automation_key: automationKey,
+  };
+  const contentHash = videoContentHash({
+    category: "other",
+    sourceId: LAYL_PROGRAM_ID + ":season-1:episode-" + episode.number,
+    text: narration,
+    format: "vertical",
+    templateVersion: VIDEO_TEMPLATE_VERSION,
+    language: "ar-EG",
+    style: LAYL_VISUAL_THEME,
+  });
+  const sourceHashValue = sourceHash({
+    sourceId: LAYL_PROGRAM_ID + ":season-1:episode-" + episode.number,
+    sourceUrl: episode.referenceUrl,
+    text: narration,
+  });
+  payload.content = {
+    ...content,
+    contentHash,
+    sourceHash: sourceHashValue,
+    templateVersion: VIDEO_TEMPLATE_VERSION,
+  };
+
+  if (engineConfig().dryRun) {
+    console.log("[template-video] dry-run planned " + automationKey + " (" + contentHash.slice(0, 12) + ")");
+    return 1;
+  }
+
+  try {
+    await supabaseServerAdminRequest("/rest/v1/video_generation_requests", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        ...payload,
+        content_hash: contentHash,
+        source_hash: sourceHashValue,
+        provider: "template",
+        template_version: VIDEO_TEMPLATE_VERSION,
+      }),
+    });
+    console.log("[template-video] Seeded weekly Layl episode " + episode.number + " for " + week + "; social publishing is disabled.");
+    return 1;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const duplicateAutomationKey =
+      message.includes("duplicate key value violates unique constraint") &&
+      message.toLowerCase().includes("automation_key");
+    if (isContentHashConflict(error) || duplicateAutomationKey) {
+      console.info("[template-video] Weekly Layl request already exists for " + week + "; skipped duplicate.");
+      return 0;
+    }
+    console.error("[template-video] Weekly Layl scheduling failed safely:", message.slice(0, 500));
+    return 0;
+  }
+}
+
 export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   if (process.env.AUTO_VIDEO_ENABLED?.toLowerCase() === "false") return 0;
   if (await isVideoGenerationPaused()) return 0;
   const now = new Date();
   const day = dayIndex(now);
-  let created = 0;
+  let created = await seedWeeklyLaylEpisodeRequest(now);
 
   // Daily quota: keys are unique per UTC day (kind:day:counter) so every run can create new
   // videos, and the DAILY_VIDEO_TARGET is spread evenly across the day instead of bursting.
@@ -1240,7 +1393,7 @@ async function getVerifiedQuranAyahAudioUrl(surahId: number, ayahNumber: number,
   return null;
 }
 
-async function assertPlayableOutput(outputPath: string, expectedWidth: number, expectedHeight: number, signal?: AbortSignal): Promise<number> {
+async function assertPlayableOutput(outputPath: string, expectedWidth: number, expectedHeight: number, maxDurationSeconds: number = MAX_AUTO_VIDEO_SECONDS, signal?: AbortSignal): Promise<number> {
   const probe = await probeMedia(outputPath, signal);
   const streams = probe.streams ?? [];
   const video = streams.find((stream) => stream.codec_type === "video");
@@ -1248,7 +1401,7 @@ async function assertPlayableOutput(outputPath: string, expectedWidth: number, e
   if (!video) throw new Error("Rendered output has no video stream.");
   if (!audio) throw new Error("Rendered output has no narration/audio stream.");
   const duration = Number(probe.format?.duration ?? 0);
-  if (!Number.isFinite(duration) || duration < 1 || duration > MAX_AUTO_VIDEO_SECONDS) throw new Error("Rendered output has an invalid duration.");
+  if (!Number.isFinite(duration) || duration < 1 || duration > maxDurationSeconds) throw new Error("Rendered output has an invalid duration for the requested program.");
   if ((video.width ?? 0) !== expectedWidth || (video.height ?? 0) !== expectedHeight) {
     throw new Error("Rendered output resolution mismatch: expected " + expectedWidth + "x" + expectedHeight + ", got " + (video.width || 0) + "x" + (video.height || 0) + ".");
   }
@@ -1322,6 +1475,8 @@ function requestedVideoShape(request: GeneratedRequest) {
 async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
   throwIfVideoLeaseAborted(signal);
   const renderStartedAt = Date.now();
+  const isLaylProgram = request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl";
+  const maxDurationSeconds = isLaylProgram ? 120 : MAX_AUTO_VIDEO_SECONDS;
   await validateSourceContent(request);
   throwIfVideoLeaseAborted(signal);
   const boundTemplate = await bindTemplateVersion(request);
@@ -1367,13 +1522,13 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     const isTemplatePreview = request.content.templatePreview === true;
     let aiPlan: AiVideoPlan = { ...DEFAULT_AI_VIDEO_PLAN };
     try {
-      if (!isTemplatePreview) aiPlan = await generateAiVideoPlan(request, signal);
+      if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal);
       throwIfVideoLeaseAborted(signal);
       request.content = {
         ...request.content,
         ai: {
-          provider: isTemplatePreview ? "template-preview" : aiPlanEnabled() ? "google-gemini" : "deterministic-fallback",
-          model: !isTemplatePreview && aiPlanEnabled() ? (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite").trim() : null,
+          provider: isTemplatePreview ? "template-preview" : isLaylProgram ? "layl-local-template" : aiPlanEnabled() ? "google-gemini" : "deterministic-fallback",
+          model: !isTemplatePreview && !isLaylProgram && aiPlanEnabled() ? (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite").trim() : null,
           reflection: aiPlan.reflection || null,
           socialCaption: aiPlan.socialCaption || null,
           scene: aiPlan.scene,
@@ -1405,7 +1560,10 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         ? persistedAi.motion
         : resolveDeterministicVideoMotion(request.id);
     const audience: VideoTemplateAudience = request.content?.audience === "kids" ? "kids" : "general";
-    const visualTheme = boundTemplate?.config.assetKey ?? resolveDeterministicVideoVisualTheme({
+    const requestedVisualTheme = typeof request.content?.visualTheme === "string" && isVideoTemplateAssetAllowedForAudience(request.content.visualTheme as VideoTemplateAsset, audience)
+      ? request.content.visualTheme as VideoTemplateAsset
+      : null;
+    const visualTheme = boundTemplate?.config.assetKey ?? requestedVisualTheme ?? resolveDeterministicVideoVisualTheme({
       id: request.id,
       category: request.category,
       audience,
@@ -1418,6 +1576,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     const isVertical = height >= width;
 
     const narrationProfile = narrationProfileForRequest(request);
+    const ttsVoice = (isLaylProgram ? narrationProfile.voice : process.env.ARABIC_TTS_VOICE?.trim() || narrationProfile.voice) ?? "";
+    const ttsRate = isLaylProgram ? narrationProfile.rate : process.env.ARABIC_TTS_RATE?.trim() || narrationProfile.rate;
+    const ttsPitch = isLaylProgram ? narrationProfile.pitch : process.env.ARABIC_TTS_PITCH?.trim() || narrationProfile.pitch;
     const narrationText = contentText(request);
     const narrationTextQuality = evaluateArabicNarrationText(narrationText, request.category);
     if (!narrationTextQuality.ok) {
@@ -1456,6 +1617,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
 
     if (
       !isTemplatePreview &&
+      !isLaylProgram &&
       !boundTemplate &&
       engineConfig().aiEnabled &&
       engineConfig().order.some((provider) => provider !== "template") &&
@@ -1526,7 +1688,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
           ? null
           : aiResult.error || "AI providers unavailable",
       };
-    } else if (!isTemplatePreview && !boundTemplate && engineConfig().aiEnabled && aiAttemptsUsed >= getAiAttemptsPerRunLimit()) {
+    } else if (!isTemplatePreview && !isLaylProgram && !boundTemplate && engineConfig().aiEnabled && aiAttemptsUsed >= getAiAttemptsPerRunLimit()) {
       request.content = {
         ...request.content,
         aiProvider: null,
@@ -1556,9 +1718,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
             "scripts/generate-arabic-voice.py",
             "--text", narrationText,
             "--output", audioPath,
-            "--voice", process.env.ARABIC_TTS_VOICE?.trim() || narrationProfile.voice,
-            `--rate=${process.env.ARABIC_TTS_RATE?.trim() || narrationProfile.rate}`,
-            `--pitch=${process.env.ARABIC_TTS_PITCH?.trim() || narrationProfile.pitch}`,
+            "--voice", ttsVoice,
+            `--rate=${ttsRate}`,
+            `--pitch=${ttsPitch}`,
           ],
           { maxBuffer: 4 * 1024 * 1024, signal },
         );
@@ -1575,7 +1737,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     throwIfVideoLeaseAborted(signal);
     const audioProbe = await probeMedia(audioPath, signal);
     const audioDuration = Number(audioProbe.format?.duration ?? 0);
-    const duration = resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS);
+    const duration = resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS, maxDurationSeconds);
     const composition = resolveVideoComposition({
       category: request.category,
       audience: request.content?.audience,
@@ -1661,7 +1823,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       outputPath,
     ];
     await execFileAsync("ffmpeg", args, { maxBuffer: 4 * 1024 * 1024, signal });
-    const renderedDurationSeconds = await assertPlayableOutput(outputPath, width, height, signal);
+    const renderedDurationSeconds = await assertPlayableOutput(outputPath, width, height, maxDurationSeconds, signal);
     await assertAudibleAudio(outputPath, signal);
     throwIfVideoLeaseAborted(signal);
     const renderDurationMs = Date.now() - renderStartedAt;
@@ -1678,12 +1840,10 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       ...request.content,
       audio: {
         kind: audioKind,
-        voice: audioKind === "arabic_tts_narration"
-          ? process.env.ARABIC_TTS_VOICE?.trim() || narrationProfile.voice || null
-          : null,
+        voice: audioKind === "arabic_tts_narration" ? ttsVoice || null : null,
         voiceProfile: narrationProfile.id,
-        rate: narrationProfile.rate,
-        pitch: narrationProfile.pitch,
+        rate: ttsRate,
+        pitch: ttsPitch,
         sourceUrl: audioUrl || null,
         generatedAt: new Date().toISOString(),
       },
@@ -1767,9 +1927,28 @@ export function buildAutomatedVideoQaChecklist(
     content.sourceType === "editorial" &&
     sourceLabel === "محتوى تحريري أصلي من منصة ذِكر" &&
     !hasSuspiciousReligiousAttribution(contentText(request));
+  const laylEpisode = content.workflow === "layl-program" &&
+    content.programId === LAYL_PROGRAM_ID &&
+    content.seriesId === LAYL_PROGRAM_ID &&
+    content.seriesTitle === LAYL_PROGRAM_TITLE &&
+    Number(content.seasonNumber) === 1
+    ? LAYL_EPISODES.find((episode) =>
+        episode.number === Number(content.episodeNumber) &&
+        episode.referenceLabel === sourceLabel &&
+        episode.referenceUrl === sourceUrl &&
+        episode.editorialNote === content.editorialNote &&
+        episode.visualBackground === content.visualBackground)
+    : undefined;
+  const isVerifiedLaylEditorial = category === "other" &&
+    content.audience !== "kids" &&
+    content.sourceType === "editorial" &&
+    content.voiceProfile === LAYL_VOICE_PROFILE &&
+    Boolean(laylEpisode) &&
+    !hasSuspiciousReligiousAttribution(contentText(request));
+  const isLaylProgram = Boolean(isVerifiedLaylEditorial);
   const sourceVerified = sourceCategories.has(category)
     ? Boolean(sourceId && /^https:\/\//i.test(sourceUrl) && sourceLabel.trim() && render.sourceLocked === true)
-    : isKidsSeries || isOriginalEditorial;
+    : isKidsSeries || isOriginalEditorial || isVerifiedLaylEditorial;
 
   const audioKind = typeof audio.kind === "string" ? audio.kind : "";
   const voiceProfile = typeof audio.voiceProfile === "string" ? audio.voiceProfile : "";
@@ -1778,6 +1957,7 @@ export function buildAutomatedVideoQaChecklist(
     "documentary_female_msa", "egyptian_female_story", "egyptian_male_story", "levant_male_story",
   ]);
   const audioReviewed = approvedVoiceProfiles.has(voiceProfile) &&
+    (!isLaylProgram || voiceProfile === LAYL_VOICE_PROFILE) &&
     (category === "quran"
       ? audioKind === "verified_quran_recitation"
       : audioKind === "arabic_tts_narration" ||
@@ -1798,6 +1978,7 @@ export function buildAutomatedVideoQaChecklist(
     typeof media.publicId === "string" && Boolean(media.publicId.trim()) &&
     Number(media.bytes) >= 1024;
   const renderDuration = Number(render.durationSeconds);
+  const maximumReviewedDuration = isLaylProgram ? 120 : 60;
   const resolutionValid = render.resolution === "1080x1920" || render.resolution === "1920x1080";
   const visualAudience: VideoTemplateAudience = content.audience === "kids" ? "kids" : "general";
   const visualTheme = typeof content.visualTheme === "string" ? content.visualTheme : "";
@@ -1810,7 +1991,7 @@ export function buildAutomatedVideoQaChecklist(
     render.aiVisualPolicyVersion === AI_VISUAL_POLICY_VERSION &&
     typeof render.composition === "string" && Boolean(render.composition.trim()) &&
     providerAllowed && cloudinaryVerified && resolutionValid &&
-    Number.isFinite(renderDuration) && renderDuration >= 1 && renderDuration <= 60 &&
+    Number.isFinite(renderDuration) && renderDuration >= 1 && renderDuration <= maximumReviewedDuration &&
     rendered.templateVersion === render.templateVersion;
 
   const narration = contentText(request);
@@ -2053,7 +2234,7 @@ async function registerGeneratedVideoOnSite(
     description: request.description ?? null,
     youtube_id: null,
     thumbnail_url: resolveCloudinaryVideoPoster(rendered.videoUrl),
-    duration: resolveVideoCatalogDuration(rendered.durationSeconds),
+    duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl" ? 120 : MAX_AUTO_VIDEO_SECONDS),
     views: 0,
     published: false,
     category_id: categoryRows?.[0]?.id ?? null,
@@ -2093,6 +2274,12 @@ async function registerGeneratedVideoOnSite(
     if (!updatedVideoRows?.[0]?.id) {
       throw new Error(`Generated video catalog record ${videoId} changed during registration; preserving the newer row.`);
     }
+  }
+
+  // Layl videos remain unpublished and outside the site-publication queue until a
+  // human explicitly approves them from the Admin video review flow.
+  if (request.content.workflow === "layl-program" && request.content.programId === LAYL_PROGRAM_ID) {
+    return { videoId, published: false, queued: false };
   }
 
   const queueRows = await adminRequest<Array<{ id: string; status: string; updated_at: string | null }>>(

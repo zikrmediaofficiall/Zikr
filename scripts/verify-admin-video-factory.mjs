@@ -65,10 +65,10 @@ const manualApprovalBlock = manualApprovalStart >= 0 && manualApprovalEnd > manu
   : "";
 if (
   !manualApprovalBlock.includes("KIDS_AUTOMATED_QA_ONLY") ||
-  !manualApprovalBlock.includes("if (isKidsVideo)") ||
+  !manualApprovalBlock.includes("if (audience === 'kids')") ||
   !manualApprovalBlock.includes("status: 410") ||
-  manualApprovalBlock.includes("admin_approve_video_generation_request") &&
-    manualApprovalBlock.indexOf("KIDS_AUTOMATED_QA_ONLY") > manualApprovalBlock.indexOf("admin_approve_video_generation_request")
+  (manualApprovalBlock.includes("admin_approve_video_generation_request") &&
+    manualApprovalBlock.indexOf("KIDS_AUTOMATED_QA_ONLY") > manualApprovalBlock.indexOf("admin_approve_video_generation_request"))
 ) {
   failures.push("manual Kids approval must be rejected before the atomic approval RPC; only the worker may persist system QA approval");
 }
@@ -353,7 +353,7 @@ const contentPublisher = read("scripts/jobs/content-publishing.ts");
 const backgroundRunner = read("scripts/run-background-jobs.ts");
 if (!worker.includes("async function bindTemplateVersion")) failures.push("video worker must bind requests to an immutable template version");
 if (!worker.includes("request.content.templatePreview === true")) failures.push("template preview mode must be recognized by the renderer");
-if (!worker.includes("if (!isTemplatePreview) aiPlan = await generateAiVideoPlan(request, signal)")) failures.push("internal template previews must avoid external generative planning");
+if (!worker.includes("if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal)")) failures.push("internal template previews and scripted Layl episodes must avoid external generative planning");
 if (!worker.includes("registerGeneratedVideoOnSite(request, rendered, {}, signal)") || !worker.includes('generator: "zikr_internal_video_factory"')) {
   failures.push("successfully generated videos must be persisted in the internal ZIKR catalog");
 }
@@ -409,11 +409,11 @@ if (!generationWorkflow.includes('AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"'
   failures.push("new video candidates must use a complete automated QA snapshot instead of a manual approval gate");
 }
 if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)") ||
-    !socialPublishing.includes("Video held because automated QA, Kids safety, source provenance, or the current media fingerprint is missing, incomplete or stale.") ||
+    !socialPublishing.includes("Video held because automated QA or Kids human review is missing, incomplete or stale.") ||
     !socialPublishing.includes("Video approval lookup failed; holding video item") ||
     !approvalHelper.includes("inspectVideoQueueItemExternalApproval") ||
-    !approvalHelper.includes("isAutomatedKidsVideoApprovalRecorded")) {
-  failures.push("the separate social worker must fail closed and revalidate current automated Kids QA, source provenance and media fingerprints before provider calls");
+    !approvalHelper.includes("isHumanVideoApprovalRecorded")) {
+  failures.push("the separate social worker must fail closed, revalidate current automated QA, and require human review for Kids videos before provider calls");
 }
 if (!worker.includes("!isTemplatePreview &&") || !worker.includes("!boundTemplate &&")) failures.push("pinned template renders must not be handed to external video providers");
 for (const [path, destinations] of [
@@ -514,14 +514,21 @@ const atomicVideoApprovalEnd = approvalRoute.indexOf('if (action === "retry_publ
 const atomicVideoApprovalBlock = atomicVideoApprovalStart >= 0 && atomicVideoApprovalEnd > atomicVideoApprovalStart
   ? approvalRoute.slice(atomicVideoApprovalStart, atomicVideoApprovalEnd)
   : "";
+// The approval itself must use one atomic service-only RPC. Layl may then
+// compare-and-set its separate internal content_publish_queue row; that PATCH
+// is queue recovery, not a direct request/catalog approval mutation.
+const atomicApprovalRpcEnd = atomicVideoApprovalBlock.indexOf("let laylSitePublishQueueStatus");
+const atomicApprovalMutationBlock = atomicApprovalRpcEnd >= 0
+  ? atomicVideoApprovalBlock.slice(0, atomicApprovalRpcEnd)
+  : atomicVideoApprovalBlock;
 if (
   !atomicVideoApprovalBlock.includes("/rest/v1/rpc/admin_approve_video_generation_request") ||
   !atomicVideoApprovalBlock.includes("p_expected_request_updated_at") ||
   !atomicVideoApprovalBlock.includes("p_expected_catalog_updated_at") ||
   !atomicVideoApprovalBlock.includes("p_approved_content") ||
   !atomicVideoApprovalBlock.includes("p_catalog_metadata") ||
-  atomicVideoApprovalBlock.includes("method: 'PATCH'") ||
-  atomicVideoApprovalBlock.includes('method: "PATCH"')
+  atomicApprovalMutationBlock.includes("method: 'PATCH'") ||
+  atomicApprovalMutationBlock.includes('method: "PATCH"')
 ) {
   failures.push("Human video approval must atomically compare-and-set the request and catalog through the service-only approval RPC");
 }

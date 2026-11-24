@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="1920" viewBox="0 0 1080 1920" role="img" aria-label="ليل، شخصية كرتونية شاب مصري">
+<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2=".2" y2="1"><stop stop-color="#061322"/><stop offset=".55" stop-color="#0b2732"/><stop offset="1" stop-color="#102d36"/></linearGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0bd"/><stop offset=".3" stop-color="#f5c45c"/><stop offset=".72" stop-color="#cd8d31"/><stop offset="1" stop-color="#8e5b20"/></linearGradient>
+  <linearGradient id="navy" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#244c69"/><stop offset=".48" stop-color="#102c45"/><stop offset="1" stop-color="#061322"/></linearGradient>
+  <linearGradient id="skin" x1=".15" y1="0" x2=".8" y2="1"><stop stop-color="#f6c89f"/><stop offset=".48" stop-color="#e7a879"/><stop offset="1" stop-color="#bd7954"/></linearGradient>
+  <linearGradient id="skinLight" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe0bd"/><stop offset="1" stop-color="#d9966b"/></linearGradient>
+  <linearGradient id="hair" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#29323a"/><stop offset=".45" stop-color="#121b25"/><stop offset="1" stop-color="#080f18"/></linearGradient>
+  <linearGradient id="cream" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff6df"/><stop offset=".5" stop-color="#dfd3b8"/><stop offset="1" stop-color="#a99b7d"/></linearGradient>
+  <radialGradient id="halo"><stop stop-color="#f5c45c" stop-opacity=".36"/><stop offset="1" stop-color="#f5c45c" stop-opacity="0"/></radialGradient>
+  <radialGradient id="lanternGlow"><stop stop-color="#fff1bf" stop-opacity=".8"/><stop offset="1" stop-color="#f5c45c" stop-opacity="0"/></radialGradient>
+  <filter id="softGlow"><feGaussianBlur stdDeviation="28"/></filter>
+  <filter id="shadow"><feGaussianBlur stdDeviation="18"/></filter>
+  <pattern id="stars" width="150" height="150" patternUnits="userSpaceOnUse">
+    <circle cx="18" cy="25" r="2.2" fill="#fff1cb" opacity=".48"/><circle cx="104" cy="80" r="1.7" fill="#fff1cb" opacity=".35"/>
+    <path d="M65 115v13m-6.5-6.5h13" stroke="#f5c45c" stroke-width="2" opacity=".28"/>
+  </pattern>
+  <pattern id="mosaic" width="88" height="88" patternUnits="userSpaceOnUse">
+    <path d="M44 3 85 44 44 85 3 44Z M44 20 68 44 44 68 20 44Z" fill="none" stroke="#f5c45c" stroke-width="2" opacity=".3"/>
+    <circle cx="44" cy="44" r="5" fill="#f5c45c" opacity=".35"/>
+  </pattern>
+</defs>
+<g id="layl-character" stroke-linecap="round" stroke-linejoin="round">
+  <!-- shoulders and upper body -->
+  <path d="M286 1435Q294 1225 365 1084Q419 976 540 966Q661 976 715 1084Q786 1225 794 1435Z" fill="url(#navy)" stroke="#071725" stroke-width="18"/>
+  <path d="M345 1130Q415 1048 485 1058L540 1130L595 1058Q665 1048 735 1130L770 1430H310Z" fill="url(#navy)"/>
+  <path d="M466 1017Q540 1060 614 1017L680 1124Q635 1202 540 1234Q445 1202 400 1124Z" fill="url(#cream)" stroke="#9d927a" stroke-width="7"/>
+  <path d="M483 1040 540 1125 597 1040" fill="none" stroke="#c7b99c" stroke-width="8"/>
+  <path d="M540 1125V1408" stroke="#f0e4cc" stroke-width="5" opacity=".28"/>
+  <path d="M381 1190Q342 1290 358 1405M699 1190Q738 1290 722 1405" fill="none" stroke="#45647c" stroke-width="11" opacity=".65"/>
+  <path d="M418 1370H478M602 1370H662" stroke="#d8c9ad" stroke-width="7" opacity=".5"/>
+  <!-- neck -->
+  <path d="M475 885H605V1058Q590 1113 540 1125Q490 1113 475 1058Z" fill="url(#skin)" stroke="#9c6044" stroke-width="8"/>
+  <path d="M493 1000Q540 1040 587 1000" fill="none" stroke="#b97652" stroke-width="8" opacity=".55"/>
+  <!-- ears -->
+  <ellipse cx="385" cy="690" rx="52" ry="78" fill="url(#skin)" stroke="#a96749" stroke-width="8"/>
+  <ellipse cx="695" cy="690" rx="52" ry="78" fill="url(#skin)" stroke="#a96749" stroke-width="8"/>
+  <path d="M377 686Q394 659 407 694M703 686Q686 659 673 694" fill="none" stroke="#a96749" stroke-width="10"/>
+  <!-- face -->
+  <path d="M403 525Q540 438 677 525L667 786Q652 915 540 960Q428 915 413 786Z" fill="url(#skin)" stroke="#9d6247" stroke-width="10"/>
+  <path d="M428 575Q449 527 502 522M652 575Q631 527 578 522" fill="none" stroke="#ffe1c4" stroke-width="10" opacity=".38"/>
+  <ellipse cx="460" cy="752" rx="32" ry="19" fill="#d87971" opacity=".22"/>
+  <ellipse cx="620" cy="752" rx="32" ry="19" fill="#d87971" opacity=".22"/>
+  <!-- eyebrows -->
+  <path d="M439 657Q473 629 512 654" fill="none" stroke="#30251f" stroke-width="17"/>
+  <path d="M568 654Q607 629 641 657" fill="none" stroke="#30251f" stroke-width="17"/>
+  <!-- eyes -->
+  <ellipse cx="478" cy="704" rx="35" ry="43" fill="#fff8ed"/>
+  <ellipse cx="602" cy="704" rx="35" ry="43" fill="#fff8ed"/>
+  <ellipse cx="485" cy="708" rx="19" ry="29" fill="#49352a"/>
+  <ellipse cx="595" cy="708" rx="19" ry="29" fill="#49352a"/>
+  <ellipse cx="489" cy="710" rx="9" ry="17" fill="#171a1d"/>
+  <ellipse cx="591" cy="710" rx="9" ry="17" fill="#171a1d"/>
+  <circle cx="493" cy="695" r="8" fill="#fff"/><circle cx="599" cy="695" r="8" fill="#fff"/>
+  <!-- nose -->
+  <path d="M540 704Q523 755 516 784Q540 803 564 784" fill="none" stroke="#b87553" stroke-width="9"/>
+  <path d="M523 786Q540 793 557 786" fill="none" stroke="#f4c49f" stroke-width="6"/>
+  <!-- friendly smile -->
+  <path d="M484 829Q540 882 596 829" fill="none" stroke="#773c34" stroke-width="14"/>
+  <path d="M500 835Q540 858 580 835" fill="none" stroke="#fff0df" stroke-width="7"/>
+  <!-- neatly trimmed short beard -->
+  <path d="M420 806Q427 898 492 923Q540 945 588 923Q653 898 660 806Q643 874 612 888Q540 923 468 888Q437 874 420 806Z" fill="#28282a" opacity=".72"/>
+  <path d="M451 875Q475 899 500 901M580 901Q605 899 629 875" fill="none" stroke="#464142" stroke-width="7"/>
+  <!-- styled dark hair -->
+  <path d="M391 660Q370 565 420 490Q452 439 530 435Q620 411 677 477Q720 529 700 655L675 622Q669 572 645 550Q614 575 571 571Q514 568 487 536Q466 578 429 609L420 666Z" fill="url(#hair)" stroke="#080e15" stroke-width="14"/>
+  <path d="M410 552Q430 472 510 467Q562 445 614 475Q561 464 526 493Q486 527 452 554" fill="none" stroke="#58616a" stroke-width="12" opacity=".38"/>
+  <path d="M435 513Q462 466 508 464M550 453Q619 442 656 490" fill="none" stroke="#77818a" stroke-width="7" opacity=".25"/>
+  <path d="M388 655Q376 612 393 573M690 570Q711 605 698 655" fill="none" stroke="#111a23" stroke-width="16"/>
+  <!-- jacket collar -->
+  <path d="M392 1092Q430 1063 466 1050L520 1126L472 1200Q418 1168 392 1092Z" fill="url(#navy)" stroke="#071725" stroke-width="9"/>
+  <path d="M688 1092Q650 1063 614 1050L560 1126L608 1200Q662 1168 688 1092Z" fill="url(#navy)" stroke="#071725" stroke-width="9"/>
+  <path d="M408 1094 472 1168M672 1094 608 1168" stroke="#678097" stroke-width="7" opacity=".6"/>
+  <!-- arms and hands -->
+  <path d="M338 1190Q298 1258 300 1348Q300 1395 335 1402Q374 1405 380 1367L397 1262" fill="none" stroke="#102d45" stroke-width="62"/>
+  <path d="M742 1182Q797 1210 827 1275Q847 1325 816 1344Q786 1360 765 1322L711 1246" fill="none" stroke="#102d45" stroke-width="62"/>
+  <path d="M292 1352Q270 1382 285 1407Q302 1433 332 1414Q351 1398 338 1371" fill="url(#skinLight)" stroke="#a9694a" stroke-width="9"/>
+  <path d="M805 1300Q828 1282 848 1306Q861 1329 842 1349Q820 1368 799 1349" fill="url(#skinLight)" stroke="#a9694a" stroke-width="9"/>
+</g>
+<g><rect x="843" y="92" width="160" height="160" rx="28" fill="#061322" opacity=".88" stroke="#f5c45c" stroke-width="4"/><image xlink:href="../../icons/icon-512.png" href="../../icons/icon-512.png" x="855" y="104" width="136" height="136" preserveAspectRatio="xMidYMid meet"/></g>
+</svg>

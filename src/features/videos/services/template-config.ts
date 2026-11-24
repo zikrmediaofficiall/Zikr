@@ -12,6 +12,7 @@ export const VIDEO_TEMPLATE_ASSETS = [
   "desert-caravan",
   "geometric-mosaic",
   "lantern-glow",
+  "layl",
   "manuscript-library",
   "moonlit-sea",
   "olive-grove",
@@ -86,6 +87,7 @@ const GENERAL_ASSETS = new Set<VideoTemplateAsset>([
   "desert-caravan",
   "geometric-mosaic",
   "lantern-glow",
+  "layl",
   "manuscript-library",
   "moonlit-sea",
   "olive-grove",
@@ -187,7 +189,7 @@ export function videoTemplateAssetPath(
 
 const TEMPLATE_SCENE_BY_ASSET: Partial<Record<VideoTemplateAsset, "calm" | "dawn" | "emerald" | "gold" | "night" | "paper" | "rose">> = {
   "andalusian-arch": "emerald", "midnight-skyline": "night", "oasis-dawn": "dawn",
-  "desert-caravan": "dawn", "geometric-mosaic": "gold", "lantern-glow": "gold",
+  "desert-caravan": "dawn", "geometric-mosaic": "gold", "lantern-glow": "gold", "layl": "night",
   "manuscript-library": "paper", "moonlit-sea": "night", "olive-grove": "emerald",
   "desert-dusk": "night", "coastal-blue": "dawn", botanical: "emerald", library: "paper",
   geometric: "gold", marble: "paper", cinematic: "night", starfield: "night",

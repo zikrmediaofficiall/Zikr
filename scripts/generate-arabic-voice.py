@@ -54,6 +54,11 @@ async def synthesize(text: str, output: Path, voice: str, rate: str, pitch: str)
         raise RuntimeError("Edge TTS returned an empty or tiny audio file")
     except Exception as edge_error:
         output.unlink(missing_ok=True)
+        if voice.strip().lower().startswith("ar-eg-"):
+            raise RuntimeError(
+                "The requested Egyptian Arabic neural voice is unavailable; "
+                "the generic Arabic fallback is disabled to preserve the requested dialect."
+            ) from edge_error
         print(
             "[arabic-tts] Edge TTS failed; trying the no-key Google Translate Arabic fallback: "
             + str(edge_error)[:300],
