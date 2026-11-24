@@ -78,12 +78,19 @@ assert.equal(isVideoQueueItemApprovedForPublishing(queueItem), true);
 const kidsSnapshot = { ...snapshot, audience: "kids", kidsVideoQaStatus: "passed" };
 const kidsSnapshotHash = buildVideoApprovalSnapshotHash(kidsSnapshot);
 assert.equal(typeof kidsSnapshotHash, "string");
+const kidsAutomatedApproval = createAutomatedVideoQaApproval({
+  snapshot: kidsSnapshot,
+  checks,
+  reviewedAt: now,
+});
+assert.ok(kidsAutomatedApproval, "a complete source-locked Kids QA result must create the automatic approval fixture");
 assert.equal(hasCompleteKidsVideoSeriesMetadata(null), false, "null Kids metadata must fail closed");
 assert.equal(hasCompleteKidsVideoSeriesMetadata("kids"), false, "primitive Kids metadata must fail closed");
 assert.equal(isAutomatedKidsVideoApprovalRecorded(null, kidsSnapshotHash), false, "null automated Kids QA metadata must fail closed");
 assert.equal(buildVideoApprovalSnapshotHash({ ...kidsSnapshot, kidsVideoQaStatus: "blocked" }), null);
 const completeKidsContent = {
   ...content,
+  ...kidsAutomatedApproval,
   approvalSnapshotHash: kidsSnapshotHash,
   audience: "kids",
   kidsVideoQaStatus: "passed",
@@ -268,11 +275,6 @@ assert.equal(isVideoQueueItemApprovedForPublishing({
     },
   },
 }), false);
-const kidsAutomatedApproval = createAutomatedVideoQaApproval({
-  snapshot: kidsSnapshot,
-  checks,
-  reviewedAt: now,
-});
 assert.equal(kidsAutomatedApproval?.kidsVideoQaStatus, "passed");
 assert.equal(kidsAutomatedApproval?.approvalSnapshotHash, kidsSnapshotHash);
 assert.notEqual(buildVideoApprovalSnapshotHashForRequest(request), kidsSnapshotHash,
