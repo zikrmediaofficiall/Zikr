@@ -6,13 +6,13 @@
 |---|---|---|
 | Video generation | GitHub Actions | `.github/workflows/generate-ai-video.yml` |
 | Internal website video publication | GitHub Actions + Supabase | `content_publish_queue` |
-| External social publishing | Source-verified text posts; automated-QA-gated general videos; human-reviewed Kids videos | `.github/workflows/publish-social.yml` after generation, every 15 minutes, or manual dispatch |
+| External social publishing | Source-verified text posts; automated-QA-gated general and Kids videos | `.github/workflows/publish-social.yml` after generation, every 15 minutes, or manual dispatch |
 | Application build/documentation | CircleCI | `application-build-docs` |
 | Android build/signing | CircleCI | `android-rebuild` |
 | Prayer notifications | Supabase | `prayer-notification-worker` + pg_cron |
 | Source-verified content agent (currently skip-only; parser work pending) | Supabase | `source-verified-content-agent` + pg_cron |
 
-There is no CircleCI production video worker and no Vercel Cron for video publication. External social publishing is separate from rendering and requires provider preflight and administrator enablement. General-audience video rows require five passing automated QA checks; Kids video rows additionally require a matching human approval record. Source-verified written text rows use the written-content quality gate.
+There is no CircleCI production video worker and no Vercel Cron for video publication. External social publishing is separate from rendering and requires provider preflight and administrator enablement. General-audience and Kids video rows require five passing automated QA checks and a matching source/media fingerprint. Kids rows also require child-safety QA and complete age-appropriate series metadata; no separate human approval is required for video publication. Source-verified written text rows use the written-content quality gate.
 
 ## Video pipeline
 
