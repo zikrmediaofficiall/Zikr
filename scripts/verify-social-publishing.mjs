@@ -142,7 +142,7 @@ if (!videoPublishApproval.includes("inspectVideoQueueItemExternalApproval") ||
 if (!socialPublishingService.includes("buildVideoApprovalSnapshotHashForRequest") ||
     !socialPublishingService.includes("expectedApprovalSnapshotHash") ||
     !videoCatalogPolicy.includes("automatedVideoQa.snapshotHash !== expectedApprovalSnapshotHash") ||
-    !videoCatalogPolicy.includes("hasHumanKidsVideoApproval(metadata, expectedApprovalSnapshotHash)")) {
+    !videoCatalogPolicy.includes("isAutomatedKidsVideoApprovalRecorded(metadata, expectedApprovalSnapshotHash)")) {
   failures.push("the social worker must bind request and catalog automated QA to the current generation-request fingerprint");
 }
 if (!videoGenerator.includes("getYouTubeUploadRefreshToken") ||
@@ -159,7 +159,7 @@ if (youtubeCredentials.includes("export async function getYouTubeUploadRefreshTo
   failures.push("YouTube upload credential-store errors must propagate to retryable publishing paths instead of appearing unconfigured");
 }
 if (!socialPublishingService.includes("hasVideoApprovalForQueueItem") ||
-    !socialPublishingService.includes("Video held because automated QA or Kids human review is missing") ||
+    !socialPublishingService.includes("Video held because automated QA, Kids safety, source provenance, or the current media fingerprint is missing, incomplete or stale.") ||
     !socialPublishingService.includes("Video approval lookup failed; holding video item")) {
   failures.push("the social worker must fail closed and revalidate the automated QA snapshot before provider calls");
 }
@@ -528,9 +528,9 @@ if (!adminClient.includes('const REMOTE_DELETE_PLATFORMS = new Set<string>(["fac
 }
 if (adminClient.includes("اعتمد الفيديو أولًا") ||
     !adminClient.includes("مراجعة الفيديو غير مكتملة") ||
-    !adminClient.includes("فيديوهات الأطفال تحتاج اعتمادًا بشريًا موثقًا") ||
+    !adminClient.includes("فيديوهات الأطفال تعتمد تلقائيًا بعد اجتياز فحوص الجودة الخمسة") ||
     !adminClient.includes("الفيديوهات العامة المؤهلة تنتقل للنشر تلقائيًا")) {
-  failures.push("social center must explain the Kids human-review gate while preserving automatic publishing for eligible general-audience videos");
+  failures.push("social center must explain the automated Kids QA gate while preserving automatic publishing for eligible videos");
 }
 if (!writtenWorker.includes('"articles"') ||
     !writtenWorker.includes("content_publish_queue") ||
