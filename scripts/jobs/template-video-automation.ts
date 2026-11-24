@@ -760,12 +760,16 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   }
   const dailyQuota = calculateDailyVideoQuotaState(todaysRows ?? []);
   const alreadySeededToday = dailyQuota.reservedCount;
-  const dailyTarget = Math.max(1, Math.min(24, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3));
+  // Enforce a hard three-short-video daily ceiling, including urgent admin dispatches.
+  const dailyTarget = Math.max(1, Math.min(3, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3));
   // The workflow runs in four six-hour UTC windows; release a quarter of the daily target per window.
   const scheduleWindow = Math.min(4, Math.max(1, Math.floor(now.getUTCHours() / 6) + 1));
   const dueByNow = Math.ceil((dailyTarget * scheduleWindow) / 4);
   const urgent = process.env.AUTO_VIDEO_URGENT?.toLowerCase() === "true";
-  const allowed = urgent ? Math.min(10, batchSize) : Math.min(10, batchSize, Math.max(0, dueByNow - alreadySeededToday));
+  const remainingDailyQuota = Math.max(0, dailyTarget - alreadySeededToday);
+  const pacedAllowance = Math.max(0, dueByNow - alreadySeededToday);
+  // Run Now bypasses time-of-day pacing only. It never bypasses the daily quota.
+  const allowed = Math.min(3, batchSize, remainingDailyQuota, urgent ? remainingDailyQuota : pacedAllowance);
 
   for (let i = 0; i < allowed; i += 1) {
     if (await isVideoGenerationPaused()) break;
