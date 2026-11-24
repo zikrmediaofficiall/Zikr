@@ -85,7 +85,7 @@ SET metadata = v.metadata || CASE
     'contentFormat',b.request_content->>'contentFormat','aiMode',b.request_content->>'aiMode',
     'sourceType',b.request_content->>'sourceType','seriesId',b.request_content->>'seriesId',
     'seriesTitle',b.request_content->>'seriesTitle','learningObjective',b.request_content->>'learningObjective',
-    'seasonNumber',b.request_content->>'seasonNumber','episodeNumber',b.request_content->>'episodeNumber'),
+    'seasonNumber',b.request_content->>'seasonNumber','episodeNumber',b.request_content->>'episodeNumber')
 FROM _zikr_kids_automated_qa_backfill b WHERE v.id=b.video_id;
 CREATE OR REPLACE FUNCTION private.video_catalog_has_current_automated_kids_qa(p_metadata jsonb)
 RETURNS boolean
