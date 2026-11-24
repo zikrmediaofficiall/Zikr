@@ -23,7 +23,7 @@ assert.ok(releaseManager.includes("sign-android-release-tag.yml"), "Admin releas
 assert.ok(!releaseManager.includes('"/git/tags"'), "Admin release manager must never create an unsigned tag through the REST API");
 assert.ok(!releaseManager.includes('"/git/refs"'), "Admin release manager must never publish a tag ref directly");
 assert.ok(!releaseManager.includes('"/releases"'), "Admin release manager must not create a draft before signature verification");
-assert.ok(releaseManager.includes('const REPO = process.env.GITHUB_REPOSITORY?.trim() || "zikrofficial-X/Zikr";'), "Admin release manager must use the canonical repository");
+assert.ok(releaseManager.includes('const REPO = process.env.GITHUB_REPOSITORY?.trim() || "zikrmediaofficiall/Zikr";'), "Admin release manager must use the canonical repository");
 assert.equal(releaseAction.includes("SIGNED_RELEASE_BLOCKER"), false, "Admin release action must no longer contain the permanent hard-coded blocker");
 assert.ok(releaseAction.includes("prepareAndroidRelease"), "Android release action must invoke the canonical release manager");
 assert.ok(releaseAction.includes("getAndroidReleaseSigningPreflightStatus"), "Android release action must enforce the signing preflight");
@@ -50,7 +50,7 @@ assert.ok(androidAdminAction.includes('requireAdminStepUp("android.manage", "/ad
 assert.ok(androidAdminAction.includes("getStableReleaseByTag"), "Pinned Android releases must be validated against a published stable GitHub release");
 assert.ok(androidAdminAction.includes("لا يمكن تثبيت إصدار غير منشور"), "Pinned Android releases must fail closed when APK/AAB artifacts are missing");
 const androidAdminPage = read("src/app/admin/android/page.tsx");
-assert.ok(androidAdminPage.includes('endsWith(".apk")') && androidAdminPage.includes('endsWith(".aab")'), "Admin Android release choices must contain both APK and AAB artifacts");
+assert.ok(androidAdminPage.includes("getStableAndroidReleases"), "Admin Android release choices must use the shared stable GitHub release reader");
 assert.ok(!releaseManager.includes("buildTag"), "Android release manager must not create a redundant -build tag");
 const androidTagSigningWorkflow = read(".github/workflows/sign-android-release-tag.yml");
 const expectedNotesGuard = 'grep -Fq "Release tag: \\`$TAG\\`" "$NOTES"';
@@ -60,7 +60,7 @@ assert.ok(androidTagSigningWorkflow.includes('GITHUB_REF_NAME#android-release-si
 assert.ok(androidTagSigningWorkflow.includes("Release commit is not the current main HEAD"), "Branch-triggered signing must bind the signed tag to the exact current main commit");
 assert.ok(androidTagSigningWorkflow.includes("Verify protected Android Git-tag signing configuration"), "Tag signing must require a successful preflight for the exact release commit");
 assert.ok(androidTagSigningWorkflow.includes("checks: read"), "Tag signing must have read-only permission to verify the exact-commit preflight result");
-assert.ok(androidTagSigningWorkflow.includes("github.actor == 'zikrofficial-X'"), "Push-triggered signing must be restricted to the repository owner identity");
+assert.ok(androidTagSigningWorkflow.includes("github.actor == 'zikrmediaofficiall'"), "Push-triggered signing must be restricted to the repository owner identity");
 
 
 const androidCircle = read(".circleci/config.yml");
@@ -107,7 +107,7 @@ assert.ok(recoveryDispatch.includes("getCombinedStatusForRef"), "Dispatched reco
 assert.ok(recoveryDispatch.includes("  statuses: read"), "Android recovery must have read permission for CircleCI commit statuses");
 assert.ok(recoveryDispatch.includes("  actions: write"), "Android recovery must have permission to dispatch the guarded publisher");
 assert.ok(recoveryDispatch.includes("  contents: write"), "owner-only Android recovery must have push visibility to inspect the private draft release");
-assert.ok(recoveryDispatch.includes("github.actor == 'zikrofficial-X'"), "Android recovery write visibility must be restricted to the canonical repository owner");
+assert.ok(recoveryDispatch.includes("github.actor == 'zikrmediaofficiall'"), "Android recovery write visibility must be restricted to the canonical repository owner");
 assert.ok(recoveryDispatch.includes("isPushRecoveryTrigger") && recoveryDispatch.includes("source_commit: sourceSha"), "only the owner-restricted dispatcher may invoke main publisher with the exact signed tag SHA");
 assert.ok(recoveryDispatch.includes("android-release-dispatch-v*"), "Android recovery must retain an owner-only push fallback for an already-built exact release");
 assert.ok(recoveryDispatch.includes("sourceSha !== eventSha") && recoveryDispatch.includes("isPushRecoveryTrigger"), "manual and push recovery paths must bind publication to the immutable tag target rather than the trigger commit");
@@ -390,5 +390,9 @@ for (const [name, source] of [["additional-content translation", contentTranslat
   assert.ok(source.includes("GEMINI_FALLBACK_MODEL") && source.includes("gemini-3.5-flash-lite"), name + " must define a supported fallback model");
   assert.ok(source.includes("temporarily unavailable") && source.includes("Switching") || source.includes("switching to fallback model"), name + " must retry transient Gemini provider outages and fall back to an alternate model");
 }
+
+const androidAdminPage = read("src/app/admin/android/page.tsx");
+assert.ok(androidAdminPage.includes("getStableAndroidReleases"), "Admin Android release choices must use the shared stable GitHub release reader");
+assert.ok(androidReleaseService.includes("hasApk(release)") && androidReleaseService.includes("hasAab(release)"), "The shared release reader must reject records missing either APK or AAB");
 
 console.log("✅ Release contract checks passed");
