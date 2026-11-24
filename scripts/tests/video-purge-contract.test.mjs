@@ -88,7 +88,7 @@ for (const marker of [
   "const automationRuns = includeMemory",
   "if (includeMemory && (automationRuns ?? []).length >= 1000)",
   "const assets = includeFiles ? await listGeneratedVideos()",
-  "const storagePaths = includeFiles || includeMemory ? await listAutomatedStorageObjects()",
+  "const storagePaths = includeFiles ? await listAutomatedStorageObjects()",
   "const processingAfterPreflight = await getActiveVideoWork()",
   "if (processingAfterPreflight.generation > 0 || processingAfterPreflight.publications > 0)",
 ]) {
