@@ -1,6 +1,5 @@
 "use client";
 
-import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video-publication";
 import { isKidsVideoContentMarker, normalizeVideoMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
@@ -29,9 +28,27 @@ function isContentApproved(content: unknown): boolean {
   const record = content as Record<string, unknown>;
   const audience = resolveVideoRequestAudience(record);
   if (!audience.ok) return false;
-  return audience.audience === "kids"
-    ? hasHumanKidsVideoApproval(record)
-    : record.approvalStatus === "approved";
+  if (audience.audience !== "kids") return record.approvalStatus === "approved";
+  const qa = record.automatedVideoQa && typeof record.automatedVideoQa === "object" && !Array.isArray(record.automatedVideoQa)
+    ? record.automatedVideoQa as Record<string, unknown> : null;
+  const review = record.qualityReview && typeof record.qualityReview === "object" && !Array.isArray(record.qualityReview)
+    ? record.qualityReview as Record<string, unknown> : null;
+  const snapshotHash = typeof record.approvalSnapshotHash === "string" ? record.approvalSnapshotHash : "";
+  const checks = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"];
+  return record.approvalStatus === "approved" &&
+    record.approvalReviewerId === "system:zikr-video-factory" &&
+    /^[a-f0-9]{64}$/i.test(snapshotHash) &&
+    record.kidsVideoQaStatus === "passed" &&
+    qa?.status === "passed" &&
+    qa.engine === "zikr_video_factory" &&
+    qa.engineVersion === "2026-11-07-auto-qa-v1" &&
+    qa.snapshotHash === snapshotHash &&
+    review?.mode === "automated" &&
+    review.engine === "zikr_video_factory" &&
+    review.engineVersion === "2026-11-07-auto-qa-v1" &&
+    review.snapshotHash === snapshotHash &&
+    review.reviewedAt === record.approvalReviewedAt &&
+    checks.every((key) => (qa.checks as Record<string, unknown> | null)?.[key] === true && review[key] === true);
 }
 
 function isReadyForHumanApproval(content: unknown): boolean {
@@ -251,6 +268,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       !isContentApproved(request.content) &&
       isReadyForHumanApproval(request.content) &&
       audience.ok &&
+      audience.audience !== "kids" &&
       (audience.audience !== "kids" || canManageKids);
   });
   const reviewEligibleIds = new Set(reviewEligibleVisible.map((request) => request.id));
@@ -839,8 +857,8 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                   </div>
                 ) : (
                   <>
-                    <h3 className="text-lg font-bold text-brand-gold">{isKidsVideoContent(details.content) ? "مراجعة بشرية إلزامية لفيديو الأطفال" : "مراجعة إلزامية قبل النشر العام"}</h3>
-                    <p className="text-sm leading-6 text-brand-cream/60">{isKidsVideoContent(details.content) ? "اجتياز الفحص الآلي لا يراجع الإطارات فعليًا. شاهد الفيديو كاملًا واستمع إلى الصوت وسجّل اعتمادًا بشريًا موثقًا قبل النشر الخارجي." : "شاهد الفيديو كاملًا واستمع إلى الصوت. لن يُنشر هذا الفيديو اجتماعيًا قبل إكمال جميع الفحوص وتسجيل الاعتماد."}</p>
+                    <h3 className="text-lg font-bold text-brand-gold">"مراجعة واعتماد الفيديو"</h3>
+                    <p className="text-sm leading-6 text-brand-cream/60">"شاهد الفيديو كاملًا واستمع إلى الصوت، ثم استكمل الفحوص اللازمة قبل تسجيل الاعتماد."</p>
                     <div className="space-y-3">
                       {APPROVAL_CHECKS.map((check) => (
                         <label key={check.key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-brand-gold/10 bg-black/15 p-3 text-sm leading-6 text-brand-cream/80">
