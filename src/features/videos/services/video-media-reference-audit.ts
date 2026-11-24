@@ -128,7 +128,6 @@ const TEXT_COLUMNS: ReadonlyArray<[string, string, string]> = [
 
 const JSON_COLUMNS: ReadonlyArray<[string, string, string]> = [
   ["admin_queue_alert_deliveries", "payload", "alert_key"],
-  ["admin_audit_events", "metadata", "id"],
   ["videos", "metadata", "id"],
   ["admin_settings", "value", "key"],
   ["articles", "metadata", "id"],
