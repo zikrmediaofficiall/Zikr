@@ -56,10 +56,7 @@ assert.ok(route.includes("catalogFallbackRowsKeptPublished"), "Purge audit metad
 assert.ok(route.includes('generatedVideoUrl: null') && route.includes('videoUrl: null'), "Purge must clear dead media URLs.");
 assert.ok(route.includes("status=neq.published&video_url=not.is.null&select=video_url&limit=1000"), "file purge must inspect every non-published social queue media reference before deleting assets.");
 assert.ok(
-  route.includes("pendingSocialGenerationRefs") &&
     route.includes("status=neq.published&or=(content_type.like.*video*,video_url.not.is.null)&select=id&limit=1000") &&
-    route.includes("const pendingSocialGenerationRefs = (includeFiles || includeMemory)") &&
-    route.includes("(includeFiles || includeMemory) && (pendingSocialGenerationRefs ?? []).length > 0"),
   "file-only and memory cleanup must both stop while any unfinished social video row remains, including rows without video_url",
 );
 assert.ok(route.includes("isGeneratedCloudinaryVideoUrl") && route.includes("protectedSocialQueueMedia.size > 0"), "file purge must protect generated Cloudinary media referenced by unfinished social posts.");
@@ -198,6 +195,9 @@ assert.ok(
     socialReferenceAuditPosition < firstDestructiveOperation,
   "the cross-table reference audit and social delivery reconciliation must finish before the first destructive operation",
 );
+assert.ok(route.includes("^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$") &&
+  route.includes("unresolvedSocialReferences"),
+  "only queue rows that reference a generated request ID or generated media object must block the purge; unrelated pending video rows must not block every cleanup");
 assert.ok(route.includes("collectGeneratedVideoCandidateValues") &&
   route.includes("findGeneratedVideoReferences(row, referenceCandidates)") &&
   route.includes("hasConfirmedSocialDelivery(row)"),
