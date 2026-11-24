@@ -83,22 +83,6 @@ function collectGeneratedVideoCandidateValues(...sources: unknown[]): string[] {
   return [...candidates];
 }
 
-function scrubGeneratedVideoReferences(value: unknown, candidates: ReadonlySet<string>): unknown {
-  if (typeof value === "string") {
-    return findGeneratedVideoReferences(value, candidates).length > 0 ? null : value;
-  }
-  if (Array.isArray(value)) return value.map((item) => scrubGeneratedVideoReferences(item, candidates));
-  if (value && typeof value === "object") {
-    const next: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-      if (findGeneratedVideoReferences(key, candidates).length > 0) continue;
-      next[key] = scrubGeneratedVideoReferences(item, candidates);
-    }
-    return next;
-  }
-  return value;
-}
-
 function hasConfirmedSocialDelivery(row: {
   status: string;
   target_platforms: unknown;
@@ -701,7 +685,7 @@ export async function POST(request: NextRequest) {
     const catalogUpdateErrors = await mapWithConcurrency(generatedCatalogRows ?? [], 6, async row => {
       const previousMetadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
       const fallbackId = includeFiles ? getConfirmedYoutubeFallbackId(row) : null;
-      const keepPublishedFallback = shouldKeepPublishedVideoAfterMediaPurge(row, includeFiles);
+      const keepPublishedFallback = shouldKeepPublishedVideoAfterMediaPurge(row, includeFiles && !includeMemory);
       if (keepPublishedFallback) catalogFallbackRowsKeptPublished += 1;
       else catalogRecordsHidden += 1;
       const now = new Date().toISOString();
@@ -788,31 +772,7 @@ export async function POST(request: NextRequest) {
     if (catalogUpdateErrors.length) {
       throw new Error("Some internal catalog records or scheduled publication entries could not be safely unlinked: " + catalogUpdateErrors.slice(0, 3).join(" | "));
     }
-    if (includeFiles && !includeMemory && (generatedRequests ?? []).length > 0) {
-      let requestMediaReferencesCleared = 0;
-      for (const generatedRequest of generatedRequests ?? []) {
-        const currentContent = generatedRequest.content && typeof generatedRequest.content === "object"
-          ? generatedRequest.content
-          : {};
-        const cleanedContent = scrubGeneratedVideoReferences(currentContent, new Set(referenceCandidates));
-        await supabaseServerAdminRequest(
-          "/rest/v1/video_generation_requests?id=eq." + encodeURIComponent(generatedRequest.id),
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-            body: JSON.stringify({
-              video_url: null,
-              thumbnail_url: null,
-              content: cleanedContent,
-              updated_at: new Date().toISOString(),
-            }),
-          },
-        );
-        requestMediaReferencesCleared += 1;
-      }
-      console.log("[api/admin/video-purge] cleared video-file pointers from " + requestMediaReferencesCleared + " generation request(s); source and QA history retained.");
-    }
-        // Historical social queue rows are read-only audited; neither the queue nor external platform posts are modified.
+    // Historical social queue rows are read-only audited; neither the queue nor external platform posts are modified.
     const socialQueueRowsPreserved = true;
     let generationRowsRedacted = 0;
     let automationRunsRedacted = 0;
