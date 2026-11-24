@@ -124,6 +124,20 @@ const TEXT_COLUMNS: ReadonlyArray<[string, string, string]> = [
   ["quran_tafsir", "source_url", "id"],
   ["stories", "content", "id"],
   ["stories", "summary", "id"],
+  ["video_generation_requests", "video_url", "id"],
+  ["video_generation_requests", "thumbnail_url", "id"],
+  ["video_generation_requests", "description", "id"],
+  ["video_generation_requests", "error_details", "id"],
+  ["video_generation_requests", "error_message", "id"],
+  ["video_generation_requests", "scene", "id"],
+  ["videos", "thumbnail_url", "id"],
+  ["videos", "description", "id"],
+  ["kids_content", "content_ar", "id"],
+  ["kids_content", "content_en", "id"],
+  ["kids_content", "summary_ar", "id"],
+  ["kids_content", "summary_en", "id"],
+  ["content_agent_sources", "base_url", "id"],
+  ["content_agent_sources", "fetch_url", "id"],
 ];
 
 const JSON_COLUMNS: ReadonlyArray<[string, string, string]> = [
@@ -166,6 +180,11 @@ const JSON_COLUMNS: ReadonlyArray<[string, string, string]> = [
   ["kids_achievements", "criteria", "id"],
   ["video_template_versions", "config", "id"],
   ["tawasheeh", "metadata", "id"],
+  ["video_generation_requests", "content", "id"],
+  ["video_automation_runs", "metadata", "id"],
+  ["video_automation_runs", "provider_stats", "id"],
+  ["admin_audit_events", "metadata", "id"],
+  ["quran_audio", "metadata", "id"],
 ];
 
 const ENCODED_REFERENCE_FILTERS = [
