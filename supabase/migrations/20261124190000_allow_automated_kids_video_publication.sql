@@ -16,6 +16,15 @@ JOIN public.video_generation_requests r ON r.id = CASE
 WHERE v.published IS TRUE AND pg_catalog.jsonb_typeof(v.metadata) = 'object'
   AND v.metadata->>'audience' = 'kids' AND v.metadata->>'generator' = 'zikr_internal_video_factory'
   AND r.status = 'completed' AND r.content->>'audience' = 'kids' AND r.content->>'approvalStatus' = 'approved'
+  AND (
+    r.content->>'approvalReviewerId' = 'system:zikr-video-factory'
+    OR (length(r.content->>'approvalReviewerId') = 36 AND r.content->>'approvalReviewerId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}')
+  )
+  AND (
+    v.metadata->>'approvalReviewerId' IS NULL
+    OR v.metadata->>'approvalReviewerId' = 'system:zikr-video-factory'
+    OR (length(v.metadata->>'approvalReviewerId') = 36 AND v.metadata->>'approvalReviewerId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}')
+  )
   AND r.source_hash = v.metadata->>'sourceHash' AND r.content->>'sourceHash' = r.source_hash
   AND r.content_hash = v.metadata->>'contentHash' AND r.content->>'contentHash' = r.content_hash
   AND r.template_version = v.metadata->>'templateVersion' AND r.content->>'templateVersion' = r.template_version
