@@ -41,6 +41,9 @@ function collectGeneratedVideoCandidateValues(...sources: unknown[]): string[] {
   const addText = (value: string) => {
     const text = value.trim();
     if (!text) return;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)) {
+      candidates.add(text.toLowerCase());
+    }
     for (const match of text.matchAll(/auto-[A-Za-z0-9_-]+/g)) candidates.add(match[0]);
     for (const match of text.matchAll(/automated\/[A-Za-z0-9_./-]+/g)) {
       const path = match[0].split(/[?#"'\s]/)[0];
@@ -527,45 +530,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pendingSocialGenerationRefs = (includeFiles || includeMemory)
-      ? await supabaseServerAdminRequest<Array<{ id: string }>>(
-          "/rest/v1/social_publish_queue?status=neq.published&or=(content_type.like.*video*,video_url.not.is.null)&select=id&limit=1000",
-        )
-      : [];
-    if ((includeFiles || includeMemory) && (pendingSocialGenerationRefs ?? []).length >= 1000) {
-      await restoreVideoAutomation(automationWasEnabled);
-      if (purgeLockToken) {
-        await releasePurgeLock(purgeLockToken);
-        purgeLockToken = null;
-      }
-      return NextResponse.json(
-        {
-          error: "تعذر التحقق من جميع مراجع طلبات الفيديو في طابور النشر. لم يبدأ حذف سجل التوليد.",
-          protectedGenerationRequestCount: null,
-          deletionStarted: false,
-          paused: false,
-          retryRequired: true,
-        },
-        { status: 409, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-    if ((includeFiles || includeMemory) && (pendingSocialGenerationRefs ?? []).length > 0) {
-      await restoreVideoAutomation(automationWasEnabled);
-      if (purgeLockToken) {
-        await releasePurgeLock(purgeLockToken);
-        purgeLockToken = null;
-      }
-      return NextResponse.json(
-        {
-          error: `يوجد ${pendingSocialGenerationRefs.length} عنصر نشر اجتماعي غير مكتمل مرتبط بوسيط فيديو. تم الحفاظ على سجل التوليد ولم يبدأ الحذف.`,
-          protectedGenerationRequestCount: pendingSocialGenerationRefs.length,
-          deletionStarted: false,
-          paused: false,
-          retryRequired: true,
-        },
-        { status: 409, headers: { "Cache-Control": "no-store" } },
-      );
-    }
 
     // Complete every bounded database inventory before the first external or
     // database deletion. A limit hit must never leave a partially purged library.
