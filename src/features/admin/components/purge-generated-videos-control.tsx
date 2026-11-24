@@ -18,8 +18,8 @@ type PurgeResult = {
   manualPublicVideoCatalogPreserved: boolean;
   generatedCatalogRecordsHidden: number;
   catalogRecordsHidden: number;
-  generationRowsDeleted: number;
-  automationRunsDeleted: number;
+  generationRowsRedacted: number;
+  automationRunsRedacted: number;
   externalSocialPostsDeleted: false;
 };
 
@@ -113,7 +113,7 @@ export function PurgeGeneratedVideosControl({
         scope === "files"
           ? "تم حذف ملفات الفيديو من التخزين، مع الاحتفاظ بذاكرة المصدر وسجلات التوليد."
           : scope === "memory"
-            ? "تم إخفاء ذاكرة الفيديوهات داخل ZIKR وفصلها عن المكتبة، مع الاحتفاظ بملفات Cloudinary."
+            ? "تم حجب محتوى ذاكرة الفيديوهات وطلبات التوليد مع الاحتفاظ بمعرّفات السجلات والملفات الخارجية."
             : "تم حذف ملفات الفيديو المولّدة وإخفاء ذاكرة التوليد الداخلية، مع الاحتفاظ بسجل التدقيق.",
       );
       await onCompleted?.();
@@ -132,7 +132,7 @@ export function PurgeGeneratedVideosControl({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-red-200">تصفير مكتبة الفيديوهات</p>
           <p className="mt-1 text-xs leading-6 text-brand-cream/55">
-            حذف ملفات Cloudinary وSupabase Storage وذاكرة التوليد متوقف مؤقتًا حتى يكتمل فحص جميع مراجع الملفات والسجلات المرتبطة في جداول المشروع.
+            سيُفحص كل مرجع للملفات والسجلات قبل الحذف. إذا بقي نشر غير مكتمل أو ارتباط نشط، ستتوقف العملية دون حذف.
           </p>
         </div>
         <button
@@ -166,22 +166,22 @@ export function PurgeGeneratedVideosControl({
               className="w-full rounded-xl border border-brand-gold/20 bg-black/30 px-3 py-3 text-sm text-brand-cream"
             >
               <option value="" disabled>اختر نطاق الحذف صراحةً</option>
-              <option value="files" disabled>ملفات الفيديو — متوقفة مؤقتًا لحماية المراجع</option>
-              <option value="memory" disabled>ذاكرة المشروع — متوقفة مؤقتًا لحماية مراجع السجلات</option>
-              <option value="both" disabled>الملفات وذاكرة المشروع — متوقفة مؤقتًا لحماية المراجع</option>
+              <option value="files">ملفات الفيديو فقط</option>
+              <option value="memory">ذاكرة المشروع فقط</option>
+              <option value="both">الملفات وذاكرة المشروع</option>
             </select>
             <p className="text-xs leading-6 text-brand-cream/55">
               {scope === "files"
-                ? "سيتم حذف ملفات MP4، وإخفاء سجلات الفيديو حتى لا تظهر روابط مكسورة. ستبقى عناوينها ومصادرها وسجلات التوليد."
+                ? "سيتم حذف ملفات Cloudinary وSupabase Storage المولّدة بعد إثبات خلوّها من المراجع النشطة، مع الاحتفاظ بذاكرة المصدر وسجلات التوليد."
                 : scope === "memory"
-                  ? "سيتم إخفاء سجلات الفيديو الداخلية وإزالة طلبات وسجلات التوليد، بينما تبقى ملفات Cloudinary دون حذف."
+                  ? "سيتم حجب محتوى الفيديوهات وطلبات التوليد وسجلات التشغيل مع الاحتفاظ بمعرّفاتها التاريخية؛ تبقى ملفات Cloudinary وSupabase Storage كما هي."
                   : scope === "both"
-                  ? "سيتم حذف ملفات MP4 وإخفاء ذاكرة الفيديو الداخلية وإزالة سجلات التوليد. ستبقى سجلات التدقيق والمنصات الخارجية دون تغيير."
+                  ? "سيتم حذف الملفات المولّدة وحجب ذاكرة الفيديو مع الاحتفاظ بمعرّفات سجلاتها. تبقى سجلات الطابور والمنشورات الخارجية دون تعديل."
                   : "اختر نطاق الحذف قبل كتابة عبارة التأكيد."}
             </p>
           </div>
           <p className="text-xs leading-6 text-amber-200/90">
-            حذف الملفات والذاكرة معطّل حتى يكتمل فحص المراجع المشتركة في جميع الجداول. سجلات النشر الاجتماعي التاريخية ومنشورات الحسابات الخارجية لن تُحذف أو تُعدّل.
+            سيُفحص طابور النشر وكل جداول المحتوى قبل الحذف. أي مرجع غير محسوم أو نشر غير مكتمل يوقف العملية. لن تُحذف منشورات Facebook أو YouTube ولن تُعدّل سجلات الطابور التاريخية.
           </p>
           <label className="block space-y-2">
             <span className="text-xs text-brand-cream/60">
