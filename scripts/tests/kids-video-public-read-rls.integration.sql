@@ -7,7 +7,7 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 5 THEN
+  IF visible_rows <> 6 THEN
     RAISE EXCEPTION 'anon must read only legacy general, explicit general, and Kids rows with complete automated QA approval; found %', visible_rows;
   END IF;
   IF EXISTS (
@@ -18,7 +18,8 @@ BEGIN
       'legacy-no-audience',
       'explicit-general',
       'kids-approved',
-      'kids-youtube-fallback'
+      'kids-youtube-fallback',
+      'kids-legacy-human-backfill'
     )
   ) THEN
     RAISE EXCEPTION 'anon can read Kids rows without matching automated QA approval, Kids-category rows with missing or conflicting metadata, conflicting general/Kids provenance markers, unknown audience, malformed metadata, or unpublished video rows';
@@ -71,12 +72,42 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 45 THEN
-    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 45 fixtures; found %', visible_rows;
+  IF visible_rows <> 46 THEN
+    RAISE EXCEPTION 'service_role must retain full administrative visibility across all 46 fixtures; found %', visible_rows;
   END IF;
 END
 $service_role_read$;
 COMMIT;
+
+DO $verify_legacy_human_backfill$
+DECLARE
+  catalog_metadata jsonb;
+  request_content jsonb;
+BEGIN
+  SELECT metadata INTO catalog_metadata
+  FROM public.videos
+  WHERE id = 'kids-legacy-human-backfill';
+
+  SELECT content INTO request_content
+  FROM public.video_generation_requests
+  WHERE id = '10000000-0000-4000-8000-000000000005';
+
+  IF catalog_metadata->>'approvalReviewerId' <> 'system:zikr-video-factory'
+     OR catalog_metadata->'qualityReview'->>'mode' <> 'automated'
+     OR catalog_metadata->'legacyHumanApproval'->>'reviewerId' <> '22222222-2222-4222-8222-222222222222'
+     OR catalog_metadata->'legacyHumanApproval'->'qualityReview'->>'mode' <> 'human' THEN
+    RAISE EXCEPTION 'catalog migration must replace legacy human approval with system QA and retain the original reviewer audit record';
+  END IF;
+
+  IF request_content->>'approvalReviewerId' <> 'system:zikr-video-factory'
+     OR request_content->'qualityReview'->>'mode' <> 'automated'
+     OR request_content->'legacyHumanApproval'->>'reviewerId' <> '22222222-2222-4222-8222-222222222222'
+     OR request_content->'legacyHumanApproval'->'qualityReview'->>'mode' <> 'human' THEN
+    RAISE EXCEPTION 'generation request migration must preserve the old reviewer audit while using system QA approval';
+  END IF;
+END
+$verify_legacy_human_backfill$;
+
 
 DO $verify_contract$
 DECLARE
