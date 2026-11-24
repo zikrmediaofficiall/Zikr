@@ -76,8 +76,8 @@ export function PurgeGeneratedVideosControl({
         manualPublicVideoCatalogPreserved?: boolean;
         generatedCatalogRecordsHidden?: number;
         catalogRecordsHidden?: number;
-        generationRowsDeleted?: number;
-        automationRunsDeleted?: number;
+        generationRowsRedacted?: number;
+        automationRunsRedacted?: number;
         externalSocialPostsDeleted?: false;
       };
       if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return;
@@ -101,8 +101,8 @@ export function PurgeGeneratedVideosControl({
         manualPublicVideoCatalogPreserved: payload.manualPublicVideoCatalogPreserved === true || payload.publicVideoCatalogPreserved === true,
         generatedCatalogRecordsHidden: payload.generatedCatalogRecordsHidden ?? payload.catalogRecordsHidden ?? 0,
         catalogRecordsHidden: payload.catalogRecordsHidden ?? 0,
-        generationRowsDeleted: payload.generationRowsDeleted ?? 0,
-        automationRunsDeleted: payload.automationRunsDeleted ?? 0,
+        generationRowsRedacted: payload.generationRowsRedacted ?? 0,
+        automationRunsRedacted: payload.automationRunsRedacted ?? 0,
         externalSocialPostsDeleted: false,
       };
       setResult(completed);
@@ -242,7 +242,7 @@ export function PurgeGeneratedVideosControl({
             ملفات Cloudinary: {result.cloudinaryAssetsDeleted} · المساحة المحررة: {(result.cloudinaryBytesDeleted / (1024 * 1024)).toFixed(1)} MiB · عناصر Storage: {result.storageObjectsDeleted}
           </p>
           <p>
-            طلبات التوليد: {result.generationRowsDeleted} · سجل المنصات التاريخي: {result.socialQueueRowsPreserved ? "محفوظ" : "غير مؤكد"} · سجلات الفيديوهات المولّدة المخفية: {result.generatedCatalogRecordsHidden} · الكتالوج اليدوي: {result.manualPublicVideoCatalogPreserved ? "محفوظ" : "غير مؤكد"} · سجلات التشغيل: {result.automationRunsDeleted}
+            طلبات التوليد المحجوبة: {result.generationRowsRedacted} · سجل المنصات التاريخي: {result.socialQueueRowsPreserved ? "محفوظ" : "غير مؤكد"} · سجلات الفيديوهات المولّدة المخفية: {result.generatedCatalogRecordsHidden} · الكتالوج اليدوي: {result.manualPublicVideoCatalogPreserved ? "محفوظ" : "غير مؤكد"} · سجلات التشغيل المحجوبة: {result.automationRunsRedacted}
           </p>
           <p className="mt-1 text-amber-100/90">
             لم يتم إرسال أي طلب حذف إلى منصات خارجية.
