@@ -80,6 +80,24 @@ class HuggingFaceOutputSafetyTests(unittest.TestCase):
             FILE_URL,
         )
 
+    def test_nested_gradio_filedata_url_is_extracted(self):
+        self.assertEqual(
+            MODULE.extract_file_value({"video": {"url": FILE_URL, "meta": {"_type": "gradio.FileData"}}}),
+            FILE_URL,
+        )
+
+    def test_gradio_result_tuple_searches_all_nested_outputs(self):
+        self.assertEqual(
+            MODULE.extract_file_value([
+                {"caption": "generated"},
+                {"data": [{"video": {"path": "/tmp/generated-video.mp4"}}]},
+            ]),
+            "/tmp/generated-video.mp4",
+        )
+
+    def test_non_file_gradio_metadata_is_not_mistaken_for_a_video(self):
+        self.assertIsNone(MODULE.extract_file_value({"caption": "completed", "duration": 6}))
+
     def test_remote_file_path_is_converted_to_same_origin_file_url(self):
         result = MODULE.resolve_file_url(
             {"path": "/tmp/gradio/video output.mp4"},

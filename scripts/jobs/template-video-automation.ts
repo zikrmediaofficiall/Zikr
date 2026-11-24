@@ -23,6 +23,8 @@ import { buildMissingMediaQueueRecoveryPatch } from "../../src/features/social/s
 import { buildVideoSocialQueueUpdateFilter } from "../../src/features/social/services/social-queue-selection";
 import { resolveSocialPublishCutoff } from "../../src/features/social/services/facebook-queue-recovery-policy";
 import { calculateDailyVideoQuotaState } from "../../src/features/videos/services/video-automation-quota";
+import { resolveAutomatedVideoMode } from "../../src/features/videos/services/video-content-distribution";
+import { resolveNextVideoPublishAt, type VideoPublishScheduleRow } from "../../src/features/social/services/video-publishing-schedule";
 import {
   buildContentPublishQueueRecoveryFilter,
   buildProcessingVideoRequestLeaseFilter,
@@ -45,7 +47,7 @@ import { resolveFreeVideoProviderDownloadUrl } from "../../src/features/videos/p
 import { getDefaultVideoVoiceProfile, getVideoVoiceProfile } from "../../src/features/videos/services/voice-profiles";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
 import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
-import { GENERAL_VIDEO_SCENES, KIDS_VIDEO_SCENES, isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene, resolveDeterministicVideoVisualTheme, type VideoScene } from "../../src/features/videos/services/video-creative-variation";
+import { GENERAL_VIDEO_SCENES, KIDS_VIDEO_SCENES, isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene, resolveDeterministicVideoVisualTheme, type VideoScene, type VideoHookStyle } from "../../src/features/videos/services/video-creative-variation";
 import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
@@ -54,7 +56,7 @@ import { LAYL_EPISODES, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE,
 import { isoWeekKey, resolveNextScheduledLaylEpisode } from "../../src/features/videos/services/layl-program-schedule";
 
 const execFileAsync = promisify(execFile);
-const BATCH_SIZE = Math.max(1, Number(process.env.AUTO_VIDEO_BATCH_SIZE ?? process.env.DAILY_VIDEO_TARGET ?? 10));
+const BATCH_SIZE = Math.max(1, Number(process.env.AUTO_VIDEO_BATCH_SIZE ?? process.env.DAILY_VIDEO_TARGET ?? 3));
 const TARGET_VIDEO_SECONDS = Math.min(45, Math.max(10, Number(process.env.AUTO_VIDEO_SECONDS ?? 18)));
 const VIDEO_DEFAULT_TTS_PROFILE = process.env.ARABIC_TTS_PROFILE?.trim() || "hadith_male_msa";
 const QURAN_AYAH_AUDIO_BASE_URL =
@@ -419,8 +421,8 @@ function categoryLabel(category: string, audience?: unknown) {
   };
   return labels[category] || "ذِكر";
 }
-function audienceHook(category: string, audience?: unknown, seed = "") {
-  return resolveDeterministicVideoHook({ id: seed, category, audience });
+function audienceHook(category: string, audience?: unknown, seed = "", style: VideoHookStyle = "balanced") {
+  return resolveDeterministicVideoHook({ id: seed, category, audience, style });
 }
 function audienceCta(category: string, audience?: unknown) {
   if (audience === "kids") return "اكتشفوا الحلقة القادمة معًا • تابعوا ذِكر";
@@ -469,6 +471,7 @@ function makeAss(
   category: string,
   audience?: unknown,
   openingSeed = "",
+  hookStyle: VideoHookStyle = "balanced",
 ) {
   const { width, height } = composition;
   const playResX = width;
@@ -504,7 +507,7 @@ function makeAss(
   const hookEnd = Math.min(2.4, Math.max(0.8, duration * 0.16));
   const events = [
     "Dialogue: 5,0:00:00.00," + assTimestamp(duration) + ",Badge,,0,0,0,," + badge,
-    "Dialogue: 6,0:00:00.20," + assTimestamp(hookEnd) + ",Hook,,0,0,0,,{\\fad(180,260)}" + assEscape(audienceHook(category, audience, openingSeed)),
+    "Dialogue: 6,0:00:00.20," + assTimestamp(hookEnd) + ",Hook,,0,0,0,,{\\fad(180,260)}" + assEscape(audienceHook(category, audience, openingSeed, hookStyle)),
     "Dialogue: 0,0:00:00.12," + assTimestamp(duration) + ",Title,,0,0,0,,{\\fad(220,420)\\an8\\pos(" + composition.bodyX + "," + composition.titleY + ")}" + assEscape(normalizedTitle),
     "Dialogue: 3,0:00:00.00," + assTimestamp(duration) + ",Brand,,0,0,0,,ZIKR • ذِكرٌ",
     ...textEvents,
@@ -757,7 +760,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   }
   const dailyQuota = calculateDailyVideoQuotaState(todaysRows ?? []);
   const alreadySeededToday = dailyQuota.reservedCount;
-  const dailyTarget = Math.max(1, Math.min(24, Number(process.env.DAILY_VIDEO_TARGET ?? 12) || 12));
+  const dailyTarget = Math.max(1, Math.min(24, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3));
   // The workflow runs in four six-hour UTC windows; release a quarter of the daily target per window.
   const scheduleWindow = Math.min(4, Math.max(1, Math.floor(now.getUTCHours() / 6) + 1));
   const dueByNow = Math.ceil((dailyTarget * scheduleWindow) / 4);
@@ -767,7 +770,8 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   for (let i = 0; i < allowed; i += 1) {
     if (await isVideoGenerationPaused()) break;
     const slot = dailyQuota.nextSlot + i;
-    const mode = slot % 7;
+    // A global three-video/day ordinal prevents the daily reset from repeating only Quran and Dua.
+    const mode = resolveAutomatedVideoMode(day * 3 + slot);
 
     let payload: Record<string, unknown>;
     let key = "";
@@ -1759,6 +1763,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         request.category,
         request.content?.audience,
         request.id,
+        request.content?.hookStyle === "question" || request.content?.hookStyle === "reflection" || request.content?.hookStyle === "action"
+          ? request.content.hookStyle
+          : "balanced",
       ),
       "utf8",
     );
@@ -2039,6 +2046,9 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
     id: request.id,
     category: request.category,
     audience: content.audience,
+    style: content.hookStyle === "question" || content.hookStyle === "reflection" || content.hookStyle === "action"
+      ? content.hookStyle
+      : "balanced",
   });
   const callToAction: Record<string, string> = {
     quran: "احفظ الآية وشاركها مع من تحب.",
@@ -2461,7 +2471,26 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
   if (!targets.length) return "not_required";
 
   const socialKey = `${key}:social-video`;
-  const buildQueuePayload = (queueTargets: string[], queueAutomationKey: string) => ({
+  const reserveScheduledAt = async (queueTargets: string[], excludeQueueId?: string) => {
+    const cutoff = encodeURIComponent(new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString());
+    const excluded = excludeQueueId ? "&id=neq." + encodeURIComponent(excludeQueueId) : "";
+    const rows = await adminRequest<VideoPublishScheduleRow[]>(
+      "/rest/v1/social_publish_queue?content_type=like.*_video&status=in.(queued,partial,processing,published)&created_at=gte." +
+        cutoff +
+        "&select=id,status,target_platforms,scheduled_at,published_at,created_at&order=created_at.desc&limit=1000" +
+        excluded,
+    );
+    const scheduledAt = resolveNextVideoPublishAt({
+      now: new Date(),
+      rows: rows ?? [],
+      targetPlatforms: queueTargets,
+      minimumLeadMinutes: 15,
+      searchDays: 31,
+    });
+    if (!scheduledAt) throw new Error("No safe Cairo publishing slot is available for the requested social platforms.");
+    return scheduledAt;
+  };
+  const buildQueuePayload = (queueTargets: string[], queueAutomationKey: string, scheduledAt: string) => ({
     content_type: `${request.category || "content"}_video`,
     content_id: request.id,
     title: request.title,
@@ -2474,6 +2503,7 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
     video_url: videoUrl,
     target_platforms: queueTargets,
     status: "queued",
+    scheduled_at: scheduledAt,
     metadata: {
       automationKey: queueAutomationKey,
       publicPath,
@@ -2494,10 +2524,11 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
   const existing = await findSocialQueueByAutomationKey(socialKey, signal);
 
   if (!existing) {
+    const scheduledAt = await reserveScheduledAt(targets);
     await adminRequest("/rest/v1/social_publish_queue", {
       method: "POST",
       headers: { Prefer: "return=minimal" },
-      body: JSON.stringify(buildQueuePayload(targets, socialKey)),
+      body: JSON.stringify(buildQueuePayload(targets, socialKey, scheduledAt)),
     });
     return "queued";
   }
@@ -2528,10 +2559,11 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
       const supplementalKey = `${socialKey}:late:${target}`;
       const supplemental = await findSocialQueueByAutomationKey(supplementalKey, signal);
       if (supplemental) continue;
+      const scheduledAt = await reserveScheduledAt([target]);
       await adminRequest("/rest/v1/social_publish_queue", {
         method: "POST",
         headers: { Prefer: "return=minimal" },
-        body: JSON.stringify(buildQueuePayload([target], supplementalKey)),
+        body: JSON.stringify(buildQueuePayload([target], supplementalKey, scheduledAt)),
       });
     }
   };
@@ -2557,7 +2589,7 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
           video_url: videoUrl,
           target_platforms: desiredTargets,
           status: "queued",
-          scheduled_at: new Date().toISOString(),
+          scheduled_at: await reserveScheduledAt(desiredTargets, existing.id),
           error_message: null,
           updated_at: buildNextRowVersionUpdatedAt(existing.updated_at),
           metadata: {
@@ -2613,7 +2645,7 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
               video_url: videoUrl,
               target_platforms: latestDesiredTargets,
               status: "queued",
-              scheduled_at: new Date().toISOString(),
+              scheduled_at: await reserveScheduledAt(latestDesiredTargets, latest.id),
               error_message: null,
               updated_at: buildNextRowVersionUpdatedAt(latest.updated_at),
               metadata: {
@@ -2981,7 +3013,14 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
       });
       const missingQaChecks = REQUIRED_VIDEO_APPROVAL_CHECKS.filter((key) => qaChecks[key] !== true);
       const engagement = {
-        openingHook: resolveDeterministicVideoHook({ id: request.id, category: request.category, audience: request.content.audience }),
+        openingHook: resolveDeterministicVideoHook({
+          id: request.id,
+          category: request.category,
+          audience: request.content.audience,
+          style: request.content.hookStyle === "question" || request.content.hookStyle === "reflection" || request.content.hookStyle === "action"
+            ? request.content.hookStyle
+            : "balanced",
+        }),
         scene: rendered.scene,
         composition: request.content.render && typeof request.content.render === "object"
           ? (request.content.render as Record<string, unknown>).composition ?? null

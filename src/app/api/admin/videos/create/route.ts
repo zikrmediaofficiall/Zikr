@@ -85,7 +85,11 @@ export async function POST(request: NextRequest) {
 
     const submittedContent = isObject(body.content) ? body.content : {};
     const submittedKidsIntent = hasExplicitKidsVideoIntentMarker(submittedContent);
-    let content: Record<string, unknown> = { ...submittedContent };
+    const requestedHookStyle = submittedContent.hookStyle ?? "balanced";
+    if (!["balanced", "question", "reflection", "action"].includes(String(requestedHookStyle))) {
+      return NextResponse.json({ error: "أسلوب افتتاحية الفيديو غير مدعوم." }, { status: 400 });
+    }
+    let content: Record<string, unknown> = { ...submittedContent, hookStyle: requestedHookStyle };
     // Audio provenance is server-owned. Never trust URLs or ownership fields
     // supplied inside the generic content object.
     delete content.audioUrl;

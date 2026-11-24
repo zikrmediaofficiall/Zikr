@@ -85,7 +85,7 @@ async function getVideoAutomationSettings(): Promise<VideoAutomationSettings> {
     autoPublish: parseBoolSetting(values.video_automation_auto_publish, false),
     dailyTarget: parseBoundedNumberSetting(
       values.video_automation_daily_target,
-      Math.max(1, Number(process.env.DAILY_VIDEO_TARGET ?? 12) || 12),
+      Math.max(1, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3),
       1,
       24,
     ),

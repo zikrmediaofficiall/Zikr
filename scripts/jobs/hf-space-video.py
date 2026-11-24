@@ -85,24 +85,32 @@ class SameOriginRedirectHandler(HTTPRedirectHandler):
         return super().redirect_request(request, file_pointer, code, message, headers, new_url)
 
 
-def extract_file_value(value):
-    if value is None:
+def extract_file_value(value, depth=0):
+    """Find a video file URL/path inside current and legacy Gradio result shapes."""
+    if depth > 8 or value is None:
         return None
     if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        for key in ("url", "path", "file", "name", "video"):
-            candidate = value.get(key)
+        candidate = value.strip()
+        return candidate or None
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            candidate = extract_file_value(item, depth + 1)
             if candidate:
                 return candidate
-    for key in ("url", "path"):
-        candidate = getattr(value, key, None)
+        return None
+    if isinstance(value, dict):
+        for key in ("url", "path", "file", "name", "video", "data", "output", "result"):
+            if key not in value:
+                continue
+            candidate = extract_file_value(value.get(key), depth + 1)
+            if candidate:
+                return candidate
+        return None
+    for key in ("url", "path", "file", "name", "video", "data", "output", "result"):
+        candidate = extract_file_value(getattr(value, key, None), depth + 1)
         if candidate:
             return candidate
-    if isinstance(value, (list, tuple)) and value:
-        return extract_file_value(value[0])
     return None
-
 
 def resolve_file_url(value, space_origin, encode_file_path):
     source = extract_file_value(value)
@@ -242,8 +250,7 @@ def main():
             api_name="/text_to_video",
         )
 
-    video_value = result[0] if isinstance(result, (tuple, list)) else result
-    video_url = resolve_file_url(video_value, space_origin, utils.encode_file_path)
+    video_url = resolve_file_url(result, space_origin, utils.encode_file_path)
     output = materialize_output(video_url, args.output, space_origin, token=token)
     print(
         json.dumps(

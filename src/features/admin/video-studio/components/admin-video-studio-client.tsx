@@ -12,6 +12,7 @@ import { VIDEO_VOICE_PROFILES, getDefaultVideoVoiceProfile } from "@/features/vi
 
 type Category = "quran" | "hadith" | "story" | "dua" | "adhkar" | "other";
 type Format = "horizontal" | "vertical";
+type HookStyle = "balanced" | "question" | "reflection" | "action";
 type Source = {
   id: string;
   category: Category;
@@ -80,6 +81,7 @@ const MAX_AUDIO_BYTES = 15 * 1024 * 1024;
 export default function AdminVideoStudioClient() {
   const [category, setCategory] = useState<Category>("story");
   const [format, setFormat] = useState<Format>("vertical");
+  const [hookStyle, setHookStyle] = useState<HookStyle>("balanced");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [narration, setNarration] = useState("");
@@ -322,6 +324,7 @@ export default function AdminVideoStudioClient() {
             renderer: "template",
             workflow: "ai-video-studio",
             videoFormat: format,
+            hookStyle,
             templateVersionId: templateVersionId || undefined,
             voiceProfile: category === "quran" ? "quran_reciter" : voiceProfile,
             language: "ar",
@@ -643,6 +646,27 @@ export default function AdminVideoStudioClient() {
               <option value="horizontal">16:9 — يوتيوب</option>
             </select>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-brand-gold/15 bg-black/10 p-4">
+          <label htmlFor="video-hook-style" className="mb-2 block text-sm text-brand-cream/70">
+            أسلوب الافتتاحية — أول 3 ثوانٍ
+          </label>
+          <select
+            id="video-hook-style"
+            value={hookStyle}
+            onChange={(event) => setHookStyle(event.target.value as HookStyle)}
+            disabled={loading || batchLoading}
+            className="w-full rounded-lg border border-brand-gold/20 bg-black/30 px-4 py-3 text-brand-cream"
+          >
+            <option value="balanced">متوازن — اختيار تلقائي حسب نوع المحتوى</option>
+            <option value="question">سؤال يفتح فضول المشاهد</option>
+            <option value="reflection">تأمل هادئ يناسب المحتوى الإيماني</option>
+            <option value="action">خطوة عملية قابلة للتطبيق</option>
+          </select>
+          <p className="mt-2 text-xs leading-6 text-brand-cream/45">
+            يغيّر هذا الاختيار الافتتاحية الظاهرة داخل الفيديو ونص المنشور المصاحب، مع بقاء النص الديني والمصدر دون تعديل.
+          </p>
         </div>
 
         <div>
