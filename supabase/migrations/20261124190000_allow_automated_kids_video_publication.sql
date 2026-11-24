@@ -29,6 +29,7 @@ WHERE v.published IS TRUE AND pg_catalog.jsonb_typeof(v.metadata) = 'object'
   AND nullif(btrim(r.content->'automatedVideoQa'->>'reviewedAt'), '') IS NOT NULL
   AND r.content->'automatedVideoQa'->>'snapshotHash' ~ '^[a-f0-9]{64}$'
   AND r.content->'automatedVideoQa'->>'snapshotHash' = v.metadata->'automatedVideoQa'->>'snapshotHash'
+  AND r.content->'automatedVideoQa'->>'snapshotHash' = r.content->>'approvalSnapshotHash'
   AND r.content->'automatedVideoQa'->'checks' @> '{"sourceVerified":true,"audioReviewed":true,"visualsReviewed":true,"captionsReviewed":true,"rightsReviewed":true}'::jsonb
   AND v.metadata->'automatedVideoQa'->'checks' @> '{"sourceVerified":true,"audioReviewed":true,"visualsReviewed":true,"captionsReviewed":true,"rightsReviewed":true}'::jsonb
   AND r.content->>'contentFormat' = 'series_episode' AND r.content->>'aiMode' = 'original_kids_story'
