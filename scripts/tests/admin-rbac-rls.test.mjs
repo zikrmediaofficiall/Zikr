@@ -608,13 +608,15 @@ assert.doesNotMatch(
 const kidsVideoApprovalBlock = videoGenerationRoute.match(
   /if \(action === ['"]approve_publish['"]\) \{[\s\S]*?(?=if \(action === ["']retry_publish["']\))/,
 )?.[0] ?? "";
-const kidsAudiencePosition = kidsVideoApprovalBlock.indexOf("const isKidsVideo = audience === 'kids'");
+const kidsAudiencePosition = kidsVideoApprovalBlock.indexOf("const audience = normalizeVideoAudience(currentContent.audience)");
 const kidsManualApprovalGuardPosition = kidsVideoApprovalBlock.indexOf("KIDS_AUTOMATED_QA_ONLY");
-const kidsApprovalRpcPosition = kidsVideoApprovalBlock.indexOf("admin_approve_video_generation_request");
+const kidsCatalogLookupPosition = kidsVideoApprovalBlock.indexOf("const catalogSlug =", kidsManualApprovalGuardPosition);
+const kidsApprovalRpcPosition = kidsVideoApprovalBlock.indexOf("/rest/v1/rpc/admin_approve_video_generation_request", kidsManualApprovalGuardPosition);
 assert.ok(
   kidsAudiencePosition >= 0 &&
     kidsManualApprovalGuardPosition > kidsAudiencePosition &&
-    kidsManualApprovalGuardPosition < kidsApprovalRpcPosition &&
+    kidsCatalogLookupPosition > kidsManualApprovalGuardPosition &&
+    kidsApprovalRpcPosition > kidsManualApprovalGuardPosition &&
     kidsVideoApprovalBlock.includes("status: 410"),
   "Kids video manual approval must be rejected at the API boundary before any catalog lookup or atomic approval RPC",
 );
