@@ -553,7 +553,7 @@ export async function POST(request: NextRequest) {
           "/rest/v1/video_generation_requests?automation_key=not.is.null&select=id,video_url,thumbnail_url,content&limit=1000",
         )
       : [];
-    if (includeMemory && (generatedRequests ?? []).length >= 1000) {
+    if ((includeMemory || includeFiles) && (generatedRequests ?? []).length >= 1000) {
       throw new Error("Automated generation history exceeded the safe purge batch; no files or catalog rows were changed.");
     }
     const automationRuns = includeMemory
