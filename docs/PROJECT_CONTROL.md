@@ -4,12 +4,12 @@
 
 ## Canonical project identity
 
-- GitHub repository: `zikrofficial-X/Zikr`
-- GitHub control account: `zikrofficial-X` (repository owner; Admin permission verified)
+- GitHub repository: `zikrmediaofficiall/Zikr`
+- GitHub control account: `zikrmediaofficiall` (repository owner; Admin permission verified)
 - Vercel account username: `zikrofficial-x`
 - Vercel team: `zikr3`
 - Vercel project: `zikr`
-- Linked source: `zikrofficial-X/Zikr`
+- Linked source: `zikrmediaofficiall/Zikr`
 - Production domain: `https://zikrmediaofficial.vercel.app`
 - Canonical Supabase project: `zqtssvlvmkzeeyqghqfk`
 
@@ -19,8 +19,8 @@ The connected GitHub and Vercel sessions resolve to the same account email. The 
 
 The release preflight uses GitHub's authenticated repository metadata. It requires:
 1. The release commit to resolve to a merged pull request targeting `main`.
-2. The PR author login to equal the canonical repository owner (`zikrofficial-X`).
-3. The PR source branch repository to equal `zikrofficial-X/Zikr`; fork-originated releases are rejected.
+2. The PR author login to equal the canonical repository owner (`zikrmediaofficiall`).
+3. The PR source branch repository to equal `zikrmediaofficiall/Zikr`; fork-originated releases are rejected.
 4. The exact PR-head checks and exact release-commit Quality Gate to complete successfully.
 5. Required CircleCI contexts and, for post-deployment smoke verification, the Vercel status to be successful.
 
