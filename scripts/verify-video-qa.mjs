@@ -171,7 +171,7 @@ for (const token of [
   "metadata->'automatedVideoQa'->>'status' = 'passed'",
   "private.video_catalog_has_current_automated_kids_qa(metadata)",
   "metadata->'qualityReview'->>'mode' = 'automated'",
-  "metadata->'approvalReviewerId' = 'system:zikr-video-factory'",
+  "metadata->>'approvalReviewerId' = 'system:zikr-video-factory'",
   "BEGIN;",
   "COMMIT;",
 ]) {
