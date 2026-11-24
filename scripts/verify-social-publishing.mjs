@@ -530,7 +530,7 @@ if (adminClient.includes("اعتمد الفيديو أولًا") ||
     !adminClient.includes("مراجعة الفيديو غير مكتملة") ||
     !adminClient.includes("فيديوهات الأطفال تعتمد تلقائيًا بعد اجتياز فحوص الجودة الخمسة") ||
     !adminClient.includes("الفيديوهات العامة المؤهلة تنتقل للنشر تلقائيًا")) {
-  failures.push("social center must explain the automated Kids QA gate while preserving automatic publishing for eligible videos");
+  failures.push("social center must explain automatic five-check Kids QA while preserving automatic publishing for eligible videos");
 }
 if (!writtenWorker.includes('"articles"') ||
     !writtenWorker.includes("content_publish_queue") ||
