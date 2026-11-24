@@ -47,7 +47,7 @@ assert.doesNotMatch(
 // expectBlankCircleCiEnv below verifies the exact empty assignments for this read-only job.
 assert.doesNotMatch(androidDraftJob, /Authorization:\s*"Bearer"/, "public release metadata verification must not need a write-capable GitHub token");
 assert.ok(
-  androidDraftJob.includes('const repository = "zikrofficial-X/Zikr";') &&
+  androidDraftJob.includes('const repository = "zikrmediaofficiall/Zikr";') &&
     androidDraftJob.includes('"https://api.github.com/repos/" + repository'),
   "the verifier must continue to inspect the public canonical GitHub repository",
 );
