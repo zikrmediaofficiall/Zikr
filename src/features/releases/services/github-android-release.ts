@@ -169,11 +169,11 @@ async function fetchReleases(): Promise<GitHubRelease[] | null> {
   return releases;
 }
 
-export async function getLatestStableAndroidRelease(): Promise<GitHubRelease | null> {
+export async function getStableAndroidReleases(): Promise<GitHubRelease[] | null> {
   const releases = await fetchReleases();
   if (!releases) return null;
 
-  const candidates = releases
+  return releases
     .filter(
       release =>
         !release.draft &&
@@ -190,8 +190,11 @@ export async function getLatestStableAndroidRelease(): Promise<GitHubRelease | n
       const bDate = b.published_at ? Date.parse(b.published_at) : 0;
       return bDate - aDate;
     });
+}
 
-  return candidates[0] ?? null;
+export async function getLatestStableAndroidRelease(): Promise<GitHubRelease | null> {
+  const releases = await getStableAndroidReleases();
+  return releases?.[0] ?? null;
 }
 
 export async function getStableReleaseByTag(
