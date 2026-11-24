@@ -33,7 +33,7 @@ class GitHubApiError extends Error {
   }
 }
 
-const REPO = process.env.GITHUB_REPOSITORY?.trim() || "zikrofficial-X/Zikr";
+const REPO = process.env.GITHUB_REPOSITORY?.trim() || "zikrmediaofficiall/Zikr";
 const API = "https://api.github.com";
 
 function token() {
