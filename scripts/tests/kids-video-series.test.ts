@@ -329,7 +329,7 @@ const publicKidsListSource = kidsVideoServiceSource.slice(publicKidsListStart, p
 const publicKidsDetailServiceSource = kidsVideoServiceSource.slice(publicKidsDetailStart);
 assert.ok(kidsVideoServiceSource.includes("loadApprovedKidsVideoRequests"), "public Kids video reads must verify the linked completed generation request");
 assert.ok(kidsVideoServiceSource.includes("hasCurrentAutomatedKidsVideoApproval"), "public Kids video reads must verify a current automated QA approval snapshot");
-assert.ok(kidsVideoServiceSource.includes("isAutomatedKidsVideoApprovalRecorded(requestContent, snapshotHash)"), "the linked request must contain a matching human approval");
+assert.ok(kidsVideoServiceSource.includes("isAutomatedKidsVideoApprovalRecorded(requestContent, snapshotHash)"), "the linked request must contain a matching automated QA approval");
 assert.ok(kidsVideoServiceSource.includes("isAutomatedKidsVideoApprovalRecorded(metadata, snapshotHash)"), "the public catalog row must contain the same automated QA approval snapshot");
 assert.ok(kidsVideoServiceSource.includes("resolveKidsVideoQaStatusForApproval"), "public Kids reads must revalidate QA against the current request and media fingerprints");
 assert.ok(kidsVideoServiceSource.includes("status=eq.completed"), "only completed generation requests may authorize public Kids videos");
