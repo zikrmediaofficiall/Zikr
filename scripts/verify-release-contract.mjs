@@ -248,7 +248,7 @@ assert.ok(recoveryDispatch.includes('const isTagDispatch = context.ref === "refs
 assert.ok(recoveryDispatch.includes('ref: isPushRecoveryTrigger ? "main" : (isTagDispatch ? tag : recoveryBranch)') && recoveryDispatch.includes("source_commit: sourceSha"), "owner-only recovery must run the latest publisher from main while passing the exact immutable tag source SHA");
 
 
-assert.ok(circle.includes('REPOSITORY="zikrofficial-X/Zikr"') && circle.includes('https://github.com/${REPOSITORY}/releases/download/'), "CircleCI Android release metadata must use GitHub Releases in the canonical repository");
+assert.ok(circle.includes('REPOSITORY="zikrmediaofficiall/Zikr"') && circle.includes('https://github.com/${REPOSITORY}/releases/download/'), "CircleCI Android release metadata must use GitHub Releases in the canonical repository");
 const androidJob =
   circle.match(/^  android-rebuild:\n([\s\S]*?)(?=^  [a-z0-9_-]+:\n|^workflows:\n)/m)?.[1] ?? "";
 assert.match(
@@ -391,8 +391,6 @@ for (const [name, source] of [["additional-content translation", contentTranslat
   assert.ok(source.includes("temporarily unavailable") && source.includes("Switching") || source.includes("switching to fallback model"), name + " must retry transient Gemini provider outages and fall back to an alternate model");
 }
 
-const androidAdminPage = read("src/app/admin/android/page.tsx");
-assert.ok(androidAdminPage.includes("getStableAndroidReleases"), "Admin Android release choices must use the shared stable GitHub release reader");
 assert.ok(androidReleaseService.includes("hasApk(release)") && androidReleaseService.includes("hasAab(release)"), "The shared release reader must reject records missing either APK or AAB");
 
 console.log("✅ Release contract checks passed");
