@@ -585,11 +585,13 @@ export async function POST(request: NextRequest) {
     const socialQueueInventory = await supabaseServerAdminRequest<Array<{
       id: string;
       status: string;
+      content_type: string | null;
+      content_id: string | null;
       target_platforms: unknown;
       video_url: string | null;
       image_url: string | null;
       metadata: Record<string, unknown> | null;
-    }>>("/rest/v1/social_publish_queue?select=id,status,target_platforms,video_url,image_url,metadata&limit=1000");
+    }>>("/rest/v1/social_publish_queue?select=id,status,content_type,content_id,target_platforms,video_url,image_url,metadata&limit=1000");
     if ((socialQueueInventory ?? []).length >= 1000) {
       throw new Error("Social publication history exceeded the safe reference-audit limit; refusing cleanup.");
     }
