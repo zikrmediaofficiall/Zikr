@@ -189,7 +189,6 @@ assert.ok(
 assert.match(route, /Invalid purge scope/);
 assert.doesNotMatch(route, /const scope = body\.scope ===[\s\S]*?:\s*"both"/, "an invalid scope must never silently widen to a combined destructive purge");
 
-const firstDestructiveOperation = route.indexOf("const cloudinaryErrors = includeFiles");
 const referenceAuditPosition = route.indexOf("findUnmanagedGeneratedVideoReferences(");
 const socialReferenceAuditPosition = route.indexOf("const unresolvedSocialReferences");
 assert.ok(
