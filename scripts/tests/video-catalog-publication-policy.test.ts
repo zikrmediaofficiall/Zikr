@@ -15,9 +15,15 @@ const kidsMetadata = {
   contentFormat: "series_episode",
   aiMode: "original_kids_story",
   sourceType: "original_kids_fiction",
-  automatedVideoQa: { status: "passed", snapshotHash: "a".repeat(64) },
+  automatedVideoQa: {
+    status: "passed",
+    engine: "zikr_video_factory",
+    engineVersion: "2026-11-07-auto-qa-v1",
+    snapshotHash: "a".repeat(64),
+    checks: { sourceVerified: true, audioReviewed: true, visualsReviewed: true, captionsReviewed: true, rightsReviewed: true },
+  },
   approvalStatus: "approved",
-  approvalReviewerId: "admin-user-1",
+  approvalReviewerId: "system:zikr-video-factory",
   approvalReviewedAt: "2026-11-14T12:00:00.000Z",
   approvalSnapshotHash: "a".repeat(64),
   qualityReview: {
@@ -27,8 +33,10 @@ const kidsMetadata = {
     captionsReviewed: true,
     rightsReviewed: true,
     reviewedAt: "2026-11-14T12:00:00.000Z",
-    mode: "human",
-    reviewerId: "admin-user-1",
+    mode: "automated",
+    engine: "zikr_video_factory",
+    engineVersion: "2026-11-07-auto-qa-v1",
+    snapshotHash: "a".repeat(64),
   },
   seriesId: "salim-nour",
   seriesTitle: "Salim and Nour",
@@ -75,13 +83,13 @@ assert.equal(evaluateVideoCatalogPublication({
   row: { published: true, metadata: {
     ...kidsMetadata,
     approvalReviewerId: "system:zikr-video-factory",
-    qualityReview: { ...kidsMetadata.qualityReview, mode: "automated", reviewerId: "system:zikr-video-factory" },
+    qualityReview: { ...kidsMetadata.qualityReview, mode: "automated" },
   } },
-}).status, "blocked", "automated QA alone must not release a Kids video to external platforms");
+}).status, "approved", "a complete current automated QA result is sufficient for Kids delivery without a human reviewer");
 assert.equal(evaluateVideoCatalogPublication({
   ...kidsInput,
   row: { published: true, metadata: { ...kidsMetadata, approvalSnapshotHash: "b".repeat(64) } },
-}).status, "blocked", "catalog human approval must match the current request snapshot");
+}).status, "blocked", "catalog automated QA approval must match the current request snapshot");
 assert.equal(evaluateVideoCatalogPublication({
   ...kidsInput,
   row: { published: true, metadata: { ...kidsMetadata, automatedVideoQa: { status: "passed", snapshotHash: "b".repeat(64) } } },
@@ -90,9 +98,9 @@ assert.equal(evaluateVideoCatalogPublication({
   ...kidsInput,
   row: { published: true, metadata: {
     ...kidsMetadata,
-    qualityReview: { ...kidsMetadata.qualityReview, reviewerId: "different-admin" },
+    qualityReview: { ...kidsMetadata.qualityReview, snapshotHash: "b".repeat(64) },
   } },
-}).status, "blocked", "the catalog reviewer marker must match the human QA reviewer");
+}).status, "blocked", "the catalog QA snapshot must match the current source and media fingerprint");
 assert.equal(evaluateVideoCatalogPublication({ ...kidsInput, row: null }).status, "pending");
 assert.equal(evaluateVideoCatalogPublication({ ...kidsInput, row: { ...kidsRow, published: false } }).status, "pending");
 assert.equal(evaluateVideoCatalogPublication({ ...kidsInput, queueKidsContentQaStatus: null }).status, "blocked");
