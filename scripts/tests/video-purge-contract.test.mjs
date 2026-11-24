@@ -84,12 +84,12 @@ const firstDestructiveOperation = route.indexOf("const cloudinaryErrors = includ
 for (const marker of [
   "const generatedCatalogRows = await",
   "if ((generatedCatalogRows ?? []).length >= 1000)",
-  "const generatedRequests = includeMemory",
-  "if (includeMemory && (generatedRequests ?? []).length >= 1000)",
+  "const generatedRequests = includeMemory || includeFiles",
+  "if ((includeMemory || includeFiles) && (generatedRequests ?? []).length >= 1000)",
   "const automationRuns = includeMemory",
   "if (includeMemory && (automationRuns ?? []).length >= 1000)",
   "const assets = includeFiles ? await listGeneratedVideos()",
-  "const storagePaths = includeFiles ? await listAutomatedStorageObjects()",
+  "const storagePaths = includeFiles || includeMemory ? await listAutomatedStorageObjects()",
   "const processingAfterPreflight = await getActiveVideoWork()",
   "if (processingAfterPreflight.generation > 0 || processingAfterPreflight.publications > 0)",
 ]) {
@@ -189,51 +189,54 @@ assert.ok(
 assert.match(route, /Invalid purge scope/);
 assert.doesNotMatch(route, /const scope = body\.scope ===[\s\S]*?:\s*"both"/, "an invalid scope must never silently widen to a combined destructive purge");
 
-const filePurgeGuardPosition = route.indexOf("if (includeFiles) {");
-const filePurgeGuardEnd = route.indexOf("const cloudinary = includeFiles ? cloudinaryConfig()", filePurgeGuardPosition);
-const purgeLockAfterGuard = route.indexOf("const lockToken = randomUUID()", filePurgeGuardPosition);
+const firstDestructiveOperation = route.indexOf("const cloudinaryErrors = includeFiles");
+const referenceAuditPosition = route.indexOf("findUnmanagedGeneratedVideoReferences(");
+const socialReferenceAuditPosition = route.indexOf("const unresolvedSocialReferences");
 assert.ok(
-  filePurgeGuardPosition > scopeValidationPosition &&
-    filePurgeGuardEnd > filePurgeGuardPosition &&
-    purgeLockAfterGuard > filePurgeGuardPosition &&
-    filePurgeGuardPosition < route.indexOf("const assets = includeFiles ? await listGeneratedVideos()") &&
-    filePurgeGuardPosition < route.indexOf("const cloudinaryErrors = includeFiles"),
-  "file purge must fail closed before Cloudinary configuration, lock acquisition, inventories, or destructive work",
+  referenceAuditPosition > 0 &&
+    socialReferenceAuditPosition > 0 &&
+    referenceAuditPosition < firstDestructiveOperation &&
+    socialReferenceAuditPosition < firstDestructiveOperation,
+  "the cross-table reference audit and social delivery reconciliation must finish before the first destructive operation",
 );
-const filePurgeGuard = route.slice(filePurgeGuardPosition, filePurgeGuardEnd);
+assert.ok(route.includes("collectGeneratedVideoCandidateValues") &&
+  route.includes("findGeneratedVideoReferences(row, referenceCandidates)") &&
+  route.includes("hasConfirmedSocialDelivery(row)"),
+  "the purge must identify generated media IDs, inspect historical and pending queue rows, and require confirmed delivery before releasing historical references");
+assert.ok(route.includes("unmanagedReferenceCount") &&
+  route.includes("unresolvedSocialReferences") &&
+  route.includes("status: 409") &&
+  route.includes("deletionStarted: false"),
+  "any remaining unmanaged or unresolved reference must return a non-destructive conflict before deletion");
+assert.ok(route.includes("remainingStoragePaths") &&
+  route.includes("remainingAssets") &&
+  route.includes("refusing to finalize purge"),
+  "file deletion must verify Supabase Storage and Cloudinary objects are absent before completing");
+assert.ok(!route.includes("filesPurgeAvailable: false") &&
+  !route.includes("memoryPurgeAvailable: false"),
+  "both explicit purge scopes must be enabled behind their dynamic reference preflight");
+assert.ok(!route.includes("async function deleteRows(") &&
+  !route.includes('method: "DELETE"') &&
+  route.includes("generationRowsRedacted") &&
+  route.includes("automationRunsRedacted") &&
+  route.includes("memoryPurged: true") &&
+  route.includes('status: "cancelled"'),
+  "memory cleanup must redact owned request/run data while preserving stable IDs instead of deleting rows and breaking historical references");
+assert.ok(route.includes('findUnmanagedGeneratedVideoReferences') &&
+  route.includes('videos: new Set((generatedCatalogRows ?? []).map((row) => row.id))'),
+  "the reference audit must ignore only the generated catalog rows managed by this purge and preserve checks for unrelated catalog rows");
 assert.ok(
-  filePurgeGuard.includes("complete cross-table reference inventory") &&
-    filePurgeGuard.includes("filesPurgeAvailable: false") &&
-    filePurgeGuard.includes("deletionStarted: false") &&
-    filePurgeGuard.includes("status: 409"),
-  "file purge must return a non-destructive conflict until every external and Storage reference can be proven safe",
-);
-const memoryPurgeGuardPosition = route.indexOf("if (includeMemory) {", filePurgeGuardPosition);
-const memoryPurgeLockPosition = route.indexOf("const lockToken = randomUUID()", memoryPurgeGuardPosition);
-const memoryPurgeGuard = route.slice(memoryPurgeGuardPosition, memoryPurgeLockPosition);
-assert.ok(
-  memoryPurgeGuardPosition > filePurgeGuardPosition &&
-    memoryPurgeGuardPosition < filePurgeGuardEnd &&
-    memoryPurgeLockPosition > memoryPurgeGuardPosition &&
-    memoryPurgeGuard.includes("video-catalog metadata") &&
-    memoryPurgeGuard.includes("social-queue") &&
-    memoryPurgeGuard.includes("audit-event") &&
-    memoryPurgeGuard.includes("memoryPurgeAvailable: false") &&
-    memoryPurgeGuard.includes("deletionStarted: false") &&
-    memoryPurgeGuard.includes("No database rows were changed") &&
-    memoryPurgeGuard.includes("status: 409"),
-  "memory purge must fail closed before lock acquisition or request-row deletion until every soft reference is safely preserved or detached",
-);
-assert.ok(
-  control.includes('<option value="files" disabled>') &&
-    control.includes('<option value="memory" disabled>') &&
-    control.includes('<option value="both" disabled>') &&
-    control.includes("حذف الملفات والذاكرة معطّل"),
-  "the admin UI must disable every purge scope while file and memory reference inventories remain incomplete",
-);
+  control.includes('<option value="files">') &&
+    control.includes('<option value="memory">') &&
+    control.includes('<option value="both">') &&
+    !control.includes('<option value="files" disabled>') &&
+    !control.includes('<option value="memory" disabled>') &&
+    !control.includes('<option value="both" disabled>'),
+  "the admin UI must allow an explicit choice among all three purge scopes");
+
 
 assert.ok(route.includes("includeFiles") && route.includes("includeMemory"), "the cleanup endpoint must honor the selected scope");
-assert.ok(route.includes("automation_key=not.is.null"), "project-memory cleanup must only delete automated generation requests");
+assert.ok(route.includes("automation_key=not.is.null"), "project-memory cleanup must redact only automated generation requests and retain their IDs");
 assert.ok(socialWorker.includes("isVideoPurgeInProgress"));
 assert.ok(socialWorker.includes("video_purge_in_progress"));
 assert.ok(videoWorker.includes("isVideoGenerationPaused"));
@@ -288,7 +291,7 @@ assert.ok(control.includes('fetch("/api/admin/video-purge"'));
 assert.ok(control.includes("setAuthorized(allowed)"));
 assert.ok(control.includes('value="files"') && control.includes('value="memory"') && control.includes('value="both"'));
 assert.ok(control.includes('JSON.stringify({ confirmation, scope })'));
-assert.ok(control.includes("سجلات النشر الاجتماعي التاريخية"));
+assert.ok(control.includes("سجلات الطابور التاريخية"));
 assert.ok(apiGuards.includes('src/app/api/admin/video-purge/route.ts GET'));
 assert.ok(apiGuards.includes('src/app/api/admin/video-purge/route.ts POST'));
 
