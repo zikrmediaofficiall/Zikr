@@ -423,17 +423,17 @@ function audienceHook(category: string, audience?: unknown, seed = "") {
   return resolveDeterministicVideoHook({ id: seed, category, audience });
 }
 function audienceCta(category: string, audience?: unknown) {
-  if (audience === "kids") return "اكتشفوا الحلقة القادمة معًا • تابعوا ذِكر";
+  if (audience === "kids") return "اكتشفوا الحلقة الجاية سوا • تابعوا ذِكر";
   const labels: Record<string, string> = {
-    quran: "تدبّر الآية واحفظها وشاركها",
-    hadith: "تأمّل الحديث وطبّقه اليوم",
+    quran: "اتدبّر الآية واحفظها وشاركها",
+    hadith: "اتأمّل الحديث وطبّقه النهارده",
     dua: "احفظ الدعاء وكرّره",
-    adhkar: "اجعل الذكر جزءًا من يومك",
-    story: "تعلّم من القصة وشارك العبرة",
-    stories: "تعلّم من القصة وشارك العبرة",
+    adhkar: "خلّي الذكر جزء من يومك",
+    story: "اتعلّم من القصة وشارك العبرة",
+    stories: "اتعلّم من القصة وشارك العبرة",
     other: "احفظ الرسالة وشاركها",
   };
-  return (labels[category] ?? labels.other) + " • تابع ذِكر للمزيد";
+  return (labels[category] ?? labels.other) + " • تابع ذِكر عشان تشوف أكتر";
 }
 function deterministicScene(request: GeneratedRequest): AiVideoPlan["scene"] {
   return resolveDeterministicVideoScene({
@@ -923,7 +923,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
           automationKey: key,
           aiMode: "source_locked",
           aiProviderHint,
-          voiceProfile: "documentary_male_msa",
+          voiceProfile: "egyptian_male_story",
         },
         duration: TARGET_VIDEO_SECONDS,
         status: "pending",
@@ -979,12 +979,12 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       };
     } else {
       const reminders = [
-        "اجعل التقنية خادمة للعبادة: اختر وقتًا هادئًا للقراءة والذكر وأغلق ما يشتت قلبك.",
-        "القليل الثابت يبني عادة أقوى من قائمة طويلة لا تستمر عليها؛ اختر وردًا تستطيع المحافظة عليه.",
-        "قبل مشاركة أي معلومة دينية، ابحث عن مصدرها واقرأ النص كاملًا ولا تعتمد على صورة متداولة وحدها.",
-        "خذ دقيقة هادئة في منتصف يومك، ابتعد عن الضوضاء، وراجع ما تريد أن تحمله معك لبقية اليوم.",
-        "اجعل هاتفك أداة تساعدك على الخير: قلل الإشعارات، واحفظ وقتك للمهم، واستخدم التقنية بوعي.",
-        "ابدأ بخطوة صغيرة اليوم، ثم كررها غدًا؛ الاستمرارية في العادات النافعة تصنع فرقًا كبيرًا.",
+        "خلّي التقنية في خدمة عبادتك: اختار وقت هادي للقراءة والذكر، وسيب أي حاجة بتشتّت قلبك.",
+        "القليل الثابت بيبني عادة أقوى من قايمة طويلة مش هتكمّل عليها؛ اختار وِرد تقدر تحافظ عليه.",
+        "قبل ما تشارك أي معلومة دينية، دوّر على مصدرها واقرا النص كامل، ومتعتمدش على صورة متداولة لوحدها.",
+        "خد دقيقة هادية في نص يومك، ابعد عن الدوشة، وراجع إيه اللي عايز تشيله معاك لباقي اليوم.",
+        "خلّي موبايلك أداة تساعدك على الخير: قلّل الإشعارات، وسيب وقتك للمهم، واستخدم التقنية بوعي.",
+        "ابدأ بخطوة صغيرة النهارده، وكرّرها بكرة؛ الاستمرار في العادات النافعة بيعمل فرق كبير.",
       ];
       key = `other:${day}:${slot}`;
       if (await findByAutomationKey("video_generation_requests", key)) continue;
@@ -1003,7 +1003,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
           automationKey: key,
           aiMode: "general_reminder",
           aiProviderHint,
-          voiceProfile: "documentary_male_msa",
+          voiceProfile: "egyptian_male_story",
         },
         duration: TARGET_VIDEO_SECONDS,
         status: "pending",
@@ -2041,12 +2041,12 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
     audience: content.audience,
   });
   const callToAction: Record<string, string> = {
-    quran: "احفظ الآية وشاركها مع من تحب.",
-    hadith: "تأمل المعنى وجرّب تطبيقه اليوم.",
-    dua: "احفظ الدعاء وارجع إليه وقت الحاجة.",
-    adhkar: "اجعل الذكر جزءًا ثابتًا من يومك.",
+    quran: "احفظ الآية وشاركها مع اللي بتحبهم.",
+    hadith: "تأمّل المعنى وجرّب تطبّقه النهارده.",
+    dua: "احفظ الدعاء وارجع له وقت ما تحتاجه.",
+    adhkar: "خلّي الذكر جزء ثابت من يومك.",
     story: "تابع القصة وشارك العبرة.",
-    other: content.audience === "kids" ? "شارك الحلقة مع الأسرة وتحدثوا عن فكرتها." : "احفظ الرسالة وشاركها لمن قد تنفعه.",
+    other: content.audience === "kids" ? "شاركوا الحلقة مع الأسرة وتكلّموا عن فكرتها." : "احفظ الرسالة وشاركها مع اللي ممكن تفيده.",
   };
   const tags: Record<string, string> = {
     quran: "#القرآن_الكريم #تدبر",

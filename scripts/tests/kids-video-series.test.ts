@@ -118,6 +118,27 @@ for (let sequence = 1; sequence <= 1000; sequence += 1) {
 }
 assert.notEqual(buildKidsSeriesEpisode(1).text, buildKidsSeriesEpisode(25).text, "later seasons must vary the story narration");
 assert.notEqual(buildKidsSeriesEpisode(1).sourceId, buildKidsSeriesEpisode(25).sourceId, "later seasons must not reuse episode IDs");
+// New episodes are Egyptian colloquial Arabic; they must not fall back to the earlier formal text.
+const FORMAL_ONLY = /(?:^|\s)(?:الذي|التي|سوف|لكنه|لكنها|لقد|إنَّ|حيث إن)(?:\s|$)/u;
+const EGYPTIAN_MARKER = /(?:إيه|إزاي|عشان|مش |ده |دي |بيـ|بقى|لسه|كده|هتعمل|هتسلّمها|اللي|لمّا|بتـ|بيتـ|بيساعدنا|بيحمي|بيبدأ)/u;
+for (let sequence = 1; sequence <= 48; sequence += 1) {
+  const egyptian = buildKidsSeriesEpisode(sequence);
+  const legacy = buildKidsSeriesEpisode(sequence, "legacy_msa");
+  assert.notEqual(egyptian.text, legacy.text, "episode " + sequence + " must use the Egyptian text");
+  assert.ok(!FORMAL_ONLY.test(egyptian.text), "episode " + sequence + " still contains formal-only particles");
+  assert.ok(EGYPTIAN_MARKER.test(egyptian.text), "episode " + sequence + " must read as Egyptian colloquial Arabic");
+  assert.ok(!egyptian.text.includes("{{detail}}"), "episode " + sequence + " must resolve its placeholder");
+  const legacySnapshot = validateCanonicalKidsEpisodeSnapshot({
+    factorySequence: sequence,
+    sourceId: legacy.sourceId,
+    text: legacy.text,
+    seriesId: legacy.seriesId,
+    seasonNumber: legacy.seasonNumber,
+    episodeNumber: legacy.episodeNumber,
+    learningObjective: legacy.learningObjective,
+  });
+  assert.equal(legacySnapshot.ok, true, "requests created before the Egyptian switch must stay valid: " + legacySnapshot.errors.join(" | "));
+}
 const invalidEpisode = buildKidsSeriesEpisode(1);
 const invalidSnapshot = validateCanonicalKidsEpisodeSnapshot({
   factorySequence: 1,
