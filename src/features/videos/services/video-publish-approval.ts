@@ -150,6 +150,7 @@ export function createAutomatedVideoQaApproval(input: {
     ...input.checks,
     reviewedAt,
     mode: "automated",
+    reviewerId: AUTOMATED_VIDEO_QA_REVIEWER_ID,
     engine: AUTOMATED_VIDEO_QA_ENGINE,
     engineVersion: AUTOMATED_VIDEO_QA_VERSION,
     snapshotHash,
@@ -307,6 +308,7 @@ export function isAutomatedKidsVideoApprovalRecorded(content: unknown, expectedS
     data?.approvalReviewerId === AUTOMATED_VIDEO_QA_REVIEWER_ID &&
     isVideoApprovalRecorded(data, expectedSnapshotHash) &&
     review?.mode === "automated" &&
+    review.reviewerId === AUTOMATED_VIDEO_QA_REVIEWER_ID &&
     review.engine === AUTOMATED_VIDEO_QA_ENGINE &&
     review.engineVersion === AUTOMATED_VIDEO_QA_VERSION &&
     review.snapshotHash === expectedSnapshotHash &&
