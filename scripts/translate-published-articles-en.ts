@@ -33,8 +33,8 @@ const ARTICLE_TRANSLATION_SYSTEM_INSTRUCTION = [
 ].join("\n");
 
 async function generateGeminiTextForJob(prompt: string, maxOutputTokens = 6000): Promise<string | null> {
-  const configured = (process.env.GEMINI_MODEL?.replace(/^google\\//, "").trim() || "gemini-3.1-flash-lite");
-  const fallback = (process.env.GEMINI_FALLBACK_MODEL?.replace(/^google\\//, "").trim() || "gemini-3.5-flash-lite");
+  const configured = (process.env.GEMINI_MODEL?.replace(/^google\//, "").trim() || "gemini-3.1-flash-lite");
+  const fallback = (process.env.GEMINI_FALLBACK_MODEL?.replace(/^google\//, "").trim() || "gemini-3.5-flash-lite");
   const modelNames = [...new Set([configured, fallback])];
   let lastError: unknown;
 
@@ -64,7 +64,7 @@ async function generateGeminiTextForJob(prompt: string, maxOutputTokens = 6000):
       } catch (error) {
         lastError = error;
         const message = error instanceof Error ? error.message : String(error);
-        const retryable = /\\b429\\b|\\b500\\b|\\b502\\b|\\b503\\b|\\b504\\b|unavailable|high demand|overloaded|temporarily unavailable/i.test(message);
+        const retryable = /\b429\b|\b500\b|\b502\b|\b503\b|\b504\b|unavailable|high demand|overloaded|temporarily unavailable/i.test(message);
         if (!retryable) throw error;
         if (attempt === 0) {
           const delayMs = 3000;
