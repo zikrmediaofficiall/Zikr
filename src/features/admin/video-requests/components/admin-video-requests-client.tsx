@@ -839,8 +839,8 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                   </div>
                 ) : (
                   <>
-                    <h3 className="text-lg font-bold text-brand-gold">"مراجعة واعتماد الفيديو"</h3>
-                    <p className="text-sm leading-6 text-brand-cream/60">"شاهد الفيديو كاملًا واستمع إلى الصوت، ثم استكمل الفحوص اللازمة قبل تسجيل الاعتماد."</p>
+                    <h3 className="text-lg font-bold text-brand-gold">مراجعة واعتماد الفيديو العام</h3>
+                    <p className="text-sm leading-6 text-brand-cream/60">شاهد الفيديو كاملًا واستمع إلى الصوت، ثم استكمل الفحوص اللازمة قبل تسجيل الاعتماد.</p>
                     <div className="space-y-3">
                       {APPROVAL_CHECKS.map((check) => (
                         <label key={check.key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-brand-gold/10 bg-black/15 p-3 text-sm leading-6 text-brand-cream/80">
