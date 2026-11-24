@@ -26,6 +26,7 @@ The application treats `NEXT_PUBLIC_SUPABASE_ANON_KEY` as the browser-facing can
 |---|---|---|
 | `GEMINI_API_KEY` | Server | Gemini AI |
 | `GEMINI_MODEL` | Server | Gemini model override; current default is `gemini-3.1-flash-lite` |
+| `GEMINI_FALLBACK_MODEL` | Translation workers | Optional fallback model; defaults to `gemini-3.5-flash-lite` when the primary provider is temporarily unavailable |
 | `HADITH_API_BASE_URL` | Server | External Hadith fallback |
 | `CLOUDINARY_CLOUD_NAME` | Server | Cloudinary account |
 | `CLOUDINARY_API_KEY` | Server | Cloudinary API |

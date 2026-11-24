@@ -1,7 +1,7 @@
 # ZIKR Project Release & Build Status
 
-Last reconciled: 2026-11-16 07:47 UTC. Android release records below remain historical and immutable; production web deployment details are current.
-Repository: https://github.com/zikrofficial-X/Zikr  
+Last reconciled: 2026-11-24. Android v1.1.17 was verified against GitHub's immutable Release and signed tag; the production web deployment table below remains the historical 2026-11-16 baseline until the current controlled deployment completes.
+Repository: https://github.com/zikrmediaofficiall/Zikr  
 Production URL: https://zikrmediaofficial.vercel.app
 
 ## Production web deployment
@@ -27,7 +27,7 @@ It creates file blobs, assembles one Git tree, creates one child commit, and adv
 
 Regression checks in scripts/verify-release-contract.mjs enforce the Git Data API flow, immutable source snapshot, single-parent commit, non-force ref update, exact tag provenance, absence of sequential Contents API writes, and version alignment across Android/iOS/footer/package.
 
-Implementation commit: https://github.com/zikrofficial-X/Zikr/commit/3eeaa292716b09ec42119833659d6c1b7c7f53d3
+Implementation commit: https://github.com/zikrmediaofficiall/Zikr/commit/3eeaa292716b09ec42119833659d6c1b7c7f53d3
 
 ## Release automation CI
 
@@ -45,38 +45,36 @@ Pipeline correction: CircleCI application-build-docs is main-only. Semantic Andr
 
 | Item | Verified state |
 |---|---|
-| Android version | 1.1.14 |
-| Android versionCode | 68 |
+| Android version | 1.1.17 |
+| Android versionCode | 71 |
 | Application ID | `com.zikr.app` |
 | Compile / Target SDK | 36 / 36 |
-| Release tag | https://github.com/zikrofficial-X/Zikr/releases/tag/v1.1.14 |
-| Tag target commit | `d05598035de7b51ba460a0c2424a58b22b4f4e81` |
-| Annotated tag object | `a1e3bb90093bd37d56d64f0b4e0c031b8cc5b562` |
-| Git tag signature | Annotated tag, **unsigned**; GitHub reason: `unsigned` |
-| GitHub Release ID | `439960831` |
+| Release tag | https://github.com/zikrmediaofficiall/Zikr/releases/tag/v1.1.17 |
+| Tag target commit | `5b7eaed3a796afcab11aefdf978351f32a1b3dc1` |
+| Annotated tag object | `4b3b6bad5ba6dff518f3366118175ff5ab802211` |
+| Git tag signature | Annotated tag, **verified**; GitHub reason: `valid` |
+| GitHub Release ID | `453887269` |
 | Release state | Published, immutable |
-| Published at | 2026-11-10 05:12:05 UTC |
+| Published at | 2026-11-21 19:55:05 UTC |
 
 ### Published assets
 
 | Asset | Size | SHA-256 |
 |---|---:|---|
-| app-release.apk | 41,277,148 bytes | `c982ad8449432ed3128ae97d1d69dbe48ab619159238443757d945958a39202f` |
-| app-release.aab | 36,091,440 bytes | `bfd01d055cafd04a61d3bff1c06ba59d6143c4ded51d44b1044dc37327f828e6` |
-| release-metadata.json | 635 bytes | `89f68c0d15de0ae09298c3ed23c3baa077060ce6ad67a923ed0243e1e3f9bd29` |
-| SHA256SUMS | 243 bytes | `d2760afa945a2e26ad57eb17fd3d0c5ac44424bab783561038ad8d4b3bc34786` |
+| app-release.apk | 30,148,012 bytes | `d8afec0db71b16f391abaafab2556fbb2c868f4bd4c7b7842206aa6033c73e88` |
+| app-release.aab | 24,943,518 bytes | `20b6de5bbbb0ed1ff589e1e061dc0ccf3313a947c9d8dc6894789d6a74b9b36c` |
+| release-metadata.json | 635 bytes | `f720810473e26ab592f659bb1cfcfcaf19db85d54445765ee83f093e7216eefd` |
+| SHA256SUMS | 243 bytes | `4df006f172daf3151a4f3dff57ca19d7a81c3b7ba5f31df32252d86f05a7bb9c` |
 
-Release: https://github.com/zikrofficial-X/Zikr/releases/tag/v1.1.14
+Release: https://github.com/zikrmediaofficiall/Zikr/releases/tag/v1.1.17
 
 Published downloads:
-- [Signed APK](https://github.com/zikrofficial-X/Zikr/releases/download/v1.1.14/app-release.apk)
-- [Signed AAB](https://github.com/zikrofficial-X/Zikr/releases/download/v1.1.14/app-release.aab)
-- [SHA256SUMS](https://github.com/zikrofficial-X/Zikr/releases/download/v1.1.14/SHA256SUMS)
-- [Release metadata](https://github.com/zikrofficial-X/Zikr/releases/download/v1.1.14/release-metadata.json)
+- [Signed APK](https://github.com/zikrmediaofficiall/Zikr/releases/download/v1.1.17/app-release.apk)
+- [Signed AAB](https://github.com/zikrmediaofficiall/Zikr/releases/download/v1.1.17/app-release.aab)
+- [SHA256SUMS](https://github.com/zikrmediaofficiall/Zikr/releases/download/v1.1.17/SHA256SUMS)
+- [Release metadata](https://github.com/zikrmediaofficiall/Zikr/releases/download/v1.1.17/release-metadata.json)
 
-CircleCI Android rebuild and guarded release dispatch succeeded. The GitHub publisher also succeeded after verifying exact tag/source provenance, release metadata, checksums, APK signature and manifest, signed AAB, and the exact four published assets. GitHub marks the release immutable. Asset SHA-256 digests are recorded above.
-
-Publisher evidence: [GitHub Actions — Publish Android Release Assets](https://github.com/zikrofficial-X/Zikr/actions/runs/42758799773), [CircleCI Android rebuild #3895](https://circleci.com/gh/zikrofficial-X/Zikr/3895), and [release notes](docs/releases/1.1.14.md).
+GitHub API confirms that the release is published and immutable, all four assets are uploaded, and the annotated `v1.1.17` tag signature is cryptographically verified (`verified=true`, `reason=valid`). These observations concern the Android release only; they do not imply that the currently deployed website has been updated to this PR.
 
 ## Git tag signature and immutable release attestation
 

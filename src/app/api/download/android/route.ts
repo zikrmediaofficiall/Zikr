@@ -27,7 +27,7 @@ export async function GET() {
       );
     }
 
-    const signedUrl = await getSignedGitHubAssetUrl(apk.id);
+    const signedUrl = await getSignedGitHubAssetUrl(apk.id, apk.browser_download_url);
     if (!signedUrl) {
       return NextResponse.json(
         { error: "تعذر إنشاء رابط تنزيل آمن للـAPK حاليًا." },

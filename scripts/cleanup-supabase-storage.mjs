@@ -14,7 +14,7 @@ const REQUIRED_ANDROID_ASSETS = [
   "SHA256SUMS",
 ];
 const GITHUB_RELEASES_API =
-  "https://api.github.com/repos/zikrofficial-X/Zikr/releases/tags";
+  "https://api.github.com/repos/zikrmediaofficiall/Zikr/releases/tags";
 const SUPPORTED_RETENTION_PLATFORMS = new Set(["facebook", "facebook_reels", "youtube"]);
 const MAX_CLOUDINARY_PROBES = 1000;
 const MAX_VIDEO_REFERENCE_ENCODING_DEPTH = 5;

@@ -34,36 +34,53 @@ const ARTICLE_TRANSLATION_SYSTEM_INSTRUCTION = [
 
 async function generateGeminiTextForJob(prompt: string, maxOutputTokens = 6000): Promise<string | null> {
   const configured = (process.env.GEMINI_MODEL?.replace(/^google\//, "").trim() || "gemini-3.1-flash-lite");
-  const client = new GoogleGenerativeAI(geminiApiKey);
-  const model = client.getGenerativeModel({
-    model: configured,
-    systemInstruction: ARTICLE_TRANSLATION_SYSTEM_INSTRUCTION,
-    generationConfig: {
-      temperature: 0.2,
-      topP: 0.9,
-      topK: 40,
-      maxOutputTokens,
-      responseMimeType: "application/json",
-    },
-  });
+  const fallback = (process.env.GEMINI_FALLBACK_MODEL?.replace(/^google\//, "").trim() || "gemini-3.5-flash-lite");
+  const modelNames = [...new Set([configured, fallback])];
   let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const result = await model.generateContent(prompt);
-      return result.response.text().trim() || null;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      const retryable = /\b429\b|\b500\b|\b502\b|\b503\b|\b504\b|unavailable|high demand|overloaded/i.test(message);
-      if (!retryable || attempt === 2) throw error;
-      const delayMs = 3000 * 2 ** attempt;
-      console.warn(`Gemini request temporarily unavailable; retrying in ${delayMs}ms (attempt ${attempt + 2}/3).`);
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+  for (const [modelIndex, modelId] of modelNames.entries()) {
+    const client = new GoogleGenerativeAI(geminiApiKey);
+    const model = client.getGenerativeModel({
+      model: modelId,
+      systemInstruction: ARTICLE_TRANSLATION_SYSTEM_INSTRUCTION,
+      generationConfig: {
+        temperature: 0.2,
+        topP: 0.9,
+        topK: 40,
+        maxOutputTokens,
+        responseMimeType: "application/json",
+      },
+    });
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const result = await model.generateContent(prompt);
+        const generated = result.response.text().trim();
+        if (!generated) throw new Error("Gemini returned an empty article translation.");
+        if (modelIndex > 0) {
+          console.info(`[translation] Fallback Gemini model succeeded: ${modelId}.`);
+        }
+        return generated;
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        const retryable = /\b429\b|\b500\b|\b502\b|\b503\b|\b504\b|unavailable|high demand|overloaded|temporarily unavailable/i.test(message);
+        if (!retryable) throw error;
+        if (attempt === 0) {
+          const delayMs = 3000;
+          console.warn(`Gemini model ${modelId} is temporarily unavailable; retrying once in ${delayMs}ms.`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+
+    if (modelIndex < modelNames.length - 1) {
+      console.warn(`Gemini model ${modelId} remains unavailable; switching to fallback model ${modelNames[modelIndex + 1]}.`);
     }
   }
+
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
-
 
 type ArticleRow = {
   id: string;

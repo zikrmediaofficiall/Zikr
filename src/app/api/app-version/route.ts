@@ -3,34 +3,17 @@ import {
   findApkAsset,
   findAabAsset,
   getSelectedAndroidRelease,
-  hasGitHubReleaseAccess,
 } from "@/features/releases/services/github-android-release";
 
 const RELEASE_DOWNLOAD_ENDPOINT = "/api/download/android";
 const RELEASE_DOWNLOAD_BASE =
-  "https://github.com/zikrofficial-X/Zikr/releases/download";
+  "https://github.com/zikrmediaofficiall/Zikr/releases/download";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    if (!hasGitHubReleaseAccess()) {
-      console.error(
-        "[app-version] GITHUB_TOKEN is missing; private releases cannot be read."
-      );
-      return NextResponse.json(
-        { error: "إعداد الوصول إلى إصدارات Android غير مكتمل." },
-        {
-          status: 503,
-          headers: {
-            "Cache-Control": "no-store, no-cache, must-revalidate",
-            Pragma: "no-cache",
-          },
-        }
-      );
-    }
-
     const release = await getSelectedAndroidRelease();
     if (!release) {
       return NextResponse.json(

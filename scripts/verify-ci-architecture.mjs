@@ -185,13 +185,13 @@ assert.ok(androidRecovery.includes("workflow_dispatch:"), "Android recovery must
 assert.ok(
   !androidRecovery.includes("\n  status:") &&
     androidRecovery.includes('branches:\n      - "android-release-dispatch-v*"') &&
-    androidRecovery.includes("github.actor == 'zikrofficial-X'") &&
+    androidRecovery.includes("github.actor == 'zikrmediaofficiall'") &&
     androidRecovery.includes("isPushRecoveryTrigger"),
   "Android recovery must not subscribe to every repository status and may use only the owner-restricted canonical release-dispatch push fallback",
 );
 assert.ok(androidRecovery.includes("github.event_name == 'workflow_dispatch'"), "Android recovery must accept only an explicit workflow dispatch");
 assert.ok(circle.includes("android-release-dispatch:"), "CircleCI must dispatch Android recovery only after android-rebuild succeeds");
-assert.ok(circle.includes("api.github.com/repos/zikrofficial-X/Zikr/actions/workflows/dispatch-android-release-recovery.yml/dispatches"), "CircleCI must invoke the guarded Android recovery workflow");
+assert.ok(circle.includes("api.github.com/repos/zikrmediaofficiall/Zikr/actions/workflows/dispatch-android-release-recovery.yml/dispatches"), "CircleCI must invoke the guarded Android recovery workflow");
 
 
 const workflowDir = ".github/workflows";

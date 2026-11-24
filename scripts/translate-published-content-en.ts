@@ -75,17 +75,24 @@ const SYSTEM_INSTRUCTION = [
 ].join("\n");
 
 const client = new GoogleGenerativeAI(geminiApiKey);
-const model = client.getGenerativeModel({
-  model: modelName,
-  systemInstruction: SYSTEM_INSTRUCTION,
-  generationConfig: {
-    temperature: 0.15,
-    topP: 0.9,
-    topK: 32,
-    maxOutputTokens: 7000,
-    responseMimeType: "application/json",
-  },
-});
+const fallbackModelName =
+  process.env.GEMINI_FALLBACK_MODEL?.replace(/^google\//, "").trim() ||
+  "gemini-3.5-flash-lite";
+const modelNames = [...new Set([modelName, fallbackModelName])];
+
+function getTranslationModel(name: string) {
+  return client.getGenerativeModel({
+    model: name,
+    systemInstruction: SYSTEM_INSTRUCTION,
+    generationConfig: {
+      temperature: 0.15,
+      topP: 0.9,
+      topK: 32,
+      maxOutputTokens: 7000,
+      responseMimeType: "application/json",
+    },
+  });
+}
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
@@ -158,20 +165,38 @@ function parseTranslation(raw: string, fields: Field[]): Record<string, string> 
 
 async function generateTranslation(prompt: string, fields: Field[]): Promise<Record<string, string>> {
   let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text().trim();
-      if (!text) throw new Error("Gemini returned an empty translation.");
-      return parseTranslation(text, fields);
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      const retryable = /\b429\b|\b500\b|\b502\b|\b503\b|\b504\b|unavailable|overloaded|high demand/i.test(message);
-      if (!retryable || attempt === 2) throw error;
-      const delay = 2500 * 2 ** attempt;
-      console.warn("Translation provider temporarily unavailable; retrying in " + delay + "ms.");
-      await new Promise((resolve) => setTimeout(resolve, delay));
+  for (const [modelIndex, activeModelName] of modelNames.entries()) {
+    const model = getTranslationModel(activeModelName);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().trim();
+        if (!text) throw new Error("Gemini returned an empty translation.");
+        const parsed = parseTranslation(text, fields);
+        if (modelIndex > 0) {
+          console.info("[translation] Fallback Gemini model succeeded: " + activeModelName + ".");
+        }
+        return parsed;
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        const retryable = /\b429\b|\b500\b|\b502\b|\b503\b|\b504\b|unavailable|overloaded|high demand|temporarily unavailable/i.test(message);
+        if (!retryable) throw error;
+        if (attempt === 0) {
+          const delay = 3000;
+          console.warn(
+            "[translation] " + activeModelName +
+            " is temporarily unavailable; retrying once in " + delay + "ms.",
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+    if (modelIndex < modelNames.length - 1) {
+      console.warn(
+        "[translation] Switching from " + activeModelName +
+        " to fallback model " + modelNames[modelIndex + 1] + ".",
+      );
     }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));

@@ -5,16 +5,17 @@ import { selectAndroidRelease } from "../android-release-selection";
 export { selectAndroidRelease } from "../android-release-selection";
 
 const RELEASES_API_BASE =
-  "https://api.github.com/repos/zikrofficial-X/Zikr/releases";
+  "https://api.github.com/repos/zikrmediaofficiall/Zikr/releases";
 const TAG_RELEASE_API =
-  "https://api.github.com/repos/zikrofficial-X/Zikr/releases/tags";
+  "https://api.github.com/repos/zikrmediaofficiall/Zikr/releases/tags";
 const ASSET_API_BASE =
-  "https://api.github.com/repos/zikrofficial-X/Zikr/releases/assets";
+  "https://api.github.com/repos/zikrmediaofficiall/Zikr/releases/assets";
 const MAX_RELEASE_PAGES = 3;
 
 export type GitHubReleaseAsset = {
   id?: number;
   name?: string;
+  browser_download_url?: string;
 };
 
 export type GitHubRelease = {
@@ -44,16 +45,77 @@ export type AndroidReleaseSetting = {
 };
 
 function getGitHubToken() {
-  return process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? null;
+  return (
+    process.env.GITHUB_TOKEN?.trim() ||
+    process.env.GH_TOKEN?.trim() ||
+    null
+  );
 }
 
-function githubHeaders(): HeadersInit {
-  const token = getGitHubToken();
+function githubHeaders(
+  token: string | null = getGitHubToken(),
+  accept = "application/vnd.github+json",
+): HeadersInit {
   return {
-    Accept: "application/vnd.github+json",
+    Accept: accept,
     "User-Agent": "ZIKR-platform-release",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token?.trim() ? { Authorization: `Bearer ${token.trim()}` } : {}),
   };
+}
+
+/**
+ * GitHub Releases for this repository are public. If a stored PAT is revoked,
+ * expired, or mis-scoped, retry the same read without Authorization instead
+ * of turning public release metadata into a production outage.
+ */
+async function fetchGitHubResponse(
+  url: string,
+  accept = "application/vnd.github+json",
+  redirect: RequestRedirect = "follow",
+): Promise<Response> {
+  const token = getGitHubToken();
+  const request = {
+    headers: githubHeaders(token, accept),
+    cache: "no-store" as RequestCache,
+    redirect,
+  };
+  let response = await fetch(url, request);
+  if (response.status === 401 && token) {
+    console.warn("[android release] GitHub rejected the configured token; retrying public release access without it.");
+    response = await fetch(url, {
+      ...request,
+      headers: githubHeaders(null, accept),
+    });
+  }
+  return response;
+}
+
+function isPublicReleaseAssetUrl(value: string | undefined): value is string {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "github.com" &&
+      url.pathname.startsWith("/zikrmediaofficiall/Zikr/releases/download/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isSafeGitHubAssetRedirect(value: string | null): value is string {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "github.com" ||
+        url.hostname.endsWith(".githubusercontent.com"))
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function compareVersions(a: string, b: string): number {
@@ -91,22 +153,15 @@ function hasAab(release: GitHubRelease) {
 }
 
 async function fetchReleases(): Promise<GitHubRelease[] | null> {
-  const token = getGitHubToken();
-  if (!token) return null;
-
   const releases: GitHubRelease[] = [];
   for (let page = 1; page <= MAX_RELEASE_PAGES; page += 1) {
-    const response = await fetch(
+    const response = await fetchGitHubResponse(
       `${RELEASES_API_BASE}?per_page=100&page=${page}`,
-      {
-        headers: githubHeaders(),
-        cache: "no-store",
-      }
     );
     if (response.status === 404) return null;
-  if (!response.ok) {
-    throw new Error("GitHub Android release lookup failed: HTTP " + response.status);
-  }
+    if (!response.ok) {
+      throw new Error("GitHub Android release lookup failed: HTTP " + response.status);
+    }
 
     const batch = (await response.json()) as GitHubRelease[];
     if (!Array.isArray(batch) || batch.length === 0) break;
@@ -118,11 +173,11 @@ async function fetchReleases(): Promise<GitHubRelease[] | null> {
   return releases;
 }
 
-export async function getLatestStableAndroidRelease(): Promise<GitHubRelease | null> {
+export async function getStableAndroidReleases(): Promise<GitHubRelease[] | null> {
   const releases = await fetchReleases();
   if (!releases) return null;
 
-  const candidates = releases
+  return releases
     .filter(
       release =>
         !release.draft &&
@@ -139,22 +194,20 @@ export async function getLatestStableAndroidRelease(): Promise<GitHubRelease | n
       const bDate = b.published_at ? Date.parse(b.published_at) : 0;
       return bDate - aDate;
     });
+}
 
-  return candidates[0] ?? null;
+export async function getLatestStableAndroidRelease(): Promise<GitHubRelease | null> {
+  const releases = await getStableAndroidReleases();
+  return releases?.[0] ?? null;
 }
 
 export async function getStableReleaseByTag(
   tag: string
 ): Promise<GitHubRelease | null> {
-  const token = getGitHubToken();
-  if (!token || !/^[A-Za-z0-9._-]+$/.test(tag)) return null;
+  if (!/^[A-Za-z0-9._-]+$/.test(tag)) return null;
 
-  const response = await fetch(
+  const response = await fetchGitHubResponse(
     `${TAG_RELEASE_API}/${encodeURIComponent(tag)}`,
-    {
-      headers: githubHeaders(),
-      cache: "no-store",
-    }
   );
   if (!response.ok) return null;
 
@@ -228,27 +281,25 @@ export function findAabAsset(
 }
 
 export async function getSignedGitHubAssetUrl(
-  assetId: number
+  assetId: number,
+  browserDownloadUrl?: string,
 ): Promise<string | null> {
-  const token = getGitHubToken();
-  if (!token) return null;
+  if (!Number.isSafeInteger(assetId) || assetId < 1) return null;
 
-  const response = await fetch(`${ASSET_API_BASE}/${assetId}`, {
-    headers: {
-      ...githubHeaders(),
-      Accept: "application/octet-stream",
-    },
-    cache: "no-store",
-    redirect: "manual",
-  });
+  // Public browser_download_url values are returned by GitHub's authenticated-
+  // or unauthenticated release metadata endpoint and avoid a PAT dependency.
+  if (isPublicReleaseAssetUrl(browserDownloadUrl)) return browserDownloadUrl;
+
+  const response = await fetchGitHubResponse(
+    `${ASSET_API_BASE}/${assetId}`,
+    "application/octet-stream",
+    "manual",
+  );
 
   if (response.status >= 300 && response.status < 400) {
-    return response.headers.get("location");
+    const location = response.headers.get("location");
+    return isSafeGitHubAssetRedirect(location) ? location : null;
   }
 
   return null;
-}
-
-export function hasGitHubReleaseAccess(): boolean {
-  return Boolean(getGitHubToken());
 }

@@ -29,26 +29,24 @@ A phase is release-ready only when its branch is complete and the pull request q
 
 ## Required GitHub Actions secrets
 
-The release workflow requires:
+The controlled release workflow reads these GitHub Actions secrets (prefer the dedicated production Environment):
 
-- VERCEL_TOKEN
-- VERCEL_ORG_ID
-- VERCEL_PROJECT_ID
+- `ZIKR_VERCEL_TOKEN` (preferred), with `VERCEL_DEPLOY_TOKEN` or `VERCEL_TOKEN` as compatibility aliases.
+- `SUPABASE_DB_URL` (preferred) or `POSTGRES_URL_NON_POOLING`.
+- `SUPABASE_ACCESS_TOKEN` for deploying approved Edge Functions.
 
-These are CI secrets and must never be committed to the repository.
+The Vercel team and project IDs are non-secret deployment identity values pinned in the workflow, not GitHub secrets. Never commit deployment tokens, database passwords, or Supabase service-role keys.
 
-## Current production identity (verified 2026-10-21)
+## Current production identity (verified 2026-11-24)
 
-- GitHub repository: `zikrofficial-X/Zikr`
+- GitHub repository: `zikrmediaofficiall/Zikr` (repository ID `1416064644`)
 - Vercel project: `zikr`
-- Vercel project ID: `prj_bnBQb7DIXB5iE2mZJAghtAoZuKGs`
-- Vercel team slug/name: `zikr3` / `zikr`
-- Vercel team ID: `team_RxPjmgZoSFmKGjScefYmwIVv`
-- Supabase project name: `Zikrmediaofficial-X`
+- Vercel project ID: `prj_aruq5Q3gsE8DhgV86iIvz2WrVzEj`
+- Vercel team ID: `team_AIjRfjTq0HWRiTWbvTVpVolg`
 - Supabase project ref: `zqtssvlvmkzeeyqghqfk`
 - Production domain: `https://zikrmediaofficial.vercel.app`
 
-The Vercel project is linked to the GitHub repository above, and the Supabase project ref is the active project used by the production-health workflow. Treat these identities as the current release targets; re-verify them through the connected provider contexts before changing deployment secrets. Never commit `VERCEL_TOKEN`, database passwords, or Supabase service-role keys.
+These identifiers were rechecked through the connected GitHub, Vercel, and Supabase project contexts. Keep them aligned with `.github/workflows/release-finalization.yml`. Never commit deployment tokens, database passwords, or Supabase service-role keys.
 
 ## Important
 

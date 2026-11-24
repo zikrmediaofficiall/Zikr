@@ -59,12 +59,12 @@ assert.ok(statusTagMatch, "RELEASE_STATUS must declare the latest published Andr
 assert.equal(publishedVersion, statusVersionMatch[1], "README and RELEASE_STATUS published versions must match");
 assert.equal(
   publishedReleaseUrl,
-  "https://github.com/zikrofficial-X/Zikr/releases/tag/v" + publishedVersion,
+  "https://github.com/zikrmediaofficiall/Zikr/releases/tag/v" + publishedVersion,
   "README must link to the canonical published release",
 );
 assert.equal(
   statusTagMatch[1],
-  "https://github.com/zikrofficial-X/Zikr/releases/tag/v" + publishedVersion,
+  "https://github.com/zikrmediaofficiall/Zikr/releases/tag/v" + publishedVersion,
   "RELEASE_STATUS tag must match the published release version",
 );
 assert.ok(

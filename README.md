@@ -86,16 +86,16 @@ The project uses Supabase RLS, server-side service-role boundaries, protected OA
 
 ## Release process
 
-Current published Android release: [`v1.1.14`](https://github.com/zikrofficial-X/Zikr/releases/tag/v1.1.14).
+Current published Android release: [`v1.1.17`](https://github.com/zikrmediaofficiall/Zikr/releases/tag/v1.1.17).
 
-- Application version: `1.1.14`
-- Android versionCode: `68`
+- Application version: `1.1.17`
+- Android versionCode: `71`
 - Application ID: `com.zikr.app`
 - Compile / target SDK: `36`
-- Canonical tag: `v1.1.14`
-- Source commit: [`d05598035de7b51ba460a0c2424a58b22b4f4e81`](https://github.com/zikrofficial-X/Zikr/commit/d05598035de7b51ba460a0c2424a58b22b4f4e81)
-- Download: [Signed APK](https://github.com/zikrofficial-X/Zikr/releases/download/v1.1.14/app-release.apk) · [Signed AAB](https://github.com/zikrofficial-X/Zikr/releases/download/v1.1.14/app-release.aab) · [Checksums](https://github.com/zikrofficial-X/Zikr/releases/download/v1.1.14/SHA256SUMS) · [Release metadata](https://github.com/zikrofficial-X/Zikr/releases/download/v1.1.14/release-metadata.json)
-- Release evidence and provenance: [`docs/releases/1.1.14.md`](./docs/releases/1.1.14.md)
+- Canonical tag: `v1.1.17`
+- Tag target commit: [`5b7eaed3a796afcab11aefdf978351f32a1b3dc1`](https://github.com/zikrmediaofficiall/Zikr/commit/5b7eaed3a796afcab11aefdf978351f32a1b3dc1)
+- Download: [Signed APK](https://github.com/zikrmediaofficiall/Zikr/releases/download/v1.1.17/app-release.apk) · [Signed AAB](https://github.com/zikrmediaofficiall/Zikr/releases/download/v1.1.17/app-release.aab) · [Checksums](https://github.com/zikrmediaofficiall/Zikr/releases/download/v1.1.17/SHA256SUMS) · [Release metadata](https://github.com/zikrmediaofficiall/Zikr/releases/download/v1.1.17/release-metadata.json)
+- Release evidence and provenance: [`docs/releases/1.1.17.md`](./docs/releases/1.1.17.md)
 
 Before preparing the next Android release:
 
@@ -106,12 +106,12 @@ pnpm mobile:check
 
 Production web deployment is controlled through `.github/workflows/release-finalization.yml`. Android release uses one semantic tag (`vX.Y.Z`), CircleCI for the signed build, and GitHub Actions for release-asset verification/publication.
 
-The immutable `v1.1.14` release was published on 2026-11-10. Its APK/AAB signatures, manifest, checksums, release metadata, exact source provenance, and presence of all four release assets were verified by CircleCI and the GitHub release publisher. The annotated Git tag itself is **unsigned**; never describe it as signed unless GitHub verifies a future owner-managed GPG/SSH signature.
+The immutable `v1.1.17` release was published on 2026-11-21. GitHub verifies its annotated tag signature (`verified=true`, `reason=valid`); the APK/AAB assets and release metadata are published with SHA-256 digests. See `RELEASE_STATUS.md` for the exact asset sizes and digests.
 
 ## Support
 
 - Website: https://zikrmediaofficial.vercel.app
-- Repository: `zikrofficial-X/Zikr`
+- Repository: `zikrmediaofficiall/Zikr`
 - Issues: use GitHub Issues for reproducible bugs and feature requests
 
 ## License

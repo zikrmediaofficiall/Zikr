@@ -1,15 +1,17 @@
 # ZIKR — Project Control and Release Identity
 
-**Effective date:** 21 November 2026
+**Effective date:** 24 November 2026
 
 ## Canonical project identity
 
-- GitHub repository: `zikrofficial-X/Zikr`
-- GitHub control account: `zikrofficial-X` (repository owner; Admin permission verified)
-- Vercel account username: `zikrofficial-x`
-- Vercel team: `zikr3`
+- GitHub repository: `zikrmediaofficiall/Zikr` (repository ID `1416064644`)
+- GitHub control account: `zikrmediaofficiall` (repository owner; Admin permission verified)
+- Vercel account username: `zikrmediacontact-7177`
+- Vercel team: `zikrmediaofficial` / `zikrmediaofficial1`
+- Vercel team ID: `team_AIjRfjTq0HWRiTWbvTVpVolg`
 - Vercel project: `zikr`
-- Linked source: `zikrofficial-X/Zikr`
+- Vercel project ID: `prj_aruq5Q3gsE8DhgV86iIvz2WrVzEj`
+- Linked source: `zikrmediaofficiall/Zikr`
 - Production domain: `https://zikrmediaofficial.vercel.app`
 - Canonical Supabase project: `zqtssvlvmkzeeyqghqfk`
 
@@ -19,8 +21,8 @@ The connected GitHub and Vercel sessions resolve to the same account email. The 
 
 The release preflight uses GitHub's authenticated repository metadata. It requires:
 1. The release commit to resolve to a merged pull request targeting `main`.
-2. The PR author login to equal the canonical repository owner (`zikrofficial-X`).
-3. The PR source branch repository to equal `zikrofficial-X/Zikr`; fork-originated releases are rejected.
+2. The PR author login to equal the canonical repository owner (`zikrmediaofficiall`).
+3. The PR source branch repository to equal `zikrmediaofficiall/Zikr`; fork-originated releases are rejected.
 4. The exact PR-head checks and exact release-commit Quality Gate to complete successfully.
 5. Required CircleCI contexts and, for post-deployment smoke verification, the Vercel status to be successful.
 

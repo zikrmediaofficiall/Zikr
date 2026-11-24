@@ -188,34 +188,33 @@ const GITHUB_WORKFLOW_PATHS = new Set([
 ]);
 
 async function getAdminGitHubHealth(): Promise<AdminGitHubHealth> {
-  const token = getServerEnv().GITHUB_DISPATCH_TOKEN;
-  if (!token) {
-    return {
-      statusesAvailable: false,
-      workflowsAvailable: false,
-      overall: null,
-      commitSha: null,
-      statuses: [],
-      workflows: [],
-    };
-  }
-
-  const headers = {
+  const token = getServerEnv().GITHUB_DISPATCH_TOKEN?.trim() || null;
+  const publicHeaders = {
     Accept: "application/vnd.github+json",
-    Authorization: `Bearer ${token}`,
     "X-GitHub-Api-Version": "2022-11-28",
   };
+
+  async function fetchPublicGitHub(url: string): Promise<Response> {
+    const request = {
+      cache: "no-store" as RequestCache,
+      signal: AbortSignal.timeout(5000),
+    };
+    const authenticated = await fetch(url, {
+      ...request,
+      headers: token
+        ? { ...publicHeaders, Authorization: `Bearer ${token}` }
+        : publicHeaders,
+    });
+    if (authenticated.status === 401 && token) {
+      console.warn("[admin/health] GitHub rejected the optional dispatch token; retrying public CI status without authentication.");
+      return fetch(url, { ...request, headers: publicHeaders });
+    }
+    return authenticated;
+  }
+
   const [statusResult, runsResult] = await Promise.allSettled([
-    fetch("https://api.github.com/repos/zikrofficial-X/Zikr/commits/main/status", {
-      headers,
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    }),
-    fetch("https://api.github.com/repos/zikrofficial-X/Zikr/actions/runs?branch=main&per_page=100", {
-      headers,
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    }),
+    fetchPublicGitHub("https://api.github.com/repos/zikrmediaofficiall/Zikr/commits/main/status"),
+    fetchPublicGitHub("https://api.github.com/repos/zikrmediaofficiall/Zikr/actions/runs?branch=main&per_page=100"),
   ]);
 
   let statusesAvailable = false;

@@ -26,7 +26,7 @@ concurrency:
 jobs:
   sign:
     name: Sign, verify, and create the Android Draft Release
-    if: github.event_name == 'workflow_dispatch' || github.actor == 'zikrofficial-X'
+    if: github.event_name == 'workflow_dispatch' || github.actor == 'zikrmediaofficiall'
     runs-on: ubuntu-24.04
     environment:
       name: android-release-signing

@@ -4,7 +4,7 @@
 
 Production configuration is owned by:
 
-- GitHub repository: `zikrofficial-X/Zikr`
+- GitHub repository: `zikrmediaofficiall/Zikr`
 - Branch: `main`
 - Vercel project: `zikr`
 - Supabase production project: `zqtssvlvmkzeeyqghqfk`

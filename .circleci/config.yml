@@ -374,7 +374,7 @@ jobs:
             test "${CIRCLE_BRANCH:-}" = "main"
             node --input-type=module -e '
               import { readFileSync } from "node:fs";
-              const repository = "zikrofficial-X/Zikr";
+              const repository = "zikrmediaofficiall/Zikr";
               const sourceSha = process.env.CIRCLE_SHA1;
               const version = JSON.parse(readFileSync("package.json", "utf8")).version;
               const releaseTag = readFileSync(".release-tag", "utf8").trim();
@@ -722,7 +722,7 @@ jobs:
               sudo apt-get install -y gh
             fi
             RELEASE_TAG="$ANDROID_RELEASE_TAG"
-            REPOSITORY="zikrofficial-X/Zikr"
+            REPOSITORY="zikrmediaofficiall/Zikr"
             APK="android/app/build/outputs/apk/release/app-release.apk"
             AAB="android/app/build/outputs/bundle/release/app-release.aab"
             SHA_FILE="SHA256SUMS"
@@ -802,7 +802,7 @@ jobs:
               exit 1
             fi
             curl --fail --silent --show-error --location \
-              --request POST "https://api.github.com/repos/zikrofficial-X/Zikr/actions/workflows/dispatch-android-release-recovery.yml/dispatches" \
+              --request POST "https://api.github.com/repos/zikrmediaofficiall/Zikr/actions/workflows/dispatch-android-release-recovery.yml/dispatches" \
               --header "Accept: application/vnd.github+json" \
               --header "Authorization: Bearer $GH_TOKEN" \
               --header "X-GitHub-Api-Version: 2022-11-28" \

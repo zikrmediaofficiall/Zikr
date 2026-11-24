@@ -4,103 +4,20 @@ import { Card } from "@/components/ui/card";
 import { type SiteSettingValue } from "@/features/site-content/services/site-content";
 import { readAdminRows } from "@/features/admin/services/safe-read";
 import { saveAndroidReleaseAction } from "./actions";
+import {
+  getStableAndroidReleases,
+  type GitHubRelease,
+} from "@/features/releases/services/github-android-release";
 
-const RELEASES_API_BASE =
-  "https://api.github.com/repos/zikrofficial-X/Zikr/releases";
-const MAX_RELEASE_PAGES = 5;
-const githubToken = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
-const githubHeaders: HeadersInit = {
-  Accept: "application/vnd.github+json",
-  "User-Agent": "ZIKR-admin-release-manager",
-  ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
-};
-
-type ReleaseAsset = { name?: string };
-type Release = {
-  tag_name?: string;
-  name?: string | null;
-  draft?: boolean;
-  prerelease?: boolean;
-  published_at?: string | null;
-  assets?: ReleaseAsset[];
-};
-
-function versionParts(value: string) {
-  return value
-    .trim()
-    .replace(/^v/i, "")
-    .split(/[.-]/)
-    .map(part => Number.parseInt(part, 10))
-    .map(part => (Number.isFinite(part) ? part : 0));
-}
-
-function compareVersions(a: string, b: string) {
-  const left = versionParts(a);
-  const right = versionParts(b);
-  const length = Math.max(left.length, right.length, 3);
-  for (let index = 0; index < length; index += 1) {
-    const diff = (left[index] ?? 0) - (right[index] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
+type Release = GitHubRelease;
 
 async function getReleases(): Promise<{ rows: Release[]; ok: boolean }> {
-  const releases: Release[] = [];
-
   try {
-    for (let page = 1; page <= MAX_RELEASE_PAGES; page += 1) {
-      const response = await fetch(
-        `${RELEASES_API_BASE}?per_page=100&page=${page}`,
-        { headers: githubHeaders, cache: "no-store" },
-      );
-
-      if (!response.ok) {
-        throw new Error(`GitHub releases API returned ${response.status}.`);
-      }
-
-      const batch = (await response.json()) as unknown;
-      if (!Array.isArray(batch)) {
-        throw new Error("GitHub releases API returned an invalid payload.");
-      }
-      if (batch.length === 0) break;
-
-      releases.push(...(batch as Release[]));
-      if (batch.length < 100) break;
-    }
-
-    const stableWithApk = releases.filter(
-      release =>
-        !release.draft &&
-        !release.prerelease &&
-        Boolean(release.tag_name) &&
-        release.assets?.some(asset =>
-          asset.name?.toLowerCase().endsWith(".apk"),
-        ) &&
-        release.assets?.some(asset =>
-          asset.name?.toLowerCase().endsWith(".aab"),
-        ),
-    );
-
-    const unique = new Map<string, Release>();
-    for (const release of stableWithApk) {
-      const tag = release.tag_name!.trim();
-      if (!unique.has(tag)) unique.set(tag, release);
-    }
-
-    return {
-      rows: [...unique.values()].sort((a, b) => {
-        const versionDiff = compareVersions(b.tag_name ?? "", a.tag_name ?? "");
-        if (versionDiff !== 0) return versionDiff;
-
-        const aDate = a.published_at ? Date.parse(a.published_at) : 0;
-        const bDate = b.published_at ? Date.parse(b.published_at) : 0;
-        return bDate - aDate;
-      }),
-      ok: true,
-    };
+    const rows = await getStableAndroidReleases();
+    if (!rows) throw new Error("GitHub returned no release collection.");
+    return { rows, ok: true };
   } catch (error) {
-    console.error("[admin/android] failed to load GitHub releases:", error);
+    console.error("[admin/android] failed to load public GitHub releases:", error);
     return { rows: [], ok: false };
   }
 }
