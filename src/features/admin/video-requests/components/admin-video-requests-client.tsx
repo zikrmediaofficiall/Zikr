@@ -52,7 +52,7 @@ function isContentApproved(content: unknown): boolean {
     checks.every((key) => (qa.checks as Record<string, unknown> | null)?.[key] === true && review[key] === true);
 }
 
-function isReadyForHumanApproval(content: unknown): boolean {
+function isReadyForAutomatedKidsApproval(content: unknown): boolean {
   if (!content || typeof content !== "object" || Array.isArray(content)) return false;
   const record = content as Record<string, unknown>;
   const audience = resolveVideoRequestAudience(record);
@@ -267,7 +267,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     return request.status === "completed" &&
       Boolean(request.video_url) &&
       !isContentApproved(request.content) &&
-      isReadyForHumanApproval(request.content) &&
+      isReadyForAutomatedKidsApproval(request.content) &&
       audience.ok &&
       audience.audience !== "kids" &&
       (audience.audience !== "kids" || canManageKids);
@@ -349,7 +349,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       ? qaFailedAsset
         ? `هذا الفيديو مكتمل تقنيًا لكنه رُفض في فحص الجودة ولم يُنشر. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب بعد التأكد من عدم ارتباطه بأي منشور أو مكتبة. لا يمكن استعادته بعد الحذف. متابعة؟`
         : pendingReview
-          ? `هذا الفيديو مكتمل لكنه لم يحصل على اعتماد بشري بعد. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب فقط بعد إثبات ملكية الملف وخلوه من أي رابط للمكتبة أو النشر. لا يمكن التراجع عن الحذف. متابعة؟`
+          ? `هذا الفيديو مكتمل لكنه لم يجتز شروط اعتماد الجودة الآلي أو لا يملك سجلًا مطابقًا. لن يُحذف ملفه إلا بعد إثبات ملكيته وخلوه من أي رابط للمكتبة أو النشر. لا يمكن التراجع عن الحذف. متابعة؟`
           : duplicateRender
             ? `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
             : `الطلب ${request.status === "failed" ? "فشل" : "أُلغي"} وما زال له ملف مولّد غير مرتبط بالنشر. سيُحذف الملف من Cloudinary وسجل الطلب بعد فحص الملكية والمراجع. متابعة؟`
@@ -727,7 +727,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>التفاصيل</Button>
                   {request.status === "completed" && request.video_url && !isContentApproved(request.content) &&
-                    isReadyForHumanApproval(request.content) && (
+                    isReadyForAutomatedKidsApproval(request.content) && (
                       <Button variant="primary" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>
                         مراجعة واعتماد
                       </Button>
@@ -847,8 +847,8 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
             {details.status === "completed" && details.video_url && (
               <section className="mt-6 space-y-4 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-5">
                 {isContentApproved(details.content) ? (
-                  <div role="status" className="font-semibold text-emerald-200">تم تسجيل الاعتماد البشري؛ سيُعاد التحقق من الفيديو قبل أي نشر مجدول.</div>
-                ) : !isReadyForHumanApproval(details.content) ? (
+                  <div role="status" className="font-semibold text-emerald-200">اجتاز الفيديو فحوص الجودة الآلية الخمسة وتطابقت بصمة المصدر والوسائط؛ وسيُعاد التحقق قبل النشر.</div>
+                ) : !isReadyForAutomatedKidsApproval(details.content) ? (
                   <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
                     لا يمكن تسجيل اعتماد بشري قبل نجاح فحص الجودة الآلي ووجود بصمة مصدر وفيديو مطابقة. لم يتم تجاوز أي فحص؛ أعد تجهيز الطلب أو أصلح سبب توقف فحص الجودة أولًا.
                   </div>
