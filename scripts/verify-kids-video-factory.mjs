@@ -169,7 +169,7 @@ if (
   !kidsWorker.includes("createAutomatedVideoQaApproval") ||
   !videoApproval.includes("!hasCompleteVideoApprovalChecklist(input.checks)") ||
   !videoApproval.includes('normalizeVideoAudience(input.snapshot.audience) === "kids"') ||
-  !/kidsVideoQaStatus:\\s*"passed"(?:\\s+as const)?/.test(videoApproval) ||
+  !videoApproval.includes('kidsVideoQaStatus: "passed"') ||
   !videoApproval.includes('normalizeVideoMarker(snapshot.kidsVideoQaStatus) !== "passed"')
 ) {
   failures.push("Kids videos must persist the reviewed kidsVideoQaStatus only after the complete automated QA checklist passes");
