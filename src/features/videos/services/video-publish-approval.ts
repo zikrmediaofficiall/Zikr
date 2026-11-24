@@ -8,6 +8,33 @@ export type VideoApprovalChecklist = Record<VideoApprovalCheck, boolean>;
 export const AUTOMATED_VIDEO_QA_ENGINE = "zikr_video_factory";
 export const AUTOMATED_VIDEO_QA_VERSION = "2026-11-07-auto-qa-v1";
 export const AUTOMATED_VIDEO_QA_REVIEWER_ID = "system:zikr-video-factory";
+
+export type AutomatedVideoQaRecord = {
+  status: "passed";
+  engine: typeof AUTOMATED_VIDEO_QA_ENGINE;
+  engineVersion: typeof AUTOMATED_VIDEO_QA_VERSION;
+  reviewedAt: string;
+  snapshotHash: string;
+  checks: VideoApprovalChecklist;
+  missingChecks: [];
+};
+
+export type AutomatedVideoQaApproval = {
+  approvalStatus: "approved";
+  approvalReviewerId: typeof AUTOMATED_VIDEO_QA_REVIEWER_ID;
+  approvalReviewedAt: string;
+  approvalSnapshotHash: string;
+  qualityReview: VideoApprovalChecklist & {
+    reviewedAt: string;
+    mode: "automated";
+    reviewerId: typeof AUTOMATED_VIDEO_QA_REVIEWER_ID;
+    engine: typeof AUTOMATED_VIDEO_QA_ENGINE;
+    engineVersion: typeof AUTOMATED_VIDEO_QA_VERSION;
+    snapshotHash: string;
+  };
+  kidsVideoQaStatus?: "passed";
+  automatedVideoQa: AutomatedVideoQaRecord;
+};
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
@@ -137,7 +164,7 @@ export function createAutomatedVideoQaApproval(input: {
   snapshot: VideoApprovalSnapshot;
   checks: VideoApprovalChecklist;
   reviewedAt?: string;
-}): Record<string, unknown> | null {
+}): AutomatedVideoQaApproval | null {
   const snapshotHash = buildVideoApprovalSnapshotHash(input.snapshot);
   const reviewedAt = input.reviewedAt ?? new Date().toISOString();
   if (
