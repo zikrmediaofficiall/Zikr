@@ -728,7 +728,7 @@ export async function POST(request: NextRequest) {
           }
         : {
             ...previousMetadata,
-            generatedVideoUrl: null,
+            generatedVideoUrl: keepPublishedFallback ? previousMetadata.generatedVideoUrl ?? null : null,
             videoUrl: null,
             mediaState: "purged",
             mediaFallbackAvailable: fallbackId !== null,
