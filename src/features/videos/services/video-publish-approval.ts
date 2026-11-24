@@ -309,6 +309,8 @@ export function isAutomatedKidsVideoApprovalRecorded(content: unknown, expectedS
     isVideoApprovalRecorded(data, expectedSnapshotHash) &&
     review?.mode === "automated" &&
     review.reviewerId === AUTOMATED_VIDEO_QA_REVIEWER_ID &&
+    review.reviewedAt === data?.approvalReviewedAt &&
+    automated?.reviewedAt === data?.approvalReviewedAt &&
     review.engine === AUTOMATED_VIDEO_QA_ENGINE &&
     review.engineVersion === AUTOMATED_VIDEO_QA_VERSION &&
     review.snapshotHash === expectedSnapshotHash &&
