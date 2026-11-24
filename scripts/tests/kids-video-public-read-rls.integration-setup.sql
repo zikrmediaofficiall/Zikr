@@ -116,7 +116,7 @@ VALUES
     "seasonNumber":1,
     "episodeNumber":1,
     "kidsVideoQaStatus":"passed",
-    "automatedVideoQa":{"status":"passed","engine":"zikr_video_factory","engineVersion":"2026-11-07-auto-qa-v1","snapshotHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","checks":{"sourceVerified":true,"audioReviewed":true,"visualsReviewed":true,"captionsReviewed":true,"rightsReviewed":true}},
+    "automatedVideoQa":{"status":"passed","engine":"zikr_video_factory","engineVersion":"2026-11-07-auto-qa-v1","reviewedAt":"2026-11-15T12:00:00.000Z","snapshotHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","checks":{"sourceVerified":true,"audioReviewed":true,"visualsReviewed":true,"captionsReviewed":true,"rightsReviewed":true}},
     "approvalStatus":"approved",
     "approvalReviewerId":"system:zikr-video-factory",
     "approvalReviewedAt":"2026-11-15T12:00:00.000Z",
