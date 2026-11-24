@@ -234,6 +234,34 @@ SELECT
 FROM public.videos
 WHERE id = 'kids-approved';
 
+INSERT INTO public.videos (id, category_id, published, metadata)
+SELECT
+  'kids-youtube-fallback',
+  category_id,
+  true,
+  jsonb_set(
+    jsonb_set(
+      jsonb_set(
+        metadata,
+        '{mediaState}',
+        '"purged"'::jsonb,
+        true
+      ),
+      '{mediaFallbackAvailable}',
+      'true'::jsonb,
+      true
+    ),
+    '{youtubePublishedVideoId}',
+    '"abcDEF12345"'::jsonb,
+    true
+  ) || jsonb_build_object(
+    'youtubePublishedUrl',
+    'https://www.youtube.com/watch?v=abcDEF12345'
+  )
+FROM public.videos
+WHERE id = 'kids-approved';
+
+
 INSERT INTO public.video_generation_requests (
   id, status, category, video_url, source_hash, content_hash, template_version, content
 )
