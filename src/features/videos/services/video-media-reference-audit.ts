@@ -1,5 +1,3 @@
-"use server";
-
 type ReferenceQueryResult = {
   data: unknown;
   error: { message: string } | null;
