@@ -228,7 +228,7 @@ assert.ok(projectCopyDeleteRoute.includes("externalSocialPostsDeleted: false"), 
 assert.ok(projectCopyDeleteRoute.includes("platformPublicationIdsPreserved: true"), "project-copy deletion must preserve external publication IDs");
 assert.ok(projectCopyDeleteRoute.includes("socialQueueRowsPreserved: true"), "project-copy deletion must preserve historical social queue rows");
 assert.ok(!/youtube\.com\/.*delete|facebook\.com\/.*delete/i.test(projectCopyDeleteRoute), "project-copy deletion must not call social-platform deletion APIs");
-assert.ok(adminReviewClient.includes("approveSelectedForPublishing") && adminReviewClient.includes("selectedReviewIds"), "the review screen must support selecting multiple review-ready videos");
+assert.ok(adminReviewClient.includes("approveSelectedForPublishing") && adminReviewClient.includes("selectedReviewIds"), "the review screen must support selecting multiple review-ready general videos");
 assert.ok(adminReviewClient.includes('action: "approve_publish"') && adminReviewClient.includes('"/api/admin/video-generation"'), "bulk review must reuse the guarded existing approval API");
 assert.ok(adminReviewClient.includes("batchApprovalChecks") && adminReviewClient.includes("APPROVAL_CHECKS.some"), "bulk review must require the full human checklist");
 
@@ -274,14 +274,14 @@ assert.ok(adminReviewClient.includes("request.thumbnail_url"));
 assert.ok(adminReviewClient.includes("terminalWithAsset"), "failed and cancelled generated videos must be eligible for guarded per-request deletion");
 assert.ok(adminReviewClient.includes("request.stored_thumbnail_url"), "derived preview posters must not be treated as persisted media references when checking deletion eligibility");
 assert.ok(adminReviewClient.includes("content.approvalStatus === \"awaiting_human_review\""), "completed unapproved review renders must be available for the guarded deletion action");
-assert.ok(adminReviewClient.includes("مراجعة واعتماد"), "the review queue must provide a direct review-and-approve action");
+assert.ok(adminReviewClient.includes("مراجعة واعتماد الفيديو العام") && adminReviewClient.includes("audience.audience !== \"kids\""), "manual review actions must be limited to general-audience videos");
 assert.ok(adminReviewClient.includes("حذف نسخة المشروع فقط"), "every row with a project video copy must expose an owner-controlled project-only deletion action");
-assert.ok(adminReviewClient.includes("isReadyForHumanApproval(request.content)"), "the visible approval action must require a source-locked QA-passed approval snapshot");
-assert.ok(adminReviewClient.includes('record.approvalReviewerId === "system:zikr-video-factory"'), "manual Kids approval must upgrade only a verified system-QA approval, never override failed or incomplete QA");
-assert.ok(adminReviewClient.includes('qa.engine === "zikr_video_factory"') && adminReviewClient.includes('qa.engineVersion === "2026-11-07-auto-qa-v1"'), "human approval must be exposed only for the current automated QA engine/version");
-assert.ok(adminReviewClient.includes('record.kidsVideoQaStatus === "passed"'), "Kids approval must require a passed Kids-specific QA result before showing the button");
-assert.ok(adminReviewClient.includes('normalizeVideoMarker(record.contentFormat) === "series_episode"') && adminReviewClient.includes('normalizeVideoMarker(record.aiMode) === "original_kids_story"') && adminReviewClient.includes('normalizeVideoMarker(record.sourceType) === "original_kids_fiction"'), "Kids approval button must be hidden unless the canonical Kids series provenance is complete");
-assert.ok(adminReviewClient.includes("لا يمكن تسجيل اعتماد بشري قبل نجاح فحص الجودة الآلي"), "the details panel must explain why requests without verified automated QA cannot be approved");
+assert.ok(adminReviewClient.includes("audience.audience !== \"kids\""), "the manual review queue must exclude all Kids video requests");
+assert.ok(adminReviewClient.includes("isReadyForAutomatedKidsApproval") && adminReviewClient.includes("isAutomatedKidsVideoApprovalRecorded") === false, "Kids status must be determined by the strict automated approval helper, not by manual-review actions");
+assert.ok(adminReviewClient.includes('qa.engine === "zikr_video_factory"') && adminReviewClient.includes('qa.engineVersion === "2026-11-07-auto-qa-v1"'), "Kids automatic approval status must require the current QA engine/version");
+assert.ok(adminReviewClient.includes('record.kidsVideoQaStatus === "passed"'), "Kids automatic approval must require a passed Kids-specific QA result");
+assert.ok(adminReviewClient.includes('normalizeVideoMarker(record.contentFormat) === "series_episode"') && adminReviewClient.includes('normalizeVideoMarker(record.aiMode) === "original_kids_story"') && adminReviewClient.includes('normalizeVideoMarker(record.sourceType) === "original_kids_fiction"'), "Kids automatic approval must require the canonical Kids series provenance");
+assert.ok(adminReviewClient.includes("لن يظهر زر اعتماد يدوي؛ سيُنشر فقط بعد نجاح الفحوص تلقائيًا."), "Kids detail view must wait for automated QA without showing a manual approval button");
 assert.ok(adminReviewClient.includes("فتح الطلب الأصلي للمراجعة"));
 
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
