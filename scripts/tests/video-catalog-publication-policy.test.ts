@@ -34,6 +34,7 @@ const kidsMetadata = {
     rightsReviewed: true,
     reviewedAt: "2026-11-14T12:00:00.000Z",
     mode: "automated",
+    reviewerId: "system:zikr-video-factory",
     engine: "zikr_video_factory",
     engineVersion: "2026-11-07-auto-qa-v1",
     snapshotHash: "a".repeat(64),
