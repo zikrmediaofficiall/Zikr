@@ -173,7 +173,7 @@ export function createAutomatedVideoQaApproval(input: {
     !Number.isFinite(Date.parse(reviewedAt))
   ) return null;
 
-  const qualityReview = {
+  const qualityReview: AutomatedVideoQaApproval["qualityReview"] = {
     ...input.checks,
     reviewedAt,
     mode: "automated",
@@ -182,22 +182,23 @@ export function createAutomatedVideoQaApproval(input: {
     engineVersion: AUTOMATED_VIDEO_QA_VERSION,
     snapshotHash,
   };
+  const automatedVideoQa: AutomatedVideoQaRecord = {
+    status: "passed",
+    engine: AUTOMATED_VIDEO_QA_ENGINE,
+    engineVersion: AUTOMATED_VIDEO_QA_VERSION,
+    reviewedAt,
+    snapshotHash,
+    checks: input.checks,
+    missingChecks: [],
+  };
   return {
     approvalStatus: "approved",
     approvalReviewerId: AUTOMATED_VIDEO_QA_REVIEWER_ID,
     approvalReviewedAt: reviewedAt,
     approvalSnapshotHash: snapshotHash,
     qualityReview,
-    ...(normalizeVideoAudience(input.snapshot.audience) === "kids" ? { kidsVideoQaStatus: "passed" } : {}),
-    automatedVideoQa: {
-      status: "passed",
-      engine: AUTOMATED_VIDEO_QA_ENGINE,
-      engineVersion: AUTOMATED_VIDEO_QA_VERSION,
-      reviewedAt,
-      snapshotHash,
-      checks: input.checks,
-      missingChecks: [],
-    },
+    ...(normalizeVideoAudience(input.snapshot.audience) === "kids" ? { kidsVideoQaStatus: "passed" as const } : {}),
+    automatedVideoQa,
   };
 }
 
