@@ -128,6 +128,8 @@ const TEXT_COLUMNS: ReadonlyArray<[string, string, string]> = [
 
 const JSON_COLUMNS: ReadonlyArray<[string, string, string]> = [
   ["admin_queue_alert_deliveries", "payload", "alert_key"],
+  ["admin_audit_events", "metadata", "id"],
+  ["videos", "metadata", "id"],
   ["admin_settings", "value", "key"],
   ["articles", "metadata", "id"],
   ["battles", "metadata", "id"],
@@ -254,6 +256,7 @@ async function scanPattern(
   client: DynamicSupabaseClient,
   pattern: ReferencePattern,
   candidates: ReadonlySet<string>,
+  excludedRecordIds: ReadonlySet<string>,
 ): Promise<GeneratedVideoReferenceHit[]> {
   const maxRows = pattern.table === "quran_audio" && pattern.column === "metadata"
     ? MAX_QURAN_AUDIO_METADATA_ROWS
@@ -282,12 +285,14 @@ async function scanPattern(
     }
     if (data.length > 0) {
       for (const row of data as Array<Record<string, unknown>>) {
+        const recordId = String(row[pattern.orderBy] ?? "unknown");
+        if (excludedRecordIds.has(recordId)) continue;
         const matches = collectCandidateReferences(row[pattern.column], candidates);
         if (matches.length) {
           found.push({
             table: pattern.table,
             column: pattern.column,
-            recordId: String(row[pattern.orderBy] ?? "unknown"),
+            recordId,
             matches,
           });
         }
@@ -304,10 +309,13 @@ async function scanPattern(
 export async function findUnmanagedGeneratedVideoReferences(
   supabaseClient: unknown,
   candidateValues: Iterable<string>,
+  excludedRecords: Record<string, ReadonlySet<string>> = {},
 ): Promise<GeneratedVideoReferenceHit[]> {
   const candidates = new Set([...candidateValues].map((value) => value.trim()).filter(Boolean));
   if (candidates.size === 0) return [];
   const client = supabaseClient as DynamicSupabaseClient;
-  const batches = await mapWithConcurrency(patterns, 6, (pattern) => scanPattern(client, pattern, candidates));
+  const batches = await mapWithConcurrency(patterns, 6, (pattern) =>
+    scanPattern(client, pattern, candidates, excludedRecords[pattern.table] ?? new Set<string>()),
+  );
   return batches.flat();
 }
