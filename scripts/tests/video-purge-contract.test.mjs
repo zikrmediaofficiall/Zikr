@@ -56,8 +56,10 @@ assert.ok(route.includes("catalogFallbackRowsKeptPublished"), "Purge audit metad
 assert.ok(route.includes('generatedVideoUrl: null') && route.includes('videoUrl: null'), "Purge must clear dead media URLs.");
 assert.ok(route.includes("status=neq.published&video_url=not.is.null&select=video_url&limit=1000"), "file purge must inspect every non-published social queue media reference before deleting assets.");
 assert.ok(
-    route.includes("status=neq.published&or=(content_type.like.*video*,video_url.not.is.null)&select=id&limit=1000") &&
-  "file-only and memory cleanup must both stop while any unfinished social video row remains, including rows without video_url",
+  route.includes("select=id,status,content_type,content_id,target_platforms,video_url,image_url,metadata&limit=1000") &&
+    route.includes("findGeneratedVideoReferences(row, referenceCandidates)") &&
+    route.includes("candidates.add(text.toLowerCase())"),
+  "file and memory cleanup must identify exact generated request/catalog IDs and block only social queue rows that reference the items being purged",
 );
 assert.ok(route.includes("isGeneratedCloudinaryVideoUrl") && route.includes("protectedSocialQueueMedia.size > 0"), "file purge must protect generated Cloudinary media referenced by unfinished social posts.");
 assert.ok(
