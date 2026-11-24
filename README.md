@@ -111,7 +111,7 @@ The immutable `v1.1.14` release was published on 2026-11-10. Its APK/AAB signatu
 ## Support
 
 - Website: https://zikrmediaofficial.vercel.app
-- Repository: `zikrofficial-X/Zikr`
+- Repository: `zikrmediaofficiall/Zikr`
 - Issues: use GitHub Issues for reproducible bugs and feature requests
 
 ## License
