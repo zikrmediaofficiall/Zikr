@@ -356,6 +356,7 @@ const catalogMetadata = {
   mediaState: "cloudinary_master",
   storyText: "قصة تعليمية محفوظة كما هي",
 };
+const catalogMetadataBeforeApproval = JSON.stringify(catalogMetadata);
 const catalogRequestContent = {
   ...completeKidsContent,
   ...kidsAutomatedApproval,
@@ -464,7 +465,7 @@ assert.equal(buildVideoCatalogApprovalPatch({
   requestContent: { ...legacyRequestContent, kidsVideoQaStatus: "passed" },
 }), null, "conflicting catalog series metadata must fail closed");
 
-assert.equal(Object.prototype.hasOwnProperty.call(catalogMetadata, "approvalStatus"), false, "catalog approval must not mutate the caller's metadata object");
+assert.equal(JSON.stringify(catalogMetadata), catalogMetadataBeforeApproval, "catalog metadata remains unchanged after approval patch construction");
 assert.equal(buildVideoCatalogApprovalPatch({
   ...catalogApprovalInput,
   metadata: { ...catalogMetadata, videoGenerationRequestId: "different-request" },
