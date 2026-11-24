@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { redirectToAdminStepUp } from "@/features/admin/utils/step-up-client";
+import LaylProgramPanel from "@/features/admin/video-studio/components/layl-program-panel";
 import { VIDEO_VOICE_PROFILES, getDefaultVideoVoiceProfile } from "@/features/videos/services/voice-profiles";
 
 type Category = "quran" | "hadith" | "story" | "dua" | "adhkar" | "other";
@@ -438,6 +439,8 @@ export default function AdminVideoStudioClient() {
           متابعة طابور الفيديوهات
         </Link>
       </header>
+
+      <LaylProgramPanel />
 
       <section
         aria-label="نوع المحتوى"

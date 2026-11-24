@@ -13,6 +13,7 @@ import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig } from
 import { versionedTemplateLabel } from "@/features/videos/services/video-template-version";
 import { resolveVideoResolution } from "@/features/videos/services/video-render-contract";
 import { isReadyAdminNarrationAsset, parseAdminNarrationAssetUrl } from "@/features/media/services/video-audio-source";
+import { LAYL_EPISODES, LAYL_PROGRAM_ID } from "@/features/videos/data/layl-program";
 
 const VALID_CATEGORIES = [
   "quran",
@@ -194,6 +195,49 @@ export async function POST(request: NextRequest) {
         prompt: narration,
         aiMode: "general_reminder",
       };
+    }
+
+    if (content.workflow === "layl-program") {
+      const episodeNumber = Number(submittedContent.episodeNumber);
+      const episode = LAYL_EPISODES.find((item) => item.number === episodeNumber);
+      const validEpisodeRequest =
+        category === "other" &&
+        submittedContent.seriesId === LAYL_PROGRAM_ID &&
+        Boolean(episode) &&
+        submittedContent.sourceLabel === episode?.referenceLabel &&
+        submittedContent.sourceUrl === episode?.referenceUrl &&
+        submittedContent.visualBackground === episode?.visualBackground;
+      if (!validEpisodeRequest || !episode) {
+        return NextResponse.json(
+          { error: "بيانات حلقة برنامج ليل أو مرجعها غير معتمد." },
+          { status: 422, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      content = {
+        ...content,
+        programId: LAYL_PROGRAM_ID,
+        maxDurationSeconds: 120,
+        voiceProfile: "egyptian_male_story",
+        visualTheme: "layl",
+        visualBackground: episode.visualBackground,
+        skipSocialPublish: true,
+        sourceType: "editorial",
+        sourceLabel: episode.referenceLabel,
+        sourceUrl: episode.referenceUrl,
+        editorialNote: episode.editorialNote,
+        seriesId: LAYL_PROGRAM_ID,
+        seriesTitle: "دقيقتين مع ليل",
+        seasonNumber: 1,
+        episodeNumber: episode.number,
+        episodeTitle: episode.title,
+        audience: "general",
+        videoFormat: "vertical",
+        resolution: "1080x1920",
+      };
+    } else {
+      // Program-only render privileges are server-owned and cannot be requested by generic clients.
+      delete content.programId;
+      delete content.maxDurationSeconds;
     }
 
     const requestedAudience = normalizeVideoAudience(content.audience);

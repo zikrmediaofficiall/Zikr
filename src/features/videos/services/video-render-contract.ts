@@ -42,11 +42,12 @@ export function resolveVideoResolution(
  * The catalog's integer duration must describe the rendered media, not the
  * requested target duration stored on the generation request.
  */
-export function resolveVideoCatalogDuration(renderedDuration: unknown): number {
+export function resolveVideoCatalogDuration(renderedDuration: unknown, maxDurationSeconds: number = MAX_AUTO_VIDEO_SECONDS): number {
+  const maxAllowed = maxDurationSeconds === 120 ? 120 : MAX_AUTO_VIDEO_SECONDS;
   const duration = Number(renderedDuration);
-  if (!Number.isFinite(duration) || duration <= 0 || duration > MAX_AUTO_VIDEO_SECONDS) {
+  if (!Number.isFinite(duration) || duration <= 0 || duration > maxAllowed) {
     throw new RangeError(
-      `Rendered video duration must be a positive number no greater than ${MAX_AUTO_VIDEO_SECONDS} seconds.`,
+      `Rendered video duration must be a positive number no greater than ${maxAllowed} seconds.`,
     );
   }
   return Math.max(1, Math.round(duration));

@@ -124,11 +124,11 @@ assert.ok(videoDetailPage.includes('parsed.hostname === "res.cloudinary.com"'), 
 
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 assert.ok(
-  worker.includes('`--rate=${process.env.ARABIC_TTS_RATE?.trim() || narrationProfile.rate}`'),
+  worker.includes('`--rate=${ttsRate}`'),
   "Arabic TTS rate must use --rate=<value> because negative rates are parsed as CLI options by argparse",
 );
 assert.ok(
-  worker.includes('`--pitch=${process.env.ARABIC_TTS_PITCH?.trim() || narrationProfile.pitch}`'),
+  worker.includes('`--pitch=${ttsPitch}`'),
   "Arabic TTS pitch must use --pitch=<value> because negative pitches are parsed as CLI options by argparse",
 );
 
@@ -289,12 +289,12 @@ assert.throws(() => resolveVideoCatalogDuration(Number.NaN), /positive number/);
 
 
 assert.ok(videoWorker.includes("resolveVideoResolution(request.content?.resolution, request.content?.videoFormat)"));
-assert.ok(videoWorker.includes("const renderedDurationSeconds = await assertPlayableOutput(outputPath, width, height, signal)"));
+assert.ok(videoWorker.includes("const renderedDurationSeconds = await assertPlayableOutput(outputPath, width, height, maxDurationSeconds, signal)"));
 assert.ok(videoWorker.includes("durationSeconds: renderedDurationSeconds"));
-assert.ok(videoWorker.includes("duration > MAX_AUTO_VIDEO_SECONDS"));
+assert.ok(videoWorker.includes("duration > maxDurationSeconds"));
 assert.ok(videoWorker.includes("return duration;"));
 assert.ok(videoWorker.includes("renderDurationSeconds: rendered.durationSeconds"));
-assert.ok(videoWorker.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds)"));
+assert.ok(videoWorker.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === \"layl-program\" && request.content?.programId === \"dakitayn-ma3-layl\" ? 120 : MAX_AUTO_VIDEO_SECONDS)"));
 const videoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
 assert.ok(videoCreateRoute.includes("resolveVideoResolution(content.resolution, content.videoFormat)"));
 

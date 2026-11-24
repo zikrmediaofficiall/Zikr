@@ -26,11 +26,13 @@ if (!template.includes("legacySceneAssets") || !template.includes("videoTemplate
   failures.push("renderer must resolve legacy scene classes through the shared audience-safe visual asset registry");
 }
 if (!durationService.includes("MAX_AUTO_VIDEO_SECONDS = 60")) failures.push("automated video duration policy must support narrated shorts up to 60 seconds");
-if (!template.includes("resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS)")) failures.push("video renderer must use the shared tested render-duration policy");
+if (!template.includes("resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS, maxDurationSeconds)")) failures.push("video renderer must use the shared tested render-duration policy and scoped Layl duration ceiling");
 const renderContract = read("src/features/videos/services/video-render-contract.ts");
 if (!renderContract.includes("1080x1920") || !renderContract.includes("1920x1080")) failures.push("automated renders must be restricted to the two QA-approved resolutions");
 if (!template.includes("resolveVideoResolution(request.content?.resolution, request.content?.videoFormat)")) failures.push("video worker must reject arbitrary render dimensions before invoking FFmpeg");
-if (!template.includes("durationSeconds: renderedDurationSeconds") || !template.includes("renderDurationSeconds: rendered.durationSeconds") || !template.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds)")) failures.push("catalog duration must reflect the actual rendered media duration");
+const catalogDurationUsesRenderedMedia = template.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds)") ||
+  template.includes('duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl" ? 120 : MAX_AUTO_VIDEO_SECONDS)');
+if (!template.includes("durationSeconds: renderedDurationSeconds") || !template.includes("renderDurationSeconds: rendered.durationSeconds") || !catalogDurationUsesRenderedMedia) failures.push("catalog duration must reflect the actual rendered media duration");
 const videoCreateRoute = read("src/app/api/admin/videos/create/route.ts");
 if (!videoCreateRoute.includes("resolveVideoResolution(content.resolution, content.videoFormat)")) failures.push("admin video creation must normalize and validate render dimensions");
 if (template.includes("https://zikrmediaofficial.vercel.app")) failures.push("video worker must not hardcode the production origin");
@@ -58,7 +60,7 @@ if (!template.includes("Rendered output resolution mismatch")) failures.push("re
 if (!template.includes("Rendered output video bitrate is too low")) failures.push("rendered video bitrate must be validated");
 if (!template.includes("deterministicScene(request)")) failures.push("template selection must provide deterministic visual variety");
 if (!template.includes("resolveDeterministicVideoHook") || !template.includes("resolveDeterministicVideoScene") || !template.includes("resolveDeterministicVideoVisualTheme")) failures.push("template fallback must vary renderer scene, local visual theme and opening hook deterministically by content ID");
-for (const asset of ["calm","dawn","emerald","gold","night","paper","rose","andalusian-arch","midnight-skyline","oasis-dawn","desert-caravan","geometric-mosaic","lantern-glow","manuscript-library","moonlit-sea","olive-grove","desert-dusk","coastal-blue","botanical","library","geometric","marble","cinematic","starfield","mountain-dawn","heritage","minimal-studio","rainy-window","watercolor-sky","old-city","desert-rose","mosaic-blue","satin-night","sunlit-arch","olive-branch","minimal-cream","kids-garden","kids-nature","kids-neighborhood","kids-workshop","kids-space","kids-ocean","kids-forest","kids-playground","kids-classroom","kids-adventure","kids-jungle","kids-robotics","kids-animals","kids-weather"]) {
+for (const asset of ["calm","dawn","emerald","gold","night","paper","rose","andalusian-arch","midnight-skyline","oasis-dawn","desert-caravan","geometric-mosaic","lantern-glow","layl","manuscript-library","moonlit-sea","olive-grove","desert-dusk","coastal-blue","botanical","library","geometric","marble","cinematic","starfield","mountain-dawn","heritage","minimal-studio","rainy-window","watercolor-sky","old-city","desert-rose","mosaic-blue","satin-night","sunlit-arch","olive-branch","minimal-cream","kids-garden","kids-nature","kids-neighborhood","kids-workshop","kids-space","kids-ocean","kids-forest","kids-playground","kids-classroom","kids-adventure","kids-jungle","kids-robotics","kids-animals","kids-weather"]) {
   if (!templateConfig.includes('"'+asset+'"')) failures.push("template registry is missing asset: " + asset);
   if (!read(`public/video/templates/${asset}.svg`).includes("<svg")) failures.push("missing/invalid local SVG scene: " + asset);
 }
