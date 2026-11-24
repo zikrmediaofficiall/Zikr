@@ -83,6 +83,22 @@ function collectGeneratedVideoCandidateValues(...sources: unknown[]): string[] {
   return [...candidates];
 }
 
+function scrubGeneratedVideoReferences(value: unknown, candidates: ReadonlySet<string>): unknown {
+  if (typeof value === "string") {
+    return findGeneratedVideoReferences(value, candidates).length > 0 ? null : value;
+  }
+  if (Array.isArray(value)) return value.map((item) => scrubGeneratedVideoReferences(item, candidates));
+  if (value && typeof value === "object") {
+    const next: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (findGeneratedVideoReferences(key, candidates).length > 0) continue;
+      next[key] = scrubGeneratedVideoReferences(item, candidates);
+    }
+    return next;
+  }
+  return value;
+}
+
 function hasConfirmedSocialDelivery(row: {
   status: string;
   target_platforms: unknown;
@@ -588,7 +604,7 @@ export async function POST(request: NextRequest) {
     const assets = includeFiles ? await listGeneratedVideos() : [];
     // Inventory the dedicated project Storage prefix for both file and memory scopes.
     // Memory-only cleanup leaves every physical object untouched.
-    const storagePaths = includeFiles || includeMemory ? await listAutomatedStorageObjects() : [];
+    const storagePaths = includeFiles ? await listAutomatedStorageObjects() : [];
     const processingAfterPreflight = await getActiveVideoWork();
     if (processingAfterPreflight.generation > 0 || processingAfterPreflight.publications > 0) {
       throw new Error(
@@ -730,6 +746,9 @@ export async function POST(request: NextRequest) {
             ...previousMetadata,
             generatedVideoUrl: keepPublishedFallback ? previousMetadata.generatedVideoUrl ?? null : null,
             videoUrl: null,
+            video_url: null,
+            sourceVideoUrl: null,
+            thumbnailUrl: null,
             mediaState: "purged",
             mediaFallbackAvailable: fallbackId !== null,
             mediaPurgedFromPublished: wasPublishedBeforeMediaPurge(row),
@@ -745,10 +764,20 @@ export async function POST(request: NextRequest) {
                 title: keepPublishedFallback ? row.title : "فيديو تمت إزالة ذاكرته",
                 slug: keepPublishedFallback ? row.slug : "purged-" + row.id,
                 description: keepPublishedFallback ? row.description : null,
-                thumbnail_url: keepPublishedFallback ? row.thumbnail_url : null,
+                thumbnail_url: keepPublishedFallback && fallbackId
+                  ? "https://i.ytimg.com/vi/" + encodeURIComponent(fallbackId) + "/hqdefault.jpg"
+                  : null,
                 youtube_id: keepPublishedFallback && fallbackId ? fallbackId : null,
               }
-            : (keepPublishedFallback && fallbackId ? { youtube_id: fallbackId } : {})),
+            : {
+                description: keepPublishedFallback && fallbackId
+                  ? scrubGeneratedVideoReferences(row.description, new Set(referenceCandidates)) as string | null
+                  : scrubGeneratedVideoReferences(row.description, new Set(referenceCandidates)) as string | null,
+                thumbnail_url: keepPublishedFallback && fallbackId
+                  ? "https://i.ytimg.com/vi/" + encodeURIComponent(fallbackId) + "/hqdefault.jpg"
+                  : null,
+                ...(keepPublishedFallback && fallbackId ? { youtube_id: fallbackId } : {}),
+              }),
           metadata: nextMetadata,
           updated_at: new Date().toISOString(),
         }),
@@ -772,6 +801,38 @@ export async function POST(request: NextRequest) {
     if (catalogUpdateErrors.length) {
       throw new Error("Some internal catalog records or scheduled publication entries could not be safely unlinked: " + catalogUpdateErrors.slice(0, 3).join(" | "));
     }
+    if (includeFiles && !includeMemory && (generatedRequests ?? []).length > 0) {
+      const fallbackRequestIds = new Set(
+        (generatedCatalogRows ?? [])
+          .filter((row) => shouldKeepPublishedVideoAfterMediaPurge(row, true))
+          .map((row) => {
+            const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+            return typeof metadata.videoGenerationRequestId === "string" ? metadata.videoGenerationRequestId : "";
+          })
+          .filter(Boolean),
+      );
+      for (const generatedRequest of generatedRequests ?? []) {
+        const content = generatedRequest.content && typeof generatedRequest.content === "object"
+          ? generatedRequest.content
+          : {};
+        const cleanedContent = scrubGeneratedVideoReferences(content, new Set(referenceCandidates));
+        const keepSnapshotForYouTubeFallback = fallbackRequestIds.has(generatedRequest.id);
+        await supabaseServerAdminRequest(
+          "/rest/v1/video_generation_requests?id=eq." + encodeURIComponent(generatedRequest.id),
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({
+              video_url: keepSnapshotForYouTubeFallback ? generatedRequest.video_url : null,
+              thumbnail_url: null,
+              content: cleanedContent,
+              updated_at: new Date().toISOString(),
+            }),
+          },
+        );
+      }
+    }
+
     // Historical social queue rows are read-only audited; neither the queue nor external platform posts are modified.
     const socialQueueRowsPreserved = true;
     let generationRowsRedacted = 0;
@@ -859,6 +920,8 @@ export async function POST(request: NextRequest) {
         catalogRecordsHidden,
         catalogFallbackRowsKeptPublished,
         generationMemoryRedacted: includeMemory,
+        generationMediaPointersCleared: includeFiles && !includeMemory ? (generatedRequests ?? []).length : 0,
+        generationMediaPointersCleared: includeFiles && !includeMemory ? (generatedRequests ?? []).length : 0,
         physicalFilesDeleted: includeFiles,
         generationRowsRedacted,
         automationRunsRedacted,
