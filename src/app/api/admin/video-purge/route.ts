@@ -603,6 +603,12 @@ export async function POST(request: NextRequest) {
       referenceCandidates,
       {
         videos: new Set((generatedCatalogRows ?? []).map((row) => row.id)),
+        // These generated rows are explicitly rewritten by this purge request;
+        // every non-managed request/run record remains part of the blocking audit.
+        video_generation_requests: new Set((generatedRequests ?? []).map((row) => row.id)),
+        ...(includeMemory
+          ? { video_automation_runs: new Set((automationRuns ?? []).map((run) => run.id)) }
+          : {}),
       },
     );
     if (unresolvedSocialReferences.length > 0 || unmanagedReferences.length > 0) {
