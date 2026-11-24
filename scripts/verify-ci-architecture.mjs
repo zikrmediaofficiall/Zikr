@@ -185,7 +185,7 @@ assert.ok(androidRecovery.includes("workflow_dispatch:"), "Android recovery must
 assert.ok(
   !androidRecovery.includes("\n  status:") &&
     androidRecovery.includes('branches:\n      - "android-release-dispatch-v*"') &&
-    androidRecovery.includes("github.actor == 'zikrofficial-X'") &&
+    androidRecovery.includes("github.actor == 'zikrmediaofficiall'") &&
     androidRecovery.includes("isPushRecoveryTrigger"),
   "Android recovery must not subscribe to every repository status and may use only the owner-restricted canonical release-dispatch push fallback",
 );
