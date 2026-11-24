@@ -173,10 +173,6 @@ const ENCODED_REFERENCE_FILTERS = [
   "%auto-%",
   "%61%75%74%6f%2d%",
   "%2561%2575%2574%256f%252d%",
-  "%61%",
-  "%75%",
-  "%74%",
-  "%6f%",
 ];
 
 const patterns: ReferencePattern[] = [
@@ -317,7 +313,7 @@ export async function findUnmanagedGeneratedVideoReferences(
   if (candidates.size === 0) return [];
   const client = supabaseClient as DynamicSupabaseClient;
   const batches = await mapWithConcurrency(patterns, 6, (pattern) =>
-    scanPattern(client, pattern, candidates, excludedRecords[pattern.table] ?? new Set<string>()),
+    scanPattern(client, pattern, candidates, excludedRecords[pattern.table + "." + pattern.column] ?? excludedRecords[pattern.table] ?? new Set<string>()),
   );
   return batches.flat();
 }
