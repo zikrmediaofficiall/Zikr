@@ -142,7 +142,7 @@ for (const token of [
   "AUTOMATED_VIDEO_QA_VERSION",
   "AUTOMATED_VIDEO_QA_REVIEWER_ID",
   "createAutomatedVideoQaApproval",
-  "isHumanVideoApprovalRecorded",
+  "isAutomatedKidsVideoApprovalRecorded",
   "inspectVideoQueueItemExternalApproval",
   "buildVideoApprovalSnapshotHash",
   "normalizeVideoAudience(snapshot.audience)",
@@ -152,7 +152,7 @@ for (const token of [
   if (!approvalService.includes(token)) failures.push(`automated QA approval service missing integrity contract: ${token}`);
 }
 const kidsVideoPublicReadMigration = read(
-  "supabase/migrations/20261114210000_restrict_public_kids_video_read_to_qa_passed.sql",
+  "supabase/migrations/20261124190000_allow_automated_kids_video_publication.sql",
 );
 for (const token of [
   "DROP POLICY IF EXISTS videos_public_read ON public.videos;",
@@ -169,6 +169,9 @@ for (const token of [
   "metadata->>'generator' = 'zikr_internal_video_factory'",
   "metadata->>'kidsVideoQaStatus' = 'passed'",
   "metadata->'automatedVideoQa'->>'status' = 'passed'",
+  "private.video_catalog_has_current_automated_kids_qa(metadata)",
+  "metadata->'qualityReview'->>'mode' = 'automated'",
+  "metadata->'approvalReviewerId' = 'system:zikr-video-factory'",
   "BEGIN;",
   "COMMIT;",
 ]) {
@@ -179,14 +182,15 @@ for (const token of [
 if (/metadata->>'audience'\s*(?:<>|!=)\s*'kids'/i.test(kidsVideoPublicReadMigration)) {
   failures.push("Kids video public-read migration must not treat every non-Kids audience value as general");
 }
-if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
-    !kidsVideoPublication.includes('normalizeVideoMarker(qualityReview.mode) === "human"') ||
-    !kidsVideoPublication.includes("REQUIRED_KIDS_VIDEO_HUMAN_REVIEW_CHECKS.every")) {
-  failures.push("Kids external publishing must use a separate complete human review record after automated QA");
+if (!approvalService.includes("export function isAutomatedKidsVideoApprovalRecorded") ||
+    !approvalService.includes('review?.mode === "automated"') ||
+    !approvalService.includes("hasCompleteVideoApprovalChecklist(automated.checks)")) {
+  failures.push("Kids external publishing must use a matching, complete five-part automated QA record");
 }
-if (!adminVideoRequestsClient.includes("hasHumanKidsVideoApproval") ||
-    !adminVideoRequestsClient.includes("مراجعة بشرية إلزامية لفيديو الأطفال")) {
-  failures.push("the admin video review screen must keep automated-only Kids videos available for human review");
+if (!adminVideoRequestsClient.includes("system:zikr-video-factory") ||
+    !adminVideoRequestsClient.includes("اجتاز الفيديو فحوص الجودة الآلية الخمسة") ||
+    adminVideoRequestsClient.includes("مراجعة بشرية إلزامية لفيديو الأطفال")) {
+  failures.push("the admin video request screen must report automated Kids QA and must not require manual approval");
 }
 if (/DELETE FROM|TRUNCATE TABLE|DROP TABLE|DISABLE ROW LEVEL SECURITY/i.test(kidsVideoPublicReadMigration)) {
   failures.push("Kids video public-read migration must not mutate video data or disable RLS");
