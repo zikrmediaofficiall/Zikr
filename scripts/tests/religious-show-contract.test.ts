@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { HADY_SHOW, SEASON_ONE } from "../../src/features/videos/shows/hady-show";
 import { SHOW_TOPIC_BACKGROUNDS, SHOW_TOPIC_THEMES, backgroundForTheme } from "../../src/features/videos/shows/topic-backgrounds";
-import { estimateEpisodeSeconds, validateHadyEpisode, type HadyEpisode } from "../../src/features/videos/shows/episode-contract";
+import { estimateEpisodeSeconds, validateHadyEpisode, validateHadyEpisodeForProduction, type HadyEpisode } from "../../src/features/videos/shows/episode-contract";
 import { getVideoVoiceProfile } from "../../src/features/videos/services/voice-profiles";
 
 const templates = new Set(readdirSync("public/video/templates").filter((name) => name.endsWith(".svg")).map((name) => name.replace(/\.svg$/, "")));
@@ -76,7 +76,7 @@ function fixture(): HadyEpisode {
     review: { status: "draft" },
   };
 }
-const clone = (episode: HadyEpisode, edit: (draft: { segments: { id: string; text: string; quotes?: unknown; sourceRefs?: unknown }[]; background: string; review: { status: string; reviewer?: string } }) => void) => {
+const clone = (episode: HadyEpisode, edit: (draft: { segments: { id: string; text: string; quotes?: unknown; sourceRefs?: unknown }[]; background: string; review: { status: string; reviewer?: string; reviewedAt?: string } }) => void) => {
   const draft = JSON.parse(JSON.stringify(episode));
   edit(draft);
   return draft as HadyEpisode;
@@ -91,6 +91,18 @@ const good = validateHadyEpisode(fixture(), templates);
 assert.equal(good.ok, true, good.errors.join(" | "));
 assert.ok(good.estimatedSeconds >= HADY_SHOW.episode.minSeconds && good.estimatedSeconds <= HADY_SHOW.episode.maxSeconds, `estimate ${good.estimatedSeconds}s`);
 assert.equal(estimateEpisodeSeconds(fixture()), good.estimatedSeconds);
+assert.equal(validateHadyEpisodeForProduction(fixture(), templates).ok, false, "draft structural QA must not release Hady for rendering");
+const humanReviewedHady = clone(fixture(), (draft) => {
+  draft.review = { status: "approved", reviewer: "editor-1", reviewedAt: "2026-11-24T12:00:00.000Z" };
+});
+assert.equal(validateHadyEpisodeForProduction(humanReviewedHady, templates).ok, true,
+  validateHadyEpisodeForProduction(humanReviewedHady, templates).errors.join(" | "));
+assert.equal(validateHadyEpisodeForProduction(clone(humanReviewedHady, (draft) => {
+  draft.review = { status: "approved", reviewer: "system:zikr-video-factory", reviewedAt: "2026-11-24T12:00:00.000Z" };
+}), templates).ok, false, "automated QA cannot impersonate the Hady human reviewer");
+assert.equal(validateHadyEpisodeForProduction(clone(humanReviewedHady, (draft) => {
+  draft.segments[2]!.sourceRefs = [{ kind: "quran", reference: "different:reference", verified: true }];
+}), templates).ok, false, "a different verified source cannot authorize the episode quote");
 
 fails(clone(fixture(), (d) => d.segments.reverse()), /exactly hook/);
 fails(clone(fixture(), (d) => { d.background = "not-a-background"; }), /Unknown background/);

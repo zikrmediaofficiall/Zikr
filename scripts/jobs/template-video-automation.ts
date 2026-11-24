@@ -52,6 +52,7 @@ import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/f
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 import { LAYL_EPISODES, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
 import { isoWeekKey, resolveNextScheduledLaylEpisode } from "../../src/features/videos/services/layl-program-schedule";
+import { isDailyPromoVideoSlot, resolveDailyPromoVideoTarget, selectDailyPromotionalVideoConcept, selectDailyPromotionalVideoSlots } from "../../src/features/videos/data/promotional-video-campaign";
 
 const execFileAsync = promisify(execFile);
 const BATCH_SIZE = Math.max(1, Number(process.env.AUTO_VIDEO_BATCH_SIZE ?? process.env.DAILY_VIDEO_TARGET ?? 10));
@@ -240,6 +241,17 @@ const DEFAULT_AI_VIDEO_PLAN: AiVideoPlan = {
 
 function siteUrl() {
   return getServerEnv().NEXT_PUBLIC_SITE_URL;
+}
+
+function resolveScheduledPromotionalConcept(content: Record<string, unknown>) {
+  const key = typeof content.automationKey === "string" ? content.automationKey.split(":") : [];
+  if (key.length !== 4 || key[0] !== "promo") return null;
+  const day = Number(key[1]);
+  const slot = Number(key[2]);
+  if (!Number.isSafeInteger(day) || !Number.isSafeInteger(slot) || slot < 0) return null;
+  const concept = selectDailyPromotionalVideoConcept(day, slot);
+  if (concept.key !== key[3] || concept.key !== content.campaignKey || concept.variationIndex !== content.campaignVariant) return null;
+  return concept;
 }
 
 type BoundTemplateVersion = {
@@ -469,6 +481,7 @@ function makeAss(
   category: string,
   audience?: unknown,
   openingSeed = "",
+  openingOverride = "",
 ) {
   const { width, height } = composition;
   const playResX = width;
@@ -504,7 +517,7 @@ function makeAss(
   const hookEnd = Math.min(2.4, Math.max(0.8, duration * 0.16));
   const events = [
     "Dialogue: 5,0:00:00.00," + assTimestamp(duration) + ",Badge,,0,0,0,," + badge,
-    "Dialogue: 6,0:00:00.20," + assTimestamp(hookEnd) + ",Hook,,0,0,0,,{\\fad(180,260)}" + assEscape(audienceHook(category, audience, openingSeed)),
+    "Dialogue: 6,0:00:00.20," + assTimestamp(hookEnd) + ",Hook,,0,0,0,,{\\fad(180,260)}" + assEscape(openingOverride.trim() || audienceHook(category, audience, openingSeed)),
     "Dialogue: 0,0:00:00.12," + assTimestamp(duration) + ",Title,,0,0,0,,{\\fad(220,420)\\an8\\pos(" + composition.bodyX + "," + composition.titleY + ")}" + assEscape(normalizedTitle),
     "Dialogue: 3,0:00:00.00," + assTimestamp(duration) + ",Brand,,0,0,0,,ZIKR • ذِكرٌ",
     ...textEvents,
@@ -763,11 +776,14 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   const dueByNow = Math.ceil((dailyTarget * scheduleWindow) / 4);
   const urgent = process.env.AUTO_VIDEO_URGENT?.toLowerCase() === "true";
   const allowed = urgent ? Math.min(10, batchSize) : Math.min(10, batchSize, Math.max(0, dueByNow - alreadySeededToday));
+  const promoTarget = resolveDailyPromoVideoTarget(process.env.PROMO_VIDEO_DAILY_TARGET, dailyTarget);
+  const promoSlots = selectDailyPromotionalVideoSlots(dailyTarget, process.env.PROMO_VIDEO_DAILY_TARGET);
 
   for (let i = 0; i < allowed; i += 1) {
     if (await isVideoGenerationPaused()) break;
     const slot = dailyQuota.nextSlot + i;
-    const mode = slot % 7;
+    const isPromoSlot = promoSlots.includes(slot);
+    const mode = isPromoSlot ? 6 : slot % 7;
 
     let payload: Record<string, unknown>;
     let key = "";
@@ -978,37 +994,76 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
         automation_key: key,
       };
     } else {
-      const reminders = [
-        "خلّي التقنية في خدمة عبادتك: اختار وقت هادي للقراءة والذكر، وسيب أي حاجة بتشتّت قلبك.",
-        "القليل الثابت بيبني عادة أقوى من قايمة طويلة مش هتكمّل عليها؛ اختار وِرد تقدر تحافظ عليه.",
-        "قبل ما تشارك أي معلومة دينية، دوّر على مصدرها واقرا النص كامل، ومتعتمدش على صورة متداولة لوحدها.",
-        "خد دقيقة هادية في نص يومك، ابعد عن الدوشة، وراجع إيه اللي عايز تشيله معاك لباقي اليوم.",
-        "خلّي موبايلك أداة تساعدك على الخير: قلّل الإشعارات، وسيب وقتك للمهم، واستخدم التقنية بوعي.",
-        "ابدأ بخطوة صغيرة النهارده، وكرّرها بكرة؛ الاستمرار في العادات النافعة بيعمل فرق كبير.",
-      ];
-      key = `other:${day}:${slot}`;
-      if (await findByAutomationKey("video_generation_requests", key)) continue;
-      const textAr = reminders[(day * 16 + slot) % reminders.length];
-      payload = {
-        title: "رسالة اليوم — خطوة صغيرة ثابتة",
-        description: "رسالة تحريرية أصلية من ذِكر، غير منسوبة إلى آية أو حديث.",
-        category: "other",
-        content: {
-          renderer: "template",
-          type: "general_reminder",
-          sourceType: "editorial",
-          sourceLabel: "محتوى تحريري أصلي من منصة ذِكر",
-          textAr,
-          publicPath: "/articles",
-          automationKey: key,
-          aiMode: "general_reminder",
-          aiProviderHint,
-          voiceProfile: "egyptian_male_story",
-        },
-        duration: TARGET_VIDEO_SECONDS,
-        status: "pending",
-        automation_key: key,
-      };
+      const promoSlot = promoSlots.indexOf(slot);
+      if (isPromoSlot && isDailyPromoVideoSlot(promoSlot, promoTarget)) {
+        const concept = selectDailyPromotionalVideoConcept(day, promoSlot);
+        key = `promo:${day}:${promoSlot}:${concept.key}`;
+        if (await findByAutomationKey("video_generation_requests", key)) continue;
+        const featureUrl = `${siteUrl()}${concept.featurePath}`;
+        const downloadUrl = `${siteUrl()}${concept.ctaPath}`;
+        payload = {
+          title: concept.title,
+          description: concept.description,
+          category: "other",
+          content: {
+            renderer: "template",
+            type: "promotional_product_video",
+            sourceType: "marketing",
+            sourceId: `promo:${concept.key}:${day}:${promoSlot}`,
+            sourceUrl: featureUrl,
+            sourceLabel: "محتوى ترويجي أصلي من منصة ذِكر — عرض لمزايا الموقع والتطبيق",
+            campaignKey: concept.key,
+            campaignVariant: concept.variationIndex,
+            campaignFeature: concept.featureKey,
+            campaignFeaturePath: concept.featurePath,
+            campaignCtaPath: concept.ctaPath,
+            hook: concept.hook,
+            ctaUrl: downloadUrl,
+            textAr: concept.narration,
+            publicPath: concept.featurePath,
+            visualTheme: concept.visualTheme,
+            automationKey: key,
+            aiMode: "marketing_promo",
+            aiProviderHint,
+            voiceProfile: "egyptian_male_story",
+          },
+          duration: TARGET_VIDEO_SECONDS,
+          status: "pending",
+          automation_key: key,
+        };
+      } else {
+        const reminders = [
+          "خلّي التقنية في خدمة عبادتك: اختار وقت هادي للقراءة والذكر، وسيب أي حاجة بتشتّت قلبك.",
+          "القليل الثابت بيبني عادة أقوى من قايمة طويلة مش هتكمّل عليها؛ اختار وِرد تقدر تحافظ عليه.",
+          "قبل ما تشارك أي معلومة دينية، دوّر على مصدرها واقرا النص كامل، ومتعتمدش على صورة متداولة لوحدها.",
+          "خد دقيقة هادية في نص يومك، ابعد عن الدوشة، وراجع إيه اللي عايز تشيله معاك لباقي اليوم.",
+          "خلّي موبايلك أداة تساعدك على الخير: قلّل الإشعارات، وسيب وقتك للمهم، واستخدم التقنية بوعي.",
+          "ابدأ بخطوة صغيرة النهارده، وكرّرها بكرة؛ الاستمرار في العادات النافعة بيعمل فرق كبير.",
+        ];
+        key = `other:${day}:${slot}`;
+        if (await findByAutomationKey("video_generation_requests", key)) continue;
+        const textAr = reminders[(day * 16 + slot) % reminders.length];
+        payload = {
+          title: "رسالة اليوم — خطوة صغيرة ثابتة",
+          description: "رسالة تحريرية أصلية من ذِكر، غير منسوبة إلى آية أو حديث.",
+          category: "other",
+          content: {
+            renderer: "template",
+            type: "general_reminder",
+            sourceType: "editorial",
+            sourceLabel: "محتوى تحريري أصلي من منصة ذِكر",
+            textAr,
+            publicPath: "/articles",
+            automationKey: key,
+            aiMode: "general_reminder",
+            aiProviderHint,
+            voiceProfile: "egyptian_male_story",
+          },
+          duration: TARGET_VIDEO_SECONDS,
+          status: "pending",
+          automation_key: key,
+        };
+      }
     }
 
     const content = payload.content as Record<string, unknown>;
@@ -1759,6 +1814,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         request.category,
         request.content?.audience,
         request.id,
+        resolveScheduledPromotionalConcept(request.content ?? {})?.hook ?? "",
       ),
       "utf8",
     );
@@ -1927,6 +1983,27 @@ export function buildAutomatedVideoQaChecklist(
     content.sourceType === "editorial" &&
     sourceLabel === "محتوى تحريري أصلي من منصة ذِكر" &&
     !hasSuspiciousReligiousAttribution(contentText(request));
+  const promoConcept = resolveScheduledPromotionalConcept(content);
+  const isOriginalPromo = content.audience !== "kids" &&
+    category === "other" &&
+    content.type === "promotional_product_video" &&
+    content.aiMode === "marketing_promo" &&
+    content.sourceType === "marketing" &&
+    Boolean(promoConcept) &&
+    content.campaignFeature === promoConcept?.featureKey &&
+    content.campaignFeaturePath === promoConcept?.featurePath &&
+    content.campaignCtaPath === promoConcept?.ctaPath &&
+    content.hook === promoConcept?.hook &&
+    request.title === promoConcept?.title &&
+    request.description === promoConcept?.description &&
+    content.publicPath === promoConcept?.featurePath &&
+    sourceId === `promo:${promoConcept?.key}:${String(content.automationKey ?? "").split(":")[1]}:${String(content.automationKey ?? "").split(":")[2]}` &&
+    sourceUrl === `${siteUrl()}${promoConcept?.featurePath}` &&
+    content.ctaUrl === `${siteUrl()}${promoConcept?.ctaPath}` &&
+    contentText(request) === promoConcept?.narration &&
+    sourceLabel === "محتوى ترويجي أصلي من منصة ذِكر — عرض لمزايا الموقع والتطبيق" &&
+    /^https:\/\//i.test(sourceUrl) &&
+    !hasSuspiciousReligiousAttribution(contentText(request));
   const laylEpisode = content.workflow === "layl-program" &&
     content.programId === LAYL_PROGRAM_ID &&
     content.seriesId === LAYL_PROGRAM_ID &&
@@ -1948,7 +2025,7 @@ export function buildAutomatedVideoQaChecklist(
   const isLaylProgram = Boolean(isVerifiedLaylEditorial);
   const sourceVerified = sourceCategories.has(category)
     ? Boolean(sourceId && /^https:\/\//i.test(sourceUrl) && sourceLabel.trim() && render.sourceLocked === true)
-    : isKidsSeries || isOriginalEditorial || isVerifiedLaylEditorial;
+    : isKidsSeries || isOriginalEditorial || isOriginalPromo || isVerifiedLaylEditorial;
 
   const audioKind = typeof audio.kind === "string" ? audio.kind : "";
   const voiceProfile = typeof audio.voiceProfile === "string" ? audio.voiceProfile : "";
@@ -2035,7 +2112,13 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
   const content = request.content ?? {};
   const ai = content.ai && typeof content.ai === "object" ? content.ai as Record<string, unknown> : {};
   const generatedCaption = typeof ai.socialCaption === "string" ? ai.socialCaption.trim() : "";
-  const hook = resolveDeterministicVideoHook({
+  const promoConcept = resolveScheduledPromotionalConcept(content);
+  const promoCta = promoConcept && content.sourceType === "marketing" &&
+    content.aiMode === "marketing_promo" &&
+    content.ctaUrl === `${siteUrl()}${promoConcept.ctaPath}`
+    ? "نزّل تطبيق ذِكر لأندرويد من الرابط الرسمي: " + String(content.ctaUrl)
+    : "";
+  const hook = promoConcept?.hook ?? resolveDeterministicVideoHook({
     id: request.id,
     category: request.category,
     audience: content.audience,
@@ -2063,6 +2146,7 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
     hook,
     request.title.trim(),
     generatedCaption || request.description?.trim() || "",
+    promoCta,
     callToAction[request.category] ?? callToAction.other,
     visualDisclosure,
     tags[request.category] ?? tags.other,

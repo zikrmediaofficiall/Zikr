@@ -29,7 +29,7 @@ export type HadyEpisode = {
   theme: string;
   background: string;
   segments: readonly EpisodeSegment[];
-  review: { status: "draft" | "approved"; reviewer?: string };
+  review: { status: "draft" | "approved"; reviewer?: string; reviewedAt?: string };
 };
 
 export type EpisodeValidation = { ok: boolean; errors: string[]; warnings: string[]; estimatedSeconds: number; wordCount: number };
@@ -118,4 +118,29 @@ export function validateHadyEpisode(episode: HadyEpisode, knownBackgrounds: Read
   }
 
   return { ok: errors.length === 0, errors, warnings, estimatedSeconds, wordCount };
+}
+
+/** Structural QA is automatic, but a religious episode is not production-ready without a recorded human source review. */
+export function validateHadyEpisodeForProduction(
+  episode: HadyEpisode,
+  knownBackgrounds: ReadonlySet<string>,
+): EpisodeValidation {
+  const result = validateHadyEpisode(episode, knownBackgrounds);
+  const errors = [...result.errors];
+  if (episode.review.status !== "approved") errors.push("A human reviewer must approve the episode before rendering.");
+  if (!episode.review.reviewer?.trim() || episode.review.reviewer.trim().startsWith("system:")) {
+    errors.push("Production approval must name a human reviewer; automated QA cannot approve the religious script.");
+  }
+  if (!episode.review.reviewedAt || !Number.isFinite(Date.parse(episode.review.reviewedAt))) {
+    errors.push("A valid human review timestamp is required before rendering.");
+  }
+  for (const segment of episode.segments) {
+    for (const quote of segment.quotes ?? []) {
+      const verified = (segment.sourceRefs ?? []).some((source) =>
+        source.verified && source.kind === quote.kind && source.reference === quote.reference,
+      );
+      if (!verified) errors.push(`${segment.id}: quote ${quote.reference} must match an individually verified source reference.`);
+    }
+  }
+  return { ...result, ok: errors.length === 0, errors };
 }

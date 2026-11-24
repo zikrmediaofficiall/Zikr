@@ -69,7 +69,7 @@ export function resolveVideoSourceDisclosureLine(content: unknown, fallbackSourc
   const sourceType = normalizeMarker(record.sourceType);
   const sourceLabel = cleanString(record.sourceLabel);
   if (isOriginalKidsFiction(record)) return resolveOriginalKidsFictionSourceLabel(sourceLabel);
-  if (sourceType === "editorial") return resolveOriginalEditorialSourceLabel(sourceLabel);
+  if (sourceType === "editorial" || sourceType === "marketing") return resolveOriginalEditorialSourceLabel(sourceLabel);
   const sourceUrl = fallbackSourceUrl.trim();
   return sourceUrl ? "المصدر: " + sourceUrl : sourceLabel ?? "";
 }
