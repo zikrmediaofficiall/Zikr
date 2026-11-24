@@ -12,7 +12,7 @@ import { isGeneralAudienceVideoMetadata } from "./video-audience-visibility";
 import { isKidsVideoGenerationRequestContent } from "@/features/kids/services/kids-video-request-visibility";
 import {
   buildVideoApprovalSnapshotHashForRequest,
-  isHumanVideoApprovalRecorded,
+  isAutomatedKidsVideoApprovalRecorded,
   resolveKidsVideoQaStatusForApproval,
   type VideoPublishRequestSnapshot,
 } from "./video-publish-approval";
@@ -149,15 +149,15 @@ function hasPassedKidsVideoQa(metadata: Record<string, unknown>): boolean {
     qa.status === "passed";
 }
 
-function hasCurrentHumanKidsVideoApproval(
+function hasCurrentAutomatedKidsVideoApproval(
   metadata: Record<string, unknown>,
   request: KidsVideoApprovalRequest,
 ): boolean {
   const requestContent = asRecord(request.content);
   const snapshotHash = buildVideoApprovalSnapshotHashForRequest(request);
   if (!snapshotHash || !isKidsVideoGenerationRequestContent(requestContent)) return false;
-  if (!isHumanVideoApprovalRecorded(requestContent, snapshotHash) ||
-      !isHumanVideoApprovalRecorded(metadata, snapshotHash)) return false;
+  if (!isAutomatedKidsVideoApprovalRecorded(requestContent, snapshotHash) ||
+      !isAutomatedKidsVideoApprovalRecorded(metadata, snapshotHash)) return false;
   if (
     metadata.videoGenerationRequestId !== request.id ||
     metadata.approvalSnapshotHash !== snapshotHash ||
@@ -207,7 +207,7 @@ export async function getKidsGeneratedVideos(limit = 60): Promise<Video[]> {
   }
 
   const rows = await supabaseServerAnonRequest<Array<Record<string, unknown>>>(
-    "/rest/v1/videos?select=id,title,slug,description,youtube_id,thumbnail_url,duration,views,published,category_id,metadata,created_at&published=eq.true&metadata->>audience=eq.kids&metadata->>generator=eq.zikr_internal_video_factory&metadata->>kidsVideoQaStatus=eq.passed&metadata->automatedVideoQa->>status=eq.passed&metadata->>approvalStatus=eq.approved&metadata->>approvalReviewerId=not.is.null&metadata->>approvalReviewedAt=not.is.null&metadata->>approvalSnapshotHash=not.is.null&metadata->qualityReview->>mode=eq.human&order=created_at.desc&limit=" + safeLimit,
+    "/rest/v1/videos?select=id,title,slug,description,youtube_id,thumbnail_url,duration,views,published,category_id,metadata,created_at&published=eq.true&metadata->>audience=eq.kids&metadata->>generator=eq.zikr_internal_video_factory&metadata->>kidsVideoQaStatus=eq.passed&metadata->automatedVideoQa->>status=eq.passed&metadata->>approvalStatus=eq.approved&metadata->>approvalReviewerId=not.is.null&metadata->>approvalReviewedAt=not.is.null&metadata->>approvalSnapshotHash=not.is.null&metadata->qualityReview->>mode=eq.automated&order=created_at.desc&limit=" + safeLimit,
     { cache: "no-store" },
   );
   if (!Array.isArray(rows)) {
@@ -225,7 +225,7 @@ export async function getKidsGeneratedVideos(limit = 60): Promise<Video[]> {
       const request = typeof requestId === "string" ? approvedRequests.get(requestId) : undefined;
       return hasPassedKidsVideoQa(metadata) &&
         metadata.generator === "zikr_internal_video_factory" &&
-        Boolean(request && hasCurrentHumanKidsVideoApproval(metadata, request)) &&
+        Boolean(request && hasCurrentAutomatedKidsVideoApproval(metadata, request)) &&
         isPubliclyRenderableVideo(row);
     })
     .slice(0, safeLimit)
