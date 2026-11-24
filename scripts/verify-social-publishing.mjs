@@ -115,7 +115,7 @@ if (!runner.includes('"social"') || runner.includes("reconcileCompletedVideoSoci
 if (!videoWorkflow.includes('AUTO_VIDEO_PUBLISH_ENABLED: "true"') ||
     !videoWorkflow.includes('AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"') ||
     !videoWorkflow.includes('BACKGROUND_JOB_TARGET: "videos"')) {
-  failures.push("video generation may enqueue automated-QA candidates, but Kids external delivery must retain its separate human-review gate");
+  failures.push("video generation may enqueue automated-QA candidates, but Kids external delivery must retain its complete source-locked automated QA gate");
 }
 if (!videoGenerator.includes("async function queueSocialItems") ||
     !videoGenerator.includes("socialQueueResult = await withLeaseHeartbeat(") ||
@@ -134,17 +134,16 @@ if (!videoPublishApproval.includes("export function hasCompleteKidsVideoSeriesMe
     !videoCatalogPolicy.includes("hasCompleteKidsVideoSeriesMetadata(metadata)")) {
   failures.push("Kids video catalog visibility and social publishing must share one complete series-episode contract");
 }
-if (!kidsVideoPublication.includes("export function hasHumanKidsVideoApproval") ||
-    !videoPublishApproval.includes("inspectVideoQueueItemExternalApproval") ||
-    !videoPublishApproval.includes("isHumanVideoApprovalRecorded") ||
-    !videoCatalogPolicy.includes("hasHumanKidsVideoApproval")) {
-  failures.push("Kids external social publishing must require a matching human review record in both the generation request and public catalog");
+if (!videoPublishApproval.includes("inspectVideoQueueItemExternalApproval") ||
+    !videoPublishApproval.includes("isAutomatedKidsVideoApprovalRecorded") ||
+    !videoCatalogPolicy.includes("isAutomatedKidsVideoApprovalRecorded(metadata, expectedApprovalSnapshotHash)")) {
+  failures.push("Kids external social publishing must require matching complete automated QA in both the generation request and public catalog");
 }
 if (!socialPublishingService.includes("buildVideoApprovalSnapshotHashForRequest") ||
     !socialPublishingService.includes("expectedApprovalSnapshotHash") ||
     !videoCatalogPolicy.includes("automatedVideoQa.snapshotHash !== expectedApprovalSnapshotHash") ||
     !videoCatalogPolicy.includes("hasHumanKidsVideoApproval(metadata, expectedApprovalSnapshotHash)")) {
-  failures.push("the social worker must bind both catalog automated QA and Kids human review to the current generation-request fingerprint");
+  failures.push("the social worker must bind request and catalog automated QA to the current generation-request fingerprint");
 }
 if (!videoGenerator.includes("getYouTubeUploadRefreshToken") ||
     !videoGenerator.includes("getOptionalFacebookPageCredentials") ||
