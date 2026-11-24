@@ -328,13 +328,13 @@ const publicKidsDetailStart = kidsVideoServiceSource.indexOf("export async funct
 const publicKidsListSource = kidsVideoServiceSource.slice(publicKidsListStart, publicKidsDetailStart);
 const publicKidsDetailServiceSource = kidsVideoServiceSource.slice(publicKidsDetailStart);
 assert.ok(kidsVideoServiceSource.includes("loadApprovedKidsVideoRequests"), "public Kids video reads must verify the linked completed generation request");
-assert.ok(kidsVideoServiceSource.includes("hasCurrentHumanKidsVideoApproval"), "public Kids video reads must verify a current human approval snapshot");
-assert.ok(kidsVideoServiceSource.includes("isHumanVideoApprovalRecorded(requestContent, snapshotHash)"), "the linked request must contain a matching human approval");
-assert.ok(kidsVideoServiceSource.includes("isHumanVideoApprovalRecorded(metadata, snapshotHash)"), "the public catalog row must contain the same human approval snapshot");
+assert.ok(kidsVideoServiceSource.includes("hasCurrentAutomatedKidsVideoApproval"), "public Kids video reads must verify a current automated QA approval snapshot");
+assert.ok(kidsVideoServiceSource.includes("isAutomatedKidsVideoApprovalRecorded(requestContent, snapshotHash)"), "the linked request must contain a matching automated QA approval");
+assert.ok(kidsVideoServiceSource.includes("isAutomatedKidsVideoApprovalRecorded(metadata, snapshotHash)"), "the public catalog row must contain the same automated QA approval snapshot");
 assert.ok(kidsVideoServiceSource.includes("resolveKidsVideoQaStatusForApproval"), "public Kids reads must revalidate QA against the current request and media fingerprints");
 assert.ok(kidsVideoServiceSource.includes("status=eq.completed"), "only completed generation requests may authorize public Kids videos");
-assert.ok(publicKidsListSource.includes("hasCurrentHumanKidsVideoApproval(metadata, request)"), "the Kids list must fail closed when a matching human approval request is absent");
-assert.ok(publicKidsDetailServiceSource.includes("hasCurrentHumanKidsVideoApproval(metadata, approvalRequest)"), "the Kids detail must fail closed when a matching human approval request is absent");
+assert.ok(publicKidsListSource.includes("hasCurrentAutomatedKidsVideoApproval(metadata, request)"), "the Kids list must fail closed when a matching automated QA approval request is absent");
+assert.ok(publicKidsDetailServiceSource.includes("hasCurrentAutomatedKidsVideoApproval(metadata, approvalRequest)"), "the Kids detail must fail closed when a matching automated QA approval request is absent");
 
 assert.ok(
   detailResolverSource.includes('requestIdState.kind === "missing"'),

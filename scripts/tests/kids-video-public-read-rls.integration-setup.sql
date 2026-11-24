@@ -116,15 +116,18 @@ VALUES
     "seasonNumber":1,
     "episodeNumber":1,
     "kidsVideoQaStatus":"passed",
-    "automatedVideoQa":{"status":"passed","snapshotHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "automatedVideoQa":{"status":"passed","engine":"zikr_video_factory","engineVersion":"2026-11-07-auto-qa-v1","reviewedAt":"2026-11-15T12:00:00.000Z","snapshotHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","checks":{"sourceVerified":true,"audioReviewed":true,"visualsReviewed":true,"captionsReviewed":true,"rightsReviewed":true}},
     "approvalStatus":"approved",
-    "approvalReviewerId":"11111111-1111-4111-8111-111111111111",
+    "approvalReviewerId":"system:zikr-video-factory",
     "approvalReviewedAt":"2026-11-15T12:00:00.000Z",
     "approvalSnapshotHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "qualityReview":{
-      "mode":"human",
-      "reviewerId":"11111111-1111-4111-8111-111111111111",
+      "mode":"automated",
+      "reviewerId":"system:zikr-video-factory",
       "reviewedAt":"2026-11-15T12:00:00.000Z",
+      "engine":"zikr_video_factory",
+      "engineVersion":"2026-11-07-auto-qa-v1",
+      "snapshotHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "sourceVerified":true,
       "audioReviewed":true,
       "visualsReviewed":true,
@@ -193,14 +196,17 @@ WITH approved_snapshot AS (
 )
 UPDATE public.videos AS video
 SET metadata = jsonb_set(
-  jsonb_set(video.metadata, '{approvalSnapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true),
-  '{automatedVideoQa,snapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true
+  jsonb_set(
+    jsonb_set(video.metadata, '{approvalSnapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true),
+    '{automatedVideoQa,snapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true
+  ),
+  '{qualityReview,snapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true
 )
 FROM approved_snapshot
 WHERE video.id = approved_snapshot.id;
 
--- These catalog rows have complete-looking human approval metadata but must
--- remain private unless the linked generation request exists and matches.
+-- These catalog rows copy complete automated QA metadata but must remain private
+-- unless the linked generation request exists and matches the exact QA snapshot.
 INSERT INTO public.videos (id, published, metadata)
 SELECT 'kids-orphan-human-approved', published,
        metadata || jsonb_build_object('videoGenerationRequestId', '10000000-0000-4000-8000-000000000002')
@@ -230,6 +236,34 @@ SELECT
   metadata - 'generatedVideoUrl' - 'videoGenerationRequestId'
 FROM public.videos
 WHERE id = 'kids-approved';
+
+INSERT INTO public.videos (id, category_id, published, metadata)
+SELECT
+  'kids-youtube-fallback',
+  category_id,
+  true,
+  jsonb_set(
+    jsonb_set(
+      jsonb_set(
+        metadata,
+        '{mediaState}',
+        '"purged"'::jsonb,
+        true
+      ),
+      '{mediaFallbackAvailable}',
+      'true'::jsonb,
+      true
+    ),
+    '{youtubePublishedVideoId}',
+    '"abcDEF12345"'::jsonb,
+    true
+  ) || jsonb_build_object(
+    'youtubePublishedUrl',
+    'https://www.youtube.com/watch?v=abcDEF12345'
+  )
+FROM public.videos
+WHERE id = 'kids-approved';
+
 
 INSERT INTO public.video_generation_requests (
   id, status, category, video_url, source_hash, content_hash, template_version, content
@@ -263,6 +297,48 @@ SELECT
   metadata - 'generatedVideoUrl' - 'videoGenerationRequestId'
 FROM public.videos
 WHERE id = 'kids-stale-category';
+
+-- A complete, source-locked human-reviewed legacy row must be migrated to the
+-- system QA identity while preserving the former reviewer in legacy audit data.
+INSERT INTO public.videos (id, category_id, published, metadata)
+SELECT
+  'kids-legacy-human-backfill',
+  category_id,
+  true,
+  jsonb_set(
+    jsonb_set(
+      metadata,
+      '{videoGenerationRequestId}',
+      '"10000000-0000-4000-8000-000000000005"'::jsonb,
+      true
+    ),
+    '{approvalReviewerId}',
+    '"22222222-2222-4222-8222-222222222222"'::jsonb,
+    true
+  ) || jsonb_build_object(
+    'qualityReview',
+    metadata->'qualityReview' || jsonb_build_object(
+      'mode', 'human',
+      'reviewerId', '22222222-2222-4222-8222-222222222222'
+    )
+  )
+FROM public.videos
+WHERE id = 'kids-approved';
+
+INSERT INTO public.video_generation_requests (
+  id, status, category, video_url, source_hash, content_hash, template_version, content
+)
+SELECT
+  '10000000-0000-4000-8000-000000000005'::uuid,
+  'completed',
+  'story',
+  metadata->>'generatedVideoUrl',
+  metadata->>'sourceHash',
+  metadata->>'contentHash',
+  metadata->>'templateVersion',
+  metadata - 'generatedVideoUrl' - 'videoGenerationRequestId'
+FROM public.videos
+WHERE id = 'kids-legacy-human-backfill';
 
 -- These four rows otherwise copy the fully approved fixture. They must remain
 -- private because request/reviewer IDs with a non-RFC version or variant are

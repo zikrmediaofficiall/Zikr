@@ -356,7 +356,7 @@ const reconcilerStart = service.indexOf("export async function reconcilePublishe
 const reconcilerEnd = service.indexOf("\nasync function syncYouTubeVideoReferenceToCatalog", reconcilerStart);
 assert.ok(reconcilerStart >= 0 && reconcilerEnd > reconcilerStart, "the catalog reconciler must be present as an isolated service path");
 const reconciler = service.slice(reconcilerStart, reconcilerEnd);
-assert.ok(reconciler.includes("checkVideoCatalogPublication(item)"), "the reconciler must revalidate the current request and human approval");
+assert.ok(reconciler.includes("checkVideoCatalogPublication(item)"), "the reconciler must revalidate the current request and automated Kids QA approval");
 assert.ok(reconciler.includes("syncKidsSocialPublicationToCatalog(item, item.metadata ?? {})"));
 assert.ok(reconciler.includes("markKidsCatalogSyncState"));
 assert.ok(reconciler.includes("hasEnoughCandidates: () => false"), "the bounded inventory must be read before row writes");

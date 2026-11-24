@@ -233,4 +233,4 @@ jobs:
         shell: bash
         run: |
           echo "Social worker finished. Only rows created on/after ${SOCIAL_PUBLISH_AFTER} are eligible."
-          echo "General videos require a current automated QA snapshot; Kids videos additionally require matching human approval before external publishing."
+          echo "General and Kids videos require a current source-locked automated QA snapshot; Kids videos also require child-safety checks and complete series metadata."

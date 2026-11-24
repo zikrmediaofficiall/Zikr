@@ -1,6 +1,5 @@
 "use client";
 
-import { hasHumanKidsVideoApproval } from "@/features/videos/services/kids-video-publication";
 import { isKidsVideoContentMarker, normalizeVideoMarker, resolveVideoRequestAudience } from "@/features/videos/services/video-audience-visibility";
 
 import Link from "next/link";
@@ -30,11 +29,16 @@ function isContentApproved(content: unknown): boolean {
   const audience = resolveVideoRequestAudience(record);
   if (!audience.ok) return false;
   return audience.audience === "kids"
-    ? hasHumanKidsVideoApproval(record)
+    ? isReadyForAutomatedKidsApproval(record)
     : record.approvalStatus === "approved";
 }
 
-function isReadyForHumanApproval(content: unknown): boolean {
+function isGeneralAudienceVideoRequest(content: unknown): boolean {
+  const audience = resolveVideoRequestAudience(content);
+  return audience.ok && audience.audience === "general";
+}
+
+function isReadyForAutomatedKidsApproval(content: unknown): boolean {
   if (!content || typeof content !== "object" || Array.isArray(content)) return false;
   const record = content as Record<string, unknown>;
   const audience = resolveVideoRequestAudience(record);
@@ -67,7 +71,9 @@ function isReadyForHumanApproval(content: unknown): boolean {
     qa.snapshotHash === snapshotHash &&
     qa.engine === "zikr_video_factory" &&
     qa.engineVersion === "2026-11-07-auto-qa-v1" &&
+    qa.reviewedAt === reviewAt &&
     review?.mode === "automated" &&
+    review.reviewerId === "system:zikr-video-factory" &&
     review.engine === "zikr_video_factory" &&
     review.engineVersion === "2026-11-07-auto-qa-v1" &&
     review.snapshotHash === snapshotHash &&
@@ -249,9 +255,8 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     return request.status === "completed" &&
       Boolean(request.video_url) &&
       !isContentApproved(request.content) &&
-      isReadyForHumanApproval(request.content) &&
       audience.ok &&
-      (audience.audience !== "kids" || canManageKids);
+      audience.audience !== "kids";
   });
   const reviewEligibleIds = new Set(reviewEligibleVisible.map((request) => request.id));
   const selectedReviewVisibleCount = reviewEligibleVisible.filter((request) => selectedReviewIds.has(request.id)).length;
@@ -330,7 +335,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       ? qaFailedAsset
         ? `هذا الفيديو مكتمل تقنيًا لكنه رُفض في فحص الجودة ولم يُنشر. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب بعد التأكد من عدم ارتباطه بأي منشور أو مكتبة. لا يمكن استعادته بعد الحذف. متابعة؟`
         : pendingReview
-          ? `هذا الفيديو مكتمل لكنه لم يحصل على اعتماد بشري بعد. سيُحذف ملفه المولّد من Cloudinary وسجل الطلب فقط بعد إثبات ملكية الملف وخلوه من أي رابط للمكتبة أو النشر. لا يمكن التراجع عن الحذف. متابعة؟`
+          ? `هذا الفيديو مكتمل لكنه لم يجتز شروط اعتماد الجودة الآلي أو لا يملك سجلًا مطابقًا. لن يُحذف ملفه إلا بعد إثبات ملكيته وخلوه من أي رابط للمكتبة أو النشر. لا يمكن التراجع عن الحذف. متابعة؟`
           : duplicateRender
             ? `سيُحذف ملف النسخة المكررة ${request.title} نهائيًا من Cloudinary ثم سجلها، بعد التحقق من عدم ارتباطها بالمكتبة أو أي منشور. سيبقى الفيديو الأصلي المكتمل كما هو. متابعة؟`
             : `الطلب ${request.status === "failed" ? "فشل" : "أُلغي"} وما زال له ملف مولّد غير مرتبط بالنشر. سيُحذف الملف من Cloudinary وسجل الطلب بعد فحص الملكية والمراجع. متابعة؟`
@@ -409,7 +414,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   async function approveSelectedForPublishing() {
     const selected = reviewEligibleVisible.filter((request) => selectedReviewIds.has(request.id));
     if (!selected.length || busyId || APPROVAL_CHECKS.some((check) => !batchApprovalChecks[check.key])) return;
-    if (!window.confirm(`تأكيد أنك شاهدت وراجعت كل فيديو محدد كاملًا، واستمعت للصوت، وراجعت المصدر والترجمة والحقوق؟ سيتم إرسال ${selected.length} طلب اعتماد فرديًا عبر فحوص الجودة الحالية. لن يتم تجاوز أي فحص آلي أو شرط خاص بفيديوهات الأطفال.`)) return;
+    if (!window.confirm(`تأكيد أنك شاهدت وراجعت كل فيديو عام محدد كاملًا، واستمعت للصوت، وراجعت المصدر والترجمة والحقوق؟ سيتم إرسال ${selected.length} طلب اعتماد فرديًا. فيديوهات الأطفال لا تدخل هذا المسار؛ اعتمادها آلي فقط.`)) return;
 
     setError(""); setMessage("");
     const approved: string[] = [];
@@ -433,7 +438,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     setBusyId(null);
     setSelectedReviewIds(new Set());
     setBatchApprovalChecks({ sourceVerified: false, audioReviewed: false, visualsReviewed: false, captionsReviewed: false, rightsReviewed: false });
-    setMessage(`تم اعتماد ${approved.length} من ${selected.length} فيديو بعد إرسالها منفردة إلى مسار الاعتماد الرسمي.${failures.length ? ` تعذر اعتماد ${failures.length} فيديو؛ راجع التفاصيل أدناه.` : ""}`);
+    setMessage(`تم اعتماد ${approved.length} من ${selected.length} فيديو عام بعد إرسالها منفردة إلى مسار الاعتماد الرسمي.${failures.length ? ` تعذر اعتماد ${failures.length} فيديو؛ راجع التفاصيل أدناه.` : ""}`);
     if (failures.length) setError(failures.join("\n"));
     await load();
   }
@@ -483,7 +488,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       const responseData = await response.json().catch(() => ({}));
       if (!response.ok && responseData.error === "step_up_required" && redirectToAdminStepUp(responseData.nextPath)) return;
       if (!response.ok) throw new Error(responseData.error || "تعذر اعتماد الفيديو للنشر.");
-      setMessage("تم تسجيل الاعتماد البشري. سيُعاد فحص الفيديو قبل إدخاله إلى طوابير النشر المجدولة؛ لا يحدث نشر فوري.");
+      setMessage("تم تسجيل مراجعة الفيديو العام. سيُعاد فحص المصدر والوسائط قبل أي نشر مجدول؛ فيديوهات الأطفال تعتمد آليًا فقط.");
       setDetails(null); await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر اعتماد الفيديو للنشر.");
@@ -708,9 +713,9 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>التفاصيل</Button>
                   {request.status === "completed" && request.video_url && !isContentApproved(request.content) &&
-                    isReadyForHumanApproval(request.content) && (
+                    isGeneralAudienceVideoRequest(request.content) && (
                       <Button variant="primary" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>
-                        مراجعة واعتماد
+                        مراجعة واعتماد الفيديو العام
                       </Button>
                     )}
                   {request.status === "failed" && (() => {
@@ -828,19 +833,19 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
             {details.status === "completed" && details.video_url && (
               <section className="mt-6 space-y-4 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-5">
                 {isContentApproved(details.content) ? (
-                  <div role="status" className="font-semibold text-emerald-200">تم تسجيل الاعتماد البشري؛ سيُعاد التحقق من الفيديو قبل أي نشر مجدول.</div>
-                ) : !isReadyForHumanApproval(details.content) ? (
-                  <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
-                    لا يمكن تسجيل اعتماد بشري قبل نجاح فحص الجودة الآلي ووجود بصمة مصدر وفيديو مطابقة. لم يتم تجاوز أي فحص؛ أعد تجهيز الطلب أو أصلح سبب توقف فحص الجودة أولًا.
+                  <div role="status" className="font-semibold text-emerald-200">
+                    {isKidsVideoContent(details.content)
+                      ? "اجتاز فيديو الأطفال فحوص الجودة الآلية الخمسة وفحص أمان الأطفال وتطابقت بصمة المصدر والوسائط؛ لا يحتاج اعتمادًا بشريًا."
+                      : "سجل اعتماد الفيديو العام مكتمل؛ سيُعاد التحقق من المصدر والوسائط قبل النشر."}
                   </div>
-                ) : isKidsVideoContent(details.content) && !canManageKids ? (
+                ) : isKidsVideoContent(details.content) ? (
                   <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
-                    اعتماد فيديوهات الأطفال يتطلب صلاحية إدارة محتوى الأطفال بالإضافة إلى صلاحية إدارة الفيديوهات. يمكنك مراجعة التفاصيل، لكن لا يمكنك تسجيل الاعتماد.
+                    فيديو الأطفال ينتظر اجتياز فحوص الجودة الآلية الخمسة وفحص أمان الأطفال وبيانات السلسلة وبصمة المصدر. لن يظهر زر اعتماد يدوي؛ سيُنشر فقط بعد نجاح الفحوص تلقائيًا.
                   </div>
                 ) : (
                   <>
-                    <h3 className="text-lg font-bold text-brand-gold">{isKidsVideoContent(details.content) ? "مراجعة بشرية إلزامية لفيديو الأطفال" : "مراجعة إلزامية قبل النشر العام"}</h3>
-                    <p className="text-sm leading-6 text-brand-cream/60">{isKidsVideoContent(details.content) ? "اجتياز الفحص الآلي لا يراجع الإطارات فعليًا. شاهد الفيديو كاملًا واستمع إلى الصوت وسجّل اعتمادًا بشريًا موثقًا قبل النشر الخارجي." : "شاهد الفيديو كاملًا واستمع إلى الصوت. لن يُنشر هذا الفيديو اجتماعيًا قبل إكمال جميع الفحوص وتسجيل الاعتماد."}</p>
+                    <h3 className="text-lg font-bold text-brand-gold">مراجعة واعتماد الفيديو العام</h3>
+                    <p className="text-sm leading-6 text-brand-cream/60">شاهد الفيديو كاملًا واستمع إلى الصوت، ثم استكمل الفحوص اللازمة قبل تسجيل الاعتماد.</p>
                     <div className="space-y-3">
                       {APPROVAL_CHECKS.map((check) => (
                         <label key={check.key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-brand-gold/10 bg-black/15 p-3 text-sm leading-6 text-brand-cream/80">

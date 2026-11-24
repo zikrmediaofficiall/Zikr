@@ -1,5 +1,4 @@
-import { hasHumanKidsVideoApproval } from "../../videos/services/kids-video-publication";
-import { hasCompleteKidsVideoSeriesMetadata } from "../../videos/services/video-publish-approval";
+import { hasCompleteKidsVideoSeriesMetadata, isAutomatedKidsVideoApprovalRecorded } from "../../videos/services/video-publish-approval";
 import { normalizeVideoAudience, normalizeVideoMarker } from "../../videos/services/video-audience-visibility";
 
 export type VideoCatalogPublicationDecision =
@@ -56,7 +55,7 @@ function isTrustedCloudinaryVideoUrl(value: string): boolean {
  * Social publishing must not race the site's content-publishing queue. A
  * generated video is eligible only after its catalog row is public and its
  * durable media/QA metadata still matches the queue item. Kids require both
- * automated QA markers and a separate matching human review before external delivery.
+ * automated QA markers and a matching source-locked automated QA approval before external delivery.
  */
 export function evaluateVideoCatalogPublication(
   input: VideoCatalogPublicationInput,
@@ -123,8 +122,8 @@ export function evaluateVideoCatalogPublication(
     if (normalizeVideoMarker(input.queueKidsContentQaStatus) !== "passed" || normalizeVideoMarker(metadata.kidsVideoQaStatus) !== "passed") {
       return { status: "blocked", reason: "Kids video QA is not passed in both the queue and public catalog." };
     }
-    if (!hasHumanKidsVideoApproval(metadata, expectedApprovalSnapshotHash)) {
-      return { status: "blocked", reason: "Kids videos require a matching human review record before external publishing." };
+    if (!isAutomatedKidsVideoApprovalRecorded(metadata, expectedApprovalSnapshotHash)) {
+      return { status: "blocked", reason: "Kids videos require a complete automated QA approval bound to the current media fingerprint." };
     }
     if (!hasCompleteKidsVideoSeriesMetadata(metadata)) {
       return { status: "blocked", reason: "Kids video series metadata is incomplete in the public catalog." };

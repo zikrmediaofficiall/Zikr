@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
 import { hasExplicitKidsVideoIntentMarker, isGeneralAudienceVideoMetadata, isKidsVideoContentMarker, normalizeVideoAudience } from "../../src/features/videos/services/video-audience-visibility";
 import { isKidsVideoGenerationRequestContent } from "../../src/features/kids/services/kids-video-request-visibility";
-import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isHumanVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, resolveKidsVideoQaStatusForApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
+import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isAutomatedKidsVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, resolveKidsVideoQaStatusForApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
 assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
 assert.equal(hasSuspiciousReligiousAttribution("قَالَ رَسُولُ اللَّهِ ﷺ"), true, "Arabic diacritics must not bypass attribution detection");
@@ -78,12 +78,19 @@ assert.equal(isVideoQueueItemApprovedForPublishing(queueItem), true);
 const kidsSnapshot = { ...snapshot, audience: "kids", kidsVideoQaStatus: "passed" };
 const kidsSnapshotHash = buildVideoApprovalSnapshotHash(kidsSnapshot);
 assert.equal(typeof kidsSnapshotHash, "string");
+const kidsAutomatedApproval = createAutomatedVideoQaApproval({
+  snapshot: kidsSnapshot,
+  checks,
+  reviewedAt: now,
+});
+assert.ok(kidsAutomatedApproval, "a complete source-locked Kids QA result must create the automatic approval fixture");
 assert.equal(hasCompleteKidsVideoSeriesMetadata(null), false, "null Kids metadata must fail closed");
 assert.equal(hasCompleteKidsVideoSeriesMetadata("kids"), false, "primitive Kids metadata must fail closed");
-assert.equal(isHumanVideoApprovalRecorded(null, kidsSnapshotHash), false, "null human-review metadata must fail closed");
+assert.equal(isAutomatedKidsVideoApprovalRecorded(null, kidsSnapshotHash), false, "null automated Kids QA metadata must fail closed");
 assert.equal(buildVideoApprovalSnapshotHash({ ...kidsSnapshot, kidsVideoQaStatus: "blocked" }), null);
 const completeKidsContent = {
   ...content,
+  ...kidsAutomatedApproval,
   approvalSnapshotHash: kidsSnapshotHash,
   audience: "kids",
   kidsVideoQaStatus: "passed",
@@ -268,11 +275,6 @@ assert.equal(isVideoQueueItemApprovedForPublishing({
     },
   },
 }), false);
-const kidsAutomatedApproval = createAutomatedVideoQaApproval({
-  snapshot: kidsSnapshot,
-  checks,
-  reviewedAt: now,
-});
 assert.equal(kidsAutomatedApproval?.kidsVideoQaStatus, "passed");
 assert.equal(kidsAutomatedApproval?.approvalSnapshotHash, kidsSnapshotHash);
 assert.notEqual(buildVideoApprovalSnapshotHashForRequest(request), kidsSnapshotHash,
@@ -286,33 +288,35 @@ const kidsAutomatedQueueItem = {
 };
 assert.equal(isVideoApprovalRecorded(kidsAutomatedContent, kidsSnapshotHash), true,
   "automated Kids QA remains a valid internal screening record");
-assert.equal(isHumanVideoApprovalRecorded(kidsAutomatedContent, kidsSnapshotHash), false,
-  "the system QA identity must never count as a human Kids review");
+assert.equal(isAutomatedKidsVideoApprovalRecorded(kidsAutomatedContent, kidsSnapshotHash), true,
+  "the system QA approval is valid when all five checks and the current fingerprint pass");
+assert.equal(isAutomatedKidsVideoApprovalRecorded(kidsAutomatedContent, kidsSnapshotHash), true,
+  "Kids publication uses the system-authored automated QA record, not a human reviewer identity");
 assert.equal(inspectVideoQueueItemApproval(kidsAutomatedQueueItem).approved, true,
-  "the internal website publication gate retains its existing automated-QA policy");
-assert.equal(inspectVideoQueueItemExternalApproval(kidsAutomatedQueueItem).approved, false,
-  "Kids videos must not be sent to external platforms on automated QA alone");
-assert.match(inspectVideoQueueItemExternalApproval(kidsAutomatedQueueItem).reason ?? "", /اعتماد بشري موثق/);
-assert.equal(isVideoQueueItemApprovedForPublishing(kidsAutomatedQueueItem), false);
-const humanApprovedKidsContent = {
+  "the internal website publication gate accepts complete automated QA");
+assert.equal(inspectVideoQueueItemExternalApproval(kidsAutomatedQueueItem).approved, true,
+  "Kids videos may publish externally after complete source-locked automated QA without human approval");
+assert.equal(isVideoQueueItemApprovedForPublishing(kidsAutomatedQueueItem), true);
+assert.equal(isAutomatedKidsVideoApprovalRecorded({
   ...kidsAutomatedContent,
-  approvalReviewerId: "admin-user-1",
-  approvalReviewedAt: now,
-  qualityReview: { ...checks, reviewedAt: now, mode: "human", reviewerId: "admin-user-1" },
-};
-assert.equal(isHumanVideoApprovalRecorded(humanApprovedKidsContent, kidsSnapshotHash), true);
+  automatedVideoQa: { ...(kidsAutomatedContent.automatedVideoQa as Record<string, unknown>), checks: { ...checks, rightsReviewed: false } },
+}, kidsSnapshotHash), false, "missing rights QA must fail closed");
+assert.equal(isAutomatedKidsVideoApprovalRecorded({
+  ...kidsAutomatedContent,
+  qualityReview: { ...(kidsAutomatedContent.qualityReview as Record<string, unknown>), reviewedAt: "2026-11-13T12:00:00.000Z" },
+}, kidsSnapshotHash), false, "an automated review timestamp different from the approval timestamp must fail closed");
+assert.equal(isAutomatedKidsVideoApprovalRecorded({
+  ...kidsAutomatedContent,
+  automatedVideoQa: { ...(kidsAutomatedContent.automatedVideoQa as Record<string, unknown>), reviewedAt: "2026-11-13T12:00:00.000Z" },
+}, kidsSnapshotHash), false, "an automated QA timestamp different from the approval timestamp must fail closed");
 assert.equal(isVideoQueueItemApprovedForPublishing({
   ...kidsQueueItem,
-  request: { ...request, content: humanApprovedKidsContent },
-}), true, "a matching human review must release the Kids video for external publishing");
+  request: { ...request, content: { ...kidsAutomatedContent, approvalSnapshotHash: "b".repeat(64) } },
+}), false, "a stale QA fingerprint must block Kids publishing");
 assert.equal(isVideoQueueItemApprovedForPublishing({
   ...kidsQueueItem,
-  request: { ...request, content: { ...humanApprovedKidsContent, qualityReview: { ...humanApprovedKidsContent.qualityReview, reviewerId: "different-admin" } } },
-}), false, "a mismatched human reviewer marker must fail closed");
-assert.equal(isVideoQueueItemApprovedForPublishing({
-  ...kidsQueueItem,
-  request: { ...request, content: { ...humanApprovedKidsContent, approvalReviewerId: "system:zikr-video-factory" } },
-}), false, "the automated QA identity must not impersonate a human reviewer");
+  request: { ...request, content: { ...kidsAutomatedContent, automatedVideoQa: { ...(kidsAutomatedContent.automatedVideoQa as Record<string, unknown>), engineVersion: "old-version" } } },
+}), false, "an outdated Kids QA engine must fail closed");
 assert.equal(createAutomatedVideoQaApproval({
   snapshot: { ...kidsSnapshot, kidsVideoQaStatus: "blocked" },
   checks,
@@ -330,6 +334,7 @@ assert.equal(createAutomatedVideoQaApproval({
 }), null);
 
 const catalogMetadata = {
+  ...(kidsAutomatedApproval ?? {}),
   generator: "zikr_internal_video_factory",
   videoGenerationRequestId: "request-1",
   generatedVideoUrl: snapshot.videoUrl,
@@ -338,7 +343,7 @@ const catalogMetadata = {
   templateVersion: snapshot.templateVersion,
   audience: "kids",
   kidsVideoQaStatus: "passed",
-  automatedVideoQa: { status: "passed", snapshotHash: kidsSnapshotHash },
+  automatedVideoQa: kidsAutomatedApproval?.automatedVideoQa,
   sourceType: "original_kids_fiction",
   contentFormat: "series_episode",
   aiMode: "original_kids_story",
@@ -348,9 +353,10 @@ const catalogMetadata = {
   seasonNumber: 1,
   episodeNumber: 2,
   approvalSnapshotHash: kidsSnapshotHash,
-  mediaState: "active",
+  mediaState: "cloudinary_master",
   storyText: "قصة تعليمية محفوظة كما هي",
 };
+const catalogMetadataBeforeApproval = JSON.stringify(catalogMetadata);
 const catalogRequestContent = {
   ...completeKidsContent,
   ...kidsAutomatedApproval,
@@ -459,7 +465,7 @@ assert.equal(buildVideoCatalogApprovalPatch({
   requestContent: { ...legacyRequestContent, kidsVideoQaStatus: "passed" },
 }), null, "conflicting catalog series metadata must fail closed");
 
-assert.equal(Object.prototype.hasOwnProperty.call(catalogMetadata, "approvalStatus"), false, "catalog approval must not mutate the caller's metadata object");
+assert.equal(JSON.stringify(catalogMetadata), catalogMetadataBeforeApproval, "catalog metadata remains unchanged after approval patch construction");
 assert.equal(buildVideoCatalogApprovalPatch({
   ...catalogApprovalInput,
   metadata: { ...catalogMetadata, videoGenerationRequestId: "different-request" },
@@ -516,29 +522,29 @@ const normalizedKidsSnapshotHash = buildVideoApprovalSnapshotHash({
 });
 assert.equal(normalizedKidsSnapshotHash, kidsSnapshotHash);
 
-const normalizedHumanKidsContent = {
-  ...humanApprovedKidsContent,
+const normalizedAutomatedKidsContent = {
+  ...kidsAutomatedContent,
   audience: " KIDS ",
   sourceType: " ORIGINAL_KIDS_FICTION ",
   aiMode: " ORIGINAL_KIDS_STORY ",
   contentFormat: " SERIES_EPISODE ",
 };
-assert.equal(hasCompleteKidsVideoSeriesMetadata(normalizedHumanKidsContent), true);
-assert.equal(isHumanVideoApprovalRecorded(normalizedHumanKidsContent, kidsSnapshotHash), true);
+assert.equal(hasCompleteKidsVideoSeriesMetadata(normalizedAutomatedKidsContent), true);
+assert.equal(isAutomatedKidsVideoApprovalRecorded(normalizedAutomatedKidsContent, kidsSnapshotHash), true);
 assert.equal(
   inspectVideoQueueItemExternalApproval({
     ...kidsQueueItem,
-    request: { ...request, content: normalizedHumanKidsContent },
+    request: { ...request, content: normalizedAutomatedKidsContent },
   }).approved,
   true,
-  "normalized Kids markers must preserve a valid matching human review",
+  "normalized Kids markers must preserve a valid matching source-locked automated QA approval",
 );
 
 const unknownAudienceQueueItem = {
   ...kidsQueueItem,
   request: {
     ...request,
-    content: { ...humanApprovedKidsContent, audience: "family" },
+    content: { ...kidsAutomatedContent, audience: "family" },
   },
 };
 assert.equal(
@@ -596,8 +602,20 @@ const createKidsPermissionGuard = adminVideoCreateRoute.slice(createKidsPermissi
 assert.ok(createKidsPermissionGuard.includes('requireAdminApi("kids.manage")'), "Kids generation must require the separate Kids permission");
 assert.ok(createKidsPermissionGuard.includes("kidsAuth.profile.id !== auth.profile.id"), "Kids permission must belong to the same authenticated admin");
 
-assert.match(adminVideoGenerationRoute, /resolveKidsVideoQaStatusForApproval/);
-assert.match(adminVideoGenerationRoute, /requestContent: currentContent/);
-assert.match(adminVideoGenerationRoute, /kidsVideoQaStatus: verifiedKidsVideoQaStatus/);
+const manualKidsApprovalGuard = adminVideoGenerationRoute.indexOf("KIDS_AUTOMATED_QA_ONLY");
+const manualKidsApprovalCatalogLookup = adminVideoGenerationRoute.indexOf("const catalogSlug =", manualKidsApprovalGuard);
+const manualKidsApprovalRpc = adminVideoGenerationRoute.indexOf("admin_approve_video_generation_request", manualKidsApprovalGuard);
+assert.ok(
+  manualKidsApprovalGuard >= 0 &&
+    adminVideoGenerationRoute.includes("status: 410") &&
+    manualKidsApprovalCatalogLookup > manualKidsApprovalGuard &&
+    manualKidsApprovalRpc > manualKidsApprovalGuard,
+  "manual Kids approval must be rejected before catalog mutation or the atomic approval RPC",
+);
+assert.ok(
+  !adminVideoGenerationRoute.includes("verifiedKidsVideoQaStatus") &&
+    !adminVideoGenerationRoute.includes("kidsVideoQaStatus: verifiedKidsVideoQaStatus"),
+  "Kids approval must come only from the automated worker, not a manual API review",
+);
 
 console.log("Video publishing approval contract passed.");

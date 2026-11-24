@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { isKidsVideoContentMarker, normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
-import { hasHumanKidsVideoApproval } from "./kids-video-publication";
 
 export const REQUIRED_VIDEO_APPROVAL_CHECKS = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"] as const;
 export type VideoApprovalCheck = (typeof REQUIRED_VIDEO_APPROVAL_CHECKS)[number];
@@ -9,6 +8,33 @@ export type VideoApprovalChecklist = Record<VideoApprovalCheck, boolean>;
 export const AUTOMATED_VIDEO_QA_ENGINE = "zikr_video_factory";
 export const AUTOMATED_VIDEO_QA_VERSION = "2026-11-07-auto-qa-v1";
 export const AUTOMATED_VIDEO_QA_REVIEWER_ID = "system:zikr-video-factory";
+
+export type AutomatedVideoQaRecord = {
+  status: "passed";
+  engine: typeof AUTOMATED_VIDEO_QA_ENGINE;
+  engineVersion: typeof AUTOMATED_VIDEO_QA_VERSION;
+  reviewedAt: string;
+  snapshotHash: string;
+  checks: VideoApprovalChecklist;
+  missingChecks: [];
+};
+
+export type AutomatedVideoQaApproval = {
+  approvalStatus: "approved";
+  approvalReviewerId: typeof AUTOMATED_VIDEO_QA_REVIEWER_ID;
+  approvalReviewedAt: string;
+  approvalSnapshotHash: string;
+  qualityReview: VideoApprovalChecklist & {
+    reviewedAt: string;
+    mode: "automated";
+    reviewerId: typeof AUTOMATED_VIDEO_QA_REVIEWER_ID;
+    engine: typeof AUTOMATED_VIDEO_QA_ENGINE;
+    engineVersion: typeof AUTOMATED_VIDEO_QA_VERSION;
+    snapshotHash: string;
+  };
+  kidsVideoQaStatus?: "passed";
+  automatedVideoQa: AutomatedVideoQaRecord;
+};
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
@@ -138,7 +164,7 @@ export function createAutomatedVideoQaApproval(input: {
   snapshot: VideoApprovalSnapshot;
   checks: VideoApprovalChecklist;
   reviewedAt?: string;
-}): Record<string, unknown> | null {
+}): AutomatedVideoQaApproval | null {
   const snapshotHash = buildVideoApprovalSnapshotHash(input.snapshot);
   const reviewedAt = input.reviewedAt ?? new Date().toISOString();
   if (
@@ -147,13 +173,23 @@ export function createAutomatedVideoQaApproval(input: {
     !Number.isFinite(Date.parse(reviewedAt))
   ) return null;
 
-  const qualityReview = {
+  const qualityReview: AutomatedVideoQaApproval["qualityReview"] = {
     ...input.checks,
     reviewedAt,
     mode: "automated",
+    reviewerId: AUTOMATED_VIDEO_QA_REVIEWER_ID,
     engine: AUTOMATED_VIDEO_QA_ENGINE,
     engineVersion: AUTOMATED_VIDEO_QA_VERSION,
     snapshotHash,
+  };
+  const automatedVideoQa: AutomatedVideoQaRecord = {
+    status: "passed",
+    engine: AUTOMATED_VIDEO_QA_ENGINE,
+    engineVersion: AUTOMATED_VIDEO_QA_VERSION,
+    reviewedAt,
+    snapshotHash,
+    checks: input.checks,
+    missingChecks: [],
   };
   return {
     approvalStatus: "approved",
@@ -161,16 +197,8 @@ export function createAutomatedVideoQaApproval(input: {
     approvalReviewedAt: reviewedAt,
     approvalSnapshotHash: snapshotHash,
     qualityReview,
-    ...(normalizeVideoAudience(input.snapshot.audience) === "kids" ? { kidsVideoQaStatus: "passed" } : {}),
-    automatedVideoQa: {
-      status: "passed",
-      engine: AUTOMATED_VIDEO_QA_ENGINE,
-      engineVersion: AUTOMATED_VIDEO_QA_VERSION,
-      reviewedAt,
-      snapshotHash,
-      checks: input.checks,
-      missingChecks: [],
-    },
+    ...(normalizeVideoAudience(input.snapshot.audience) === "kids" ? { kidsVideoQaStatus: "passed" as const } : {}),
+    automatedVideoQa,
   };
 }
 
@@ -299,8 +327,26 @@ export function isVideoApprovalRecorded(content: unknown, expectedSnapshotHash: 
   return true;
 }
 
-export function isHumanVideoApprovalRecorded(content: unknown, expectedSnapshotHash: string | null): boolean {
-  return hasHumanKidsVideoApproval(content, expectedSnapshotHash) && isVideoApprovalRecorded(content, expectedSnapshotHash);
+export function isAutomatedKidsVideoApprovalRecorded(content: unknown, expectedSnapshotHash: string | null): boolean {
+  const data = record(content);
+  const review = record(data?.qualityReview);
+  const automated = record(data?.automatedVideoQa);
+  return normalizeVideoAudience(data?.audience, false) === "kids" &&
+    normalizeVideoMarker(data?.kidsVideoQaStatus) === "passed" &&
+    data?.approvalReviewerId === AUTOMATED_VIDEO_QA_REVIEWER_ID &&
+    isVideoApprovalRecorded(data, expectedSnapshotHash) &&
+    review?.mode === "automated" &&
+    review.reviewerId === AUTOMATED_VIDEO_QA_REVIEWER_ID &&
+    review.reviewedAt === data?.approvalReviewedAt &&
+    automated?.reviewedAt === data?.approvalReviewedAt &&
+    review.engine === AUTOMATED_VIDEO_QA_ENGINE &&
+    review.engineVersion === AUTOMATED_VIDEO_QA_VERSION &&
+    review.snapshotHash === expectedSnapshotHash &&
+    automated?.status === "passed" &&
+    automated.engine === AUTOMATED_VIDEO_QA_ENGINE &&
+    automated.engineVersion === AUTOMATED_VIDEO_QA_VERSION &&
+    automated.snapshotHash === expectedSnapshotHash &&
+    hasCompleteVideoApprovalChecklist(automated.checks);
 }
 
 export type VideoPublishRequestSnapshot = {
@@ -426,12 +472,12 @@ export function inspectVideoQueueItemExternalApproval(input: {
     reason: "بصمة مراجعة فيديو الأطفال غير مكتملة؛ تم إيقاف النشر الخارجي.",
     missingChecks: [],
   };
-  if (isHumanVideoApprovalRecorded(content, snapshotHash)) return diagnostics;
+  if (isAutomatedKidsVideoApprovalRecorded(content, snapshotHash)) return diagnostics;
 
   return {
     ...diagnostics,
     approved: false,
-    reason: "اجتاز فيديو الأطفال فحص الجودة الآلي فقط؛ يلزم اعتماد بشري موثق قبل النشر الخارجي.",
+    reason: "فيديو الأطفال لم يجتز اعتماد الجودة الآلي الكامل أو لا تطابق بصمته ملف الفيديو الحالي.",
     missingChecks: [],
   };
 }

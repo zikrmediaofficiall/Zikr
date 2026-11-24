@@ -7,7 +7,7 @@ import { loadKidsSocialQueueRows, type KidsSocialQueueRow } from "@/features/soc
 import { resolveKidsVideoPublicDisclosure } from "@/features/videos/services/video-source-contract";
 import {
   buildVideoApprovalSnapshotHashForRequest,
-  isHumanVideoApprovalRecorded,
+  isAutomatedKidsVideoApprovalRecorded,
   resolveKidsVideoQaStatusForApproval,
   type VideoPublishRequestSnapshot,
 } from "@/features/videos/services/video-publish-approval";
@@ -27,7 +27,7 @@ function confirmedSocialPlatforms(row: KidsSocialQueueRow): string[] {
 export async function GET() {
   try {
     // The service enforces published=true, Kids automated QA, a matching current
-    // generation-request fingerprint, a distinct human review, and playable media.
+    // generation-request fingerprint, a matching automated QA approval, and playable media.
     const videos = await getKidsGeneratedVideos(60);
     const requestIds = [...new Set(videos.flatMap((video) => {
       const state = classifyKidsVideoGenerationRequestId(video.metadata?.videoGenerationRequestId);
@@ -64,7 +64,7 @@ export async function GET() {
         const snapshotHash = buildVideoApprovalSnapshotHashForRequest(row);
         if (!isKidsVideoGenerationRequestContent(content) ||
             !snapshotHash ||
-            !isHumanVideoApprovalRecorded(content, snapshotHash)) continue;
+            !isAutomatedKidsVideoApprovalRecorded(content, snapshotHash)) continue;
         requestById.set(row.id, row);
       }
       for (const row of socialRows ?? []) {
@@ -85,8 +85,8 @@ export async function GET() {
       const approvedCatalogSnapshot = Boolean(
         request &&
         snapshotHash &&
-        isHumanVideoApprovalRecorded(requestContent, snapshotHash) &&
-        isHumanVideoApprovalRecorded(metadata, snapshotHash) &&
+        isAutomatedKidsVideoApprovalRecorded(requestContent, snapshotHash) &&
+        isAutomatedKidsVideoApprovalRecorded(metadata, snapshotHash) &&
         metadata.approvalSnapshotHash === snapshotHash &&
         metadata.approvalReviewerId === requestContent.approvalReviewerId &&
         metadata.approvalReviewedAt === requestContent.approvalReviewedAt &&

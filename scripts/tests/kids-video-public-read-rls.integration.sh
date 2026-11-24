@@ -39,6 +39,7 @@ psql=(docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U postgres -d zi
 "${psql[@]}" -f /workspace/supabase/migrations/20261116043000_restrict_public_video_reads_from_kids_markers.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261116045100_require_linked_request_for_public_kids_videos.sql
 "${psql[@]}" -f /workspace/supabase/migrations/20261116123500_enforce_kids_category_video_read_approval.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261124190000_allow_automated_kids_video_publication.sql
 "${psql[@]}" -f /workspace/scripts/tests/kids-video-public-read-rls.integration.sql
 
 echo "Public video audience RLS integration passed."

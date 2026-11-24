@@ -168,7 +168,8 @@ if (
   !kidsWorker.includes("REQUIRED_VIDEO_APPROVAL_CHECKS.every((key) => qaChecks[key] === true)") ||
   !kidsWorker.includes("createAutomatedVideoQaApproval") ||
   !videoApproval.includes("!hasCompleteVideoApprovalChecklist(input.checks)") ||
-  !videoApproval.includes('...(normalizeVideoAudience(input.snapshot.audience) === "kids" ? { kidsVideoQaStatus: "passed" } : {})') ||
+  !videoApproval.includes('normalizeVideoAudience(input.snapshot.audience) === "kids"') ||
+  !videoApproval.includes('kidsVideoQaStatus: "passed"') ||
   !videoApproval.includes('normalizeVideoMarker(snapshot.kidsVideoQaStatus) !== "passed"')
 ) {
   failures.push("Kids videos must persist the reviewed kidsVideoQaStatus only after the complete automated QA checklist passes");

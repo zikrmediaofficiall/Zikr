@@ -58,14 +58,19 @@ if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)")) {
 }
 
 const generation = read("src/app/api/admin/video-generation/route.ts");
+const manualApprovalStart = generation.indexOf("if (action === 'approve_publish')");
+const manualApprovalEnd = generation.indexOf('if (action === "retry_publish")', manualApprovalStart);
+const manualApprovalBlock = manualApprovalStart >= 0 && manualApprovalEnd > manualApprovalStart
+  ? generation.slice(manualApprovalStart, manualApprovalEnd)
+  : "";
 if (
-  !generation.includes("resolveKidsVideoQaStatusForApproval") ||
-  !generation.includes("verifiedKidsVideoQaStatus !== 'passed'") ||
-  !generation.includes("catalogMetadata: catalog.metadata") ||
-  !generation.includes("requestContent: currentContent") ||
-  !generation.includes("hasCompleteKidsVideoSeriesMetadata(currentContent)")
+  !manualApprovalBlock.includes("KIDS_AUTOMATED_QA_ONLY") ||
+  !manualApprovalBlock.includes("if (audience === 'kids')") ||
+  !manualApprovalBlock.includes("status: 410") ||
+  (manualApprovalBlock.includes("admin_approve_video_generation_request") &&
+    manualApprovalBlock.indexOf("KIDS_AUTOMATED_QA_ONLY") > manualApprovalBlock.indexOf("admin_approve_video_generation_request"))
 ) {
-  failures.push("manual video approval must bind Kids QA to the matching catalog fingerprint and complete series metadata");
+  failures.push("manual Kids approval must be rejected before the atomic approval RPC; only the worker may persist system QA approval");
 }
 const generationGet = generation.match(/export async function GET\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
 const generationDelete = generation.match(/export async function DELETE\([\s\S]*?(?=export async function PATCH|$)/)?.[0] ?? "";
@@ -404,11 +409,11 @@ if (!generationWorkflow.includes('AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"'
   failures.push("new video candidates must use a complete automated QA snapshot instead of a manual approval gate");
 }
 if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)") ||
-    !socialPublishing.includes("Video held because automated QA or Kids human review is missing, incomplete or stale.") ||
+    !socialPublishing.includes("Video held because automated QA, Kids safety, source provenance, or the current media fingerprint is missing, incomplete or stale.") ||
     !socialPublishing.includes("Video approval lookup failed; holding video item") ||
     !approvalHelper.includes("inspectVideoQueueItemExternalApproval") ||
-    !approvalHelper.includes("isHumanVideoApprovalRecorded")) {
-  failures.push("the separate social worker must fail closed, revalidate current automated QA, and require human review for Kids videos before provider calls");
+    !approvalHelper.includes("isAutomatedKidsVideoApprovalRecorded")) {
+  failures.push("the social worker must fail closed and revalidate source-locked automated QA, Kids safety, and the current media fingerprint before provider calls");
 }
 if (!worker.includes("!isTemplatePreview &&") || !worker.includes("!boundTemplate &&")) failures.push("pinned template renders must not be handed to external video providers");
 for (const [path, destinations] of [
