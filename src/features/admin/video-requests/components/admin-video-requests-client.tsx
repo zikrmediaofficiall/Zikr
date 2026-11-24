@@ -28,28 +28,9 @@ function isContentApproved(content: unknown): boolean {
   const record = content as Record<string, unknown>;
   const audience = resolveVideoRequestAudience(record);
   if (!audience.ok) return false;
-  if (audience.audience !== "kids") return record.approvalStatus === "approved";
-  const qa = record.automatedVideoQa && typeof record.automatedVideoQa === "object" && !Array.isArray(record.automatedVideoQa)
-    ? record.automatedVideoQa as Record<string, unknown> : null;
-  const review = record.qualityReview && typeof record.qualityReview === "object" && !Array.isArray(record.qualityReview)
-    ? record.qualityReview as Record<string, unknown> : null;
-  const snapshotHash = typeof record.approvalSnapshotHash === "string" ? record.approvalSnapshotHash : "";
-  const checks = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"];
-  return record.approvalStatus === "approved" &&
-    record.approvalReviewerId === "system:zikr-video-factory" &&
-    /^[a-f0-9]{64}$/i.test(snapshotHash) &&
-    record.kidsVideoQaStatus === "passed" &&
-    qa?.status === "passed" &&
-    qa.engine === "zikr_video_factory" &&
-    qa.engineVersion === "2026-11-07-auto-qa-v1" &&
-    qa.snapshotHash === snapshotHash &&
-    review?.mode === "automated" &&
-    review.reviewerId === "system:zikr-video-factory" &&
-    review.engine === "zikr_video_factory" &&
-    review.engineVersion === "2026-11-07-auto-qa-v1" &&
-    review.snapshotHash === snapshotHash &&
-    review.reviewedAt === record.approvalReviewedAt &&
-    checks.every((key) => (qa.checks as Record<string, unknown> | null)?.[key] === true && review[key] === true);
+  return audience.audience === "kids"
+    ? isReadyForAutomatedKidsApproval(record)
+    : record.approvalStatus === "approved";
 }
 
 function isReadyForAutomatedKidsApproval(content: unknown): boolean {
@@ -850,7 +831,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                   <div role="status" className="font-semibold text-emerald-200">اجتاز الفيديو فحوص الجودة الآلية الخمسة وتطابقت بصمة المصدر والوسائط؛ وسيُعاد التحقق قبل النشر.</div>
                 ) : !isReadyForAutomatedKidsApproval(details.content) ? (
                   <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
-                    لا يمكن تسجيل اعتماد بشري قبل نجاح فحص الجودة الآلي ووجود بصمة مصدر وفيديو مطابقة. لم يتم تجاوز أي فحص؛ أعد تجهيز الطلب أو أصلح سبب توقف فحص الجودة أولًا.
+                    لم يجتز الفيديو فحوص الجودة الآلية كاملة أو لم تتطابق بصمة المصدر والوسائط وبيانات السلسلة. سيظل غير منشور حتى تنجح الفحوص تلقائيًا؛ أعد تجهيز الطلب أو أصلح سبب الفشل.
                   </div>
                 ) : isKidsVideoContent(details.content) && !canManageKids ? (
                   <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
