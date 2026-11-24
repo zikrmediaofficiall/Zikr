@@ -58,7 +58,11 @@ if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)")) {
 }
 
 const generation = read("src/app/api/admin/video-generation/route.ts");
-const manualApprovalBlock = generation.match(/if \(action === 'approve_publish'\) \{[\\s\\S]*?(?=if \(action === ["']retry_publish["']\))/)?.[0] ?? "";
+const manualApprovalStart = generation.indexOf("if (action === 'approve_publish')");
+const manualApprovalEnd = generation.indexOf('if (action === "retry_publish")', manualApprovalStart);
+const manualApprovalBlock = manualApprovalStart >= 0 && manualApprovalEnd > manualApprovalStart
+  ? generation.slice(manualApprovalStart, manualApprovalEnd)
+  : "";
 if (
   !manualApprovalBlock.includes("KIDS_AUTOMATED_QA_ONLY") ||
   !manualApprovalBlock.includes("if (isKidsVideo)") ||
