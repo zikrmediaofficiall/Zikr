@@ -409,11 +409,11 @@ if (!generationWorkflow.includes('AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"'
   failures.push("new video candidates must use a complete automated QA snapshot instead of a manual approval gate");
 }
 if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)") ||
-    !socialPublishing.includes("Video held because automated QA or Kids human review is missing, incomplete or stale.") ||
+    !socialPublishing.includes("Video held because automated QA, Kids safety, source provenance, or the current media fingerprint is missing, incomplete or stale.") ||
     !socialPublishing.includes("Video approval lookup failed; holding video item") ||
     !approvalHelper.includes("inspectVideoQueueItemExternalApproval") ||
-    !approvalHelper.includes("isHumanVideoApprovalRecorded")) {
-  failures.push("the separate social worker must fail closed, revalidate current automated QA, and require human review for Kids videos before provider calls");
+    !approvalHelper.includes("isAutomatedKidsVideoApprovalRecorded")) {
+  failures.push("the social worker must fail closed and revalidate source-locked automated QA, Kids safety, and the current media fingerprint before provider calls");
 }
 if (!worker.includes("!isTemplatePreview &&") || !worker.includes("!boundTemplate &&")) failures.push("pinned template renders must not be handed to external video providers");
 for (const [path, destinations] of [
