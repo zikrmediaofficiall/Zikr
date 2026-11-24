@@ -45,7 +45,7 @@ DECLARE
   visible_rows integer;
 BEGIN
   SELECT count(*) INTO visible_rows FROM public.videos;
-  IF visible_rows <> 5 THEN
+  IF visible_rows <> 6 THEN
     RAISE EXCEPTION 'authenticated non-admin must read only legacy general, explicit general, and Kids rows with complete automated QA approval; found %', visible_rows;
   END IF;
   IF EXISTS (
@@ -56,7 +56,8 @@ BEGIN
       'legacy-no-audience',
       'explicit-general',
       'kids-approved',
-      'kids-youtube-fallback'
+      'kids-youtube-fallback',
+      'kids-legacy-human-backfill'
     )
   ) THEN
     RAISE EXCEPTION 'authenticated non-admin can read Kids rows without matching automated QA approval, Kids-category rows with missing or conflicting metadata, conflicting general/Kids provenance markers, unknown audience, malformed metadata, or unpublished video rows';
