@@ -298,6 +298,48 @@ SELECT
 FROM public.videos
 WHERE id = 'kids-stale-category';
 
+-- A complete, source-locked human-reviewed legacy row must be migrated to the
+-- system QA identity while preserving the former reviewer in legacy audit data.
+INSERT INTO public.videos (id, category_id, published, metadata)
+SELECT
+  'kids-legacy-human-backfill',
+  category_id,
+  true,
+  jsonb_set(
+    jsonb_set(
+      metadata,
+      '{videoGenerationRequestId}',
+      '"10000000-0000-4000-8000-000000000005"'::jsonb,
+      true
+    ),
+    '{approvalReviewerId}',
+    '"22222222-2222-4222-8222-222222222222"'::jsonb,
+    true
+  ) || jsonb_build_object(
+    'qualityReview',
+    metadata->'qualityReview' || jsonb_build_object(
+      'mode', 'human',
+      'reviewerId', '22222222-2222-4222-8222-222222222222'
+    )
+  )
+FROM public.videos
+WHERE id = 'kids-approved';
+
+INSERT INTO public.video_generation_requests (
+  id, status, category, video_url, source_hash, content_hash, template_version, content
+)
+SELECT
+  '10000000-0000-4000-8000-000000000005'::uuid,
+  'completed',
+  'story',
+  metadata->>'generatedVideoUrl',
+  metadata->>'sourceHash',
+  metadata->>'contentHash',
+  metadata->>'templateVersion',
+  metadata - 'generatedVideoUrl' - 'videoGenerationRequestId'
+FROM public.videos
+WHERE id = 'kids-legacy-human-backfill';
+
 -- These four rows otherwise copy the fully approved fixture. They must remain
 -- private because request/reviewer IDs with a non-RFC version or variant are
 -- not valid application-generated UUIDs.
