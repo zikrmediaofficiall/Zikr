@@ -187,7 +187,6 @@ BEGIN
      OR restrictive_policy_qual NOT ILIKE '%cloudinary_master%'
      OR restrictive_policy_qual NOT ILIKE '%video_catalog_has_current_automated_kids_qa%'
      OR restrictive_policy_qual NOT ILIKE '%youtubePublishedUrl%'
-     OR restrictive_policy_qual NOT ILIKE '%youtubePublishedUrl%'
      OR restrictive_policy_roles NOT ILIKE '%anon%'
      OR restrictive_policy_roles NOT ILIKE '%authenticated%'
      OR restrictive_policy_roles ILIKE '%public%' THEN
