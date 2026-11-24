@@ -52,7 +52,7 @@ import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/f
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 import { LAYL_EPISODES, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
 import { isoWeekKey, resolveNextScheduledLaylEpisode } from "../../src/features/videos/services/layl-program-schedule";
-import { isDailyPromoVideoSlot, resolveDailyPromoVideoTarget, selectDailyPromotionalVideoConcept, selectDailyPromotionalVideoSlots } from "../../src/features/videos/data/promotional-video-campaign";
+import { DEFAULT_PROMO_VIDEO_TIME_ZONE, resolvePromotionalVideoScheduledAt, resolveWeeklyPromoVideoTarget, selectPromotionalVideoConcept, selectUpcomingWeeklyPromoSlots } from "../../src/features/videos/data/promotional-video-campaign";
 
 const execFileAsync = promisify(execFile);
 const BATCH_SIZE = Math.max(1, Number(process.env.AUTO_VIDEO_BATCH_SIZE ?? process.env.DAILY_VIDEO_TARGET ?? 10));
@@ -245,11 +245,21 @@ function siteUrl() {
 
 function resolveScheduledPromotionalConcept(content: Record<string, unknown>) {
   const key = typeof content.automationKey === "string" ? content.automationKey.split(":") : [];
-  if (key.length !== 4 || key[0] !== "promo") return null;
-  const day = Number(key[1]);
+  if (key.length !== 4 || key[0] !== "promo-weekly") return null;
+  const localDate = key[1];
   const slot = Number(key[2]);
+  const timeZone = typeof content.promoScheduleTimeZone === "string" ? content.promoScheduleTimeZone : "";
+  if (!timeZone.trim()) return null;
+  let scheduledAt: Date | null;
+  try {
+    scheduledAt = resolvePromotionalVideoScheduledAt(localDate, slot, timeZone);
+  } catch {
+    return null;
+  }
+  if (!scheduledAt || content.promoScheduledAt !== scheduledAt.toISOString()) return null;
+  const day = Math.floor(Date.parse(`${localDate}T00:00:00.000Z`) / 86_400_000);
   if (!Number.isSafeInteger(day) || !Number.isSafeInteger(slot) || slot < 0) return null;
-  const concept = selectDailyPromotionalVideoConcept(day, slot);
+  const concept = selectPromotionalVideoConcept(day, slot);
   if (concept.key !== key[3] || concept.key !== content.campaignKey || concept.variationIndex !== content.campaignVariant) return null;
   return concept;
 }
@@ -750,12 +760,115 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
   }
 }
 
+async function seedWeeklyPromotionalVideoRequests(now: Date): Promise<number> {
+  const target = resolveWeeklyPromoVideoTarget(process.env.PROMO_VIDEO_WEEKLY_TARGET);
+  if (target === 0) return 0;
+  const timeZone = process.env.PROMO_VIDEO_TIMEZONE?.trim() || DEFAULT_PROMO_VIDEO_TIME_ZONE;
+  let slots: ReturnType<typeof selectUpcomingWeeklyPromoSlots>;
+  try {
+    // A zero-minute lead lets a recovered worker still enqueue the approved slot;
+    // scheduled_at remains authoritative even if rendering finishes after the slot.
+    slots = selectUpcomingWeeklyPromoSlots(now, timeZone, target, 0);
+  } catch (error) {
+    console.error("[template-video] Invalid weekly promo schedule configuration:", error instanceof Error ? error.message : String(error));
+    return 0;
+  }
+
+  let created = 0;
+  for (const publishSlot of slots) {
+    if (await isVideoGenerationPaused()) break;
+    const day = Math.floor(Date.parse(`${publishSlot.localDate}T00:00:00.000Z`) / 86_400_000);
+    const concept = selectPromotionalVideoConcept(day, publishSlot.slot);
+    const automationKey = `promo-weekly:${publishSlot.localDate}:${publishSlot.slot}:${concept.key}`;
+    if (await findByAutomationKey("video_generation_requests", automationKey)) continue;
+
+    const featureUrl = `${siteUrl()}${concept.featurePath}`;
+    const downloadUrl = `${siteUrl()}${concept.ctaPath}`;
+    const content: Record<string, unknown> = {
+      renderer: "template",
+      type: "promotional_product_video",
+      sourceType: "marketing",
+      sourceId: `promo:${concept.key}:${publishSlot.localDate}:${publishSlot.slot}`,
+      sourceUrl: featureUrl,
+      sourceLabel: "محتوى ترويجي أصلي من منصة ذِكر — عرض لمزايا الموقع والتطبيق",
+      campaignKey: concept.key,
+      campaignVariant: concept.variationIndex,
+      campaignFeature: concept.featureKey,
+      campaignFeaturePath: concept.featurePath,
+      campaignCtaPath: concept.ctaPath,
+      hook: concept.hook,
+      ctaUrl: downloadUrl,
+      textAr: concept.narration,
+      publicPath: concept.featurePath,
+      visualTheme: concept.visualTheme,
+      automationKey,
+      promoScheduleTimeZone: publishSlot.timeZone,
+      promoScheduledAt: publishSlot.scheduledAt,
+      aiMode: "marketing_promo",
+      aiProviderHint: publishSlot.slot === 0 ? "hf_ltx_fast" : "hf_wan",
+      voiceProfile: "egyptian_male_story",
+    };
+    const payload: Record<string, unknown> = {
+      title: concept.title,
+      description: concept.description,
+      category: "other",
+      content,
+      duration: TARGET_VIDEO_SECONDS,
+      status: "pending",
+      automation_key: automationKey,
+    };
+    const contentHash = videoContentHash({
+      category: "other",
+      sourceId: String(content.sourceId),
+      text: concept.narration,
+      format: engineConfig().defaultFormat,
+      templateVersion: VIDEO_TEMPLATE_VERSION,
+      language: "ar",
+      style: concept.visualTheme,
+    });
+    const sourceHashValue = sourceHash({ sourceId: String(content.sourceId), sourceUrl: featureUrl, text: concept.narration });
+    payload.content = { ...content, contentHash, sourceHash: sourceHashValue, templateVersion: VIDEO_TEMPLATE_VERSION };
+
+    if (engineConfig().dryRun) {
+      console.log(`[template-video] dry-run planned ${automationKey} at ${publishSlot.scheduledAt}`);
+      created += 1;
+      continue;
+    }
+
+    try {
+      await supabaseServerAdminRequest("/rest/v1/video_generation_requests", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          ...payload,
+          content_hash: contentHash,
+          source_hash: sourceHashValue,
+          provider: "template",
+          template_version: VIDEO_TEMPLATE_VERSION,
+        }),
+      });
+      console.log(`[template-video] Seeded promo ${automationKey} for ${publishSlot.scheduledAt} (${publishSlot.timeZone}).`);
+      created += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const duplicateAutomationKey = message.includes("duplicate key value violates unique constraint") && message.toLowerCase().includes("automation_key");
+      if (isContentHashConflict(error) || duplicateAutomationKey) {
+        console.info(`[template-video] Promo slot already exists for ${publishSlot.localDate}/${publishSlot.slot}; skipped duplicate.`);
+        continue;
+      }
+      console.error(`[template-video] Could not seed promo slot ${publishSlot.localDate}/${publishSlot.slot}:`, message.slice(0, 500));
+    }
+  }
+  return created;
+}
+
 export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   if (process.env.AUTO_VIDEO_ENABLED?.toLowerCase() === "false") return 0;
   if (await isVideoGenerationPaused()) return 0;
   const now = new Date();
   const day = dayIndex(now);
   let created = await seedWeeklyLaylEpisodeRequest(now);
+  created += await seedWeeklyPromotionalVideoRequests(now);
 
   // Daily quota: keys are unique per UTC day (kind:day:counter) so every run can create new
   // videos, and the DAILY_VIDEO_TARGET is spread evenly across the day instead of bursting.
@@ -776,14 +889,11 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   const dueByNow = Math.ceil((dailyTarget * scheduleWindow) / 4);
   const urgent = process.env.AUTO_VIDEO_URGENT?.toLowerCase() === "true";
   const allowed = urgent ? Math.min(10, batchSize) : Math.min(10, batchSize, Math.max(0, dueByNow - alreadySeededToday));
-  const promoTarget = resolveDailyPromoVideoTarget(process.env.PROMO_VIDEO_DAILY_TARGET, dailyTarget);
-  const promoSlots = selectDailyPromotionalVideoSlots(dailyTarget, process.env.PROMO_VIDEO_DAILY_TARGET);
 
   for (let i = 0; i < allowed; i += 1) {
     if (await isVideoGenerationPaused()) break;
     const slot = dailyQuota.nextSlot + i;
-    const isPromoSlot = promoSlots.includes(slot);
-    const mode = isPromoSlot ? 6 : slot % 7;
+    const mode = slot % 7;
 
     let payload: Record<string, unknown>;
     let key = "";
@@ -994,45 +1104,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
         automation_key: key,
       };
     } else {
-      const promoSlot = promoSlots.indexOf(slot);
-      if (isPromoSlot && isDailyPromoVideoSlot(promoSlot, promoTarget)) {
-        const concept = selectDailyPromotionalVideoConcept(day, promoSlot);
-        key = `promo:${day}:${promoSlot}:${concept.key}`;
-        if (await findByAutomationKey("video_generation_requests", key)) continue;
-        const featureUrl = `${siteUrl()}${concept.featurePath}`;
-        const downloadUrl = `${siteUrl()}${concept.ctaPath}`;
-        payload = {
-          title: concept.title,
-          description: concept.description,
-          category: "other",
-          content: {
-            renderer: "template",
-            type: "promotional_product_video",
-            sourceType: "marketing",
-            sourceId: `promo:${concept.key}:${day}:${promoSlot}`,
-            sourceUrl: featureUrl,
-            sourceLabel: "محتوى ترويجي أصلي من منصة ذِكر — عرض لمزايا الموقع والتطبيق",
-            campaignKey: concept.key,
-            campaignVariant: concept.variationIndex,
-            campaignFeature: concept.featureKey,
-            campaignFeaturePath: concept.featurePath,
-            campaignCtaPath: concept.ctaPath,
-            hook: concept.hook,
-            ctaUrl: downloadUrl,
-            textAr: concept.narration,
-            publicPath: concept.featurePath,
-            visualTheme: concept.visualTheme,
-            automationKey: key,
-            aiMode: "marketing_promo",
-            aiProviderHint,
-            voiceProfile: "egyptian_male_story",
-          },
-          duration: TARGET_VIDEO_SECONDS,
-          status: "pending",
-          automation_key: key,
-        };
-      } else {
-        const reminders = [
+      const reminders = [
           "خلّي التقنية في خدمة عبادتك: اختار وقت هادي للقراءة والذكر، وسيب أي حاجة بتشتّت قلبك.",
           "القليل الثابت بيبني عادة أقوى من قايمة طويلة مش هتكمّل عليها؛ اختار وِرد تقدر تحافظ عليه.",
           "قبل ما تشارك أي معلومة دينية، دوّر على مصدرها واقرا النص كامل، ومتعتمدش على صورة متداولة لوحدها.",
@@ -1062,8 +1134,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
           duration: TARGET_VIDEO_SECONDS,
           status: "pending",
           automation_key: key,
-        };
-      }
+      };
     }
 
     const content = payload.content as Record<string, unknown>;
@@ -2544,6 +2615,16 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
   }
   if (!targets.length) return "not_required";
 
+  const promoScheduledAt = content.type === "promotional_product_video"
+    ? new Date(String(content.promoScheduledAt ?? ""))
+    : null;
+  if (promoScheduledAt && !Number.isFinite(promoScheduledAt.getTime())) {
+    throw new Error(`Promotional video ${request.id} has no valid scheduled publishing time; refusing immediate queueing.`);
+  }
+  if (content.type === "promotional_product_video" && !promoScheduledAt) {
+    throw new Error(`Promotional video ${request.id} is missing scheduled publishing metadata; refusing immediate queueing.`);
+  }
+
   const socialKey = `${key}:social-video`;
   const buildQueuePayload = (queueTargets: string[], queueAutomationKey: string) => ({
     content_type: `${request.category || "content"}_video`,
@@ -2558,6 +2639,7 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
     video_url: videoUrl,
     target_platforms: queueTargets,
     status: "queued",
+    scheduled_at: promoScheduledAt?.toISOString() ?? null,
     metadata: {
       automationKey: queueAutomationKey,
       publicPath,

@@ -345,6 +345,14 @@ assert.equal(
   "id=eq.queue%20id%2F1&status=eq.queued&updated_at=eq.2026-11-11T17%3A29%3A00.000Z&or=(scheduled_at.is.null,scheduled_at.lte.2026-11-11T17%3A30%3A00.000Z)",
   "the atomic claim must compare the exact row version and recheck scheduled_at before publishing a snapshot",
 );
+const cairoPromoDueFilter = buildDueSocialQueueClaimFilter(
+  "cairo-promo-wed",
+  "queued",
+  "2026-07-08T14:59:00.000Z",
+  "2026-07-08T14:58:00.000Z",
+);
+assert.match(cairoPromoDueFilter, /scheduled_at\.lte\.2026-07-08T14%3A59%3A00\.000Z/,
+  "a Wednesday 18:00 Africa/Cairo promo converted to 15:00 UTC must remain unclaimable before its scheduled time");
 assert.throws(
   () => buildDueSocialQueueClaimFilter("queue-1", "published", "2026-11-11T17:30:00.000Z", "2026-11-11T17:29:00.000Z"),
   /retryable queue status/,

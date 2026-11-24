@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import {
-  DEFAULT_DAILY_PROMO_VIDEO_TARGET,
-  MAX_DAILY_PROMO_VIDEO_TARGET,
+  DEFAULT_PROMO_VIDEO_TIME_ZONE,
+  DEFAULT_WEEKLY_PROMO_VIDEO_TARGET,
+  MAX_WEEKLY_PROMO_VIDEO_TARGET,
   ZIKR_PROMOTIONAL_VIDEO_CONCEPTS,
-  resolveDailyPromoVideoTarget,
   resolvePromotionalVideoConcept,
-  selectDailyPromotionalVideoConcept,
-  selectDailyPromotionalVideoSlots,
+  resolvePromotionalVideoScheduledAt,
+  resolveWeeklyPromoVideoTarget,
+  selectPromotionalVideoConcept,
+  selectUpcomingWeeklyPromoSlots,
 } from "../../src/features/videos/data/promotional-video-campaign";
 import {
   buildProphetEpisodeCandidate,
@@ -19,16 +21,17 @@ import { evaluateArabicNarrationText } from "../../src/features/videos/services/
 import { resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
 import { readFileSync } from "node:fs";
 
-assert.equal(DEFAULT_DAILY_PROMO_VIDEO_TARGET, 2);
-assert.equal(resolveDailyPromoVideoTarget(undefined, 12), 2);
-assert.equal(resolveDailyPromoVideoTarget("99", 12), 8, "operator configuration must respect the campaign safety cap");
-assert.equal(resolveDailyPromoVideoTarget("-2", 12), 0);
-assert.equal(resolveDailyPromoVideoTarget("garbage", 12), 2, "invalid optional configuration falls back to the safe default");
+assert.equal(DEFAULT_WEEKLY_PROMO_VIDEO_TARGET, 2);
+assert.equal(DEFAULT_PROMO_VIDEO_TIME_ZONE, "Africa/Cairo");
+assert.equal(resolveWeeklyPromoVideoTarget(undefined), 2);
+assert.equal(resolveWeeklyPromoVideoTarget("99"), MAX_WEEKLY_PROMO_VIDEO_TARGET, "operator configuration must respect the campaign safety cap");
+assert.equal(resolveWeeklyPromoVideoTarget("-2"), 0);
+assert.equal(resolveWeeklyPromoVideoTarget("garbage"), 2, "invalid optional configuration falls back to the safe default");
 assert.equal(ZIKR_PROMOTIONAL_VIDEO_CONCEPTS.length, 8);
 assert.equal(new Set(ZIKR_PROMOTIONAL_VIDEO_CONCEPTS.map((concept) => concept.key)).size, 8);
-const twoDailyPromoPosts = Array.from({ length: 32 }, (_, day) => [0, 1].map((slot) => selectDailyPromotionalVideoConcept(day, slot))).flat();
-assert.equal(new Set(twoDailyPromoPosts.map((concept) => concept.narration)).size, 64, "the campaign must provide two non-repeating narrations daily for at least 32 days");
-for (const concept of twoDailyPromoPosts) {
+const twoWeeklyPromoPosts = Array.from({ length: 32 }, (_, week) => [0, 1].map((slot) => selectPromotionalVideoConcept(week, slot))).flat();
+assert.equal(new Set(twoWeeklyPromoPosts.map((concept) => concept.narration)).size, 64, "weekly copy should vary deterministically across 32 weeks");
+for (const concept of twoWeeklyPromoPosts) {
   assert.equal(evaluateArabicNarrationText(concept.narration, "other").ok, true, "promotional narration must pass production Arabic QA");
 }
 assert.equal(resolvePromotionalVideoConcept("one-quiet-minute")?.featureKey, "quran");
@@ -38,16 +41,23 @@ assert.equal(resolveVideoSourceDisclosureLine({
   sourceLabel: "محتوى ترويجي أصلي من منصة ذِكر — عرض لمزايا الموقع والتطبيق",
 }, "https://zikr.example.test/quran"), "محتوى ترويجي أصلي من منصة ذِكر — عرض لمزايا الموقع والتطبيق",
 "promotional copy must be disclosed as original product content, not an external religious source");
-assert.deepEqual(selectDailyPromotionalVideoConcept(500, 1), selectDailyPromotionalVideoConcept(500, 1), "daily selection must be deterministic");
-for (const target of [1, 2, 6, 7, 8, 12, 24]) {
-  const slots = selectDailyPromotionalVideoSlots(target);
-  assert.equal(slots.length, Math.min(2, target - Math.floor(target / 7)), "promo slots must not displace reserved Kids-series slots");
-  assert.equal(new Set(slots).size, slots.length, "promo slot assignments must be unique");
-  assert.ok(slots.every((slot) => slot >= 0 && slot < target && slot % 7 !== 5), "promo slots must stay inside the daily quota and outside Kids slots");
-}
-assert.equal(selectDailyPromotionalVideoSlots(12).length, 2, "the default 12-video daily quota must release two promos per day");
-assert.equal(selectDailyPromotionalVideoSlots(12, "0").length, 0, "an explicit zero disables only the campaign reservations");
-assert.ok(MAX_DAILY_PROMO_VIDEO_TARGET <= 8);
+assert.deepEqual(selectPromotionalVideoConcept(500, 1), selectPromotionalVideoConcept(500, 1), "weekly selection must be deterministic for the same local date and slot");
+
+// Cairo uses UTC+3 in July (DST) and UTC+2 in December (standard time).
+assert.equal(resolvePromotionalVideoScheduledAt("2026-07-08", 0)?.toISOString(), "2026-07-08T15:00:00.000Z", "Wednesday 18:00 Cairo must convert through summer time");
+assert.equal(resolvePromotionalVideoScheduledAt("2026-07-10", 1)?.toISOString(), "2026-07-10T13:00:00.000Z", "Friday 16:00 Cairo must convert through summer time");
+assert.equal(resolvePromotionalVideoScheduledAt("2026-12-02", 0)?.toISOString(), "2026-12-02T16:00:00.000Z", "Wednesday 18:00 Cairo must convert through standard time");
+assert.equal(resolvePromotionalVideoScheduledAt("2026-12-04", 1)?.toISOString(), "2026-12-04T14:00:00.000Z", "Friday 16:00 Cairo must convert through standard time");
+assert.equal(resolvePromotionalVideoScheduledAt("2026-12-03", 0), null, "a slot cannot be assigned to the wrong weekday");
+assert.equal(resolvePromotionalVideoScheduledAt("2026-12-02", 0, "Not/A_Zone"), null, "invalid IANA zones must fail closed");
+const upcoming = selectUpcomingWeeklyPromoSlots(new Date("2026-07-08T12:00:00.000Z"), DEFAULT_PROMO_VIDEO_TIME_ZONE, 2, 0);
+assert.deepEqual(upcoming.map(({ localDate, slot, scheduledAt }) => ({ localDate, slot, scheduledAt })), [
+  { localDate: "2026-07-08", slot: 0, scheduledAt: "2026-07-08T15:00:00.000Z" },
+  { localDate: "2026-07-10", slot: 1, scheduledAt: "2026-07-10T13:00:00.000Z" },
+], "the approved schedule must select Wednesday 18:00 and Friday 16:00 Cairo");
+assert.equal(selectUpcomingWeeklyPromoSlots(new Date("2026-07-08T12:00:00.000Z"), DEFAULT_PROMO_VIDEO_TIME_ZONE, 1, 0).length, 1);
+assert.equal(selectUpcomingWeeklyPromoSlots(new Date("2026-07-08T12:00:00.000Z"), DEFAULT_PROMO_VIDEO_TIME_ZONE, 0, 0).length, 0);
+assert.throws(() => selectUpcomingWeeklyPromoSlots(new Date(), "Not/A_Zone"), /time zone/i);
 
 assert.equal(PROPHET_STORY_RESEARCH_CANDIDATES.length, 25, "candidate research must include the traditional 25-prophet list");
 assert.equal(PROPHET_STORY_SERIES.visualStyle, "symbolic-claymation");
@@ -86,9 +96,12 @@ const sourceFile = readFileSync("src/features/videos/data/prophet-story-research
 assert.match(sourceFile, /sourceUrls/);
 assert.match(sourceFile, /research_candidate_not_approved/);
 const schedulerSource = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
-assert.match(schedulerSource, /selectDailyPromotionalVideoSlots/);
-assert.match(schedulerSource, /promo:\$\{day\}:\$\{promoSlot\}:\$\{concept\.key\}/);
+assert.match(schedulerSource, /selectUpcomingWeeklyPromoSlots\(now, timeZone, target, 0\)/);
+assert.match(schedulerSource, /promo-weekly:\$\{publishSlot\.localDate\}:\$\{publishSlot\.slot\}:\$\{concept\.key\}/);
+assert.match(schedulerSource, /promoScheduledAt: publishSlot\.scheduledAt/);
+assert.match(schedulerSource, /scheduled_at: promoScheduledAt\?\.toISOString\(\) \?\? null/);
 assert.match(schedulerSource, /contentText\(request\) === promoConcept\?\.narration/);
 assert.match(schedulerSource, /content\.ctaUrl === `\$\{siteUrl\(\)\}\$\{promoConcept\?\.ctaPath\}`/);
+assert.doesNotMatch(schedulerSource, /selectDailyPromotionalVideoSlots|PROMO_VIDEO_DAILY_TARGET/);
 
-console.log("Video promo scheduling and source-locked Prophet-story review gates passed.");
+console.log("Weekly Cairo promo scheduling, UTC queue propagation, and source-locked Prophet-story review gates passed.");

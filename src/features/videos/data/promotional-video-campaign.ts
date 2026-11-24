@@ -1,5 +1,6 @@
-export const DEFAULT_DAILY_PROMO_VIDEO_TARGET = 2;
-export const MAX_DAILY_PROMO_VIDEO_TARGET = 8;
+export const DEFAULT_WEEKLY_PROMO_VIDEO_TARGET = 2;
+export const MAX_WEEKLY_PROMO_VIDEO_TARGET = 2;
+export const DEFAULT_PROMO_VIDEO_TIME_ZONE = "Africa/Cairo";
 
 export type PromotionalVideoConcept = {
   key: string;
@@ -13,6 +14,18 @@ export type PromotionalVideoConcept = {
   visualTheme: "gold" | "dawn" | "emerald" | "night" | "paper" | "rose" | "calm";
   variationIndex?: number;
 };
+
+export type PromotionalVideoSlot = {
+  localDate: string;
+  slot: 0 | 1;
+  timeZone: string;
+  scheduledAt: string;
+};
+
+const PROMO_WEEKLY_SCHEDULE = [
+  { slot: 0 as const, weekday: 3, hour: 18 }, // Wednesday, 18:00
+  { slot: 1 as const, weekday: 5, hour: 16 }, // Friday, 16:00
+] as const;
 
 /** Original product-awareness scripts; they make no religious attribution or performance promises. */
 export const ZIKR_PROMOTIONAL_VIDEO_CONCEPTS: readonly PromotionalVideoConcept[] = [
@@ -74,29 +87,94 @@ export const ZIKR_PROMOTIONAL_VIDEO_CONCEPTS: readonly PromotionalVideoConcept[]
   },
 ] as const;
 
-export function resolveDailyPromoVideoTarget(configured: string | undefined, dailyVideoTarget: number): number {
-  const overallTarget = Number.isFinite(dailyVideoTarget) ? Math.max(0, Math.floor(dailyVideoTarget)) : 0;
-  if (configured === undefined || configured.trim() === "") return Math.min(DEFAULT_DAILY_PROMO_VIDEO_TARGET, overallTarget);
+export function resolveWeeklyPromoVideoTarget(configured: string | undefined): number {
+  if (configured === undefined || configured.trim() === "") return DEFAULT_WEEKLY_PROMO_VIDEO_TARGET;
   const parsed = Number(configured);
-  if (!Number.isFinite(parsed)) return Math.min(DEFAULT_DAILY_PROMO_VIDEO_TARGET, overallTarget);
-  return Math.min(MAX_DAILY_PROMO_VIDEO_TARGET, overallTarget, Math.max(0, Math.floor(parsed)));
+  if (!Number.isFinite(parsed)) return DEFAULT_WEEKLY_PROMO_VIDEO_TARGET;
+  return Math.min(MAX_WEEKLY_PROMO_VIDEO_TARGET, Math.max(0, Math.floor(parsed)));
 }
 
-export function isDailyPromoVideoSlot(slot: number, target: number): boolean {
-  return Number.isSafeInteger(slot) && slot >= 0 && Number.isSafeInteger(target) && target > 0 && slot < target;
+function localDateParts(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  return { year: value("year"), month: value("month"), day: value("day"), hour: value("hour"), minute: value("minute") };
 }
 
-export function selectDailyPromotionalVideoSlots(dailyVideoTarget: number, configuredTarget?: string): number[] {
-  const dailyTarget = Number.isSafeInteger(dailyVideoTarget) ? Math.max(0, dailyVideoTarget) : 0;
-  const promoTarget = resolveDailyPromoVideoTarget(configuredTarget, dailyTarget);
-  if (dailyTarget === 0 || promoTarget === 0) return [];
-  const eligible = Array.from({ length: dailyTarget }, (_, slot) => slot).filter((slot) => slot % 7 !== 5);
-  const count = Math.min(promoTarget, eligible.length);
-  return Array.from({ length: count }, (_, index) => eligible[Math.floor(((index + 1) * eligible.length) / (count + 1))]);
+function localDateTimeToUtc(year: number, month: number, day: number, hour: number, timeZone: string): Date | null {
+  const desiredAsUtc = Date.UTC(year, month - 1, day, hour, 0, 0, 0);
+  let guess = desiredAsUtc;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const local = localDateParts(new Date(guess), timeZone);
+    const representedAsUtc = Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, 0, 0);
+    const adjustment = desiredAsUtc - representedAsUtc;
+    if (adjustment === 0) {
+      return local.year === year && local.month === month && local.day === day && local.hour === hour && local.minute === 0
+        ? new Date(guess)
+        : null;
+    }
+    guess += adjustment;
+  }
+  return null;
 }
 
-export function selectDailyPromotionalVideoConcept(dayIndex: number, slot: number): PromotionalVideoConcept {
-  const seed = Math.abs(Math.trunc(dayIndex)) * DEFAULT_DAILY_PROMO_VIDEO_TARGET + Math.max(0, Math.trunc(slot));
+/** Resolve one approved weekly slot to its UTC instant, including the timezone's DST offset. */
+export function resolvePromotionalVideoScheduledAt(localDate: string, slot: number, timeZone = DEFAULT_PROMO_VIDEO_TIME_ZONE): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate);
+  const schedule = PROMO_WEEKLY_SCHEDULE.find((entry) => entry.slot === slot);
+  if (!match || !schedule) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
+  } catch {
+    return null;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const calendarDate = new Date(Date.UTC(year, month - 1, day));
+  if (calendarDate.getUTCFullYear() !== year || calendarDate.getUTCMonth() + 1 !== month || calendarDate.getUTCDate() !== day || calendarDate.getUTCDay() !== schedule.weekday) return null;
+  return localDateTimeToUtc(year, month, day, schedule.hour, timeZone);
+}
+
+/** Returns the next future promo slots, not more than the configured weekly quota. */
+export function selectUpcomingWeeklyPromoSlots(
+  now: Date,
+  timeZone = DEFAULT_PROMO_VIDEO_TIME_ZONE,
+  target = DEFAULT_WEEKLY_PROMO_VIDEO_TARGET,
+  minimumLeadMinutes = 60,
+): PromotionalVideoSlot[] {
+  if (!Number.isFinite(now.getTime())) throw new Error("A valid current time is required for promo scheduling.");
+  if (!Number.isInteger(target) || target < 0 || target > MAX_WEEKLY_PROMO_VIDEO_TARGET) throw new Error("Promo weekly target must be an integer between zero and two.");
+  if (!Number.isFinite(minimumLeadMinutes) || minimumLeadMinutes < 0) throw new Error("Promo generation lead time must be non-negative.");
+  // Validate the zone even when no slot is found in the search window.
+  new Intl.DateTimeFormat("en-US", { timeZone }).format(now);
+  if (target === 0) return [];
+  const localNow = localDateParts(now, timeZone);
+  const localToday = Date.UTC(localNow.year, localNow.month - 1, localNow.day);
+  const minimumPublishTime = now.getTime() + minimumLeadMinutes * 60_000;
+  const slots: PromotionalVideoSlot[] = [];
+  for (let dayOffset = 0; dayOffset < 14 && slots.length < target; dayOffset += 1) {
+    const date = new Date(localToday + dayOffset * 86_400_000);
+    const weekday = date.getUTCDay();
+    const schedule = PROMO_WEEKLY_SCHEDULE.find((entry) => entry.weekday === weekday);
+    if (!schedule) continue;
+    const localDate = date.toISOString().slice(0, 10);
+    const scheduledAt = resolvePromotionalVideoScheduledAt(localDate, schedule.slot, timeZone);
+    if (!scheduledAt || scheduledAt.getTime() <= minimumPublishTime) continue;
+    slots.push({ localDate, slot: schedule.slot, timeZone, scheduledAt: scheduledAt.toISOString() });
+  }
+  return slots;
+}
+
+export function selectPromotionalVideoConcept(dayIndex: number, slot: number): PromotionalVideoConcept {
+  const seed = Math.abs(Math.trunc(dayIndex)) * DEFAULT_WEEKLY_PROMO_VIDEO_TARGET + Math.max(0, Math.trunc(slot));
   const base = ZIKR_PROMOTIONAL_VIDEO_CONCEPTS[seed % ZIKR_PROMOTIONAL_VIDEO_CONCEPTS.length];
   const variationIndex = Math.floor(seed / ZIKR_PROMOTIONAL_VIDEO_CONCEPTS.length) % PROMO_COPY_VARIATIONS.length;
   const variation = PROMO_COPY_VARIATIONS[variationIndex];
