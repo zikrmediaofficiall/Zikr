@@ -299,6 +299,14 @@ assert.equal(isAutomatedKidsVideoApprovalRecorded({
   ...kidsAutomatedContent,
   automatedVideoQa: { ...(kidsAutomatedContent.automatedVideoQa as Record<string, unknown>), checks: { ...checks, rightsReviewed: false } },
 }, kidsSnapshotHash), false, "missing rights QA must fail closed");
+assert.equal(isAutomatedKidsVideoApprovalRecorded({
+  ...kidsAutomatedContent,
+  qualityReview: { ...(kidsAutomatedContent.qualityReview as Record<string, unknown>), reviewedAt: "2026-11-13T12:00:00.000Z" },
+}, kidsSnapshotHash), false, "an automated review timestamp different from the approval timestamp must fail closed");
+assert.equal(isAutomatedKidsVideoApprovalRecorded({
+  ...kidsAutomatedContent,
+  automatedVideoQa: { ...(kidsAutomatedContent.automatedVideoQa as Record<string, unknown>), reviewedAt: "2026-11-13T12:00:00.000Z" },
+}, kidsSnapshotHash), false, "an automated QA timestamp different from the approval timestamp must fail closed");
 assert.equal(isVideoQueueItemApprovedForPublishing({
   ...kidsQueueItem,
   request: { ...request, content: { ...kidsAutomatedContent, approvalSnapshotHash: "b".repeat(64) } },
