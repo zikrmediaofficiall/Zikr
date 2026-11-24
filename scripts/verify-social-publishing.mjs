@@ -527,7 +527,7 @@ if (!adminClient.includes('const REMOTE_DELETE_PLATFORMS = new Set<string>(["fac
   failures.push("YouTube remote deletion must remain disabled in the UI while the least-privilege OAuth policy excludes delete scopes");
 }
 if (adminClient.includes("اعتمد الفيديو أولًا") ||
-    !adminClient.includes("مراجعة الفيديو غير مكتملة") ||
+    !adminClient.includes("فحوص الجودة الآلية غير مكتملة") ||
     !adminClient.includes("فيديوهات الأطفال تعتمد تلقائيًا بعد اجتياز فحوص الجودة الخمسة") ||
     !adminClient.includes("الفيديوهات العامة المؤهلة تنتقل للنشر تلقائيًا")) {
   failures.push("social center must explain automatic five-check Kids QA while preserving automatic publishing for eligible videos");
