@@ -250,10 +250,8 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     return request.status === "completed" &&
       Boolean(request.video_url) &&
       !isContentApproved(request.content) &&
-      isReadyForAutomatedKidsApproval(request.content) &&
       audience.ok &&
-      audience.audience !== "kids" &&
-      (audience.audience !== "kids" || canManageKids);
+      audience.audience !== "kids";
   });
   const reviewEligibleIds = new Set(reviewEligibleVisible.map((request) => request.id));
   const selectedReviewVisibleCount = reviewEligibleVisible.filter((request) => selectedReviewIds.has(request.id)).length;
@@ -411,7 +409,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
   async function approveSelectedForPublishing() {
     const selected = reviewEligibleVisible.filter((request) => selectedReviewIds.has(request.id));
     if (!selected.length || busyId || APPROVAL_CHECKS.some((check) => !batchApprovalChecks[check.key])) return;
-    if (!window.confirm(`تأكيد أنك شاهدت وراجعت كل فيديو محدد كاملًا، واستمعت للصوت، وراجعت المصدر والترجمة والحقوق؟ سيتم إرسال ${selected.length} طلب اعتماد فرديًا عبر فحوص الجودة الحالية. لن يتم تجاوز أي فحص آلي أو شرط خاص بفيديوهات الأطفال.`)) return;
+    if (!window.confirm(`تأكيد أنك شاهدت وراجعت كل فيديو عام محدد كاملًا، واستمعت للصوت، وراجعت المصدر والترجمة والحقوق؟ سيتم إرسال ${selected.length} طلب اعتماد فرديًا. فيديوهات الأطفال لا تدخل هذا المسار؛ اعتمادها آلي فقط.`)) return;
 
     setError(""); setMessage("");
     const approved: string[] = [];
@@ -435,7 +433,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
     setBusyId(null);
     setSelectedReviewIds(new Set());
     setBatchApprovalChecks({ sourceVerified: false, audioReviewed: false, visualsReviewed: false, captionsReviewed: false, rightsReviewed: false });
-    setMessage(`تم اعتماد ${approved.length} من ${selected.length} فيديو بعد إرسالها منفردة إلى مسار الاعتماد الرسمي.${failures.length ? ` تعذر اعتماد ${failures.length} فيديو؛ راجع التفاصيل أدناه.` : ""}`);
+    setMessage(`تم اعتماد ${approved.length} من ${selected.length} فيديو عام بعد إرسالها منفردة إلى مسار الاعتماد الرسمي.${failures.length ? ` تعذر اعتماد ${failures.length} فيديو؛ راجع التفاصيل أدناه.` : ""}`);
     if (failures.length) setError(failures.join("\n"));
     await load();
   }
@@ -485,7 +483,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
       const responseData = await response.json().catch(() => ({}));
       if (!response.ok && responseData.error === "step_up_required" && redirectToAdminStepUp(responseData.nextPath)) return;
       if (!response.ok) throw new Error(responseData.error || "تعذر اعتماد الفيديو للنشر.");
-      setMessage("تم تسجيل الاعتماد البشري. سيُعاد فحص الفيديو قبل إدخاله إلى طوابير النشر المجدولة؛ لا يحدث نشر فوري.");
+      setMessage("تم تسجيل مراجعة الفيديو العام. سيُعاد فحص المصدر والوسائط قبل أي نشر مجدول؛ فيديوهات الأطفال تعتمد آليًا فقط.");
       setDetails(null); await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر اعتماد الفيديو للنشر.");
@@ -710,9 +708,9 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>التفاصيل</Button>
                   {request.status === "completed" && request.video_url && !isContentApproved(request.content) &&
-                    isReadyForAutomatedKidsApproval(request.content) && (
+                    resolveVideoRequestAudience(request.content).audience === "general" && (
                       <Button variant="primary" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>
-                        مراجعة واعتماد
+                        مراجعة واعتماد الفيديو العام
                       </Button>
                     )}
                   {request.status === "failed" && (() => {
@@ -830,14 +828,14 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
             {details.status === "completed" && details.video_url && (
               <section className="mt-6 space-y-4 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-5">
                 {isContentApproved(details.content) ? (
-                  <div role="status" className="font-semibold text-emerald-200">اجتاز الفيديو فحوص الجودة الآلية الخمسة وتطابقت بصمة المصدر والوسائط؛ وسيُعاد التحقق قبل النشر.</div>
-                ) : !isReadyForAutomatedKidsApproval(details.content) ? (
-                  <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
-                    لم يجتز الفيديو فحوص الجودة الآلية كاملة أو لم تتطابق بصمة المصدر والوسائط وبيانات السلسلة. سيظل غير منشور حتى تنجح الفحوص تلقائيًا؛ أعد تجهيز الطلب أو أصلح سبب الفشل.
+                  <div role="status" className="font-semibold text-emerald-200">
+                    {isKidsVideoContent(details.content)
+                      ? "اجتاز فيديو الأطفال فحوص الجودة الآلية الخمسة وفحص أمان الأطفال وتطابقت بصمة المصدر والوسائط؛ لا يحتاج اعتمادًا بشريًا."
+                      : "سجل اعتماد الفيديو العام مكتمل؛ سيُعاد التحقق من المصدر والوسائط قبل النشر."}
                   </div>
-                ) : isKidsVideoContent(details.content) && !canManageKids ? (
+                ) : isKidsVideoContent(details.content) ? (
                   <div role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm leading-7 text-amber-100/80">
-                    اعتماد فيديوهات الأطفال يتطلب صلاحية إدارة محتوى الأطفال بالإضافة إلى صلاحية إدارة الفيديوهات. يمكنك مراجعة التفاصيل، لكن لا يمكنك تسجيل الاعتماد.
+                    فيديو الأطفال ينتظر اجتياز فحوص الجودة الآلية الخمسة وفحص أمان الأطفال وبيانات السلسلة وبصمة المصدر. لن يظهر زر اعتماد يدوي؛ سيُنشر فقط بعد نجاح الفحوص تلقائيًا.
                   </div>
                 ) : (
                   <>
