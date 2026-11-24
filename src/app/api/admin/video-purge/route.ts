@@ -951,6 +951,7 @@ export async function POST(request: NextRequest) {
         catalogRecordsHidden,
         catalogFallbackRowsKeptPublished,
         generationMemoryRedacted: includeMemory,
+        generationMediaPointersCleared: includeFiles && !includeMemory ? (generatedRequests ?? []).length : 0,
         physicalFilesDeleted: includeFiles,
         generationRowsRedacted,
         automationRunsRedacted,
