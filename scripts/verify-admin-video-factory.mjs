@@ -58,14 +58,15 @@ if (!socialPublishing.includes("hasVideoApprovalForQueueItem(item)")) {
 }
 
 const generation = read("src/app/api/admin/video-generation/route.ts");
+const manualApprovalBlock = generation.match(/if \(action === 'approve_publish'\) \{[\\s\\S]*?(?=if \(action === ["']retry_publish["']\))/)?.[0] ?? "";
 if (
-  !generation.includes("resolveKidsVideoQaStatusForApproval") ||
-  !generation.includes("verifiedKidsVideoQaStatus !== 'passed'") ||
-  !generation.includes("catalogMetadata: catalog.metadata") ||
-  !generation.includes("requestContent: currentContent") ||
-  !generation.includes("hasCompleteKidsVideoSeriesMetadata(currentContent)")
+  !manualApprovalBlock.includes("KIDS_AUTOMATED_QA_ONLY") ||
+  !manualApprovalBlock.includes("if (isKidsVideo)") ||
+  !manualApprovalBlock.includes("status: 410") ||
+  manualApprovalBlock.includes("admin_approve_video_generation_request") &&
+    manualApprovalBlock.indexOf("KIDS_AUTOMATED_QA_ONLY") > manualApprovalBlock.indexOf("admin_approve_video_generation_request")
 ) {
-  failures.push("manual video approval must bind Kids QA to the matching catalog fingerprint and complete series metadata");
+  failures.push("manual Kids approval must be rejected before the atomic approval RPC; only the worker may persist system QA approval");
 }
 const generationGet = generation.match(/export async function GET\([\s\S]*?(?=export async function DELETE|$)/)?.[0] ?? "";
 const generationDelete = generation.match(/export async function DELETE\([\s\S]*?(?=export async function PATCH|$)/)?.[0] ?? "";
