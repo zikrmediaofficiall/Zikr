@@ -264,7 +264,10 @@ async function scanPattern(
   const maxPages = Math.ceil(maxRows / PAGE_SIZE);
   for (let page = 0; page <= maxPages; page += 1) {
     const offset = page * PAGE_SIZE;
-    let query = client.from(pattern.table).select(pattern.column);
+    const selectedColumns = pattern.orderBy === pattern.column
+      ? pattern.column
+      : pattern.column + "," + pattern.orderBy;
+    let query = client.from(pattern.table).select(selectedColumns);
     if (pattern.kind === "json") {
       query = query.not(pattern.column, "is", null);
     } else {
