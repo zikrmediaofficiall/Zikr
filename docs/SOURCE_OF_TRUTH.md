@@ -4,11 +4,11 @@
 
 The canonical application source for ZIKR is:
 
-- GitHub repository: `zikrofficial-X/Zikr`
+- GitHub repository: `zikrmediaofficiall/Zikr`
 - Production branch: `main`
 - Vercel project: `zikr`
-- Production project ID: `prj_bnBQb7DIXB5iE2mZJAghtAoZuKGs`
-- Production Vercel team: `team_RxPjmgZoSFmKGjScefYmwIVv`
+- Production project ID: `prj_aruq5Q3gsE8DhgV86iIvz2WrVzEj`
+- Production Vercel team: `team_AIjRfjTq0HWRiTWbvTVpVolg`
 - Supabase production project: `zqtssvlvmkzeeyqghqfk`
 - Production domain: `https://zikrmediaofficial.vercel.app`
 
