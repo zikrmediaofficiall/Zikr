@@ -45,7 +45,11 @@ export type AndroidReleaseSetting = {
 };
 
 function getGitHubToken() {
-  return process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? null;
+  return (
+    process.env.GITHUB_TOKEN?.trim() ||
+    process.env.GH_TOKEN?.trim() ||
+    null
+  );
 }
 
 function githubHeaders(
