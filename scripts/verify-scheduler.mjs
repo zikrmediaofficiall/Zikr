@@ -92,7 +92,15 @@ if (contentSync.split(/\r?\n/).some((line) => line.trim() === "push:")) failures
 if (!contentSync.includes("workflow_dispatch:")) failures.push("English content sync must retain deliberate manual dispatch");
 const articleTranslator = read("scripts/translate-published-articles-en.ts");
 if (articleTranslator.includes("GEMINI_API_KEY_")) failures.push("article translation must not rotate through quota-pooling Gemini keys");
-if (articleTranslator.includes("gemini-3.5-flash-lite")) failures.push("article translation must not make a second model call after a failed primary call");
+if (
+  !articleTranslator.includes("GEMINI_FALLBACK_MODEL") ||
+  !articleTranslator.includes("const modelNames = [...new Set([configured, fallback])];") ||
+  !articleTranslator.includes("const retryable = /\\\\b429\\\\b|\\\\b500\\\\b|\\\\b502\\\\b|\\\\b503\\\\b|\\\\b504\\\\b|unavailable|high demand|overloaded|temporarily unavailable/i.test(message)") ||
+  !articleTranslator.includes("if (!retryable) throw error;") ||
+  !articleTranslator.includes("gemini-3.5-flash-lite")
+) {
+  failures.push("article translation must use one configured fallback only for transient Gemini provider failures and must not rotate through API keys or retry permanent errors");
+}
 
 const publisher = read(".github/workflows/publish-social.yml");
 const socialConcurrencyGroup = publisher.match(/concurrency:\s*\n\s*group:\s*([^\n]+)/)?.[1]?.trim();
