@@ -33,6 +33,11 @@ function isContentApproved(content: unknown): boolean {
     : record.approvalStatus === "approved";
 }
 
+function isGeneralAudienceVideoRequest(content: unknown): boolean {
+  const audience = resolveVideoRequestAudience(content);
+  return audience.ok && audience.audience === "general";
+}
+
 function isReadyForAutomatedKidsApproval(content: unknown): boolean {
   if (!content || typeof content !== "object" || Array.isArray(content)) return false;
   const record = content as Record<string, unknown>;
@@ -708,7 +713,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>التفاصيل</Button>
                   {request.status === "completed" && request.video_url && !isContentApproved(request.content) &&
-                    resolveVideoRequestAudience(request.content).audience === "general" && (
+                    isGeneralAudienceVideoRequest(request.content) && (
                       <Button variant="primary" disabled={busyId === request.id} onClick={() => void openDetails(request.id)}>
                         مراجعة واعتماد الفيديو العام
                       </Button>
