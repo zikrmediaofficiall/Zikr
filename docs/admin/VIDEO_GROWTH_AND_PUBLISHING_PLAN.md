@@ -31,9 +31,9 @@ These numbers are directional and limited by the available metrics. The insight 
 
 | Slot | Cairo time | Editorial role |
 |---|---:|---|
-| 1 | 12:45 | Midday: Quran or Dua, strong opening and visible source |
-| 2 | 18:00 | Evening: Hadith, Adhkar or a practical reflection |
-| 3 | 21:15 | Night: Quran, Dua, verified story or Kids rotation |
+| 1 | 12:52 | Midday: Quran or Dua, strong opening and visible source |
+| 2 | 18:07 | Evening: Hadith, Adhkar or a practical reflection |
+| 3 | 21:22 | Night: Quran, Dua, verified story or Kids rotation |
 
 The allocator reserves a slot independently for every target platform, checks queued/partial/processing/published video rows and fails closed if no slot is available. It uses the IANA timezone Africa/Cairo, not a fixed UTC offset. The publisher now re-slots due/null video backlog using a compare-and-set update before claiming work; if that reconciliation fails, it does not claim more queue rows. Reassess the slots after 14 days using actual platform insights; these times are a controlled starting experiment, not a universal best-time claim.
 
@@ -58,7 +58,7 @@ At 3/day this produces a rolling 42-video mix over 14 days. Category selection i
 ### YouTube
 
 - Use vertical 9:16 masters for Shorts. Most short-form items should land around 18–40 seconds, but the renderer must respect actual narration duration rather than cut speech to fit an arbitrary selector.
-- The default YouTube Data API quota is generally 10,000 units/day; videos.insert is currently listed at 100 units/upload. This is an API quota, not a recommended content cadence. Actual project quota can differ and must be checked in Google Cloud Console.
+- The default YouTube Data API allocation includes a dedicated 100-call/day bucket for videos.insert uploads, with each insert costing 1 quota unit; other Data API methods share a 10,000-unit/day pool. This is an API quota, not a recommended publishing cadence. The actual project quota can differ and must be checked in Google Cloud Console.
 - ZIKR's initial internal cap is deliberately much lower: 3 Shorts/day. Verify the remote upload ID before counting a platform delivery as published.
 
 Official references:
