@@ -555,11 +555,15 @@ export async function POST(request: NextRequest) {
     // database deletion. A limit hit must never leave a partially purged library.
     const generatedCatalogRows = await supabaseServerAdminRequest<Array<{
       id: string;
+      title: string;
+      slug: string;
+      description: string | null;
+      thumbnail_url: string | null;
       metadata: Record<string, unknown> | null;
       published: boolean | null;
       youtube_id: string | null;
     }>>(
-      "/rest/v1/videos?metadata->>generator=eq.zikr_internal_video_factory&select=id,metadata,published,youtube_id&limit=1000",
+      "/rest/v1/videos?metadata->>generator=eq.zikr_internal_video_factory&select=id,title,slug,description,thumbnail_url,metadata,published,youtube_id&limit=1000",
     );
     if ((generatedCatalogRows ?? []).length >= 1000) {
       throw new Error("Generated video catalog exceeded the safe purge batch; no files or catalog rows were changed.");
@@ -734,7 +738,13 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           published: keepPublishedFallback,
           ...(includeMemory
-            ? { youtube_id: keepPublishedFallback && fallbackId ? fallbackId : null }
+            ? {
+                title: keepPublishedFallback ? row.title : "فيديو تمت إزالة ذاكرته",
+                slug: keepPublishedFallback ? row.slug : "purged-" + row.id,
+                description: keepPublishedFallback ? row.description : null,
+                thumbnail_url: keepPublishedFallback ? row.thumbnail_url : null,
+                youtube_id: keepPublishedFallback && fallbackId ? fallbackId : null,
+              }
             : (keepPublishedFallback && fallbackId ? { youtube_id: fallbackId } : {})),
           metadata: nextMetadata,
           updated_at: new Date().toISOString(),
@@ -759,7 +769,7 @@ export async function POST(request: NextRequest) {
     if (catalogUpdateErrors.length) {
       throw new Error("Some internal catalog records or scheduled publication entries could not be safely unlinked: " + catalogUpdateErrors.slice(0, 3).join(" | "));
     }
-        // Historical external platform queue records are never read or modified.
+        // Historical social queue rows are read-only audited; neither the queue nor external platform posts are modified.
     const socialQueueRowsPreserved = true;
     let generationRowsRedacted = 0;
     let automationRunsRedacted = 0;
@@ -877,16 +887,16 @@ export async function POST(request: NextRequest) {
         generatedCatalogRecordsHidden: catalogRecordsHidden,
         catalogRecordsHidden,
         catalogFallbackRowsKeptPublished,
-        generationMemoryDeleted: includeMemory,
+        generationMemoryRedacted: includeMemory,
         physicalFilesDeleted: includeFiles,
         generationRowsRedacted,
         automationRunsRedacted,
         externalSocialPostsDeleted: false,
         note: includeFiles && includeMemory
-          ? "تم حذف ملفات التوليد ورفعها من الذاكرة الداخلية، مع إبقاء سجل التدقيق والعناوين الأساسية. سجلات المنصات الخارجية لم تُعدّل."
+          ? "تم حذف الملفات المولّدة من التخزين وحجب ذاكرة التوليد. احتُفظ بمعرّفات سجلات التوليد كعلامات تاريخية كي لا تنكسر مراجع الطابور. لم تُحذف منشورات Facebook أو YouTube."
           : includeFiles
-            ? "تم حذف ملفات الفيديو فقط، مع إبقاء سجل التوليد ومعلومات المصادر كذاكرة تاريخية. سجلات المنصات الخارجية لم تُعدّل."
-            : "تم فك ربط ذاكرة الفيديوهات وإخفاؤها من الموقع مع إبقاء ملفات Cloudinary كما هي. سجلات المنصات الخارجية لم تُعدّل.",
+            ? "تم حذف ملفات الفيديو المولّدة فقط مع الاحتفاظ بسجلات التوليد وبيانات المصدر، بعد التحقق من خلو الملفات من المراجع النشطة. لم تُحذف المنشورات الخارجية."
+            : "تم حجب محتوى الفيديوهات المولّدة وسجلات الطلبات مع الاحتفاظ بمعرّفاتها وملفات التخزين. لم تُحذف أو تُعدّل المنشورات الخارجية.",
       },
       { headers: { "Cache-Control": "no-store" } },
     );
