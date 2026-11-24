@@ -6,7 +6,7 @@ import {
 
 const now = new Date("2026-11-25T06:00:00.000Z"); // 08:00 Cairo
 const empty = resolveNextVideoPublishAt({ now, rows: [], targetPlatforms: ["youtube", "facebook_reels"] });
-assert.equal(empty, "2026-11-25T10:52:00.000Z", "First daily slot is 12:52 Cairo.");
+assert.equal(empty, "2026-11-25T03:37:00.000Z", "First daily slot is 05:37 Cairo.");
 
 const occupied = (scheduled_at: string, platforms = ["youtube", "facebook_reels"]) => ({
   id: scheduled_at, status: "queued", target_platforms: platforms, scheduled_at,
@@ -14,15 +14,15 @@ const occupied = (scheduled_at: string, platforms = ["youtube", "facebook_reels"
 });
 assert.equal(
   resolveNextVideoPublishAt({ now, rows: [occupied("2026-11-25T10:52:00.000Z")], targetPlatforms: ["youtube", "facebook_reels"] }),
-  "2026-11-25T16:07:00.000Z",
+  "2026-11-25T12:22:00.000Z",
 );
 assert.equal(
   resolveNextVideoPublishAt({
     now,
-    rows: [occupied("2026-11-25T10:52:00.000Z"), occupied("2026-11-25T16:07:00.000Z"), occupied("2026-11-25T19:22:00.000Z")],
+    rows: [occupied("2026-11-25T10:52:00.000Z"), occupied("2026-11-25T16:07:00.000Z"), occupied("2026-11-25T15:52:00.000Z")],
     targetPlatforms: ["youtube", "facebook_reels"],
   }),
-  "2026-11-26T10:52:00.000Z",
+  "2026-11-26T03:37:00.000Z",
 );
 assert.equal(
   resolveNextVideoPublishAt({ now, rows: [occupied("2026-11-25T10:52:00.000Z", ["facebook_reels"])], targetPlatforms: ["youtube"] }),

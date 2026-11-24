@@ -1,9 +1,9 @@
 export const VIDEO_PUBLISH_TIME_ZONE = "Africa/Cairo";
 export const VIDEO_PUBLISH_SLOTS = [
-  // Align each slot with the publish-social workflow's :07/:22/:37/:52 cron.
-  { hour: 12, minute: 52 },
-  { hour: 18, minute: 7 },
-  { hour: 21, minute: 22 },
+  // Use observed YouTube audience windows and align with the publisher's :07/:22/:37/:52 cron.
+  { hour: 5, minute: 37 },
+  { hour: 14, minute: 22 },
+  { hour: 17, minute: 52 },
 ] as const;
 export const VIDEO_PUBLISH_DAILY_PLATFORM_LIMIT = VIDEO_PUBLISH_SLOTS.length;
 const SLOT_MATCH_TOLERANCE_MS = 90 * 60 * 1000;

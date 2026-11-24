@@ -31,9 +31,9 @@ These numbers are directional and limited by the available metrics. The insight 
 
 | Slot | Cairo time | Editorial role |
 |---|---:|---|
-| 1 | 12:52 | Midday: Quran or Dua, strong opening and visible source |
-| 2 | 18:07 | Evening: Hadith, Adhkar or a practical reflection |
-| 3 | 21:22 | Night: Quran, Dua, verified story or Kids rotation |
+| 1 | 05:37 | Early morning: Quran or Dua |
+| 2 | 14:22 | Afternoon: Quran or Dua |
+| 3 | 17:52 | Evening: Hadith, Adhkar, verified story or Kids rotation |
 
 The allocator reserves a slot independently for every target platform, checks queued/partial/processing/published video rows and fails closed if no slot is available. It uses the IANA timezone Africa/Cairo, not a fixed UTC offset. The publisher now re-slots due/null video backlog using a compare-and-set update before claiming work; if that reconciliation fails, it does not claim more queue rows. Reassess the slots after 14 days using actual platform insights; these times are a controlled starting experiment, not a universal best-time claim.
 
