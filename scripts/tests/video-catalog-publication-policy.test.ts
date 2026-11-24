@@ -19,6 +19,7 @@ const kidsMetadata = {
     status: "passed",
     engine: "zikr_video_factory",
     engineVersion: "2026-11-07-auto-qa-v1",
+    reviewedAt: "2026-11-14T12:00:00.000Z",
     snapshotHash: "a".repeat(64),
     checks: { sourceVerified: true, audioReviewed: true, visualsReviewed: true, captionsReviewed: true, rightsReviewed: true },
   },
