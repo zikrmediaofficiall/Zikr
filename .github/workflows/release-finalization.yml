@@ -35,8 +35,8 @@ jobs:
       name: production
     env:
       NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
-      VERCEL_ORG_ID: team_RxPjmgZoSFmKGjScefYmwIVv
-      VERCEL_PROJECT_ID: prj_bnBQb7DIXB5iE2mZJAghtAoZuKGs
+      VERCEL_ORG_ID: team_AIjRfjTq0HWRiTWbvTVpVolg
+      VERCEL_PROJECT_ID: prj_aruq5Q3gsE8DhgV86iIvz2WrVzEj
       EXPECTED_PROJECT_REF: zqtssvlvmkzeeyqghqfk
       PGSSLMODE: require
     steps:
