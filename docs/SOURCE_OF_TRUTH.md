@@ -8,7 +8,8 @@ The canonical application source for ZIKR is:
 - Production branch: `main`
 - Vercel project: `zikr`
 - Production project ID: `prj_aruq5Q3gsE8DhgV86iIvz2WrVzEj`
-- Production Vercel team: `team_AIjRfjTq0HWRiTWbvTVpVolg`
+- Production Vercel team: `zikrmediaofficial` (`zikrmediaofficial1`)
+- Production Vercel team ID: `team_AIjRfjTq0HWRiTWbvTVpVolg`
 - Supabase production project: `zqtssvlvmkzeeyqghqfk`
 - Production domain: `https://zikrmediaofficial.vercel.app`
 
