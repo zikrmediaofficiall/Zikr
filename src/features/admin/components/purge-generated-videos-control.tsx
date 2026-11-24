@@ -20,6 +20,7 @@ type PurgeResult = {
   catalogRecordsHidden: number;
   generationRowsRedacted: number;
   automationRunsRedacted: number;
+  generationMediaPointersCleared: number;
   externalSocialPostsDeleted: false;
 };
 
@@ -78,6 +79,7 @@ export function PurgeGeneratedVideosControl({
         catalogRecordsHidden?: number;
         generationRowsRedacted?: number;
         automationRunsRedacted?: number;
+        generationMediaPointersCleared?: number;
         externalSocialPostsDeleted?: false;
       };
       if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return;
@@ -103,6 +105,7 @@ export function PurgeGeneratedVideosControl({
         catalogRecordsHidden: payload.catalogRecordsHidden ?? 0,
         generationRowsRedacted: payload.generationRowsRedacted ?? 0,
         automationRunsRedacted: payload.automationRunsRedacted ?? 0,
+        generationMediaPointersCleared: payload.generationMediaPointersCleared ?? 0,
         externalSocialPostsDeleted: false,
       };
       setResult(completed);
@@ -242,7 +245,7 @@ export function PurgeGeneratedVideosControl({
             ملفات Cloudinary: {result.cloudinaryAssetsDeleted} · المساحة المحررة: {(result.cloudinaryBytesDeleted / (1024 * 1024)).toFixed(1)} MiB · عناصر Storage: {result.storageObjectsDeleted}
           </p>
           <p>
-            طلبات التوليد المحجوبة: {result.generationRowsRedacted} · سجل المنصات التاريخي: {result.socialQueueRowsPreserved ? "محفوظ" : "غير مؤكد"} · سجلات الفيديوهات المولّدة المخفية: {result.generatedCatalogRecordsHidden} · الكتالوج اليدوي: {result.manualPublicVideoCatalogPreserved ? "محفوظ" : "غير مؤكد"} · سجلات التشغيل المحجوبة: {result.automationRunsRedacted}
+            طلبات التوليد المحجوبة: {result.generationRowsRedacted} · سجل المنصات التاريخي: {result.socialQueueRowsPreserved ? "محفوظ" : "غير مؤكد"} · سجلات الفيديوهات المولّدة المخفية: {result.generatedCatalogRecordsHidden} · الكتالوج اليدوي: {result.manualPublicVideoCatalogPreserved ? "محفوظ" : "غير مؤكد"} · سجلات التشغيل المحجوبة: {result.automationRunsRedacted} · مراجع ملفات الطلبات المنظّفة: {result.generationMediaPointersCleared}
           </p>
           <p className="mt-1 text-amber-100/90">
             لم يتم إرسال أي طلب حذف إلى منصات خارجية.
