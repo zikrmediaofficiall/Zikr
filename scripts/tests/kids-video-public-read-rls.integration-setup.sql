@@ -196,14 +196,17 @@ WITH approved_snapshot AS (
 )
 UPDATE public.videos AS video
 SET metadata = jsonb_set(
-  jsonb_set(video.metadata, '{approvalSnapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true),
-  '{automatedVideoQa,snapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true
+  jsonb_set(
+    jsonb_set(video.metadata, '{approvalSnapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true),
+    '{automatedVideoQa,snapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true
+  ),
+  '{qualityReview,snapshotHash}', to_jsonb(approved_snapshot.snapshot_hash), true
 )
 FROM approved_snapshot
 WHERE video.id = approved_snapshot.id;
 
--- These catalog rows have complete-looking human approval metadata but must
--- remain private unless the linked generation request exists and matches.
+-- These catalog rows copy complete automated QA metadata but must remain private
+-- unless the linked generation request exists and matches the exact QA snapshot.
 INSERT INTO public.videos (id, published, metadata)
 SELECT 'kids-orphan-human-approved', published,
        metadata || jsonb_build_object('videoGenerationRequestId', '10000000-0000-4000-8000-000000000002')
