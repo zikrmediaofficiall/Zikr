@@ -87,7 +87,7 @@ Do not add Instagram/TikTok targets until OAuth credentials, scopes, account eli
 5. **Reduce generic filler.** Restrict general motivational messages to a small share. Each must be an original, non-attributed script with one practical idea and clear disclosure; it must never imitate a religious quotation.
 6. **Improve visuals without default spend increases.** Prefer validated free providers when available; retain deterministic FFmpeg rendering as a reliable fallback. Record provider, failure reason, render time, media bytes and QA outcome. Do not label fallback footage as AI-generated footage.
 7. **Build repeatable series.** Examples: “آية ومعنى”، “دعاء في موقفه”، “حديث وتطبيق”، “ذكر ووقته”، “قصة موثقة في دقيقة”، and “سؤال للأطفال”. Preserve brand identity while varying hooks, scenes, motion, pacing and examples.
-8. **Keep Kids separate.** Require explicit Kids audience, age group, learning objective, complete series metadata and child-safety QA. Never weaken those conditions to fill the daily target.
+8. **Separate Kids suitability from platform audience.** All ZIKR-generated videos are distributed to the general audience on YouTube; child-suitable stories retain age group, learning objective, complete series metadata and strict child-safety QA. After that QA and the current source/media fingerprint pass, those stories appear in both the public video library and the Kids section. Do not set YouTube's Made for Kids flag merely because a story is suitable for children.
 9. **Keep one canonical master.** Cloudinary remains the durable playback master. Do not delete it after social upload. Remove only redundant staging copies after verified delivery and reference checks.
 
 ## Measurement and iteration

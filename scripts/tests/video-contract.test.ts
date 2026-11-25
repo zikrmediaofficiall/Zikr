@@ -312,3 +312,12 @@ const videoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts"
 assert.ok(videoCreateRoute.includes("resolveVideoResolution(content.resolution, content.videoFormat)"));
 
 console.log("video contract tests passed");
+
+
+const videoCatalogService = readFileSync("src/features/videos/services/videos.ts", "utf8");
+assert.match(videoCatalogService, /getKidsGeneratedVideos\(safeLimit\)/,
+  "strictly approved Kids-suitable stories must also be cross-listed in the public video library");
+assert.match(videoCatalogService, /getKidsGeneratedVideoBySlug\(slug\)/,
+  "a cross-listed Kids-suitable story must open from the public /videos detail route");
+assert.match(videoCatalogService, /strict request-fingerprint \+ automated-QA validation/,
+  "cross-listing must reuse the Kids safety approval path instead of bypassing it");

@@ -2558,6 +2558,12 @@ async function registerGeneratedVideoOnSite(
     renderDurationMs: rendered.renderDurationMs,
     scene: rendered.scene,
     audience: request.content.audience === "kids" ? "kids" : "general",
+    publicDistributionAudience: "general",
+    kidsSectionEligible: isKidsVideo &&
+      kidsVideoQaStatus === "passed" &&
+      request.content.approvalStatus === "approved" &&
+      typeof request.content.approvalSnapshotHash === "string" &&
+      request.content.approvalSnapshotHash === qaSnapshot.snapshotHash,
     kidsVideoQaStatus,
     seriesId: typeof request.content.seriesId === "string" ? request.content.seriesId : null,
     seriesTitle: typeof request.content.seriesTitle === "string" ? request.content.seriesTitle : null,

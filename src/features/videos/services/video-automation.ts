@@ -171,6 +171,8 @@ export async function createVideoGenerationRequest(data: {
     content = {
       ...content,
       renderer: typeof content.renderer === 'string' ? content.renderer : 'template',
+      // Kids suitability is tracked separately; YouTube distribution remains general.
+      publicDistributionAudience: "general",
       templateVersion,
       sourceHash: sourceHashValue,
       contentHash: contentHashValue,

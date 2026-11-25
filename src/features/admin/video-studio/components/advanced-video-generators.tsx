@@ -74,8 +74,8 @@ function KidsGenerator() {
     }, setStatus);
   }
   return <Card className={cardClass}>
-    <div><h3 className="text-lg font-bold text-brand-gold">قصص الأطفال — توليد تسلسلي</h3>
-      <p className="mt-1 text-sm leading-6 text-brand-cream/60">النص باللهجة المصرية، بسيناريو وقيمة تربوية ومشهد مناسب للعمر. الفحص الآلي يراجع النص والرسومات وبيانات السلسلة قبل الإتاحة.</p></div>
+    <div><h3 className="text-lg font-bold text-brand-gold">قصص مناسبة للأطفال — توليد تسلسلي</h3>
+      <p className="mt-1 text-sm leading-6 text-brand-cream/60">النص باللهجة المصرية، بسيناريو وقيمة تربوية ومشهد مناسب للعمر. بعد اجتياز فحص المصدر والسلامة تظهر القصة في مكتبة الفيديوهات العامة، وتُعرض أيضًا داخل قسم الأطفال.</p></div>
     <label className="block text-sm text-brand-cream/70">رقم الحلقة
       <input type="number" min="1" max="100000" value={sequence} onChange={(event) => setSequence(event.target.value)} className={inputClass}/>
     </label>
