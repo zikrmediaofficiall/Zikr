@@ -68,7 +68,7 @@ assert.ok(approvalApi.includes('laylSitePublishQueueStatus = "queue_error"'), "p
 assert.ok(approvalApi.includes('laylSitePublishQueueStatus === "queue_error"'), "the approval response must surface a site queue warning when queue creation fails");
 assert.ok(api.includes('visualTheme: "layl"'), "the server must choose the branded Layl mascot scene");
 assert.ok(api.includes("maxDurationSeconds: 120"), "the server must explicitly authorize the dedicated two-minute ceiling");
-assert.ok(api.includes("skipSocialPublish: true"), "Layl generation must not auto-publish to external social platforms");
+assert.ok(api.includes('platformAudience: "general"'), "Layl episodes must use general platform distribution");
 
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 assert.ok(worker.includes('request.content?.programId === "dakitayn-ma3-layl"'), "only the canonical Layl program ID may receive the extended duration");
@@ -78,7 +78,7 @@ assert.ok(worker.includes("requestedVisualTheme"), "the renderer must honor an a
 assert.ok(worker.includes("episode.visualBackground === content.visualBackground"), "the QA gate must verify each episode's canonical topic background");
 assert.ok(worker.includes("public/video/templates/layl-character.svg"), "all episode scenes must reuse the same approved Layl cartoon character layer");
 assert.ok(worker.includes('request.content.workflow === "layl-program" && request.content.programId === LAYL_PROGRAM_ID'), "the Layl renderer must isolate the program from the generic publication flow");
-assert.ok(worker.includes('return { videoId, published: false, queued: false }'), "Layl generation must keep the internal video unpublished and out of the site publication queue until approval");
+assert.ok(!worker.includes("skipSocialPublish: true"), "the scheduled Layl programme must not bypass automatic social publishing after QA");
 assert.ok(worker.includes("overlay=0:0:format=auto"), "the renderer must composite Layl over the topic-specific local scene");
 assert.ok(worker.includes("content.visualBackground"), "the renderer must select the background from the active episode's topic");
 
