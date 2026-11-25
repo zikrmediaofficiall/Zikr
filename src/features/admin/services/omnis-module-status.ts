@@ -47,14 +47,14 @@ function githubWorkflowState(
 }
 
 export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusSnapshot> {
-  const checkedAt = new Date().toISOString();
+  const probeStartedAt = new Date().toISOString();
   let available = true;
   let error: string | null = null;
   let observations: OmnisDependencyObservation[] = [];
 
   try {
     const health = await getAdminHealth();
-    const timestamp = health.generatedAt || checkedAt;
+    const timestamp = health.generatedAt || probeStartedAt;
     observations = [
       {
         dependencyId: "supabase-database",
@@ -115,12 +115,15 @@ export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusS
     console.error("[admin/omnis] module dependency probes failed", cause);
   }
 
+  // Evaluate freshness after all asynchronous probes have finished; timestamps produced
+  // by a probe during the current request must not be treated as future-dated.
+  const evaluatedAt = new Date();
   const modules = buildOmnisModuleStatuses({
     moduleIds: OMNIS_CENTERS.map((center) => center.id),
     definitions: OMNIS_DEPENDENCY_DEFINITIONS,
     relations: OMNIS_MODULE_DEPENDENCIES,
     observations,
-    now: new Date(checkedAt),
+    now: evaluatedAt,
   });
   const counts: Record<OmnisOperationalState, number> = {
     healthy: 0,
@@ -131,5 +134,5 @@ export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusS
   };
   for (const module of modules) counts[module.state] += 1;
 
-  return { available, checkedAt, modules, counts, error };
+  return { available, checkedAt: evaluatedAt.toISOString(), modules, counts, error };
 }
