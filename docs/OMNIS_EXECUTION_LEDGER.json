@@ -300,14 +300,14 @@
           "task_order": 0,
           "title": "توحيد واجهات الخدمات",
           "description": "تعريف عقود قراءة وكتابة وتنفيذ موحدة مع صلاحيات خادمية.",
-          "initial_state": "in_progress"
+          "initial_state": "completed"
         },
         {
           "task_key": "OMNIS-P01-02",
           "task_order": 1,
           "title": "توحيد حالة الوحدات",
           "description": "توحيد نموذج الحالة والتوافر والاعتماديات وتاريخ الفحص.",
-          "initial_state": "pending"
+          "initial_state": "in_progress"
         },
         {
           "task_key": "OMNIS-P01-03",
@@ -721,6 +721,36 @@
         "next_task_selection": "earliest non-completed task after P00",
         "scope": "typed server-side control-plane contracts",
         "status": "implementation started"
+      }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-004",
+      "task_key": "OMNIS-P01-01",
+      "state": "completed",
+      "commit_sha": "c002e9c23e19f165c76e9704e0e354591a6c4dd2",
+      "recorded_at": "2026-11-25T05:24:30Z",
+      "evidence": {
+        "github_quality_gate": "success",
+        "postgres_integration_checks": 32,
+        "circleci_config_guard": "success",
+        "circleci_application_build_docs": "success",
+        "circleci_source_verify": "success",
+        "android_debug_workflow": "success",
+        "vercel_preview": "READY",
+        "next_build": "compiled",
+        "typescript": "passed",
+        "static_pages_generated": 190,
+        "authenticated_browser_e2e": "pending"
+      }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-005",
+      "task_key": "OMNIS-P01-02",
+      "state": "in_progress",
+      "recorded_at": "2026-11-25T05:25:00Z",
+      "evidence": {
+        "selected_by": "earliest non-completed task after OMNIS-P01-01",
+        "scope": "unified module status, availability, ownership and dependency contracts"
       }
     }
   ]
