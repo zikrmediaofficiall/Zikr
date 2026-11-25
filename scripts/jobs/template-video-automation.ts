@@ -736,8 +736,8 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
     videoFormat: "vertical",
     resolution: "1080x1920",
     maxDurationSeconds: 120,
-    skipSocialPublish: true,
-    approvalStatus: "awaiting_human_review",
+    platformAudience: "general",
+    approvalStatus: "awaiting_automated_review",
     automationKey,
     aiMode: "layl-scripted",
     contentFormat: "weekly_program_episode",
@@ -2558,6 +2558,7 @@ async function registerGeneratedVideoOnSite(
     renderDurationMs: rendered.renderDurationMs,
     scene: rendered.scene,
     audience: request.content.audience === "kids" ? "kids" : "general",
+    platformAudience: "general",
     publicDistributionAudience: "general",
     kidsSectionEligible: isKidsVideo &&
       kidsVideoQaStatus === "passed" &&
@@ -3412,6 +3413,10 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
         ? {
             ...request.content,
             ...qaApproval,
+            // Kids suitability is a website taxonomy, not a platform restriction.
+            // Every generated ZIKR video is distributed to the general social audience.
+            platformAudience: "general",
+            publicDistributionAudience: "general",
             ...(isKidsVideo ? { kidsVideoQaStatus } : {}),
             automatedVideoQa: {
               ...(qaApproval.automatedVideoQa as Record<string, unknown>),
