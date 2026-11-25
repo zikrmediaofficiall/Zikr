@@ -10,6 +10,7 @@ type EditableSettingBase = {
   description: string;
   category: AdminSettingCategory;
   owner: string;
+  dependencies: readonly string[];
   permission: AdminPermission;
   stepUpPolicy: StepUpPolicy;
   storage: "public.admin_settings";
@@ -43,6 +44,7 @@ export type InternalAdminSettingDefinition = {
   description: string;
   category: "internal";
   owner: string;
+  dependencies: readonly string[];
   storage: "public.admin_settings";
   valueType: "workflow-state" | "worker-cursor" | "operational-lock" | "specialized-config";
   reason: string;
@@ -68,6 +70,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "يتحكم في طبقة الإحالة قبل الحذف والنشر والعمليات الخطرة.",
     category: "security",
     owner: "Identity & Access",
+    dependencies: ["admin.security-policy", "supabase.admin_settings", "admin_audit_events"],
     permission: "settings.manage",
     stepUpPolicy: "always",
     storage: "public.admin_settings",
@@ -83,6 +86,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "يوقف واجهات الصيانة التي تعتمد على هذا الإعداد دون تغيير بيانات المحتوى.",
     category: "platform",
     owner: "Platform Operations",
+    dependencies: ["site.maintenance-mode", "supabase.admin_settings"],
     permission: "settings.manage",
     stepUpPolicy: "policy",
     storage: "public.admin_settings",
@@ -98,6 +102,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "يسمح لمركز الإدارة بعرض والتنبيه عن الأحداث التشغيلية المهمة.",
     category: "platform",
     owner: "Platform Operations",
+    dependencies: ["admin.queue-alerts", "supabase.admin_settings"],
     permission: "settings.manage",
     stepUpPolicy: "policy",
     storage: "public.admin_settings",
@@ -113,6 +118,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "قيمة من 10 إلى 100 لتجنب استعلامات ضخمة داخل مركز الإدارة.",
     category: "platform",
     owner: "Admin Platform",
+    dependencies: ["admin.search", "supabase.admin_settings"],
     permission: "settings.manage",
     stepUpPolicy: "none",
     storage: "public.admin_settings",
@@ -131,6 +137,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "مفتاح إيقاف التوليد الداخلي؛ غياب الإعداد أو تعذر قراءته يوقف العامل احترازيًا.",
     category: "video",
     owner: "Video Operations",
+    dependencies: ["video-generation-worker", "video_purge_in_progress", "supabase.admin_settings"],
     permission: "system.manage",
     stepUpPolicy: "always",
     storage: "public.admin_settings",
@@ -146,6 +153,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "يسمح بإدراج الفيديوهات المؤهلة في طابور النشر الخارجي بعد اجتياز فحوص الجودة؛ لا يثبت جاهزية OAuth أو المنصة.",
     category: "video",
     owner: "Social & Video Operations",
+    dependencies: ["video-qa", "social-publishing-worker", "provider-oauth", "supabase.admin_settings"],
     permission: "system.manage",
     stepUpPolicy: "always",
     storage: "public.admin_settings",
@@ -161,6 +169,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "حجم الدفعة التي يقرأها عامل الفيديو من إعدادات الإدارة.",
     category: "video",
     owner: "Video Operations",
+    dependencies: ["video-generation-worker", "supabase.admin_settings"],
     permission: "system.manage",
     stepUpPolicy: "always",
     storage: "public.admin_settings",
@@ -179,6 +188,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "يسمح بمحاولات مزودي الفيديو المدعومين مع الرجوع الآمن إلى قالب FFmpeg.",
     category: "video",
     owner: "AI & Video Operations",
+    dependencies: ["video-provider-registry", "ffmpeg-fallback", "supabase.admin_settings"],
     permission: "system.manage",
     stepUpPolicy: "always",
     storage: "public.admin_settings",
@@ -194,6 +204,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "الهدف اليومي الذي يستخدمه عامل الفيديو عند عدم وجود قيمة محفوظة.",
     category: "video",
     owner: "Video Operations",
+    dependencies: ["video-automation-quota", "video-generation-worker", "supabase.admin_settings"],
     permission: "system.manage",
     stepUpPolicy: "always",
     storage: "public.admin_settings",
@@ -212,6 +223,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "عدد محاولات مزودي الفيديو المجانية قبل الرجوع إلى القالب المحلي.",
     category: "video",
     owner: "AI & Video Operations",
+    dependencies: ["video-provider-registry", "video-generation-worker", "supabase.admin_settings"],
     permission: "system.manage",
     stepUpPolicy: "always",
     storage: "public.admin_settings",
@@ -230,6 +242,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "المدة الافتراضية للأصول المرئية المولدة.",
     category: "video",
     owner: "Video Operations",
+    dependencies: ["video-composition", "video-generation-worker", "supabase.admin_settings"],
     permission: "system.manage",
     stepUpPolicy: "always",
     storage: "public.admin_settings",
@@ -248,6 +261,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "لقطة حالة داخلية لمسار إصدار التطبيق وليست إعدادًا قابلًا للتحرير.",
     category: "internal",
     owner: "Mobile Release Operations",
+    dependencies: ["android-release-workflow", "github-actions", "supabase.admin_settings"],
     storage: "public.admin_settings",
     valueType: "workflow-state",
     reason: "تُدار حصريًا بواسطة مسار الإصدار؛ لا تُعرض أو تُعدّل من محرر الإعدادات العام.",
@@ -259,6 +273,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "مؤشر تدوير داخلي لمسح مؤشرات النشر الاجتماعي.",
     category: "internal",
     owner: "Social Analytics Worker",
+    dependencies: ["facebook-reels-insights-worker", "supabase.admin_settings"],
     storage: "public.admin_settings",
     valueType: "worker-cursor",
     reason: "حالة عامل داخلية؛ تعديلها يدويًا قد يسبب تخطي عناصر أو تكرار المسح.",
@@ -270,6 +285,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "مؤشر تدوير داخلي لمسح مؤشرات YouTube.",
     category: "internal",
     owner: "Social Analytics Worker",
+    dependencies: ["youtube-analytics-worker", "supabase.admin_settings"],
     storage: "public.admin_settings",
     valueType: "worker-cursor",
     reason: "حالة عامل داخلية؛ تعديلها يدويًا قد يسبب تخطي عناصر أو تكرار المسح.",
@@ -281,6 +297,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "قفل تشغيلي مؤقت يمنع التوليد أثناء تنظيف وسائط ZIKR.",
     category: "internal",
     owner: "Video Retention Worker",
+    dependencies: ["video-retention-worker", "video-generation-worker", "supabase.admin_settings"],
     storage: "public.admin_settings",
     valueType: "operational-lock",
     reason: "القفل يملكه عامل التنظيف ويُدار بمقارنة وتحديث ذري؛ لا يُعدّل من إعدادات عامة.",
@@ -292,6 +309,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "طلب تشغيل/توزيع عمل مؤقت وليس إعدادًا دائمًا.",
     category: "internal",
     owner: "Video Automation Workflow",
+    dependencies: ["video-automation-workflow-dispatch", "video-generation-worker", "supabase.admin_settings"],
     storage: "public.admin_settings",
     valueType: "workflow-state",
     reason: "يُنشأ ويُستهلك عبر مسار طلب التشغيل؛ لا يُعرض أو يُعدّل عبر محرر الإعدادات العام.",
@@ -303,6 +321,7 @@ export const ADMIN_SETTING_REGISTRY = [
     description: "تهيئة منظمة لمزودات Gradio المخصصة.",
     category: "internal",
     owner: "AI & Video Operations",
+    dependencies: ["video-provider-registry", "huggingface-gradio", "supabase.admin_settings"],
     storage: "public.admin_settings",
     valueType: "specialized-config",
     reason: "تستخدم مسار تحقق مخصصًا لحقول متعددة؛ يمنع قبول JSON عام أو تعديلها من نموذج مفتاح/قيمة.",
