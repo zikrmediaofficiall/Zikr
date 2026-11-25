@@ -93,7 +93,7 @@ assert.ok(/requireAdminStepUpApi\(\s*["']video\.delete["']/.test(singleVideoDele
 const postCommitActions = [
   ["src/app/admin/android/actions.ts", 1],
   ["src/app/admin/categories/actions.ts", 2],
-  ["src/app/admin/editorial-actions.ts", 2],
+  ["src/app/admin/editorial-actions.ts", 3],
   ["src/app/admin/knowledge/actions.ts", 4],
   ["src/app/admin/release/actions.ts", 3],
   ["src/app/admin/seo/actions.ts", 1],
