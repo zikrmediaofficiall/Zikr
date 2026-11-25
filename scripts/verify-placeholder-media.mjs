@@ -7,6 +7,8 @@ const ignoredDirs = new Set([
   '.next',
   '.git',
   'android/.gradle',
+  // Unit-test fixtures use example.com style URLs on purpose (URL validators, SSRF rejection tests).
+  'scripts/tests',
   'ios/App/Pods',
   // Capacitor copies compiled Next.js output into this ignored native
   // WebView directory; bundled dependency examples contain example.com URLs.
