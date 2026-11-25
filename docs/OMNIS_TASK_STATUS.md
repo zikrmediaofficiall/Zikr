@@ -31,9 +31,9 @@ no DB runner yet. **Not built** = nothing exists for the deliverable.
 | P09-01 analytics data layer | Built | `admin/services/analytics-completeness.ts` | none known | 85ced85 |
 | P09-02 audience and content analytics | Partial | `/admin/analytics`, GA4/YouTube contracts | not re-audited | existing |
 | P09-03 growth, revenue, SEO | Partial | traffic-revenue panel, `/admin/seo`, `/admin/video/performance` | not re-audited | existing, 5b6ee1a |
-| P10-01 workflow designer | Scaffold | `features/automation/workflow-engine.ts` | no designer UI | 2c8ca45 |
-| P10-02 execution reliability | Scaffold | engine: idempotency, retry, timeout, dead letter | no DB-backed runner | 2c8ca45 |
-| P10-03 approvals, kill switch, recovery | Scaffold | engine: dry run, approval, kill switch | no DB-backed runner | 2c8ca45 |
+| P10-01 workflow designer | Built (flagged AUTOMATION_ENGINE_ENABLED) | `/admin/omnis/workflows` designer form, `automation/workflow-designer.ts` (+test), saves disabled | schedule triggers not wired; form-based, not a visual canvas | this commit |
+| P10-02 execution reliability | Built (flagged) | `automation/workflow-store.ts` DB-backed runs: idempotency, rate limit, retry, timeout, dead-letter list; migration 20261125180000 not applied | only notify_admin and revalidate_path execute; other actions dead-letter; verification is recorded, not machine-checked | this commit |
+| P10-03 approvals, kill switch, recovery | Built (flagged) | dry run default, approval by a different admin, per-workflow disable, global AUTOMATION_KILL_SWITCH | pause/resume queue not wired to executor | this commit |
 | P11-01 cloud services center | Partial | `admin/services/platform.ts` (GitHub, workflows, health) | no Vercel/Supabase/storage panel | existing |
 | P11-02 database and API studio | Not built | static scripts only (`verify-migration-rls-coverage`) | inventory UI | 4fdc67d |
 | P11-03 code development center | Not built | none | branches, PRs, reviews view | none |

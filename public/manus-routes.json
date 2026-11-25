@@ -88,6 +88,9 @@
       "path": "/admin/omnis/pages"
     },
     {
+      "path": "/admin/omnis/workflows"
+    },
+    {
       "path": "/admin/omnis/project"
     },
     {
