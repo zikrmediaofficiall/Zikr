@@ -11,7 +11,7 @@ export type OmnisCenter = {
 
 export const OMNIS_CENTERS: readonly OmnisCenter[] = [
   { id: "global-command", title: "القيادة والتحكم الشامل", subtitle: "Executive Command", path: "/admin/omnis", status: "active", description: "الحالة التشغيلية والطوابير والتنبيهات والأوامر الآمنة." },
-  { id: "project-explorer", title: "مستكشف المشروع", subtitle: "Project Explorer", path: null, status: "planned", description: "فهرسة كل صفحة ومكون وخدمة وجدول وواجهة وربط الاعتماديات." },
+  { id: "project-explorer", title: "مستكشف المشروع", subtitle: "Project Explorer", path: "/admin/omnis/project", status: "partial", description: "فهرس GitHub للصفحات والخدمات وواجهات API، وخريطة اعتماديات وتحليل أثر نطاقي." },
   { id: "universal-control", title: "التحكم الموحد", subtitle: "Universal Control", path: "/admin/omnis", status: "partial", description: "أوامر موحدة حسب صلاحية المورد ونوع العملية." },
   { id: "configuration-studio", title: "استوديو الإعدادات", subtitle: "Configuration Studio", path: "/admin/settings", status: "partial", description: "سجل إعدادات typed مع مالك ونطاق وتحقق وتاريخ نسخ." },
   { id: "website-experience", title: "استوديو تجربة الموقع", subtitle: "Website Experience", path: "/admin/sections", status: "partial", description: "إدارة الأقسام والصفحات والقوائم والثيمات والمعاينة." },

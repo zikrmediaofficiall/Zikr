@@ -15,6 +15,9 @@ const moduleDependencies = read("src/features/admin/omnis/module-dependencies.ts
 const moduleStatusService = read("src/features/admin/services/omnis-module-status.ts");
 const incidents = read("src/features/admin/omnis/incidents.ts");
 const commands = read("src/features/admin/omnis/commands.ts");
+const resourceIndex = read("src/features/admin/omnis/resource-index.ts");
+const resourceService = read("src/features/admin/services/omnis-project-index.ts");
+const explorerPage = read("src/app/admin/omnis/project/page.tsx");
 
 const centerIds = [...centers.matchAll(/id: "([^"]+)"/g)].map((m) => m[1]);
 if (centerIds.length !== 30) failures.push("OMNIS must define exactly 30 control centers");
@@ -70,6 +73,18 @@ if (!actions.includes("resolveOmnisSafeCommand") || !actions.includes("admin.omn
 }
 if (!page.includes("moduleStatusSnapshot.incidents.map") || !page.includes("runOmnisSafeCommandAction") || !page.includes("ليست سجل حوادث دائمًا")) {
   failures.push("OMNIS command center must display live incidents and disclose their non-persisted lifecycle");
+}
+if (!resourceIndex.includes("classifyOmnisResource") || !resourceIndex.includes("analyzeOmnisResourceImpact") || !resourceIndex.includes("OMNIS_MODULE_DEPENDENCIES")) {
+  failures.push("Project Explorer must classify resources and expand a registered dependency impact graph");
+}
+if (!resourceService.includes('import "server-only"') || !resourceService.includes("/git/trees/") || !resourceService.includes("GITHUB_DISPATCH_TOKEN")) {
+  failures.push("Project Explorer index must read the current GitHub tree server-side without exposing credentials");
+}
+if (!explorerPage.includes('requireAdminPermission("system.manage")') || !explorerPage.includes("OMNIS_MODULE_DEPENDENCIES.map") || !explorerPage.includes("analyzeOmnisResourceImpact")) {
+  failures.push("Project Explorer page must require admin permission and show the index, dependency map and impact analysis");
+}
+if (!centers.includes('id: "project-explorer"') || !centers.includes('path: "/admin/omnis/project"')) {
+  failures.push("Project Explorer must be reachable from the registered OMNIS center");
 }
 
 if (failures.length) {
