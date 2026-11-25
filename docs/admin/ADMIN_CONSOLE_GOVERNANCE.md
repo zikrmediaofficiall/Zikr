@@ -38,6 +38,7 @@
 | `/admin` | لوحة التحكم | `dashboard.view` |
 | `/admin/omnis` | ZIKR OMNIS — مركز القيادة وسجل التنفيذ | `system.manage` |
 | `/admin/omnis/project` | مستكشف المشروع — فهرس الموارد وخريطة الاعتماديات وتحليل الأثر | `system.manage` |
+| `/admin/omnis/studio` | استوديو الموقع والتطبيق — عرض بنية القوائم وروابط أدوات الإدارة للقراءة فقط | `system.manage` |
 | `/admin/queues` | مركز الطوابير | `dashboard.view` |
 | `/admin/automation` | التشغيل الآلي | `system.manage` |
 | `/admin/health` | صحة النظام | `system.manage` |
