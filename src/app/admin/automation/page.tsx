@@ -177,7 +177,7 @@ export default async function AdminAutomationPage() {
                     min={definition.minimum}
                     max={definition.maximum}
                     step={1}
-                    defaultValue={numericValue ?? definition.runtimeFallback}
+                    defaultValue={numericValue ?? definition.formFallback}
                     className="w-full rounded-xl border border-brand-gold/15 bg-black/20 px-3 py-2 text-sm text-brand-cream"
                   />
                 )}
