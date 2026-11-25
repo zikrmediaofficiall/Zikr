@@ -62,8 +62,8 @@ export function buildOmnisIncidents(input: {
   const definitions = new Map(input.definitions.map((item) => [item.id, item]));
   const grouped = new Map<string, OmnisIncident>();
 
-  for (const module of input.modules) {
-    for (const dependency of module.dependencies) {
+  for (const moduleStatus of input.modules) {
+    for (const dependency of moduleStatus.dependencies) {
       if (dependency.freshness === "missing" || dependency.state === "healthy") continue;
       const definition = definitions.get(dependency.dependencyId);
       if (!definition) continue;
@@ -81,7 +81,7 @@ export function buildOmnisIncidents(input: {
       const incidentKey = `omnis:${dependency.dependencyId}:${dependency.state}:${dependency.freshness}`;
       const existing = grouped.get(incidentKey);
       if (existing) {
-        if (!existing.affectedModules.includes(module.moduleId)) {
+        if (!existing.affectedModules.includes(moduleStatus.moduleId)) {
           existing.affectedModules.push(module.moduleId);
         }
         continue;
