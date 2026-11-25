@@ -52,21 +52,11 @@ export function AuthNavActions({ initialUser, initialIsAdmin }: AuthNavActionsPr
           return;
         }
 
-        // Confirm an empty client session with the Auth API before clearing
-        // state; transient failures must never appear as a logout.
-        const {
-          data: { user: currentUser },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError) {
-          console.warn('[auth/nav] getUser failed; preserving current auth state');
-          return;
-        }
-
+        // No local session: the visitor is signed out. Calling getUser() here
+        // only fails with "Auth session missing" and spams the console.
         if (!disposed) {
-          setUser(currentUser ?? null);
-          if (!currentUser) setIsAdmin(false);
+          setUser(null);
+          setIsAdmin(false);
         }
       } catch (error) {
         console.warn('[auth/nav] auth sync failed; preserving current auth state', error);

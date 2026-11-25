@@ -41,13 +41,17 @@ export function InstallPrompt() {
     };
 
     window.addEventListener('beforeinstallprompt', handler);
-    window.addEventListener('appinstalled', () => {
+    const onInstalled = () => {
       setVisible(false);
       setDeferred(null);
       localStorage.setItem(DISMISS_KEY, '1');
-    });
+    };
+    window.addEventListener('appinstalled', onInstalled);
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
   }, []);
 
   const handleInstall = useCallback(async () => {
@@ -65,7 +69,8 @@ export function InstallPrompt() {
 
   const handleDismiss = useCallback(() => {
     setVisible(false);
-    localStorage.setItem(DISMISS_KEY, '1');
+    setDeferred(null);
+    try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* storage unavailable */ }
   }, []);
 
   if (!visible) return null;
@@ -107,7 +112,7 @@ export function InstallPrompt() {
           </button>
           <button
             onClick={handleDismiss}
-            className="rounded-md p-1 text-brand-cream/50 transition-colors hover:text-brand-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold"
+            className="flex h-10 w-10 items-center justify-center rounded-md text-brand-cream/70 transition-colors hover:text-brand-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold"
             aria-label={isEnglish ? 'Close' : 'إغلاق'}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">

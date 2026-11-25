@@ -114,7 +114,7 @@ export const SITE_CATALOG: CatalogGroup[] = [
     descriptionEn: 'Games, stories, challenges, achievements and audio.',
     icon: 'Gamepad2',
     items: [
-      { href: '/kids', ar: 'الرئيسية', en: 'Kids Home', descriptionAr: 'مدخل واحد لمحتوى الأطفال.', descriptionEn: 'One entry point for kids content.', icon: 'Sparkle', tone: 'kids' },
+      { href: '/kids', ar: 'عالم الأطفال', en: 'Kids World', descriptionAr: 'مدخل واحد لمحتوى الأطفال.', descriptionEn: 'One entry point for kids content.', icon: 'Sparkle', tone: 'kids' },
       { href: '/kids/games', ar: 'الألعاب', en: 'Games', descriptionAr: 'ألعاب تعليمية وحركية بتقدم موحد.', descriptionEn: 'Educational and arcade games.', icon: 'Gamepad2', tone: 'kids' },
       { href: '/kids/adventures', ar: 'المغامرات', en: 'Adventures', descriptionAr: 'قصص تفاعلية ومسارات قصيرة.', descriptionEn: 'Interactive story adventures.', icon: 'MapPinned', tone: 'kids' },
       { href: '/kids/achievements', ar: 'الإنجازات', en: 'Achievements', descriptionAr: 'تقدم الطفل ومكافآته.', descriptionEn: 'Progress and rewards.', icon: 'Trophy', tone: 'kids' },
