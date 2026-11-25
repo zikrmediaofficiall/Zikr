@@ -48,8 +48,8 @@ assert.match(String((clean.largeArray as unknown[])[49]), /Truncated 11 addition
 assert.equal((clean.circular as Record<string, unknown>).self, "[Circular reference]");
 const deepOne = (clean.deep as Record<string, unknown>).one as Record<string, unknown>;
 const deepTwo = deepOne.two as Record<string, unknown>;
-const deepThree = deepTwo.three as Record<string, unknown>;
-assert.equal(deepThree.four, "[Maximum audit metadata depth reached]");
+const deepThree = deepTwo.three;
+assert.equal(deepThree, "[Maximum audit metadata depth reached]");
 assert.equal(clean.nonFinite, null);
 
 const auditSource = readFileSync("src/features/admin/services/audit.ts", "utf8");
