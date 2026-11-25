@@ -93,16 +93,19 @@ export function resolveNextVideoPublishAt(input: {
   const platforms = [...new Set(input.targetPlatforms)];
   if (platforms.some((platform) => !VALID_TARGETS.has(platform))) return null;
 
-  const reserved = new Set<string>();
+  const reservedSlots = new Set<string>();
+  const dailyPlatformCounts = new Map<string, number>();
   for (const row of input.rows) {
     if (!["queued", "partial", "processing", "published"].includes(row.status)) continue;
     const at = rowReservationTime(row);
     if (!at) continue;
+    const dayKey = cairoDateKey(at);
     const slotIndex = nearestSlotIndex(at);
-    if (slotIndex === null) continue;
-    const key = cairoDateKey(at) + ":" + slotIndex;
     for (const platform of row.target_platforms ?? []) {
-      if (VALID_TARGETS.has(platform)) reserved.add(platform + ":" + key);
+      if (!VALID_TARGETS.has(platform)) continue;
+      const dailyKey = platform + ":" + dayKey;
+      dailyPlatformCounts.set(dailyKey, (dailyPlatformCounts.get(dailyKey) ?? 0) + 1);
+      if (slotIndex !== null) reservedSlots.add(platform + ":" + dayKey + ":" + slotIndex);
     }
   }
 
@@ -120,8 +123,13 @@ export function resolveNextVideoPublishAt(input: {
       const slot = VIDEO_PUBLISH_SLOTS[slotIndex];
       const instant = cairoLocalTimeToUtc({ ...localDate, hour: slot.hour, minute: slot.minute });
       if (instant.getTime() < earliest) continue;
-      const key = dayKey + ":" + slotIndex;
-      if (platforms.every((platform) => !reserved.has(platform + ":" + key))) return instant.toISOString();
+      const slotKey = dayKey + ":" + slotIndex;
+      const underDailyLimit = platforms.every((platform) =>
+        (dailyPlatformCounts.get(platform + ":" + dayKey) ?? 0) < VIDEO_PUBLISH_DAILY_PLATFORM_LIMIT,
+      );
+      if (underDailyLimit && platforms.every((platform) => !reservedSlots.has(platform + ":" + slotKey))) {
+        return instant.toISOString();
+      }
     }
   }
   return null;

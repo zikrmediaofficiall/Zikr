@@ -22,7 +22,7 @@ These numbers are directional and limited by the available metrics. The insight 
 ### Volume
 
 - Generate a target of 3 short videos per Cairo day. The weekly “دقيقتين مع ليل” episode remains a separate editorial asset and outside the short-video quota.
-- Publish at most 3 short videos/day on each connected short-form platform. One approved vertical master is cross-published to YouTube Shorts and Facebook Reels: 3 YouTube uploads plus 3 Reels per day, not 6 separately generated videos.
+- Publish at most 3 short videos/day on each connected short-form platform. This cap includes existing/manual video queue rows even when they are scheduled outside the three preferred slots. One approved vertical master is cross-published to YouTube Shorts and Facebook Reels: 3 YouTube uploads plus 3 Reels per day, not 6 separately generated videos.
 - Publish one separate written Facebook Page post/day. It does not consume the video quota.
 - Do not publish immediately when rendering finishes. Queue each video to the next Cairo slot, with at least 15 minutes of lead time.
 - Keep the admin Run Now batch bounded at 3 by default. Do not use repeated urgent runs to evade the daily cap.

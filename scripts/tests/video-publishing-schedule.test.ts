@@ -53,5 +53,24 @@ assert.deepEqual(VIDEO_PUBLISH_SLOTS, [
   { hour: 14, minute: 22 },
   { hour: 17, minute: 52 },
 ]);
+// Manually scheduled video rows still consume the per-platform daily quota,
+// even when their timestamps do not match one of the preferred automation slots.
+const offSlot = (scheduled_at: string) => ({
+  ...occupied(scheduled_at),
+  target_platforms: ["youtube", "facebook_reels"],
+});
+assert.equal(
+  resolveNextVideoPublishAt({
+    now,
+    rows: [
+      offSlot("2026-11-25T05:30:00.000Z"), // 07:30 Cairo
+      offSlot("2026-11-25T09:00:00.000Z"), // 11:00 Cairo
+      offSlot("2026-11-25T14:00:00.000Z"), // 16:00 Cairo
+    ],
+    targetPlatforms: ["youtube", "facebook_reels"],
+  }),
+  "2026-11-26T03:37:00.000Z",
+  "Three off-slot manual videos must still exhaust the per-platform daily quota.",
+);
 assert.equal(resolveNextVideoPublishAt({ now, rows: [], targetPlatforms: ["tiktok"] }), null);
 console.log("Cairo video publishing schedule tests passed.");
