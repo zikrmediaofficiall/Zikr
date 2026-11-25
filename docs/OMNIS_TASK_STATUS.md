@@ -44,7 +44,7 @@ no DB runner yet. **Not built** = nothing exists for the deliverable.
 | P13-02 tools and resource scoping | Scaffold | scoped authorization in `agents.ts` | flag off | 627c714 |
 | P13-03 analysis and repair orchestration | Built (review UI + intake, flagged OMNIS_AGENTS_ENABLED) | `/admin/omnis/agents`, `omnis/agent-store.ts`: scoped intake with budgets/limits and run log, human approve/reject/applied transitions by agent permission | no runner that calls a model to generate proposals; applying a proposal is manual | this commit |
 | P14-01 contract and integration tests | Built | static RLS and admin-guard checks, ~190 test files | E2E needs live env | 4fdc67d |
-| P14-02 load and recovery tests | Not built | none | runnable-without-live tests | none |
+| P14-02 load and recovery tests | Built (no live env) | `scripts/tests/omnis-load-recovery.test.ts`: 10k-event burst vs rate limit/idempotency, retry/dead-letter recovery, kill switch, budget cap, 50k-row dump analysis | pure cores only, not a live load test | this commit |
 | P14-03 gradual release and closure | Partial | `/admin/release`, release gates | closure needs live Preview/Staging and human approval | existing |
 
 "Partial: not re-audited" means I saw the code exist but have not yet compared it with the plan wording.
