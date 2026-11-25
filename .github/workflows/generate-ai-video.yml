@@ -42,6 +42,9 @@ jobs:
       HF_VIDEO_CUSTOM_SPACES: ${{ vars.HF_VIDEO_CUSTOM_SPACES }}
       GEMINI_MODEL: gemini-3.8-flash
       GEMINI_AUDIO_SMOKE_TEST: "false"
+      # Video experiments, off unless the GitHub environment variable is "true".
+      VIDEO_HOOK_EXPERIMENT_ENABLED: ${{ vars.VIDEO_HOOK_EXPERIMENT_ENABLED || 'false' }}
+      VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED: ${{ vars.VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED || 'false' }}
       AUTO_VIDEO_ENABLED: "true"
       AUTO_VIDEO_PUBLISH_ENABLED: "true"
       AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"

@@ -9,3 +9,4 @@ assert.equal(resolveVideoPoster(url, { VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED: "true
 assert.equal(resolveVideoPoster("https://evil.example/video/upload/a.mp4", { VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED: "true" }), null, "foreign hosts never get a poster");
 assert.equal(resolveVideoPoster(null, {}), null);
 console.log("Video poster contracts passed.");
+assert.equal(isHookFramePosterEnabled({ VIDEO_THUMBNAIL_HOOK_FRAME: "true" }), true, "short Vercel name works");

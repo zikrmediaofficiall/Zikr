@@ -93,7 +93,7 @@ export function isGeneratedCloudinaryVideoUrl(value: unknown, cloudName: string)
 export const HOOK_FRAME_POSTER_SECONDS = 1.6;
 
 export function isHookFramePosterEnabled(env: Record<string, string | undefined> = process.env): boolean {
-  return env.VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED === "true";
+  return [env.VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED, env.VIDEO_THUMBNAIL_HOOK_FRAME].some((v) => v === "true" || v === "1");
 }
 
 /**

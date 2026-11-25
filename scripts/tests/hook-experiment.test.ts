@@ -49,3 +49,6 @@ assert.deepEqual(agg.question, { videos: 2, totalViews: 150 }, "views summed per
 assert.deepEqual(agg.action, { videos: 1, totalViews: 7 });
 assert.deepEqual(agg.reflection, { videos: 0, totalViews: 0 }, "balanced and kids rows are ignored");
 console.log("Hook aggregation contracts passed.");
+
+assert.equal(isHookExperimentEnabled({ VIDEO_HOOK_EXPERIMENT: "true" }), true, "short Vercel name works");
+assert.equal(isHookExperimentEnabled({ VIDEO_HOOK_EXPERIMENT: "false" }), false);

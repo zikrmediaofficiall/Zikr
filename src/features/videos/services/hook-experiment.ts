@@ -5,7 +5,8 @@ export type ExperimentHookStyle = (typeof EXPERIMENT_HOOK_STYLES)[number];
 export type HookStyleStats = Record<ExperimentHookStyle, { videos: number; totalViews: number }>;
 
 export function isHookExperimentEnabled(env: Record<string, string | undefined> = process.env): boolean {
-  return env.VIDEO_HOOK_EXPERIMENT_ENABLED === "true";
+  // Accepts both spellings: the Vercel variable was created without the _ENABLED suffix.
+  return [env.VIDEO_HOOK_EXPERIMENT_ENABLED, env.VIDEO_HOOK_EXPERIMENT].some((v) => v === "true" || v === "1");
 }
 
 function stableUnit(seed: string): number {
