@@ -128,6 +128,11 @@ async function rebalanceDueVideoPublishBacklog(): Promise<{ rescheduled: number;
       cutoff +
       "&select=id,status,target_platforms,scheduled_at,published_at,created_at,updated_at,metadata&order=created_at.asc,id.asc&limit=1000",
   );
+  if ((rows ?? []).length >= 1000) {
+    // The inventory may be truncated at the PostgREST page limit. Scheduling
+    // against an incomplete set could double-book a platform slot.
+    return { rescheduled: 0, failed: 1 };
+  }
   const occupiedRows: DueVideoPublishQueueRow[] = (rows ?? []).map((row) => ({
     ...row,
     completed_platforms: completedVideoPublishPlatforms(row.metadata),
