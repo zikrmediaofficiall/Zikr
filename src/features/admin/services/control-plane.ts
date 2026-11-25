@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCurrentProfile } from "@/features/admin/services/admin";
+import { recordAdminAuditEvent } from "@/features/admin/services/audit";
 import { hasAdminPermission, type AdminRole } from "@/features/admin/services/permissions";
 import {
   isValidControlPlaneRequest,
@@ -121,28 +122,64 @@ export function getControlPlaneCapabilities(role: AdminRole) {
  * permission to execute: mutating adapters must additionally invoke their
  * existing step-up guard, validate their typed payload, and write an audit event.
  */
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const RESOURCE_ID = /^[a-zA-Z0-9][a-zA-Z0-9:._/-]{0,127}$/;
+
+function auditSafeToken(value: unknown): string | null {
+  return typeof value === "string" && RESOURCE_ID.test(value) ? value : null;
+}
+
+/**
+ * Audits an interactive authorization decision, never the passive health probes
+ * or the request payload. A failed audit write fails closed: no authorization
+ * result is returned to the caller.
+ */
+async function auditControlPlaneDecision(input: {
+  requestId: string;
+  outcome: "success" | "denied";
+  reason: string;
+  command?: ControlPlaneCommandDefinition;
+  requestedCommandKey: string | null;
+  requestedResourceType: string | null;
+  requestedResourceId: string | null;
+  requestedScope: string | null;
+  actorRole: AdminRole;
+}): Promise<void> {
+  const { command } = input;
+  await recordAdminAuditEvent({
+    action: "admin.omnis.control_plane.authorization",
+    permission: command?.permission,
+    resourceType: "omnis_control_plane_command",
+    resourceId: command?.key ?? input.requestedCommandKey ?? "invalid_request",
+    outcome: input.outcome,
+    requestId: input.requestId,
+    metadata: {
+      decision: input.outcome === "success" ? "authorized" : "denied",
+      reason: input.reason,
+      executionState: input.outcome === "success" ? "authorized_not_executed" : "not_authorized",
+      actorRole: input.actorRole,
+      commandKey: command?.key ?? input.requestedCommandKey,
+      operation: command?.operation ?? null,
+      risk: command?.risk ?? null,
+      resourceScope: input.requestedScope,
+      targetResourceType: input.requestedResourceType,
+      targetResourceId: input.requestedResourceId,
+      mutates: command?.mutates ?? null,
+      stepUpRequired: command?.requiresStepUp ?? null,
+      adapter: command?.adapter ?? null,
+    },
+  });
+}
+
+/**
+ * Server-side authorization contract. Each authenticated command attempt is
+ * recorded in the canonical immutable audit stream. A success means only
+ * "authorized", not "executed"; mutation adapters still need step-up, payload
+ * validation, and their own post-commit audit event.
+ */
 export async function authorizeControlPlaneCommand(
   request: ControlPlaneCommandRequest,
 ): Promise<ControlPlaneAuthorization> {
-  if (!isValidControlPlaneRequest(request)) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_request",
-      error: "طلب التحكم غير صالح.",
-    };
-  }
-
-  const command = COMMAND_BY_KEY.get(request.commandKey);
-  if (!command || command.scope !== request.scope) {
-    return {
-      ok: false,
-      status: 400,
-      code: "unknown_command",
-      error: "أمر التحكم غير مسجل أو لا يطابق نطاق المورد.",
-    };
-  }
-
   const profile = await getCurrentProfile();
   if (!profile) {
     return {
@@ -153,7 +190,71 @@ export async function authorizeControlPlaneCommand(
     };
   }
 
+  const candidate = request && typeof request === "object" && !Array.isArray(request)
+    ? request as unknown as Record<string, unknown>
+    : {};
+  const requestedCommandKey = auditSafeToken(candidate.commandKey);
+  const requestedResourceType = auditSafeToken(candidate.resourceType);
+  const requestedResourceId = auditSafeToken(candidate.resourceId);
+  const requestedScope = ["global", "module", "resource"].includes(String(candidate.scope))
+    ? String(candidate.scope)
+    : null;
+  const requestId = typeof candidate.requestId === "string" && REQUEST_ID.test(candidate.requestId)
+    ? candidate.requestId
+    : crypto.randomUUID();
+
+  if (!isValidControlPlaneRequest(request)) {
+    await auditControlPlaneDecision({
+      requestId,
+      outcome: "denied",
+      reason: "invalid_request",
+      requestedCommandKey,
+      requestedResourceType,
+      requestedResourceId,
+      requestedScope,
+      actorRole: profile.role,
+    });
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      error: "طلب التحكم غير صالح.",
+    };
+  }
+
+  const command = COMMAND_BY_KEY.get(request.commandKey);
+  if (!command || command.scope !== request.scope) {
+    await auditControlPlaneDecision({
+      requestId,
+      outcome: "denied",
+      reason: "unknown_command_or_scope_mismatch",
+      command,
+      requestedCommandKey,
+      requestedResourceType,
+      requestedResourceId,
+      requestedScope,
+      actorRole: profile.role,
+    });
+    return {
+      ok: false,
+      status: 400,
+      code: "unknown_command",
+      error: "أمر التحكم غير مسجل أو لا يطابق نطاق المورد.",
+    };
+  }
+
   if (!hasAdminPermission(profile.role, command.permission)) {
+    await auditControlPlaneDecision({
+      requestId,
+      outcome: "denied",
+      reason: "permission_denied",
+      command,
+      requestedCommandKey,
+      requestedResourceType,
+      requestedResourceId,
+      requestedScope,
+      actorRole: profile.role,
+    });
     return {
       ok: false,
       status: 403,
@@ -161,6 +262,18 @@ export async function authorizeControlPlaneCommand(
       error: "لا تملك الصلاحية المطلوبة لتنفيذ هذا الأمر.",
     };
   }
+
+  await auditControlPlaneDecision({
+    requestId,
+    outcome: "success",
+    reason: "permission_granted",
+    command,
+    requestedCommandKey,
+    requestedResourceType,
+    requestedResourceId,
+    requestedScope,
+    actorRole: profile.role,
+  });
 
   return {
     ok: true,
