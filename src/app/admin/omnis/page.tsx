@@ -14,6 +14,8 @@ import {
   OMNIS_OPERATIONAL_STATE_STYLES,
 } from "@/features/admin/omnis/module-status";
 import { updateOmnisExecutionTaskAction } from "./actions";
+import { runOmnisSafeCommandAction } from "./actions";
+import { OMNIS_INCIDENT_SEVERITY_LABELS, OMNIS_INCIDENT_STATE_LABELS, getOmnisModuleLabel } from "@/features/admin/omnis/incidents";
 
 export const metadata: Metadata = {
   title: "ZIKR OMNIS | مركز القيادة والتحكم",
@@ -89,6 +91,64 @@ export default async function AdminOmnisPage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.65fr)]">
+        <div className="space-y-3 rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-brand-gold">التنبيهات والحوادث التشغيلية</h2>
+              <p className="mt-1 text-xs leading-6 text-brand-cream/45">تجميع للمشكلات المقاسة حسب الاعتماد ومالك المعالجة والوحدات المتأثرة.</p>
+            </div>
+            <div className="flex gap-2 text-[10px]">
+              <span className="rounded-md border border-red-400/20 px-2 py-1 text-red-200">حرج: {moduleStatusSnapshot.incidentCounts.critical}</span>
+              <span className="rounded-md border border-amber-400/20 px-2 py-1 text-amber-200">تحذير: {moduleStatusSnapshot.incidentCounts.warning}</span>
+              <span className="rounded-md border border-slate-400/20 px-2 py-1 text-slate-200">معلومة: {moduleStatusSnapshot.incidentCounts.info}</span>
+            </div>
+          </div>
+          {moduleStatusSnapshot.incidents.length === 0 ? (
+            <p className="rounded-lg border border-emerald-400/15 bg-emerald-400/5 p-3 text-xs leading-6 text-emerald-100/75">لا توجد حوادث من الاعتماديات التي تم قياسها في هذا الفحص. الاعتماديات غير الموصولة تظل ظاهرة كغير معروفة في خريطة الوحدات ولا تعتبر سليمة.</p>
+          ) : (
+            <div className="space-y-2">
+              {moduleStatusSnapshot.incidents.slice(0, 12).map((incident) => (
+                <article key={incident.incidentKey} className="space-y-2 rounded-xl border border-brand-gold/10 bg-black/10 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={incident.severity === "critical" ? "rounded-full border border-red-400/20 px-2 py-0.5 text-[10px] text-red-200" : incident.severity === "warning" ? "rounded-full border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-200" : "rounded-full border border-slate-400/20 px-2 py-0.5 text-[10px] text-slate-200"}>{OMNIS_INCIDENT_SEVERITY_LABELS[incident.severity]}</span>
+                      <span className="text-xs font-semibold text-brand-cream/85">{incident.title}</span>
+                    </div>
+                    <span className="text-[10px] text-brand-cream/40">{OMNIS_INCIDENT_STATE_LABELS[incident.state]}</span>
+                  </div>
+                  <p className="text-xs leading-6 text-brand-cream/55">{incident.summary}</p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-brand-cream/35">
+                    <span>المسؤول: {incident.owner}</span>
+                    <span>الوحدات: {incident.affectedModules.map(getOmnisModuleLabel).join("، ")}</span>
+                    <span>حداثة الفحص: {incident.freshness === "fresh" ? "حديث" : incident.freshness === "stale" ? "قديم" : "مفقود"}</span>
+                    {incident.checkedAt ? <span dir="ltr">{new Date(incident.checkedAt).toLocaleString("en-GB")}</span> : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] leading-5 text-brand-cream/30">هذه قائمة لحظية مشتقة من الفحوص وليست سجل حوادث دائمًا؛ الإقرار بالحادث وإغلاقه وتاريخه يحتاجان مخزن حوادث مستقلًا ولم يتم الادعاء بتنفيذ ذلك بعد.</p>
+        </div>
+        <div className="space-y-3 rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
+          <h2 className="text-lg font-bold text-brand-gold">الأوامر الآمنة</h2>
+          <p className="text-xs leading-6 text-brand-cream/45">الأوامر الحالية محددة بقائمة سماح. هذا الأمر للفحص فقط ولا يغير إعدادات العامل أو النشر أو الطوابير.</p>
+          {canManage ? (
+            <form action={runOmnisSafeCommandAction} className="space-y-3 rounded-xl border border-brand-gold/10 bg-black/10 p-3">
+              <input type="hidden" name="command_key" value="refresh-operational-status" />
+              <div>
+                <p className="text-sm font-semibold text-brand-cream/80">إعادة فحص الحالة التشغيلية</p>
+                <p className="mt-1 text-[11px] leading-5 text-brand-cream/40">قراءة Supabase وGitHub والطابور وVercel ثم تسجيل ملخص الفحص في سجل الإدارة.</p>
+              </div>
+              <button type="submit" className="w-full rounded-lg border border-brand-gold/25 bg-brand-gold/10 px-3 py-2 text-xs font-semibold text-brand-gold hover:bg-brand-gold/15">تشغيل الفحص الآمن</button>
+            </form>
+          ) : (
+            <p className="text-xs text-brand-cream/40">لا تملك صلاحية system.manage لتشغيل الأوامر.</p>
+          )}
+          <p className="text-[10px] leading-5 text-brand-cream/30">أوامر الإيقاف والتشغيل والنشر غير مفعلة في هذه القائمة حتى ربط كل أمر بمحول مالك مستقل واعتماد مناسب وKill Switch.</p>
+        </div>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

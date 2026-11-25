@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAdminHealth } from "@/features/admin/services/platform";
+import { buildOmnisIncidents, type OmnisIncident } from "@/features/admin/omnis/incidents";
 import { OMNIS_CENTERS } from "@/features/admin/omnis/registry";
 import {
   buildOmnisModuleStatuses,
@@ -18,6 +19,8 @@ export type OmnisModuleStatusSnapshot = {
   modules: ReturnType<typeof buildOmnisModuleStatuses>;
   counts: Record<OmnisOperationalState, number>;
   error: string | null;
+  incidents: OmnisIncident[];
+  incidentCounts: { critical: number; warning: number; info: number };
 };
 
 function githubCommitState(state: string | null): OmnisOperationalState {
@@ -170,5 +173,12 @@ export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusS
   };
   for (const moduleStatus of modules) counts[moduleStatus.state] += 1;
 
-  return { available, checkedAt: evaluatedAt.toISOString(), modules, counts, error };
+  const incidents = buildOmnisIncidents({ modules, definitions: OMNIS_DEPENDENCY_DEFINITIONS });
+  const incidentCounts = {
+    critical: incidents.filter((item) => item.severity === "critical").length,
+    warning: incidents.filter((item) => item.severity === "warning").length,
+    info: incidents.filter((item) => item.severity === "info").length,
+  };
+
+  return { available, checkedAt: evaluatedAt.toISOString(), modules, counts, error, incidents, incidentCounts };
 }

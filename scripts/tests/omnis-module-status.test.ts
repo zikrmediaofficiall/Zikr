@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { OMNIS_CENTERS } from "@/features/admin/omnis/registry";
 import { OMNIS_DEPENDENCY_DEFINITIONS, OMNIS_MODULE_DEPENDENCIES } from "@/features/admin/omnis/module-dependencies";
+import { buildOmnisIncidents } from "@/features/admin/omnis/incidents";
+import { resolveOmnisSafeCommand } from "@/features/admin/omnis/commands";
 import {
   buildOmnisModuleStatuses,
   type OmnisDependencyObservation,
@@ -155,4 +157,37 @@ test("mixed healthy and unknown dependencies remain unknown", () => {
   assert.equal(status.state, "unknown");
   assert.equal(status.healthyDependencies, 1);
   assert.equal(status.unknownDependencies, 3);
+});
+
+test("live incidents deduplicate one dependency across affected modules and retain its owner", () => {
+  const [statusA] = buildOmnisModuleStatuses({
+    moduleIds: ["global-command"],
+    definitions: OMNIS_DEPENDENCY_DEFINITIONS,
+    relations: OMNIS_MODULE_DEPENDENCIES,
+    observations: [{ dependencyId: "supabase-database", state: "unavailable", source: "test DB", summary: "database unavailable", checkedAt: "2026-11-25T05:29:30.000Z", latencyMs: null }],
+    now,
+  });
+  const [statusB] = buildOmnisModuleStatuses({
+    moduleIds: ["content-os"],
+    definitions: OMNIS_DEPENDENCY_DEFINITIONS,
+    relations: OMNIS_MODULE_DEPENDENCIES,
+    observations: [{ dependencyId: "supabase-database", state: "unavailable", source: "test DB", summary: "database unavailable", checkedAt: "2026-11-25T05:29:30.000Z", latencyMs: null }],
+    now,
+  });
+  const incidents = buildOmnisIncidents({ modules: [statusA, statusB], definitions: OMNIS_DEPENDENCY_DEFINITIONS });
+  assert.equal(incidents.length, 1);
+  assert.equal(incidents[0]?.severity, "critical");
+  assert.equal(incidents[0]?.owner, "Supabase");
+  assert.deepEqual(incidents[0]?.affectedModules, ["content-os", "global-command"]);
+});
+
+test("missing probes do not create outage incidents", () => {
+  const [status] = buildOmnisModuleStatuses({ moduleIds: ["ai-model-center"], definitions: OMNIS_DEPENDENCY_DEFINITIONS, relations: OMNIS_MODULE_DEPENDENCIES, observations: [], now });
+  assert.deepEqual(buildOmnisIncidents({ modules: [status], definitions: OMNIS_DEPENDENCY_DEFINITIONS }), []);
+});
+
+test("read-only safe command allow-list rejects unknown or mutating command keys", () => {
+  assert.equal(resolveOmnisSafeCommand("refresh-operational-status")?.mutates, false);
+  assert.equal(resolveOmnisSafeCommand("publish-now"), null);
+  assert.equal(resolveOmnisSafeCommand({ key: "refresh-operational-status" }), null);
 });

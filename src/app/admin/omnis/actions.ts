@@ -5,6 +5,9 @@ import { requireAdminStepUp } from "@/features/admin/services/security";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
 import { runPostCommitAudit } from "@/features/admin/services/post-commit-audit";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
+import { requireAdminPermission } from "@/features/admin/services/admin";
+import { getOmnisModuleStatusSnapshot } from "@/features/admin/services/omnis-module-status";
+import { resolveOmnisSafeCommand } from "@/features/admin/omnis/commands";
 
 function field(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -58,5 +61,29 @@ export async function updateOmnisExecutionTaskAction(formData: FormData) {
     (error) => console.error("[admin/omnis] transition audit failed after database commit", error),
   );
 
+  revalidatePath("/admin/omnis");
+}
+
+export async function runOmnisSafeCommandAction(formData: FormData) {
+  const profile = await requireAdminPermission("system.manage");
+  const command = resolveOmnisSafeCommand(field(formData, "command_key"));
+  if (!command) throw new Error("أمر OMNIS غير مسجل أو غير مسموح.");
+
+  const snapshot = await getOmnisModuleStatusSnapshot();
+  await recordAdminAuditEvent({
+    action: "admin.omnis.safe_command.inspect",
+    permission: command.permission,
+    resourceType: "omnis_safe_command",
+    resourceId: command.key,
+    metadata: {
+      commandKey: command.key,
+      operation: command.operation,
+      executionState: "completed_read_only_probe",
+      actorRole: profile.role,
+      moduleCounts: snapshot.counts,
+      incidentCounts: snapshot.incidentCounts,
+      probeAvailable: snapshot.available,
+    },
+  });
   revalidatePath("/admin/omnis");
 }

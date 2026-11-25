@@ -13,6 +13,8 @@ const page = read("src/app/admin/omnis/page.tsx");
 const actions = read("src/app/admin/omnis/actions.ts");
 const moduleDependencies = read("src/features/admin/omnis/module-dependencies.ts");
 const moduleStatusService = read("src/features/admin/services/omnis-module-status.ts");
+const incidents = read("src/features/admin/omnis/incidents.ts");
+const commands = read("src/features/admin/omnis/commands.ts");
 
 const centerIds = [...centers.matchAll(/id: "([^"]+)"/g)].map((m) => m[1]);
 if (centerIds.length !== 30) failures.push("OMNIS must define exactly 30 control centers");
@@ -56,6 +58,18 @@ if (!moduleStatusService.includes('health.queues.videoRetryWait > 0') || !module
 }
 if (!page.includes('globalOperationalDependencies.map') || !page.includes('dependency.freshness') || !page.includes('dependency.source') || !page.includes('moduleStatusSnapshot.error')) {
   failures.push("OMNIS command center must show source-backed operational cards, freshness and probe errors");
+}
+if (!incidents.includes("buildOmnisIncidents") || !incidents.includes("affectedModules") || !incidents.includes("owner")) {
+  failures.push("OMNIS incident view must aggregate affected modules and define an accountable owner");
+}
+if (!commands.includes('key: "refresh-operational-status"') || !commands.includes("mutates: false") || !commands.includes("resolveOmnisSafeCommand")) {
+  failures.push("OMNIS safe commands must be explicitly allow-listed and read-only by default");
+}
+if (!actions.includes("resolveOmnisSafeCommand") || !actions.includes("admin.omnis.safe_command.inspect") || !actions.includes('requireAdminPermission("system.manage")')) {
+  failures.push("OMNIS operational refresh command must check permission and append an audit event");
+}
+if (!page.includes("moduleStatusSnapshot.incidents.map") || !page.includes("runOmnisSafeCommandAction") || !page.includes("ليست سجل حوادث دائمًا")) {
+  failures.push("OMNIS command center must display live incidents and disclose their non-persisted lifecycle");
 }
 
 if (failures.length) {
