@@ -88,6 +88,7 @@ export default async function AdminOmnisPage() {
           {OMNIS_CENTERS.map((center) => {
             const operational = moduleStatusById.get(center.id);
             const operationalState = operational?.state ?? "unknown";
+            const operationalDependencies = operational?.dependencies ?? [];
             return (
             <article key={center.id} className="flex min-h-44 flex-col gap-3 rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
               <div className="flex items-start justify-between gap-3">
@@ -111,11 +112,11 @@ export default async function AdminOmnisPage() {
                 {operational?.checkedAt ? (
                   <p className="text-[10px] text-brand-cream/25" dir="ltr">Last probe: {new Date(operational.checkedAt).toLocaleString("en-GB")}</p>
                 ) : null}
-                {operational?.dependencies.length ? (
+                {operationalDependencies.length ? (
                   <details className="pt-1">
-                    <summary className="cursor-pointer text-[11px] font-semibold text-brand-gold/65">تفاصيل الاعتماديات ({operational.dependencies.length})</summary>
+                    <summary className="cursor-pointer text-[11px] font-semibold text-brand-gold/65">تفاصيل الاعتماديات ({operationalDependencies.length})</summary>
                     <div className="mt-2 space-y-2">
-                      {operational.dependencies.map((dependency) => (
+                      {operationalDependencies.map((dependency) => (
                         <div key={dependency.dependencyId} className="rounded-md border border-brand-gold/10 p-2">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <span className="text-[11px] text-brand-cream/70">{dependency.label}</span>
