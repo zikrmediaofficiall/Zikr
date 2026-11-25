@@ -718,9 +718,9 @@ const envExample = readFileSync(".env.example", "utf8");
 assert.match(envExample, /^WRITTEN_CONTENT_ENABLED=false$/m, "local .env.example must not enable Gemini content generation by default");
 assert.match(envExample, /^WRITTEN_CONTENT_ALLOW_KIDS=false$/m, "local runs must not select or backfill Kids sources without an explicit permission gate");
 assert.match(envExample, /^AUTO_VIDEO_ENABLED=false$/m, "local .env.example must not enable video generation by default");
-assert.match(envExample, /^AUTO_VIDEO_PUBLISH_ENABLED=false$/m, "local .env.example must not enable video publishing by default");
+assert.match(envExample, /^AUTO_VIDEO_PUBLISH_ENABLED=true$/m, "the configured video worker must publish automatically after automated QA passes");
 assert.match(envExample, /^SOCIAL_PUBLISH_ENABLED=false$/m, "local .env.example must not enable social publishing by default");
-assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=true$/m, "local .env.example must keep video automation in dry-run mode");
+assert.match(envExample, /^VIDEO_AUTOMATION_DRY_RUN=false$/m, "the configured video worker must not remain in dry-run mode");
 
 assert.ok(worker.includes("isKidsWrittenSourceReservation(metadata)"), "articles with any Kids audience, source, identity or public-path marker must not enter the general knowledge generation pool");
 assert.ok(worker.includes("isSafeWrittenBackfillSource(sourceType,metadata)"), "historical social backfill must fail closed when Kids metadata conflicts with a general source type");
