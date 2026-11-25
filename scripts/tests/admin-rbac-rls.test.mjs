@@ -126,6 +126,10 @@ const systemActions = readFileSync(
   resolve(process.cwd(), "src/app/admin/system-actions.ts"),
   "utf8",
 );
+const adminSettingsRegistry = readFileSync(
+  resolve(process.cwd(), "src/features/admin/config/settings-registry.ts"),
+  "utf8",
+);
 const videoVisualsPage = readFileSync(
   resolve(process.cwd(), "src/app/admin/video/visuals/page.tsx"),
   "utf8",
