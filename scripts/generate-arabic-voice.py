@@ -36,7 +36,19 @@ DEFAULT_PROFILE = "msa"
 
 
 
+def signed(value: str, unit: str) -> str:
+    """edge-tts rejects unsigned values such as "0Hz" ("Invalid pitch"); it needs "+0Hz" or "-7%"."""
+    cleaned = (value or "").strip()
+    if cleaned and cleaned[0] not in "+-":
+        cleaned = "+" + cleaned
+    if not cleaned.endswith(unit):
+        cleaned = cleaned + unit if cleaned[-1:].isdigit() else cleaned
+    return cleaned
+
+
 async def synthesize(text: str, output: Path, voice: str, rate: str, pitch: str) -> None:
+    rate = signed(rate, "%")
+    pitch = signed(pitch, "Hz")
     output.parent.mkdir(parents=True, exist_ok=True)
     normalized_text = clean_text(text)
 
