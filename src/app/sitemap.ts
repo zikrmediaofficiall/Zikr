@@ -3,6 +3,7 @@ import { getAllScholars } from "@/features/scholars/services/scholars";
 import { getHadithBooks } from "@/features/hadith/services/hadith";
 import { getStories } from "@/features/stories/services/stories";
 import { getArticles } from "@/features/articles/services/articles";
+import { DUA_CANONICAL_SLUG } from "@/features/dua/data/dua-guides";
 import { getDuas } from "@/features/dua/services/dua";
 import { getProphets } from "@/features/prophets/services/prophets";
 import { getPublicContentLibrary } from "@/features/content-library/services/content-library";
@@ -82,7 +83,7 @@ export async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
         .filter(article => (article.content?.trim().length ?? 0) >= MIN_INDEXABLE_EDITORIAL_CHARS)
         .map(article => route(`/articles/${article.slug}`, { lastModified: now, changeFrequency: "weekly", priority: 0.7 })),
       ...prophets.map((prophet: Prophet) => route(`/prophets/${prophet.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
-      ...duas.filter((dua: Dua) => (dua.textAr?.trim().length ?? 0) >= 80).map((dua: Dua) => route(`/dua/${dua.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
+      ...duas.filter((dua: Dua) => (dua.textAr?.trim().length ?? 0) >= 80 && !DUA_CANONICAL_SLUG[dua.slug]).map((dua: Dua) => route(`/dua/${dua.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
       ...battles.map((battle: SlugRow) => route(`/battles/${battle.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
       ...companions.map((companion: SlugRow) => route(`/companions/${companion.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
       ...conquests.map((conquest: SlugRow) => route(`/conquests/${conquest.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),

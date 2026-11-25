@@ -1,3 +1,4 @@
+import { DUA_CANONICAL_SLUG, getDuaGuide } from "@/features/dua/data/dua-guides";
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cache } from 'react';
@@ -51,6 +52,7 @@ export default async function DuaDetailPage({
   const { slug } = await params;
   const locale = await getRequestLocale();
   const dua = await loadDua(slug, locale);
+  const guide = getDuaGuide(slug);
 
   if (!hasPublicDuaContent(dua)) {
     return (
@@ -129,6 +131,23 @@ export default async function DuaDetailPage({
           </Card>
         )}
       </section>
+
+      {!isEnglish && guide && (
+        <section className="space-y-4">
+          <Card className="p-6 space-y-3 border-brand-gold/20">
+            <h2 className="text-xl font-bold text-brand-gold">شرح الدعاء ومعناه</h2>
+            <p className="text-brand-cream/90 leading-8">{guide.meaning}</p>
+          </Card>
+          <Card className="p-6 space-y-3 border-brand-gold/20">
+            <h2 className="text-xl font-bold text-brand-gold">سياق الدعاء</h2>
+            <p className="text-brand-cream/90 leading-8">{guide.context}</p>
+          </Card>
+          <Card className="p-6 space-y-3 border-brand-gold/20">
+            <h2 className="text-xl font-bold text-brand-gold">كيف تطبّقه في حياتك</h2>
+            <p className="text-brand-cream/90 leading-8">{guide.practice}</p>
+          </Card>
+        </section>
+      )}
 
       <Card className="p-6 space-y-4 bg-brand-gold/10 border-brand-gold/20">
         <h2 className="text-xl font-bold text-brand-gold">{isEnglish ? "Virtue of supplication" : "فضل الدعاء"}</h2>

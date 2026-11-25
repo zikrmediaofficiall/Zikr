@@ -111,6 +111,7 @@ export function pageMetadata(opts: {
   description: string;
   path: string;
   noindex?: boolean;
+  canonicalPath?: string;
   images?: string[];
 }): Metadata {
   const { title, description, path } = opts;
@@ -119,7 +120,7 @@ export function pageMetadata(opts: {
   return {
     title,
     description,
-    alternates: { canonical: path },
+    alternates: { canonical: opts.canonicalPath ?? path },
     robots: shouldNoindex
       ? { index: false, follow: false }
       : {
