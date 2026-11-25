@@ -132,7 +132,7 @@ export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusS
     unknown: 0,
     maintenance: 0,
   };
-  for (const module of modules) counts[module.state] += 1;
+  for (const moduleStatus of modules) counts[moduleStatus.state] += 1;
 
   return { available, checkedAt: evaluatedAt.toISOString(), modules, counts, error };
 }
