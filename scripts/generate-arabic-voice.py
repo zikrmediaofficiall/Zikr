@@ -46,12 +46,26 @@ async def synthesize(text: str, output: Path, voice: str, rate: str, pitch: str)
     try:
         import edge_tts  # type: ignore
 
-        communicate = edge_tts.Communicate(normalized_text, voice=voice, rate=rate, pitch=pitch)
-        await communicate.save(str(output))
-        if output.exists() and output.stat().st_size >= 1024:
-            print(f"[arabic-tts] Primary provider succeeded: edge-tts voice={voice}")
-            return
-        raise RuntimeError("Edge TTS returned an empty or tiny audio file")
+        # Hosted-runner connections to the Edge endpoint can be rejected intermittently, so retry
+        # with backoff before giving up on the requested voice.
+        attempts = int(os.getenv("ARABIC_TTS_EDGE_ATTEMPTS", "4") or "4")
+        last_error: Exception | None = None
+        for attempt in range(1, max(1, attempts) + 1):
+            try:
+                communicate = edge_tts.Communicate(normalized_text, voice=voice, rate=rate, pitch=pitch)
+                await communicate.save(str(output))
+                if output.exists() and output.stat().st_size >= 1024:
+                    print(f"[arabic-tts] Primary provider succeeded: edge-tts voice={voice} attempt={attempt}")
+                    return
+                raise RuntimeError("Edge TTS returned an empty or tiny audio file")
+            except Exception as attempt_error:  # noqa: BLE001
+                last_error = attempt_error
+                output.unlink(missing_ok=True)
+                if attempt < attempts:
+                    delay = 4 * attempt
+                    print(f"[arabic-tts] Edge TTS attempt {attempt} failed ({str(attempt_error)[:160]}); retrying in {delay}s", file=sys.stderr)
+                    await asyncio.sleep(delay)
+        raise last_error if last_error else RuntimeError("Edge TTS failed")
     except Exception as edge_error:
         output.unlink(missing_ok=True)
         if voice.strip().lower().startswith("ar-eg-"):

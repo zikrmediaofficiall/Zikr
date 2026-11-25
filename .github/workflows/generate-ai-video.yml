@@ -239,3 +239,24 @@ jobs:
           echo "Free-only mode skips paid Gemini and custom endpoints; approved public Hugging Face Spaces are optional and FFmpeg templates are the fallback."
           echo "No paid AI API is required for source selection, Arabic narration, rendering, automated QA, storage, or queue creation."
           echo "Worker validation includes Node import, FFmpeg, and Supabase data-plane smoke tests."
+
+      - name: Record worker outcome for the admin dashboard
+        if: always()
+        shell: bash
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
+          WORKER_STATUS: ${{ job.status }}
+          WORKER_RUN_ID: ${{ github.run_id }}
+          WORKER_EVENT: ${{ github.event_name }}
+        run: |
+          # Best effort: never fail the run because the status note could not be saved.
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          body="$(printf '{"key":"video_worker_last_run","value":{"status":"%s","runId":"%s","runUrl":"https://github.com/%s/actions/runs/%s","event":"%s","at":"%s"},"updated_at":"%s"}' \
+            "$WORKER_STATUS" "$WORKER_RUN_ID" "$GITHUB_REPOSITORY" "$WORKER_RUN_ID" "$WORKER_EVENT" "$now" "$now")"
+          curl -sS -o /dev/null -w 'admin status note HTTP %{http_code}\n' -X POST \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates,return=minimal" \
+            --data "$body" \
+            "$SUPABASE_URL/rest/v1/admin_settings?on_conflict=key" || true

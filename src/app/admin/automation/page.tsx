@@ -8,6 +8,7 @@ import { supabaseServerAdminCount, supabaseServerAdminRequest } from "@/lib/supa
 import { saveVideoAutomationSettingAction, requestVideoAutomationRunAction } from "@/app/admin/system-actions";
 import { ADMIN_SETTING_REGISTRY, type EditableAdminSettingDefinition } from "@/features/admin/config/settings-registry";
 import { getAdminSettingVersionHistory } from "@/features/admin/services/setting-versions";
+import { VideoWorkerHealthBanner } from "@/features/admin/components/video-worker-health-banner";
 import { AdminSettingVersionHistoryPanel } from "@/features/admin/components/admin-setting-version-history";
 
 export const metadata: Metadata = { title: "الأتمتة والمهام | الأدمن" };
@@ -104,6 +105,7 @@ export default async function AdminAutomationPage() {
 
   return (
     <Container className="space-y-8 py-10" dir="rtl">
+      <VideoWorkerHealthBanner />
       <header>
         <p className="text-xs tracking-[0.2em] text-brand-cream/30">مركز التشغيل الآلي</p>
         <h1 className="mt-2 text-3xl font-bold text-brand-gold">الأتمتة والتشغيل</h1>
