@@ -4,6 +4,7 @@ import {
   ADMIN_SETTING_REGISTRY,
   getAdminSettingDefinition,
   getEditableAdminSettingDefinition,
+  getIntegerAdminSettingDefinition,
   validateAdminSettingValue,
 } from "../../src/features/admin/config/settings-registry";
 
@@ -94,7 +95,7 @@ const failClosed = getEditableAdminSettingDefinition("video_automation_enabled")
 assert.ok(failClosed && failClosed.valueType === "boolean");
 assert.equal(failClosed.runtimeFallback, false);
 assert.equal(failClosed.missingValuePolicy, "fail-closed");
-assert.equal(getEditableAdminSettingDefinition("video_automation_daily_target")?.formFallback, 20, "the admin form retains the documented daily target input");
-assert.equal(getEditableAdminSettingDefinition("video_automation_batch_size")?.formFallback, 10, "the admin form retains its documented batch-size input");
+assert.equal(getIntegerAdminSettingDefinition("video_automation_daily_target")?.formFallback, 20, "the admin form retains the documented daily target input");
+assert.equal(getIntegerAdminSettingDefinition("video_automation_batch_size")?.formFallback, 10, "the admin form retains its documented batch-size input");
 
 console.log("Admin settings typed registry and validation contracts passed.");
