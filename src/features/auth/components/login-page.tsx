@@ -8,6 +8,7 @@ import { Container } from '@/components/ui/container';
 import { loginAction } from '@/features/auth/actions';
 import { GoogleOAuthButton } from '@/features/auth/components/google-oauth-button';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useLanguage } from '@/components/layout/language-provider';
 
 const MESSAGE_MAP: Record<string, string> = {
   check_email: 'تم التسجيل! يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب.',
@@ -23,6 +24,8 @@ const MESSAGE_MAP: Record<string, string> = {
 function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { isEnglish } = useLanguage();
+  const t = (ar: string, en: string) => (isEnglish ? en : ar);
   const [isClient, setIsClient] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -56,18 +59,18 @@ function LoginForm() {
       router.refresh();
     } catch (err) {
       console.error('[auth/login] client action error:', err);
-      setError('تعذر إتمام تسجيل الدخول. حاول مرة أخرى.');
+      setError(t('تعذر إتمام تسجيل الدخول. حاول مرة أخرى.', 'Could not sign you in. Please try again.'));
       setLoading(false);
     }
   };
 
-  if (!isClient) return <div className="text-center py-10">جاري التحميل...</div>;
+  if (!isClient) return <div className="text-center py-10">{t('جاري التحميل...', 'Loading...')}</div>;
 
   return (
-    <Card className="mx-auto max-w-md space-y-6 text-right">
+    <Card dir={isEnglish ? 'ltr' : 'rtl'} className={`mx-auto max-w-md space-y-6 ${isEnglish ? 'text-left' : 'text-right'}`}>
       <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold text-brand-gold">تسجيل الدخول</h1>
-        <p className="text-sm arabic-muted">مرحباً بك في ذِكر - منصتك الروحانية</p>
+        <h1 className="text-3xl font-bold text-brand-gold">{t('تسجيل الدخول', 'Sign in')}</h1>
+        <p className="text-sm arabic-muted">{t('مرحباً بك في ذِكر - منصتك الروحانية', 'Welcome to Zikr, your spiritual companion')}</p>
       </div>
 
       {message && (
@@ -85,7 +88,7 @@ function LoginForm() {
       <form action={handleSubmit} className="space-y-4">
         <input type="hidden" name="next" value={searchParams.get('next') || '/profile'} />
         <div className="space-y-2">
-          <label htmlFor="email" className="block text-sm font-medium">البريد الإلكتروني</label>
+          <label htmlFor="email" className="block text-sm font-medium">{t('البريد الإلكتروني', 'Email')}</label>
           <input
             id="email"
             name="email"
@@ -93,13 +96,13 @@ function LoginForm() {
             type="email"
             required
             disabled={loading}
-            placeholder="بريدك الإلكتروني"
+            placeholder={t('بريدك الإلكتروني', 'Your email')}
             className="w-full rounded-lg border border-brand-gold/20 bg-black/20 p-3 text-brand-cream placeholder:text-brand-cream/40 focus:border-brand-gold focus:outline-none focus:ring-1 focus:ring-brand-gold disabled:opacity-50"
           />
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password" className="block text-sm font-medium">كلمة المرور</label>
+          <label htmlFor="password" className="block text-sm font-medium">{t('كلمة المرور', 'Password')}</label>
           <input
             id="password"
             name="password"
@@ -113,24 +116,24 @@ function LoginForm() {
         </div>
 
         <div className="text-right">
-          <Link href="/auth/forgot" className="text-sm text-brand-gold hover:underline">نسيت كلمة المرور؟</Link>
+          <Link href="/auth/forgot" className="text-sm text-brand-gold hover:underline">{t('نسيت كلمة المرور؟', 'Forgot password?')}</Link>
         </div>
 
         <Button type="submit" disabled={loading} className="w-full">
-          {loading ? 'جاري الدخول...' : 'دخول'}
+          {loading ? t('جاري الدخول...', 'Signing in...') : t('دخول', 'Sign in')}
         </Button>
       </form>
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-brand-gold/20" /></div>
-        <div className="relative flex justify-center text-sm"><span className="bg-brand-emeraldDeep px-4 arabic-muted">أو</span></div>
+        <div className="relative flex justify-center text-sm"><span className="bg-brand-emeraldDeep px-4 arabic-muted">{t('أو', 'or')}</span></div>
       </div>
 
-      <GoogleOAuthButton next={searchParams.get('next') || undefined} label="المتابعة باستخدام Google" />
+      <GoogleOAuthButton next={searchParams.get('next') || undefined} label={t('المتابعة باستخدام Google', 'Continue with Google')} />
 
       <p className="text-center text-sm arabic-muted">
-        ليس لديك حساب؟{' '}
-        <Link href="/auth/register" className="text-brand-gold hover:underline">إنشاء حساب جديد</Link>
+        {t('ليس لديك حساب؟', "Don't have an account?")}{' '}
+        <Link href="/auth/register" className="text-brand-gold hover:underline">{t('إنشاء حساب جديد', 'Create an account')}</Link>
       </p>
     </Card>
   );
@@ -139,7 +142,7 @@ function LoginForm() {
 export function LoginPage() {
   return (
     <Container className="py-16">
-      <Suspense fallback={<div>جاري التحميل...</div>}><LoginForm /></Suspense>
+      <Suspense fallback={<div>Loading...</div>}><LoginForm /></Suspense>
     </Container>
   );
 }
