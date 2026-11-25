@@ -576,10 +576,13 @@ const runVideoAutomationAction = systemActions.match(
 const videoSettingsStepUpPosition = saveVideoAutomationAction.indexOf(
   'requireAdminStepUp(definition.permission, "/admin/automation", true)',
 );
-const videoSettingsMutationPosition = saveVideoAutomationAction.indexOf("supabaseServerAdminRequest(");
+const videoSettingsLockReadPosition = saveVideoAutomationAction.indexOf("supabaseServerAdminRequest<");
+const videoSettingsMutationPosition = saveVideoAutomationAction.indexOf("saveAdminSettingVersion(");
 assert.ok(
-  videoSettingsStepUpPosition >= 0 && videoSettingsMutationPosition > videoSettingsStepUpPosition,
-  "video automation settings must complete mandatory MFA step-up before any database mutation",
+  videoSettingsStepUpPosition >= 0 &&
+    videoSettingsLockReadPosition > videoSettingsStepUpPosition &&
+    videoSettingsMutationPosition > videoSettingsLockReadPosition,
+  "video automation settings must complete mandatory MFA before the purge-lock read and atomic versioned write",
 );
 assert.doesNotMatch(
   saveVideoAutomationAction,
