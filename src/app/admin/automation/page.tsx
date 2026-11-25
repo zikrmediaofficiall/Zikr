@@ -153,7 +153,7 @@ export default async function AdminAutomationPage() {
               : typeof value === "string" && /^-?\\d+$/.test(value.trim())
                 ? Number(value)
                 : definition.valueType === "integer"
-                  ? definition.runtimeFallback
+                  ? definition.formFallback
                   : null;
             return (
               <form key={key} action={saveVideoAutomationSettingAction} className="space-y-3 rounded-xl border border-brand-gold/10 bg-black/10 p-4">
