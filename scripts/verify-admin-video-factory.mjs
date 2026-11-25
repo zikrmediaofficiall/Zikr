@@ -353,7 +353,7 @@ const contentPublisher = read("scripts/jobs/content-publishing.ts");
 const backgroundRunner = read("scripts/run-background-jobs.ts");
 if (!worker.includes("async function bindTemplateVersion")) failures.push("video worker must bind requests to an immutable template version");
 if (!worker.includes("request.content.templatePreview === true")) failures.push("template preview mode must be recognized by the renderer");
-if (!worker.includes("if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal)")) failures.push("internal template previews and scripted Layl episodes must avoid external generative planning");
+if (!worker.includes("if (!isTemplatePreview && !isLaylProgram && !isHadyProgram && !isProphetStoryRequest) aiPlan = await generateAiVideoPlan(request, signal)")) failures.push("internal template previews, Layl and Hady scripts, and source-locked Prophet stories must avoid external generative planning");
 if (!worker.includes("registerGeneratedVideoOnSite(request, rendered, {}, signal)") || !worker.includes('generator: "zikr_internal_video_factory"')) {
   failures.push("successfully generated videos must be persisted in the internal ZIKR catalog");
 }
