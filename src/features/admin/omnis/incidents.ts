@@ -14,6 +14,7 @@ export type OmnisIncident = {
   checkedAt: string | null;
   freshness: "fresh" | "stale" | "missing";
   affectedModules: string[];
+  lifecycleState: "open" | "acknowledged" | "reopened";
 };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -78,7 +79,7 @@ export function buildOmnisIncidents(input: {
         : dependency.state === "unknown"
           ? "unverified"
           : "open";
-      const incidentKey = `omnis:${dependency.dependencyId}:${dependency.state}:${dependency.freshness}`;
+      const incidentKey = `omnis:${dependency.dependencyId}`;
       const existing = grouped.get(incidentKey);
       if (existing) {
         if (!existing.affectedModules.includes(moduleStatus.moduleId)) {
@@ -98,6 +99,7 @@ export function buildOmnisIncidents(input: {
         checkedAt: dependency.checkedAt,
         freshness: dependency.freshness,
         affectedModules: [moduleStatus.moduleId],
+        lifecycleState: "open",
       });
     }
   }

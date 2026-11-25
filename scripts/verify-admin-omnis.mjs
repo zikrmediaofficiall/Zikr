@@ -14,6 +14,7 @@ const actions = read("src/app/admin/omnis/actions.ts");
 const moduleDependencies = read("src/features/admin/omnis/module-dependencies.ts");
 const moduleStatusService = read("src/features/admin/services/omnis-module-status.ts");
 const incidents = read("src/features/admin/omnis/incidents.ts");
+const incidentLifecycle = read("src/features/admin/omnis/incident-lifecycle.ts");
 const commands = read("src/features/admin/omnis/commands.ts");
 const resourceIndex = read("src/features/admin/omnis/resource-index.ts");
 const resourceService = read("src/features/admin/services/omnis-project-index.ts");
@@ -71,8 +72,32 @@ if (!commands.includes('key: "refresh-operational-status"') || !commands.include
 if (!actions.includes("resolveOmnisSafeCommand") || !actions.includes("admin.omnis.safe_command.inspect") || !actions.includes('requireAdminPermission("system.manage")')) {
   failures.push("OMNIS operational refresh command must check permission and append an audit event");
 }
-if (!page.includes("moduleStatusSnapshot.incidents.slice(0, 12).map") || !page.includes("runOmnisSafeCommandAction") || !page.includes("ليست سجل حوادث دائمًا")) {
-  failures.push("OMNIS command center must display live incidents and disclose their non-persisted lifecycle");
+if (
+  !page.includes("moduleStatusSnapshot.incidents.slice(0, 12).map")
+  || !page.includes("runOmnisSafeCommandAction")
+  || !page.includes("incidentEvents.slice(0, 12).map")
+  || !page.includes("updateOmnisIncidentLifecycleAction")
+  || !page.includes("incidentHistoryAvailable")
+) {
+  failures.push("OMNIS command center must display live incidents, persisted lifecycle history and guarded acknowledgement/resolution actions");
+}
+if (
+  !incidents.includes("`omnis:${dependency.dependencyId}`")
+  || !incidentLifecycle.includes("applyOmnisIncidentLifecycle")
+  || !incidentLifecycle.includes("canResolveOmnisIncident")
+  || !incidentLifecycle.includes('dependency.freshness === "fresh"')
+  || !moduleStatusService.includes("admin_audit_events")
+  || !moduleStatusService.includes("resource_type=eq.omnis_incident")
+) {
+  failures.push("OMNIS incident identity, append-only audit lifecycle and fresh-healthy recovery gate must be implemented");
+}
+if (
+  !actions.includes("updateOmnisIncidentLifecycleAction")
+  || !actions.includes("requireAdminStepUp")
+  || !actions.includes("admin.omnis.incident.acknowledged")
+  || !actions.includes("admin.omnis.incident.resolved")
+) {
+  failures.push("OMNIS incident lifecycle writes must require step-up and use the existing admin audit stream");
 }
 if (!resourceIndex.includes("classifyOmnisResource") || !resourceIndex.includes("analyzeOmnisResourceImpact") || !resourceIndex.includes("OMNIS_MODULE_DEPENDENCIES")) {
   failures.push("Project Explorer must classify resources and expand a registered dependency impact graph");
@@ -91,4 +116,4 @@ if (failures.length) {
   console.error("OMNIS verification failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
-console.log("OMNIS verification passed: 30 centers, 15 phases, 45 unique tasks, RLS, audited transitions and source-backed global operations status.");
+console.log("OMNIS verification passed: 30 centers, 15 phases, 45 unique tasks, audited transitions, source-backed operations status and persistent incident lifecycle.");

@@ -1,6 +1,11 @@
 import "server-only";
 
 import { getAdminHealth } from "@/features/admin/services/platform";
+import { supabaseServerAdminRequest } from "@/lib/supabase/server";
+import {
+  applyOmnisIncidentLifecycle,
+  type OmnisIncidentLifecycleEvent,
+} from "@/features/admin/omnis/incident-lifecycle";
 import { buildOmnisIncidents, type OmnisIncident } from "@/features/admin/omnis/incidents";
 import { OMNIS_CENTERS } from "@/features/admin/omnis/registry";
 import {
@@ -20,6 +25,9 @@ export type OmnisModuleStatusSnapshot = {
   counts: Record<OmnisOperationalState, number>;
   error: string | null;
   incidents: OmnisIncident[];
+  incidentEvents: OmnisIncidentLifecycleEvent[];
+  incidentHistoryAvailable: boolean;
+  incidentHistoryError: string | null;
   incidentCounts: { critical: number; warning: number; info: number };
 };
 
@@ -77,6 +85,61 @@ function githubWorkflowState(
     return "degraded";
   }
   return workflows.every((item) => item.conclusion === "success") ? "healthy" : "unknown";
+}
+
+
+type AdminIncidentAuditRow = {
+  id: string;
+  actor_user_id: string | null;
+  action: string;
+  resource_id: string | null;
+  metadata: unknown;
+  created_at: string;
+};
+
+async function getOmnisIncidentHistory(): Promise<{
+  available: boolean;
+  events: OmnisIncidentLifecycleEvent[];
+  error: string | null;
+}> {
+  try {
+    const rows = await supabaseServerAdminRequest<AdminIncidentAuditRow[]>(
+      "/rest/v1/admin_audit_events?select=id,actor_user_id,action,resource_id,metadata,created_at&resource_type=eq.omnis_incident&order=created_at.desc&limit=50",
+      { method: "GET" },
+    );
+    const events = (rows ?? []).flatMap((row): OmnisIncidentLifecycleEvent[] => {
+      const action = row.action === "admin.omnis.incident.acknowledged"
+        ? "acknowledged"
+        : row.action === "admin.omnis.incident.resolved"
+          ? "resolved"
+          : null;
+      if (
+        !action
+        || typeof row.resource_id !== "string"
+        || !/^omnis:[a-z0-9-]{2,80}$/.test(row.resource_id)
+        || typeof row.created_at !== "string"
+      ) return [];
+      const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? row.metadata as Record<string, unknown>
+        : {};
+      return [{
+        id: row.id,
+        incidentKey: row.resource_id,
+        action,
+        note: typeof metadata.note === "string" ? metadata.note : null,
+        actorUserId: row.actor_user_id,
+        createdAt: row.created_at,
+      }];
+    });
+    return { available: true, events, error: null };
+  } catch (cause) {
+    console.error("[admin/omnis] incident audit history unavailable", cause);
+    return {
+      available: false,
+      events: [],
+      error: "تعذر قراءة سجل الحوادث من سجل الإدارة؛ تم تعطيل الإقرار والإغلاق حتى تعود القراءة.",
+    };
+  }
 }
 
 export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusSnapshot> {
@@ -173,12 +236,27 @@ export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusS
   };
   for (const moduleStatus of modules) counts[moduleStatus.state] += 1;
 
-  const incidents = buildOmnisIncidents({ modules, definitions: OMNIS_DEPENDENCY_DEFINITIONS });
+  const incidentHistory = await getOmnisIncidentHistory();
+  const incidents = applyOmnisIncidentLifecycle(
+    buildOmnisIncidents({ modules, definitions: OMNIS_DEPENDENCY_DEFINITIONS }),
+    incidentHistory.events,
+  );
   const incidentCounts = {
     critical: incidents.filter((item) => item.severity === "critical").length,
     warning: incidents.filter((item) => item.severity === "warning").length,
     info: incidents.filter((item) => item.severity === "info").length,
   };
 
-  return { available, checkedAt: evaluatedAt.toISOString(), modules, counts, error, incidents, incidentCounts };
+  return {
+    available,
+    checkedAt: evaluatedAt.toISOString(),
+    modules,
+    counts,
+    error,
+    incidents,
+    incidentEvents: incidentHistory.events,
+    incidentHistoryAvailable: incidentHistory.available,
+    incidentHistoryError: incidentHistory.error,
+    incidentCounts,
+  };
 }

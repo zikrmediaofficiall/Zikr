@@ -3,6 +3,11 @@ import test from "node:test";
 import { OMNIS_CENTERS } from "@/features/admin/omnis/registry";
 import { OMNIS_DEPENDENCY_DEFINITIONS, OMNIS_MODULE_DEPENDENCIES } from "@/features/admin/omnis/module-dependencies";
 import { buildOmnisIncidents } from "@/features/admin/omnis/incidents";
+import {
+  applyOmnisIncidentLifecycle,
+  canResolveOmnisIncident,
+  type OmnisIncidentLifecycleEvent,
+} from "@/features/admin/omnis/incident-lifecycle";
 import { resolveOmnisSafeCommand } from "@/features/admin/omnis/commands";
 import {
   buildOmnisModuleStatuses,
@@ -190,4 +195,55 @@ test("read-only safe command allow-list rejects unknown or mutating command keys
   assert.equal(resolveOmnisSafeCommand("refresh-operational-status")?.mutates, false);
   assert.equal(resolveOmnisSafeCommand("publish-now"), null);
   assert.equal(resolveOmnisSafeCommand({ key: "refresh-operational-status" }), null);
+});
+
+
+test("incident lifecycle restores acknowledgements and marks a recovered incident reopened if it returns", () => {
+  const [status] = buildOmnisModuleStatuses({
+    moduleIds: ["global-command"],
+    definitions: OMNIS_DEPENDENCY_DEFINITIONS,
+    relations: OMNIS_MODULE_DEPENDENCIES,
+    observations: [{
+      dependencyId: "supabase-database",
+      state: "unavailable",
+      source: "test database probe",
+      summary: "database unavailable",
+      checkedAt: "2026-11-25T05:29:30.000Z",
+      latencyMs: null,
+    }],
+    now,
+  });
+  const incidents = buildOmnisIncidents({
+    modules: [status],
+    definitions: OMNIS_DEPENDENCY_DEFINITIONS,
+  });
+  const event: OmnisIncidentLifecycleEvent = {
+    id: "event-acknowledged",
+    incidentKey: "omnis:supabase-database",
+    action: "acknowledged",
+    note: "استلم فريق التشغيل الحادث",
+    actorUserId: null,
+    createdAt: "2026-11-25T05:29:40.000Z",
+  };
+  assert.equal(incidents[0]?.incidentKey, "omnis:supabase-database");
+  assert.equal(applyOmnisIncidentLifecycle(incidents, [event])[0]?.lifecycleState, "acknowledged");
+  assert.equal(
+    applyOmnisIncidentLifecycle(incidents, [{ ...event, action: "resolved" }])[0]?.lifecycleState,
+    "reopened",
+  );
+});
+
+test("incident resolution requires every dependency observation to be fresh and healthy", () => {
+  const healthy = {
+    state: "healthy" as const,
+    freshness: "fresh" as const,
+    checkedAt: "2026-11-25T05:29:30.000Z",
+    source: "verified test probe",
+  };
+  assert.equal(canResolveOmnisIncident([healthy]), true);
+  assert.equal(canResolveOmnisIncident([]), false);
+  assert.equal(canResolveOmnisIncident([{ ...healthy, freshness: "stale" }]), false);
+  assert.equal(canResolveOmnisIncident([{ ...healthy, freshness: "missing" }]), false);
+  assert.equal(canResolveOmnisIncident([{ ...healthy, state: "unknown" }]), false);
+  assert.equal(canResolveOmnisIncident([healthy, { ...healthy, state: "degraded" }]), false);
 });

@@ -14,8 +14,10 @@ import {
   OMNIS_OPERATIONAL_STATE_STYLES,
 } from "@/features/admin/omnis/module-status";
 import { updateOmnisExecutionTaskAction } from "./actions";
+import { updateOmnisIncidentLifecycleAction } from "./actions";
 import { runOmnisSafeCommandAction } from "./actions";
 import { OMNIS_INCIDENT_SEVERITY_LABELS, OMNIS_INCIDENT_STATE_LABELS, getOmnisModuleLabel } from "@/features/admin/omnis/incidents";
+import { canResolveOmnisIncident, OMNIS_INCIDENT_LIFECYCLE_LABELS } from "@/features/admin/omnis/incident-lifecycle";
 
 export const metadata: Metadata = {
   title: "ZIKR OMNIS | مركز القيادة والتحكم",
@@ -41,6 +43,10 @@ export default async function AdminOmnisPage() {
   const live = OMNIS_CENTERS.filter((center) => center.status === "active").length;
   const partial = OMNIS_CENTERS.filter((center) => center.status === "partial").length;
   const planned = OMNIS_CENTERS.filter((center) => center.status === "planned").length;
+  const latestIncidentEvents = new Map<string, (typeof moduleStatusSnapshot.incidentEvents)[number]>();
+  for (const event of moduleStatusSnapshot.incidentEvents) {
+    if (!latestIncidentEvents.has(event.incidentKey)) latestIncidentEvents.set(event.incidentKey, event);
+  }
 
   return (
     <Container className="space-y-8 py-8 md:py-10" dir="rtl">
@@ -117,7 +123,10 @@ export default async function AdminOmnisPage() {
                       <span className={incident.severity === "critical" ? "rounded-full border border-red-400/20 px-2 py-0.5 text-[10px] text-red-200" : incident.severity === "warning" ? "rounded-full border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-200" : "rounded-full border border-slate-400/20 px-2 py-0.5 text-[10px] text-slate-200"}>{OMNIS_INCIDENT_SEVERITY_LABELS[incident.severity]}</span>
                       <span className="text-xs font-semibold text-brand-cream/85">{incident.title}</span>
                     </div>
-                    <span className="text-[10px] text-brand-cream/40">{OMNIS_INCIDENT_STATE_LABELS[incident.state]}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] text-brand-cream/40">{OMNIS_INCIDENT_STATE_LABELS[incident.state]}</span>
+                      <span className="rounded-full border border-brand-gold/15 px-2 py-0.5 text-[10px] text-brand-gold/75">{OMNIS_INCIDENT_LIFECYCLE_LABELS[incident.lifecycleState]}</span>
+                    </div>
                   </div>
                   <p className="text-xs leading-6 text-brand-cream/55">{incident.summary}</p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-brand-cream/35">
@@ -126,11 +135,62 @@ export default async function AdminOmnisPage() {
                     <span>حداثة الفحص: {incident.freshness === "fresh" ? "حديث" : incident.freshness === "stale" ? "قديم" : "مفقود"}</span>
                     {incident.checkedAt ? <span dir="ltr">{new Date(incident.checkedAt).toLocaleString("en-GB")}</span> : null}
                   </div>
+                  {canManage && incident.lifecycleState !== "acknowledged" ? (
+                    <form action={updateOmnisIncidentLifecycleAction} className="flex flex-wrap items-center gap-2 border-t border-brand-gold/10 pt-2">
+                      <input type="hidden" name="incident_key" value={incident.incidentKey} />
+                      <input type="hidden" name="lifecycle_action" value="acknowledged" />
+                      <input name="note" maxLength={500} placeholder="ملاحظة الاستلام (اختياري)" className="min-w-0 flex-1 rounded-lg border border-brand-gold/15 bg-brand-emeraldDeep px-3 py-2 text-[11px] text-brand-cream" />
+                      <button type="submit" className="rounded-lg border border-brand-gold/25 bg-brand-gold/10 px-3 py-2 text-[11px] font-semibold text-brand-gold hover:bg-brand-gold/15">إقرار واستلام الحادث</button>
+                    </form>
+                  ) : null}
                 </article>
               ))}
             </div>
           )}
-          <p className="text-[10px] leading-5 text-brand-cream/30">هذه قائمة لحظية مشتقة من الفحوص وليست سجل حوادث دائمًا؛ الإقرار بالحادث وإغلاقه وتاريخه يحتاجان مخزن حوادث مستقلًا ولم يتم الادعاء بتنفيذ ذلك بعد.</p>
+          <section className="space-y-3 rounded-xl border border-brand-gold/10 bg-black/10 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-brand-gold">سجل دورة حياة الحوادث</h3>
+              <span className="text-[10px] text-brand-cream/35">سجل إدارة append-only</span>
+            </div>
+            {!moduleStatusSnapshot.incidentHistoryAvailable ? (
+              <p role="alert" className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-6 text-amber-100/80">{moduleStatusSnapshot.incidentHistoryError}</p>
+            ) : moduleStatusSnapshot.incidentEvents.length === 0 ? (
+              <p className="text-xs leading-6 text-brand-cream/40">لا توجد أحداث إقرار أو إغلاق مسجلة حتى الآن.</p>
+            ) : (
+              <div className="space-y-2">
+                {moduleStatusSnapshot.incidentEvents.slice(0, 12).map((event) => {
+                  const isLatest = latestIncidentEvents.get(event.incidentKey)?.id === event.id;
+                  const dependencyStatuses = moduleStatusSnapshot.modules
+                    .flatMap((moduleStatus) => moduleStatus.dependencies)
+                    .filter((dependency) => dependency.dependencyId === event.incidentKey.slice("omnis:".length));
+                  const canResolve = event.action === "acknowledged"
+                    && isLatest
+                    && canResolveOmnisIncident(dependencyStatuses)
+                    && !moduleStatusSnapshot.incidents.some((incident) => incident.incidentKey === event.incidentKey);
+                  return (
+                    <article key={event.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-gold/10 pt-2">
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-xs font-semibold text-brand-cream/75">
+                          {event.incidentKey} · {event.action === "acknowledged" ? "تم الإقرار والاستلام" : "تم الإغلاق بعد التعافي"}
+                        </p>
+                        <p className="text-[10px] text-brand-cream/35" dir="ltr">{new Date(event.createdAt).toLocaleString("en-GB")}</p>
+                        {event.note ? <p className="text-[11px] leading-5 text-brand-cream/45">{event.note}</p> : null}
+                      </div>
+                      {canManage && canResolve ? (
+                        <form action={updateOmnisIncidentLifecycleAction} className="flex flex-wrap items-center gap-2">
+                          <input type="hidden" name="incident_key" value={event.incidentKey} />
+                          <input type="hidden" name="lifecycle_action" value="resolved" />
+                          <input name="note" maxLength={500} placeholder="ملاحظة الإغلاق (اختياري)" className="min-w-0 rounded-lg border border-brand-gold/15 bg-brand-emeraldDeep px-2 py-2 text-[10px] text-brand-cream" />
+                          <button type="submit" className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-[10px] font-semibold text-emerald-200 hover:bg-emerald-400/15">تأكيد التعافي وإغلاق الحادث</button>
+                        </form>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-[10px] leading-5 text-brand-cream/30">لا يُغلق الحادث إلا بعد فحص حديث يؤكد سلامة كل الوحدات المرتبطة بالاعتماد. غياب الفحص أو قدمه لا يُعد تعافيًا.</p>
+          </section>
         </div>
         <div className="space-y-3 rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
           <h2 className="text-lg font-bold text-brand-gold">الأوامر الآمنة</h2>
