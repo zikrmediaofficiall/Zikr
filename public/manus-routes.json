@@ -136,6 +136,9 @@
       "path": "/admin/video"
     },
     {
+      "path": "/admin/video/performance"
+    },
+    {
       "path": "/admin/video/qa"
     },
     {
