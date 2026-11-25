@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Container } from "@/components/ui/container";
 import { requireAdminPermission } from "@/features/admin/services/admin";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
+import { setSourceVerifiedAction } from "./actions";
 
 export const metadata: Metadata = { title: "مصادر المحتوى | الأدمن" };
 
@@ -66,7 +67,7 @@ export default async function AdminSourcesPage() {
           <table className="w-full min-w-[1100px] text-sm">
             <thead className="bg-black/20">
               <tr>
-                {["المصدر", "النوع", "الرابط", "الحقوق/النسب", "السلطة", "التحقق", "آخر تحديث"].map((heading) => (
+                {["المصدر", "النوع", "الرابط", "الحقوق/النسب", "السلطة", "التحقق", "آخر تحديث", "إجراء"].map((heading) => (
                   <th key={heading} className="px-4 py-3 text-right text-brand-gold/70">
                     {heading}
                   </th>
@@ -97,6 +98,15 @@ export default async function AdminSourcesPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-brand-cream/40">
                     {source.updated_at ? new Date(source.updated_at).toLocaleString("ar-EG-u-nu-latn") : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <form action={setSourceVerifiedAction}>
+                      <input type="hidden" name="id" value={source.id} />
+                      <input type="hidden" name="verified" value={source.verified ? "false" : "true"} />
+                      <button type="submit" className="rounded-lg border border-brand-gold/20 px-2.5 py-1.5 text-xs text-brand-gold">
+                        {source.verified ? "إلغاء التوثيق" : "توثيق"}
+                      </button>
+                    </form>
                   </td>
                 </tr>
               ))}
