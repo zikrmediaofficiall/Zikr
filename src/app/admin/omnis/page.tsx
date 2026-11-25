@@ -8,6 +8,11 @@ import { hasAdminPermission } from "@/features/admin/services/permissions";
 import { OMNIS_CENTERS, OMNIS_CENTER_STATUS_LABELS } from "@/features/admin/omnis/registry";
 import { OMNIS_EXECUTION_PHASES, OMNIS_TASK_STATE_LABELS, OMNIS_TASK_STATE_STYLES, type OmnisTaskState } from "@/features/admin/omnis/plan";
 import { getOmnisExecutionSnapshot } from "@/features/admin/services/omnis";
+import { getOmnisModuleStatusSnapshot } from "@/features/admin/services/omnis-module-status";
+import {
+  OMNIS_OPERATIONAL_STATE_LABELS,
+  OMNIS_OPERATIONAL_STATE_STYLES,
+} from "@/features/admin/omnis/module-status";
 import { updateOmnisExecutionTaskAction } from "./actions";
 
 export const metadata: Metadata = {
@@ -20,7 +25,11 @@ const STATE_STYLES = OMNIS_TASK_STATE_STYLES as Record<string, string>;
 
 export default async function AdminOmnisPage() {
   const profile = await requireAdminPermission("system.manage");
-  const [snapshot] = await Promise.all([getOmnisExecutionSnapshot()]);
+  const [snapshot, moduleStatusSnapshot] = await Promise.all([
+    getOmnisExecutionSnapshot(),
+    getOmnisModuleStatusSnapshot(),
+  ]);
+  const moduleStatusById = new Map(moduleStatusSnapshot.modules.map((item) => [item.moduleId, item]));
   const canManage = hasAdminPermission(profile.role, "system.manage");
   const completed = snapshot.items.filter((item) => item.state === "completed").length;
   const inProgress = snapshot.items.filter((item) => item.state === "in_progress").length;
@@ -76,7 +85,10 @@ export default async function AdminOmnisPage() {
           <p className="text-xs text-brand-cream/35">قائم: {live} · جزئي: {partial} · مخطط: {planned}</p>
         </div>
         <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-          {OMNIS_CENTERS.map((center) => (
+          {OMNIS_CENTERS.map((center) => {
+            const operational = moduleStatusById.get(center.id);
+            const operationalState = operational?.state ?? "unknown";
+            return (
             <article key={center.id} className="flex min-h-44 flex-col gap-3 rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -87,7 +99,38 @@ export default async function AdminOmnisPage() {
                   {OMNIS_CENTER_STATUS_LABELS[center.status]}
                 </span>
               </div>
-              <p className="flex-1 text-xs leading-6 text-brand-cream/50">{center.description}</p>
+              <p className="text-xs leading-6 text-brand-cream/50">{center.description}</p>
+              <div className="space-y-1 rounded-lg border border-brand-gold/10 bg-black/10 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[10px] text-brand-cream/40">الحالة التشغيلية للاعتماديات</span>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] ${OMNIS_OPERATIONAL_STATE_STYLES[operationalState]}`}>
+                    {OMNIS_OPERATIONAL_STATE_LABELS[operationalState]}
+                  </span>
+                </div>
+                <p className="text-[11px] leading-5 text-brand-cream/45">{operational?.summary ?? "لا تتوفر قراءة تشغيلية لهذا المركز."}</p>
+                {operational?.checkedAt ? (
+                  <p className="text-[10px] text-brand-cream/25" dir="ltr">Last probe: {new Date(operational.checkedAt).toLocaleString("en-GB")}</p>
+                ) : null}
+                {operational?.dependencies.length ? (
+                  <details className="pt-1">
+                    <summary className="cursor-pointer text-[11px] font-semibold text-brand-gold/65">تفاصيل الاعتماديات ({operational.dependencies.length})</summary>
+                    <div className="mt-2 space-y-2">
+                      {operational.dependencies.map((dependency) => (
+                        <div key={dependency.dependencyId} className="rounded-md border border-brand-gold/10 p-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-[11px] text-brand-cream/70">{dependency.label}</span>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] ${OMNIS_OPERATIONAL_STATE_STYLES[dependency.state]}`}>
+                              {OMNIS_OPERATIONAL_STATE_LABELS[dependency.state]}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[10px] leading-5 text-brand-cream/40">{dependency.summary}</p>
+                          {dependency.source ? <p className="mt-1 text-[9px] text-brand-cream/25">{dependency.source}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
+              </div>
               {center.path ? (
                 <Link href={center.path} className="inline-flex w-fit items-center gap-2 rounded-lg border border-brand-gold/20 px-3 py-2 text-xs font-semibold text-brand-gold hover:bg-brand-gold/10">
                   فتح الوحدة <span aria-hidden="true">←</span>
@@ -96,7 +139,8 @@ export default async function AdminOmnisPage() {
                 <span className="text-[11px] text-brand-cream/30">لا يوجد مسار تنفيذي بعد</span>
               )}
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
 
