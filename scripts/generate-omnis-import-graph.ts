@@ -26,8 +26,13 @@ function collectSpecifiers(filePath: string, source: string): string[] {
       : /\.(js|mjs|cjs)$/.test(filePath) ? ts.ScriptKind.JS
         : ts.ScriptKind.TS;
   const ast = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true, kind);
-  if (ast.parseDiagnostics.length) {
-    throw new Error("Import graph parse error in " + filePath + ": " + ast.parseDiagnostics.length + " syntax diagnostic(s).");
+  // TypeScript keeps parser diagnostics on SourceFile at runtime, but the
+  // public SourceFile declaration intentionally omits this internal field.
+  const parseDiagnostics = (
+    ast as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
+  ).parseDiagnostics;
+  if (parseDiagnostics.length) {
+    throw new Error("Import graph parse error in " + filePath + ": " + parseDiagnostics.length + " syntax diagnostic(s).");
   }
   const specifiers = new Set<string>();
   const visit = (node: ts.Node) => {
