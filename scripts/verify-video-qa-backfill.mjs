@@ -148,7 +148,7 @@ const adminSettingsRegistry = read("src/features/admin/config/settings-registry.
 function getSettingRegistryBlock(key) {
   const start = adminSettingsRegistry.indexOf(`key: "${key}"`);
   if (start < 0) return "";
-  const end = adminSettingsRegistry.indexOf("\\n  },", start);
+  const end = adminSettingsRegistry.indexOf("\n  },", start);
   return adminSettingsRegistry.slice(start, end < 0 ? adminSettingsRegistry.length : end);
 }
 const aiAttemptsSetting = getSettingRegistryBlock("video_automation_ai_attempts_per_run");
