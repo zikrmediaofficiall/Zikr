@@ -6,6 +6,7 @@ import { Container } from "@/components/ui/container";
 import { requireAdminPermission } from "@/features/admin/services/admin";
 import { supabaseServerAdminCount, supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { saveVideoAutomationSettingAction, requestVideoAutomationRunAction } from "@/app/admin/system-actions";
+import { ADMIN_SETTING_REGISTRY, type EditableAdminSettingDefinition } from "@/features/admin/config/settings-registry";
 
 export const metadata: Metadata = { title: "الأتمتة والمهام | الأدمن" };
 
@@ -26,15 +27,10 @@ type VideoAutomationRun = {
   error_summary: string | null;
 };
 
-const VIDEO_SETTINGS = [
-  ["video_automation_enabled", "توليد الفيديوهات تلقائيًا", "boolean"],
-  ["video_automation_auto_publish", "النشر التلقائي على منصات التواصل بعد اجتياز QA", "boolean"],
-  ["video_automation_batch_size", "عدد الطلبات في كل دورة", "number"],
-  ["video_automation_ai_enabled", "توليد المشاهد بالـAI", "boolean"],
-  ["video_automation_daily_target", "الهدف اليومي للفيديوهات", "number"],
-  ["video_automation_ai_attempts_per_run", "محاولات مزودات الفيديو الذكية لكل دورة", "number"],
-  ["video_automation_video_seconds", "مدة الفيديو الافتراضية بالثواني", "number"],
-] as const;
+const VIDEO_SETTINGS = ADMIN_SETTING_REGISTRY.filter(
+  (setting): setting is EditableAdminSettingDefinition =>
+    setting.editable && setting.category === "video",
+);
 
 async function readCount(table: string) {
   try {
@@ -142,13 +138,31 @@ export default async function AdminAutomationPage() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          {VIDEO_SETTINGS.map(([key, _label, kind]) => {
+          {VIDEO_SETTINGS.map((definition) => {
+            const { key, label, description } = definition;
             const value = settings[key];
-            const checked = value === true || value === "true";
+            const checked = typeof value === "boolean"
+              ? value
+              : typeof value === "string"
+                ? value.trim().toLowerCase() === "true"
+                : definition.valueType === "boolean"
+                  ? definition.runtimeFallback
+                  : false;
+            const numericValue = typeof value === "number" && Number.isSafeInteger(value)
+              ? value
+              : typeof value === "string" && /^-?\\d+$/.test(value.trim())
+                ? Number(value)
+                : definition.valueType === "integer"
+                  ? definition.runtimeFallback
+                  : null;
             return (
               <form key={key} action={saveVideoAutomationSettingAction} className="space-y-3 rounded-xl border border-brand-gold/10 bg-black/10 p-4">
                 <input type="hidden" name="key" value={key} />
-                {kind === "boolean" ? (
+                <div>
+                  <h3 className="text-sm font-semibold text-brand-cream/80">{label}</h3>
+                  <p className="mt-1 text-xs leading-6 text-brand-cream/40">{description}</p>
+                </div>
+                {definition.valueType === "boolean" ? (
                   <>
                     <input type="hidden" name="value" value="false" />
                     <label className="flex items-center gap-3 text-sm text-brand-cream/60">
@@ -160,19 +174,10 @@ export default async function AdminAutomationPage() {
                   <input
                     name="value"
                     type="number"
-                    min={key === "video_automation_ai_attempts_per_run" ? 0 : key === "video_automation_video_seconds" ? 10 : 1}
-                    max={key === "video_automation_daily_target" ? 24 : key === "video_automation_ai_attempts_per_run" ? 4 : key === "video_automation_video_seconds" ? 45 : 10}
-                    defaultValue={
-                      typeof value === "number" || typeof value === "string"
-                        ? String(value)
-                        : key === "video_automation_daily_target"
-                          ? "20"
-                          : key === "video_automation_ai_attempts_per_run"
-                            ? "4"
-                            : key === "video_automation_video_seconds"
-                              ? "25"
-                              : "10"
-                    }
+                    min={definition.minimum}
+                    max={definition.maximum}
+                    step={1}
+                    defaultValue={numericValue ?? definition.runtimeFallback}
                     className="w-full rounded-xl border border-brand-gold/15 bg-black/20 px-3 py-2 text-sm text-brand-cream"
                   />
                 )}
