@@ -193,3 +193,5 @@ The overall project can only be marked complete after all 45 items are completed
 
 - 2026-11-25: Completed `OMNIS-P01-03` on `7313962125c9c750a9de063d6f90b5f6325cb253` after GitHub Quality Gate, all 32 PostgreSQL checks, three CircleCI jobs, Android Debug and Vercel Preview passed. Authenticated browser E2E remains pending.
 - 2026-11-25: Started `OMNIS-P02-01` for a non-secret configuration inventory: keys, sources, owners, environments and dependencies only.
+
+- 2026-11-25: `OMNIS-P02-01` inventory and canonical Quality Gate passed on `d0a297ea0459df8af40edbee2dfbbf8fe8e38489` (125 environment-variable names; 32 PostgreSQL checks; CircleCI and Android Debug passed). The exact-commit Vercel Preview `dpl_7fE7YXPHdVzeLRkTjYSpF7jY16uV` is still building; the task remains in progress until it is READY and the admin route smoke test can be completed.
