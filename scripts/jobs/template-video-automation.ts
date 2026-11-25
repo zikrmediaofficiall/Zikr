@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { growthOverlayCta } from "../../src/features/videos/services/video-cta";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -489,8 +490,10 @@ function categoryLabel(category: string, audience?: unknown) {
 function audienceHook(category: string, audience?: unknown, seed = "", style: VideoHookStyle = "balanced") {
   return resolveDeterministicVideoHook({ id: seed, category, audience, style });
 }
-function audienceCta(category: string, audience?: unknown) {
+function audienceCta(category: string, audience?: unknown, seed = "") {
   if (audience === "kids") return "اكتشفوا الحلقة القادمة معًا • تابعوا ذِكر";
+  const growth = growthOverlayCta({ seed, audience, siteUrl: siteUrl() });
+  if (growth) return growth;
   const labels: Record<string, string> = {
     quran: "تدبّر الآية واحفظها وشاركها",
     hadith: "تأمّل الحديث وطبّقه اليوم",
@@ -587,7 +590,7 @@ function makeAss(
   }
   events.push(
     "Dialogue: 7," + assTimestamp(Math.max(0.8, duration - 3.2)) + "," + assTimestamp(duration) +
-    ",CTA,,0,0,0,,{\\fad(220,300)\\an2\\pos(" + composition.bodyX + "," + Math.round(height * 0.92) + ")}" + assEscape(audienceCta(category, audience)),
+    ",CTA,,0,0,0,,{\\fad(220,300)\\an2\\pos(" + composition.bodyX + "," + Math.round(height * 0.92) + ")}" + assEscape(audienceCta(category, audience, openingSeed)),
   );
   return [
     "[Script Info]",

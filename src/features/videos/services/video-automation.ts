@@ -14,6 +14,8 @@ import {
   resolveFacebookReelsNextAllowedAt,
 } from '@/features/social/services/facebook-reels-rate-limit';
 import type { VideoGenerationRequest } from '@/lib/types/video';
+import { captionSiteLine } from './video-cta';
+import { resolveVideoRequestAudience } from './video-audience-visibility';
 import { sourceHash, videoContentHash } from '../providers/content-hash';
 import { CURRENT_VIDEO_RENDERER_VERSION } from './video-template-version';
 import { resolveYouTubeUploadPrivacy } from './youtube-upload-privacy';
@@ -111,7 +113,8 @@ function sourceSocialCaption(request: VideoGenerationRequest) {
   const caption = ai && typeof ai === 'object' && typeof (ai as Record<string, unknown>).socialCaption === 'string'
     ? String((ai as Record<string, unknown>).socialCaption).trim()
     : '';
-  const baseCaption = [caption || request.description || '', growthCallToAction()].filter(Boolean).join('\n\n').slice(0, 800);
+  const siteLine = captionSiteLine({ audienceResolution: resolveVideoRequestAudience(request.content), siteUrl: getServerEnv().NEXT_PUBLIC_SITE_URL });
+  const baseCaption = [(caption || request.description || '').slice(0, 560), growthCallToAction(), siteLine].filter(Boolean).join('\n\n').slice(0, 800);
   return baseCaption;
 }
 
