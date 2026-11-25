@@ -26,6 +26,7 @@ assert.equal(editable.length, 11, "the registry must define the 11 supported edi
 for (const item of editable) {
   assert.ok(item.permission, `${item.key} must have an owner permission`);
   assert.ok(item.owner.length > 0, `${item.key} must have an owning domain`);
+  assert.ok(item.dependencies.length > 0, `${item.key} must declare dependencies`);
   assert.equal(item.storage, "public.admin_settings");
   assert.ok(item.revalidatePaths.length > 0, `${item.key} must declare cache paths`);
   if (item.valueType === "integer") {
@@ -82,6 +83,7 @@ for (const key of internalKeys) {
   const definition = getAdminSettingDefinition(key);
   assert.ok(definition, `${key} must be explicitly classified`);
   assert.equal(definition.editable, false, `${key} must remain read-only through generic setting forms`);
+  assert.ok(definition.dependencies.length > 0, `${key} must declare owned dependencies`);
   assert.equal(getEditableAdminSettingDefinition(key), undefined);
   assert.equal(validateAdminSettingValue(key, "true").ok, false);
 }
