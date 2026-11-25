@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(path, "utf8");
 const registry = read("src/features/admin/config/settings-registry.ts");
-const migration = read("supabase/migrations/20261125084000_zikr_admin_setting_versions.sql");
+const migration = read("supabase/migrations/20261125064252_zikr_admin_setting_versions.sql");
 const versionService = read("src/features/admin/services/setting-versions.ts");
 const versionPanel = read("src/features/admin/components/admin-setting-version-history.tsx");
 const actions = read("src/app/admin/system-actions.ts");
