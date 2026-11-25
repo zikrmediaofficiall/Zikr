@@ -387,7 +387,8 @@ export async function POST(request: NextRequest) {
 
     if (content.workflow === "hady-program") {
       const theme = typeof submittedContent.theme === "string" ? submittedContent.theme : "";
-      const sourceCategory = submittedContent.sourceCategory === "hadith" ? "hadith"
+      const sourceCategory = submittedContent.sourceCategory === "quran" ? "quran"
+        : submittedContent.sourceCategory === "hadith" ? "hadith"
         : submittedContent.sourceCategory === "story" ? "story" : "";
       const sourceId = typeof submittedContent.sourceId === "string" ? submittedContent.sourceId.trim() : "";
       const rawSegments = Array.isArray(submittedContent.segments) ? submittedContent.segments : [];
@@ -404,7 +405,8 @@ export async function POST(request: NextRequest) {
       if (!verifiedSource) {
         return NextResponse.json({ error: "مصدر حلقة هادي غير موجود أو غير منشور؛ حدّث المصادر واختر مصدرًا موثقًا." }, { status: 422 });
       }
-      const sourceKind = sourceCategory === "hadith" ? "hadith" as const : "seerah" as const;
+      const sourceKind = sourceCategory === "quran" ? "quran" as const
+        : sourceCategory === "hadith" ? "hadith" as const : "seerah" as const;
       const segments = rawSegments.map((segment, index) => ({
         id: requiredSegmentIds[index],
         text: String((segment as Record<string, unknown>).text),
@@ -456,7 +458,7 @@ export async function POST(request: NextRequest) {
         audience: "general",
         visualTheme: "calm",
         visualBackground: backgroundForTheme(theme as keyof typeof SHOW_TOPIC_BACKGROUNDS),
-        maxDurationSeconds: 120,
+        maxDurationSeconds: 135,
         videoFormat: "vertical",
         resolution: "1080x1920",
         publicPath: "/videos",

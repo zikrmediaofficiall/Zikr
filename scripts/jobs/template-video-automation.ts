@@ -1556,13 +1556,13 @@ export async function validateSourceContent(request: GeneratedRequest) {
       reference.url !== content.sourceUrl ||
       typeof reference.label !== "string" ||
       !reference.label.trim() ||
-      !["hadith", "story"].includes(String(reference.category)) ||
+      !["quran", "hadith", "story"].includes(String(reference.category)) ||
       !episodeCheck.ok ||
       text !== episode.segments.map((segment) => segment.text).join("\\n\\n")
     ) {
       throw new Error("Hady episode failed server-side source, five-part script, Egyptian dialect, duration or human-review validation: " + episodeCheck.errors.join(" | "));
     }
-    const sourceCategory = reference.category as "hadith" | "story";
+    const sourceCategory = reference.category as "quran" | "hadith" | "story";
     const source = await resolveVideoSource(sourceCategory, String(reference.id));
     if (
       !source ||
@@ -1574,7 +1574,8 @@ export async function validateSourceContent(request: GeneratedRequest) {
       !episode.segments[2]?.sourceRefs?.some((sourceRef) =>
         sourceRef.verified &&
         sourceRef.reference === source.id &&
-        sourceRef.kind === (sourceCategory === "hadith" ? "hadith" : "seerah"),
+        sourceRef.kind === "quran" ? sourceCategory === "quran"
+          : sourceRef.kind === "hadith" ? sourceCategory === "hadith" : sourceCategory === "story",
       )
     ) {
       throw new Error("Hady episode source is missing, unpublished, or no longer matches the reviewed source reference.");
