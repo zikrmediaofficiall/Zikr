@@ -14,12 +14,12 @@ import AndroidReleaseCard from '@/components/platform/android-release-card';
 export const dynamic = 'force-dynamic';
 
 const QUICK_ACTIONS = [
-  { href: '/quran', ar: 'القرآن', en: 'Quran', icon: 'BookOpen', tone: 'قراءة وتلاوة' },
-  { href: '/hadith', ar: 'الحديث', en: 'Hadith', icon: 'ScrollText', tone: 'السنة والمصادر' },
-  { href: '/adhkar', ar: 'الأذكار', en: 'Adhkar', icon: 'Sparkles', tone: 'الورد اليومي' },
-  { href: '/prayer-times', ar: 'الصلاة', en: 'Prayer', icon: 'Clock3', tone: 'المواقيت والتنبيهات' },
-  { href: '/audio', ar: 'الصوت', en: 'Audio', icon: 'Headphones', tone: 'أذان وذكر وتلاوات' },
-  { href: '/kids', ar: 'الأطفال', en: 'Kids', icon: 'Gamepad2', tone: 'تعلم ولعب' },
+  { href: '/quran', ar: 'القرآن', en: 'Quran', icon: 'BookOpen', tone: 'قراءة وتلاوة', toneEn: 'Read and listen' },
+  { href: '/hadith', ar: 'الحديث', en: 'Hadith', icon: 'ScrollText', tone: 'السنة والمصادر', toneEn: 'Sunnah and sources' },
+  { href: '/adhkar', ar: 'الأذكار', en: 'Adhkar', icon: 'Sparkles', tone: 'الورد اليومي', toneEn: 'Daily remembrance' },
+  { href: '/prayer-times', ar: 'الصلاة', en: 'Prayer', icon: 'Clock3', tone: 'المواقيت والتنبيهات', toneEn: 'Times and alerts' },
+  { href: '/audio', ar: 'الصوت', en: 'Audio', icon: 'Headphones', tone: 'أذان وذكر وتلاوات', toneEn: 'Adhan, dhikr, recitations' },
+  { href: '/kids', ar: 'الأطفال', en: 'Kids', icon: 'Gamepad2', tone: 'تعلم ولعب', toneEn: 'Learn and play' },
 ] as const;
 
 const DAILY_TOOLS = [
@@ -318,7 +318,7 @@ export default async function HomePage() {
                     {isEnglish ? action.en : action.ar}
                   </h3>
                   <p className="mt-1 text-[11px] leading-5 text-brand-cream/40">
-                    {isEnglish ? action.tone : action.tone}
+                    {isEnglish ? action.toneEn : action.tone}
                   </p>
                 </Link>
               ))}
