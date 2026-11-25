@@ -71,7 +71,7 @@ if (!commands.includes('key: "refresh-operational-status"') || !commands.include
 if (!actions.includes("resolveOmnisSafeCommand") || !actions.includes("admin.omnis.safe_command.inspect") || !actions.includes('requireAdminPermission("system.manage")')) {
   failures.push("OMNIS operational refresh command must check permission and append an audit event");
 }
-if (!page.includes("moduleStatusSnapshot.incidents.map") || !page.includes("runOmnisSafeCommandAction") || !page.includes("ليست سجل حوادث دائمًا")) {
+if (!page.includes("moduleStatusSnapshot.incidents.slice(0, 12).map") || !page.includes("runOmnisSafeCommandAction") || !page.includes("ليست سجل حوادث دائمًا")) {
   failures.push("OMNIS command center must display live incidents and disclose their non-persisted lifecycle");
 }
 if (!resourceIndex.includes("classifyOmnisResource") || !resourceIndex.includes("analyzeOmnisResourceImpact") || !resourceIndex.includes("OMNIS_MODULE_DEPENDENCIES")) {
