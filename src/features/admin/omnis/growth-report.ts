@@ -69,3 +69,35 @@ export function revenueReport(source: { actual?: number | null; estimated?: numb
   }
   return { actual: source.actual ?? null, estimated: source.estimated ?? null, note: "الفعلي والتقديري منفصلان." };
 }
+
+// P09-03: owner-entered monthly revenue (no automatic AdSense/YouTube feed exists).
+export const MANUAL_REVENUE_KEY = "revenue_manual";
+export type ManualRevenueMonth = { month: string; actual: number | null; estimated: number | null; currency: string };
+
+const moneyNum = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1e9 ? Math.round(v * 100) / 100 : null);
+
+export function parseManualRevenue(raw: unknown): ManualRevenueMonth[] {
+  const months = raw && typeof raw === "object" ? (raw as { months?: unknown }).months : null;
+  if (!months || typeof months !== "object") return [];
+  const out: ManualRevenueMonth[] = [];
+  for (const [month, v] of Object.entries(months as Record<string, unknown>)) {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || !v || typeof v !== "object") continue;
+    const r = v as Record<string, unknown>;
+    const actual = moneyNum(r.actual);
+    const estimated = moneyNum(r.estimated);
+    if (actual == null && estimated == null) continue;
+    out.push({ month, actual, estimated, currency: typeof r.currency === "string" && /^[A-Z]{3}$/.test(r.currency) ? r.currency : "USD" });
+  }
+  return out.sort((a, b) => b.month.localeCompare(a.month));
+}
+
+/** Totals never mix actual and estimated, nor currencies. */
+export function manualRevenueTotals(rows: ManualRevenueMonth[]): Record<string, { actual: number; estimated: number }> {
+  const out: Record<string, { actual: number; estimated: number }> = {};
+  for (const r of rows) {
+    const t = (out[r.currency] ??= { actual: 0, estimated: 0 });
+    t.actual = Math.round((t.actual + (r.actual ?? 0)) * 100) / 100;
+    t.estimated = Math.round((t.estimated + (r.estimated ?? 0)) * 100) / 100;
+  }
+  return out;
+}

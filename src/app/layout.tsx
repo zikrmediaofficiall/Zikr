@@ -12,6 +12,7 @@ import { NativeCapacitorBridgeLoader } from "@/components/layout/native-capacito
 import { WebAdvertisingRuntime } from "@/components/layout/web-advertising-runtime";
 import { getRequestLocaleContext } from "@/lib/i18n/server";
 import { getSiteSetting } from "@/features/site-content/services/site-content";
+import { SITE_EXPERIENCE_KEY, buildThemeCss, parseSiteExperience } from "@/lib/omnis/site-experience";
 import { Noto_Naskh_Arabic } from "next/font/google";
 
 const notoNaskhArabic = Noto_Naskh_Arabic({
@@ -135,6 +136,7 @@ export default async function RootLayout({
 }) {
   const { locale, dir, lang } = await getRequestLocaleContext();
   const jsonLd = buildJsonLd(locale);
+  const themeCss = buildThemeCss(parseSiteExperience(await getSiteSetting(SITE_EXPERIENCE_KEY)).colors);
 
   return (
     <html
@@ -158,6 +160,7 @@ export default async function RootLayout({
         />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
+        {themeCss ? <style dangerouslySetInnerHTML={{ __html: themeCss }} /> : null}
       </head>
       <body className={locale === "ar" ? "font-arabic antialiased" : "font-sans antialiased"}>
         <WebAdvertisingRuntime />

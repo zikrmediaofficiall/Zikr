@@ -16,3 +16,8 @@ assert.deepEqual(suppressSmallCohorts({ android: 3, web: 25 }), { android: null,
 assert.deepEqual(revenueReport(null).actual, null);
 assert.equal(revenueReport({ actual: 5 }).estimated, null);
 console.log("growth-report tests passed");
+import { manualRevenueTotals, parseManualRevenue } from "../../src/features/admin/omnis/growth-report";
+const manual = parseManualRevenue({ months: { "2026-10": { actual: 12.5, currency: "USD" }, "2026-11": { actual: 5, estimated: 7.255, currency: "EUR" }, "bad": { actual: 1 }, "2026-12": { actual: -4 }, "2026-09": { actual: "x" } } });
+assert.deepEqual(manual.map((m) => m.month), ["2026-11", "2026-10"]);
+assert.deepEqual(manualRevenueTotals(manual), { EUR: { actual: 5, estimated: 7.26 }, USD: { actual: 12.5, estimated: 0 } });
+console.log("manual revenue tests passed");

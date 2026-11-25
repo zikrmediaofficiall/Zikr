@@ -7,6 +7,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from '@/lib/i18n';
 import { EditorialDepth } from '@/components/content/editorial-depth';
 import { EditorialUtilityDepth } from '@/components/content/editorial-utility-depth';
 import { ContentExpansion } from '@/components/content/content-expansion';
+import { SITE_EXPERIENCE_KEY, parseSiteExperience } from '@/lib/omnis/site-experience';
 import { getSiteSetting, getSectionVisibility, getSectionDisplayOrder } from '@/features/site-content/services/site-content';
 import { SITE_CATALOG, getCatalogItemKey } from '@/lib/navigation/catalog';
 
@@ -29,11 +30,13 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
   const cookieLocale = cookieStore.get('zikr-locale')?.value ?? null;
   const initialLocale: Locale = isLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
   const pathname = requestHeaders.get('x-zikr-pathname') ?? '';
-  const [socialSettings, sectionVisibility, sectionOrder] = await Promise.all([
+  const [socialSettings, sectionVisibility, sectionOrder, experienceSetting] = await Promise.all([
     getSiteSetting('social'),
     getSectionVisibility(),
     getSectionDisplayOrder(),
+    getSiteSetting(SITE_EXPERIENCE_KEY),
   ]);
+  const labelOverrides = parseSiteExperience(experienceSetting).labels;
   const hiddenHrefs = SITE_CATALOG.flatMap((group) => group.items)
     .filter((item) => sectionVisibility[getCatalogItemKey(item.href)] === false)
     .map((item) => item.href);
@@ -47,7 +50,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
         >
           {initialLocale === 'ar' ? 'تخطي إلى المحتوى' : 'Skip to content'}
         </a>
-        <Navbar hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} />
+        <Navbar hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} labelOverrides={labelOverrides} />
         <main id="main-content" tabIndex={-1}>
           {children}
           <EditorialDepth pathname={pathname} locale={initialLocale} />

@@ -38,6 +38,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       { href: "/admin/omnis/code", label: "مركز تطوير الكود", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/omnis/cloud", label: "مركز الخدمات السحابية", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/omnis/push", label: "حملات الإشعارات", permission: "system.manage", icon: "refresh-cw" },
+      { href: "/admin/omnis/experience", label: "تجربة الموقع", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/omnis/growth", label: "النمو والإيرادات", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/omnis/video-pipeline", label: "خط إنتاج الفيديو", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/queues", label: "مركز الطوابير", permission: "dashboard.view", icon: "list-checks" },

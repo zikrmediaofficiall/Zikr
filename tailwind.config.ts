@@ -8,12 +8,12 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          emerald: '#0E4B45',
-          emeraldDeep: '#072E2A',
-          gold: '#C7A86B',
-          goldSoft: '#E6D7B3',
-          cream: '#F6F0E5',
-          mist: '#8FA49F',
+          emerald: 'var(--brand-emerald, #0E4B45)',
+          emeraldDeep: 'var(--brand-emeraldDeep, #072E2A)',
+          gold: 'var(--brand-gold, #C7A86B)',
+          goldSoft: 'var(--brand-goldSoft, #E6D7B3)',
+          cream: 'var(--brand-cream, #F6F0E5)',
+          mist: 'var(--brand-mist, #8FA49F)',
         },
       },
       fontFamily: {

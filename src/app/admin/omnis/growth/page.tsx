@@ -3,9 +3,10 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
+import { saveRevenueMonthAction } from "./actions";
 import { requireAdminPermission } from "@/features/admin/services/admin";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
-import { MIN_COHORT, revenueReport, suppressSmallCohorts, totalsByPlatform, weeklyTrend, type InsightRow } from "@/features/admin/omnis/growth-report";
+import { MANUAL_REVENUE_KEY, MIN_COHORT, manualRevenueTotals, parseManualRevenue, revenueReport, suppressSmallCohorts, totalsByPlatform, weeklyTrend, type InsightRow } from "@/features/admin/omnis/growth-report";
 
 export const metadata: Metadata = { title: "النمو والجمهور والإيرادات | ZIKR OMNIS" };
 
@@ -17,17 +18,20 @@ async function load() {
     ]);
     const counts: Record<string, number> = {};
     for (const s of subs) counts[s.platform ?? "unknown"] = (counts[s.platform ?? "unknown"] ?? 0) + 1;
-    return { insights, counts, error: null as string | null };
+    const rev = await supabaseServerAdminRequest<Array<{ value?: unknown }>>(`/rest/v1/site_settings?key=eq.${MANUAL_REVENUE_KEY}&select=value&limit=1`, { method: "GET" }).catch(() => []);
+    return { insights, counts, manual: parseManualRevenue(rev?.[0]?.value), error: null as string | null };
   } catch {
-    return { insights: [] as InsightRow[], counts: {} as Record<string, number>, error: "تعذرت قراءة البيانات." };
+    return { insights: [] as InsightRow[], counts: {} as Record<string, number>, manual: [] as ReturnType<typeof parseManualRevenue>, error: "تعذرت قراءة البيانات." };
   }
 }
 
 const fmt = (n: number) => n.toLocaleString("en");
 
-export default async function OmnisGrowthPage() {
+export default async function OmnisGrowthPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   await requireAdminPermission("system.manage");
-  const { insights, counts, error } = await load();
+  const { insights, counts, manual, error } = await load();
+  const { ok, error: formError } = await searchParams;
+  const manualTotals = manualRevenueTotals(manual);
   const totals = totalsByPlatform(insights);
   const trend = weeklyTrend(insights);
   const audience = suppressSmallCohorts(counts);
@@ -66,7 +70,21 @@ export default async function OmnisGrowthPage() {
       <section className="space-y-2">
         <h2 className="font-bold text-brand-gold">الإيرادات</h2>
         <p className="text-sm text-brand-cream/70">الفعلي: {revenue.actual ?? "غير متاح"} · التقديري: {revenue.estimated ?? "غير متاح"}</p>
-        <p className="text-xs text-brand-cream/40">{revenue.note}</p>
+        <p className="text-xs text-brand-cream/40">{revenue.note} يمكنك إدخال إيراد كل شهر يدويًا من لوحة AdSense أو YouTube: الفعلي والتقديري منفصلان، والعملات لا تُجمع معًا، وكل رقم هنا مُدخل منك وليس مسحوبًا تلقائيًا.</p>
+        {ok ? <p role="status" className="text-xs text-emerald-200">{ok}</p> : null}
+        {formError ? <p role="alert" className="text-xs text-red-200">{formError}</p> : null}
+        <form action={saveRevenueMonthAction} className="flex flex-wrap items-end gap-2 text-xs">
+          <input name="month" dir="ltr" placeholder="2026-11" required pattern="\d{4}-\d{2}" className="w-28 rounded-lg border border-brand-gold/15 bg-black/30 px-2 py-1.5" />
+          <input name="actual" dir="ltr" type="number" step="0.01" min="0" placeholder="الفعلي" className="w-28 rounded-lg border border-brand-gold/15 bg-black/30 px-2 py-1.5" />
+          <input name="estimated" dir="ltr" type="number" step="0.01" min="0" placeholder="التقديري" className="w-28 rounded-lg border border-brand-gold/15 bg-black/30 px-2 py-1.5" />
+          <input name="currency" dir="ltr" defaultValue="USD" maxLength={3} className="w-16 rounded-lg border border-brand-gold/15 bg-black/30 px-2 py-1.5" />
+          <button className="rounded-lg border border-brand-gold/30 bg-brand-gold/10 px-3 py-1.5 font-semibold text-brand-gold">حفظ الشهر</button>
+        </form>
+        {manual.length ? (
+          <table className="w-full max-w-xl text-start text-xs"><thead><tr className="text-brand-cream/50"><th>الشهر</th><th>الفعلي</th><th>التقديري</th><th>العملة</th></tr></thead>
+            <tbody>{manual.slice(0, 12).map((r) => <tr key={r.month}><td dir="ltr">{r.month}</td><td>{r.actual ?? "—"}</td><td>{r.estimated ?? "—"}</td><td>{r.currency}</td></tr>)}</tbody>
+            <tfoot>{Object.entries(manualTotals).map(([c, t]) => <tr key={c} className="text-brand-gold"><td>المجموع</td><td>{t.actual}</td><td>{t.estimated}</td><td>{c}</td></tr>)}</tfoot></table>
+        ) : null}
       </section>
     </Container>
   );

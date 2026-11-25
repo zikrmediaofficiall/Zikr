@@ -97,6 +97,9 @@
       "path": "/admin/omnis/database"
     },
     {
+      "path": "/admin/omnis/experience"
+    },
+    {
       "path": "/admin/omnis/growth"
     },
     {
