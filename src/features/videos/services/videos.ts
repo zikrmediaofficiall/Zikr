@@ -52,8 +52,9 @@ export async function getVideos(
     : FALLBACK_VIDEOS;
 
   if (!isSupabaseConfigured()) return fallback.slice(0, safeLimit);
-  // The general video catalog must never mix child-directed media into the
-  // public feed. Kids content is served only by the dedicated Kids experience.
+  // Start with general-audience rows. Kids-directed stories are added only
+  // through the separate strict source-fingerprint and automated-QA path below,
+  // so approved stories can be public without weakening the Kids review gate.
   let query =
     "/rest/v1/videos?select=id,title,slug,description,youtube_id,thumbnail_url,duration,views,published,category_id,metadata,created_at&published=eq.true&or=(metadata->>audience.is.null,metadata->>audience.eq.general)&order=created_at.desc";
 
@@ -70,11 +71,8 @@ export async function getVideos(
     return [];
   });
 
-  if (rows.length === 0) return fallback.slice(0, safeLimit);
   const renderableRows = rows.filter((row) => isGeneralAudienceVideoMetadata(row.metadata) && isPubliclyRenderableVideo(row));
-  if (renderableRows.length === 0) return fallback.slice(0, safeLimit);
-
-  return renderableRows.slice(0, safeLimit).map(r => ({
+  const generalVideos: Video[] = renderableRows.map(r => ({
     id: r.id as string,
     title: r.title as string,
     slug: r.slug as string,
@@ -88,6 +86,24 @@ export async function getVideos(
     metadata: r.metadata as Record<string, unknown> | undefined,
     createdAt: r.created_at as string,
   }));
+
+  // Reuse the Kids feed's strict request-fingerprint + automated-QA validation.
+  // A story that passes it is cross-listed in the public video library as well;
+  // it is not hidden from general visitors or confined to /kids.
+  const kidsVideos = await getKidsGeneratedVideos(safeLimit).catch((error) => {
+    console.warn("[content] Could not cross-list Kids-suitable videos in the public library:", error);
+    return [] as Video[];
+  });
+  const combined = new Map<string, Video>();
+  for (const video of [...generalVideos, ...kidsVideos]) {
+    if (categoryId && categoryId !== "all" && video.categoryId !== categoryId) continue;
+    combined.set(video.id, video);
+  }
+
+  const publicVideos = [...combined.values()]
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+    .slice(0, safeLimit);
+  return publicVideos.length > 0 ? publicVideos : fallback.slice(0, safeLimit);
 }
 
 export async function getVideoBySlug(slug: string): Promise<Video | null> {
@@ -104,7 +120,11 @@ export async function getVideoBySlug(slug: string): Promise<Video | null> {
   });
 
   if (!rows.length) {
-    return FALLBACK_VIDEOS.find((video) => video.slug === slug.trim()) ?? null;
+    const kidsSuitableVideo = await getKidsGeneratedVideoBySlug(slug).catch((error) => {
+      console.warn("[content] Could not load a Kids-suitable video through the public detail route:", error);
+      return null;
+    });
+    return kidsSuitableVideo ?? FALLBACK_VIDEOS.find((video) => video.slug === slug.trim()) ?? null;
   }
   if (!isGeneralAudienceVideoMetadata(rows[0].metadata)) return null;
   if (!isPubliclyRenderableVideo(rows[0])) {

@@ -112,5 +112,9 @@ export function getDefaultVideoVoiceProfile(category: string) {
   if (category === "quran") return getVideoVoiceProfile("quran_reciter");
   if (category === "hadith" || category === "adhkar") return getVideoVoiceProfile("hadith_male_msa");
   if (category === "kids") return getVideoVoiceProfile("kids_friendly");
+  // Egyptian narration is reserved for non-religious stories and general editorial messages.
+  if (category === "story" || category === "stories" || category === "other" || category === "video") {
+    return getVideoVoiceProfile("egyptian_male_story");
+  }
   return getVideoVoiceProfile("documentary_male_msa");
 }

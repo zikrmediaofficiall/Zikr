@@ -171,6 +171,19 @@ assert.throws(
   "content that cannot fit within the supported 60-second format must fail explicitly rather than be truncated",
 );
 
+assert.ok(Math.abs(resolveRenderDuration(119, 120, 135) - 119.8) < 0.001,
+  "the server-authorized Hady programme may preserve a reviewed two-minute narration");
+assert.throws(
+  () => resolveRenderDuration(135, 120, 135),
+  /135.0s > 135.0s max/,
+  "Hady narration beyond the approved ceiling must fail rather than be truncated",
+);
+assert.throws(
+  () => resolveRenderDuration(119, 120, 134),
+  /119.0s > 60.0s max/,
+  "only the exact server-authorized programme ceiling may exceed the standard short limit",
+);
+
 
 const originalKidsDisclosure = resolveKidsVideoPublicDisclosure(
   {
@@ -294,8 +307,17 @@ assert.ok(videoWorker.includes("durationSeconds: renderedDurationSeconds"));
 assert.ok(videoWorker.includes("duration > maxDurationSeconds"));
 assert.ok(videoWorker.includes("return duration;"));
 assert.ok(videoWorker.includes("renderDurationSeconds: rendered.durationSeconds"));
-assert.ok(videoWorker.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === \"layl-program\" && request.content?.programId === \"dakitayn-ma3-layl\" ? 120 : MAX_AUTO_VIDEO_SECONDS)"));
+assert.ok(videoWorker.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === \"hady-program\" ? 135 : request.content?.workflow === \"layl-program\" && request.content?.programId === \"dakitayn-ma3-layl\" ? 120 : MAX_AUTO_VIDEO_SECONDS)"));
 const videoCreateRoute = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
 assert.ok(videoCreateRoute.includes("resolveVideoResolution(content.resolution, content.videoFormat)"));
 
 console.log("video contract tests passed");
+
+
+const videoCatalogService = readFileSync("src/features/videos/services/videos.ts", "utf8");
+assert.match(videoCatalogService, /getKidsGeneratedVideos\(safeLimit\)/,
+  "strictly approved Kids-suitable stories must also be cross-listed in the public video library");
+assert.match(videoCatalogService, /getKidsGeneratedVideoBySlug\(slug\)/,
+  "a cross-listed Kids-suitable story must open from the public /videos detail route");
+assert.match(videoCatalogService, /strict request-fingerprint \+ automated-QA validation/,
+  "cross-listing must reuse the Kids safety approval path instead of bypassing it");

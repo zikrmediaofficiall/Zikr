@@ -57,6 +57,8 @@ assert.throws(() => resolveVideoCatalogDuration(61), /no greater than 60 seconds
 const api = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
 assert.ok(api.includes("LAYL_EPISODES, LAYL_PROGRAM_ID"), "the server route must import the canonical Layl episode contract");
 assert.ok(api.includes('content.workflow === "layl-program"'), "the server must recognize only the dedicated Layl workflow");
+assert.ok(api.includes('approvalStatus: "awaiting_automated_review"'), "new video requests must wait for automated QA rather than human approval");
+assert.ok(api.includes("reviewRequired: false"), "new video requests must not require routine human review");
 assert.ok(api.includes("submittedContent.sourceUrl === episode?.referenceUrl"), "the server must pin each episode to its canonical reference");
 assert.ok(api.includes('voiceProfile: "egyptian_male_story"'), "the server must choose the Egyptian male voice profile");
 assert.ok(api.includes("submittedContent.visualBackground === episode?.visualBackground"), "the API must reject a mismatched episode background");
@@ -68,7 +70,7 @@ assert.ok(approvalApi.includes('laylSitePublishQueueStatus = "queue_error"'), "p
 assert.ok(approvalApi.includes('laylSitePublishQueueStatus === "queue_error"'), "the approval response must surface a site queue warning when queue creation fails");
 assert.ok(api.includes('visualTheme: "layl"'), "the server must choose the branded Layl mascot scene");
 assert.ok(api.includes("maxDurationSeconds: 120"), "the server must explicitly authorize the dedicated two-minute ceiling");
-assert.ok(api.includes("skipSocialPublish: true"), "Layl generation must not auto-publish to external social platforms");
+assert.ok(api.includes('platformAudience: "general"'), "Layl episodes must use general platform distribution");
 
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 assert.ok(worker.includes('request.content?.programId === "dakitayn-ma3-layl"'), "only the canonical Layl program ID may receive the extended duration");
@@ -78,12 +80,12 @@ assert.ok(worker.includes("requestedVisualTheme"), "the renderer must honor an a
 assert.ok(worker.includes("episode.visualBackground === content.visualBackground"), "the QA gate must verify each episode's canonical topic background");
 assert.ok(worker.includes("public/video/templates/layl-character.svg"), "all episode scenes must reuse the same approved Layl cartoon character layer");
 assert.ok(worker.includes('request.content.workflow === "layl-program" && request.content.programId === LAYL_PROGRAM_ID'), "the Layl renderer must isolate the program from the generic publication flow");
-assert.ok(worker.includes('return { videoId, published: false, queued: false }'), "Layl generation must keep the internal video unpublished and out of the site publication queue until approval");
+assert.ok(!worker.includes("skipSocialPublish: true"), "the scheduled Layl programme must not bypass automatic social publishing after QA");
 assert.ok(worker.includes("overlay=0:0:format=auto"), "the renderer must composite Layl over the topic-specific local scene");
 assert.ok(worker.includes("content.visualBackground"), "the renderer must select the background from the active episode's topic");
 
-assert.ok(worker.includes('if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal);'), "Layl must not call Gemini for its fixed editorial script or planning");
-assert.ok(worker.includes('      !isLaylProgram &&\n      !boundTemplate &&\n      engineConfig().aiEnabled &&'), "Layl must bypass external AI video providers and remain on the local branded renderer");
+assert.ok(worker.includes('if (!isTemplatePreview && !isLaylProgram && !isHadyProgram && !isProphetStoryRequest) aiPlan = await generateAiVideoPlan(request, signal);'), "fixed Layl and Hady scripts and source-locked Prophet stories must not call Gemini for script planning");
+assert.ok(worker.includes('      !isLaylProgram &&\n      !isHadyProgram &&\n      !isProphetStoryRequest &&\n      !boundTemplate &&\n      engineConfig().aiEnabled &&'), "Layl and Hady use branded local renderers and Prophet scenes remain source-locked, without external AI scene generation");
 
 const voice = readFileSync("scripts/generate-arabic-voice.py", "utf8");
 assert.ok(voice.includes('voice.strip().lower().startswith("ar-eg-")'), "Egyptian neural voice requests must not silently fall back to generic Arabic");
@@ -92,20 +94,24 @@ const generationWorkflow = readFileSync(".github/workflows/generate-ai-video.yml
 assert.ok(generationWorkflow.includes('--voice "ar-EG-ShakirNeural"'), "the production worker must smoke-test the exact Egyptian male Layl voice before queue work");
 assert.ok(generationWorkflow.includes('--rate="-7%"'), "the Egyptian voice smoke test must use Layl's pinned narration rate");
 assert.ok(generationWorkflow.includes('--pitch="0Hz"'), "the Egyptian voice smoke test must use Layl's pinned pitch");
-assert.ok(worker.includes("const ttsVoice = (isLaylProgram ? narrationProfile.voice"), "Layl must ignore a global non-Egyptian voice override");
-assert.ok(worker.includes("const ttsRate = isLaylProgram ? narrationProfile.rate"), "Layl must use its own speech rate instead of a global override");
+assert.ok(worker.includes("const ttsVoice = (isLaylProgram || isHadyProgram ? narrationProfile.voice"), "Layl and Hady must ignore global non-Egyptian voice overrides");
+assert.ok(worker.includes("const ttsRate = isLaylProgram || isHadyProgram ? narrationProfile.rate"), "Layl and Hady must use their pinned narration rate instead of a global override");
 assert.ok(worker.includes('"--voice", ttsVoice'), "the generated narration must use the pinned Egyptian voice ID");
 assert.ok(worker.includes("async function seedWeeklyLaylEpisodeRequest(now: Date)"), "the existing production worker must own weekly Layl scheduling");
 assert.ok(worker.includes('const automationKey = "layl-weekly:season-1:" + week'), "weekly generation must use one canonical ISO-week idempotency key");
 assert.ok(worker.includes("resolveNextScheduledLaylEpisode(now, latest)"), "the weekly worker must only advance after the last episode completed");
 assert.ok(worker.includes('content->>seriesId=eq.'), "weekly scheduling must inspect the canonical program queue records");
-assert.ok(worker.includes('skipSocialPublish: true'), "scheduled Layl episodes must remain internal until explicitly approved");
+const laylSeeder = worker.slice(
+  worker.indexOf("async function seedWeeklyLaylEpisodeRequest"),
+  worker.indexOf("async function seedWeeklyPromotionalVideoRequests"),
+);
+assert.ok(laylSeeder && !laylSeeder.includes("skipSocialPublish"), "scheduled Layl episodes must enter automated QA and public publishing after passing checks");
 assert.ok(worker.includes('automation_key: automationKey'), "each scheduled Layl episode must use the canonical weekly key in the queue");
 assert.ok(worker.includes("const isVerifiedLaylEditorial = category === \"other\""), "the QA gate must recognize only the eight canonical Layl episode references");
 assert.ok(worker.includes("episode.referenceLabel === sourceLabel"), "Layl source labels must match the canonical season references");
 assert.ok(worker.includes("episode.referenceUrl === sourceUrl"), "Layl source URLs must match the canonical season references");
 assert.ok(worker.includes("!isLaylProgram || voiceProfile === LAYL_VOICE_PROFILE"), "the audio QA gate must require the Egyptian male profile for Layl");
-assert.ok(worker.includes("const maximumReviewedDuration = isLaylProgram ? 120 : 60"), "the QA duration exception must be limited to verified Layl episodes");
+assert.ok(worker.includes("const maximumReviewedDuration = isLaylProgram ? 120 : isVerifiedHadyEditorial ? 135 : 60"), "the QA duration exception must be limited to verified Layl and Hady episodes");
 
 const mascot = readFileSync("public/video/templates/layl.svg", "utf8");
 const character = readFileSync("public/video/templates/layl-character.svg", "utf8");

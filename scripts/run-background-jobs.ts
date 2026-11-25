@@ -4,6 +4,7 @@ import { processTemplateVideoQueue, seedAutomatedVideoRequests } from "./jobs/te
 import { processScheduledContent } from "./jobs/content-publishing";
 import { processSocialPublishQueue, reconcileKidsCatalogMetadata, syncSocialInsights } from "./jobs/social-publishing";
 import { getVideoEngineConfig } from "../src/features/videos/providers/types";
+import { resolveZonedDailyVideoQuotaWindow } from "../src/features/videos/services/video-automation-quota";
 import { buildRunNowRequestDeleteFilter, evaluateBackgroundJobOutcome, isSameRunNowRequest, shouldClearRunNowRequest, shouldRunScheduledContentPublishing } from "../src/features/videos/services/background-job-outcome";
 import { isVideoAutomationEnabled, isVideoPurgeInProgress } from "../src/features/videos/services/background-job-settings";
 import { supabaseServerAdminRequest } from "../src/lib/supabase/admin-rest";
@@ -85,7 +86,7 @@ async function getVideoAutomationSettings(): Promise<VideoAutomationSettings> {
     autoPublish: parseBoolSetting(values.video_automation_auto_publish, false),
     dailyTarget: parseBoundedNumberSetting(
       values.video_automation_daily_target,
-      Math.max(1, Number(process.env.DAILY_VIDEO_TARGET ?? 12) || 12),
+      Math.max(1, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3),
       1,
       24,
     ),
@@ -222,8 +223,9 @@ async function processVideos(settings: VideoAutomationSettings) {
     Math.min(10, Number.isFinite(configuredBatchSize) ? Math.floor(configuredBatchSize) : 2),
   );
   console.log(`[background-jobs] Video processing batch size: ${processingBatchSize}`);
-  // Keep this in sync with the UTC day index used by seedAutomatedVideoRequests.
-  const priorityDay = Math.floor(Date.now() / 86_400_000);
+  // Keep the prioritized queue key in sync with the seeder's Cairo-local quota day.
+  const priorityTimeZone = process.env.PROMO_VIDEO_TIMEZONE?.trim() || "Africa/Cairo";
+  const priorityDay = resolveZonedDailyVideoQuotaWindow(new Date(), priorityTimeZone).dayIndex;
 
   const drainQueue = async (capacity: number) => {
     let processed = 0;

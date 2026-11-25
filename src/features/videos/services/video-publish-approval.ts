@@ -45,14 +45,38 @@ export function isVideoContentType(contentType: string): boolean {
 export function hasCompleteKidsVideoSeriesMetadata(value: unknown): boolean {
   const content = record(value);
   if (!content || normalizeVideoAudience(content.audience, false) !== "kids") return false;
-  return normalizeVideoMarker(content.contentFormat) === "series_episode" &&
-    normalizeVideoMarker(content.aiMode) === "original_kids_story" &&
-    normalizeVideoMarker(content.sourceType) === "original_kids_fiction" &&
+  const completeSeriesIdentity =
     typeof content.seriesId === "string" && Boolean(content.seriesId.trim()) &&
     typeof content.seriesTitle === "string" && Boolean(content.seriesTitle.trim()) &&
     typeof content.learningObjective === "string" && Boolean(content.learningObjective.trim()) &&
     Number.isInteger(Number(content.seasonNumber)) && Number(content.seasonNumber) > 0 &&
     Number.isInteger(Number(content.episodeNumber)) && Number(content.episodeNumber) > 0;
+  if (!completeSeriesIdentity || normalizeVideoMarker(content.contentFormat) !== "series_episode") return false;
+
+  const originalFiction =
+    normalizeVideoMarker(content.aiMode) === "original_kids_story" &&
+    normalizeVideoMarker(content.sourceType) === "original_kids_fiction";
+  const reviewedProphetStory = (() => {
+    const review = record(content.prophetSourceReview);
+    const references = Array.isArray(review?.sourceReferencesVerified)
+      ? review.sourceReferencesVerified.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+      : [];
+    return normalizeVideoMarker(content.workflow) === "prophet-story" &&
+      normalizeVideoMarker(content.aiMode) === "source_locked" &&
+      normalizeVideoMarker(content.sourceType) === "prophet_story" &&
+      review?.status === "approved" &&
+      typeof review.reviewerId === "string" && Boolean(review.reviewerId.trim()) &&
+      !review.reviewerId.startsWith("system:") &&
+      typeof review.reviewedAt === "string" && Number.isFinite(Date.parse(review.reviewedAt)) &&
+      review.unsupportedDetailsRemoved === true &&
+      review.scriptReviewed === true &&
+      review.childSafetyReviewed === true &&
+      review.symbolicClayVisualsReviewed === true &&
+      references.length > 0 &&
+      Array.isArray(content.prophetVisualRules) && content.prophetVisualRules.length >= 3;
+  })();
+
+  return originalFiction || reviewedProphetStory;
 }
 
 const KIDS_SERIES_METADATA_FIELDS = [

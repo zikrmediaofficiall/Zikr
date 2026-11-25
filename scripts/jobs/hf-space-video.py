@@ -85,24 +85,68 @@ class SameOriginRedirectHandler(HTTPRedirectHandler):
         return super().redirect_request(request, file_pointer, code, message, headers, new_url)
 
 
-def extract_file_value(value):
-    if value is None:
+# materialize_output verifies the ISO-BMFF "ftyp" signature; do not choose
+# WebM/AVI/MKV alternatives that the downloader intentionally cannot persist.
+VIDEO_FILE_EXTENSIONS = {".mp4", ".m4v", ".mov"}
+
+
+def _is_video_file_reference(candidate, mime_type=None):
+    if not isinstance(candidate, str) or not candidate.strip():
+        return False
+    normalized_mime = mime_type.lower().split(";", 1)[0].strip() if isinstance(mime_type, str) else ""
+    if normalized_mime in {"video/mp4", "video/quicktime"}:
+        return True
+    value = candidate.strip()
+    try:
+        parsed = urlsplit(value)
+        path = parsed.path if parsed.scheme else value.split("?", 1)[0].split("#", 1)[0]
+        return Path(path).suffix.lower() in VIDEO_FILE_EXTENSIONS
+    except (TypeError, ValueError):
+        return False
+
+
+def extract_file_value(value, depth=0):
+    """Find an actual video file reference in nested Gradio FileData/Video responses."""
+    if depth > 8 or value is None:
         return None
     if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        for key in ("url", "path", "file", "name", "video"):
-            candidate = value.get(key)
+        candidate = value.strip()
+        return candidate if _is_video_file_reference(candidate) else None
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            candidate = extract_file_value(item, depth + 1)
             if candidate:
                 return candidate
-    for key in ("url", "path"):
-        candidate = getattr(value, key, None)
+        return None
+    if isinstance(value, dict):
+        mime_type = value.get("mime_type") or value.get("mimeType")
+        # Explicit file fields are preferred. MIME metadata can identify signed or
+        # extension-less Gradio file URLs, but is not inherited by arbitrary text.
+        for key in ("url", "path", "file", "name"):
+            candidate_value = value.get(key)
+            if isinstance(candidate_value, str) and _is_video_file_reference(candidate_value, mime_type):
+                return candidate_value.strip()
+            candidate = extract_file_value(candidate_value, depth + 1)
+            if candidate:
+                return candidate
+        for key in ("video", "data", "output", "result"):
+            candidate = extract_file_value(value.get(key), depth + 1)
+            if candidate:
+                return candidate
+        return None
+    mime_type = getattr(value, "mime_type", None) or getattr(value, "mimeType", None)
+    for key in ("url", "path", "file", "name"):
+        candidate_value = getattr(value, key, None)
+        if isinstance(candidate_value, str) and _is_video_file_reference(candidate_value, mime_type):
+            return candidate_value.strip()
+        candidate = extract_file_value(candidate_value, depth + 1)
         if candidate:
             return candidate
-    if isinstance(value, (list, tuple)) and value:
-        return extract_file_value(value[0])
+    for key in ("video", "data", "output", "result"):
+        candidate = extract_file_value(getattr(value, key, None), depth + 1)
+        if candidate:
+            return candidate
     return None
-
 
 def resolve_file_url(value, space_origin, encode_file_path):
     source = extract_file_value(value)
@@ -242,8 +286,7 @@ def main():
             api_name="/text_to_video",
         )
 
-    video_value = result[0] if isinstance(result, (tuple, list)) else result
-    video_url = resolve_file_url(video_value, space_origin, utils.encode_file_path)
+    video_url = resolve_file_url(result, space_origin, utils.encode_file_path)
     output = materialize_output(video_url, args.output, space_origin, token=token)
     print(
         json.dumps(

@@ -219,6 +219,16 @@ assert.deepEqual(
 );
 assert.deepEqual(
   resolveYouTubeVideoDisclosure({
+    content: { audience: "kids", platformAudience: "general", publicDistributionAudience: "general", aiProvider: "template" },
+    provider: "template",
+    queueMetadata: { audience: "kids", platformAudience: "general", publicDistributionAudience: "general", publicPath: "/kids/videos/story" },
+    contentType: "kids_video",
+  }),
+  { selfDeclaredMadeForKids: false, containsSyntheticMedia: false },
+  "Kids-suitable site videos must remain general-audience platform uploads when not child-directed",
+);
+assert.deepEqual(
+  resolveYouTubeVideoDisclosure({
     content: { audience: "general", aiProvider: "template" },
     provider: "template",
     queueMetadata: { audience: "general" },

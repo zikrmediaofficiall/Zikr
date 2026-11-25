@@ -16,8 +16,14 @@ for (const id of ["salim-nour", "garden-friends", "little-inventors", "little-go
 }
 
 const worker = read("scripts/jobs/template-video-automation.ts");
-for (const token of ['const mode = slot % 7', "buildKidsSeriesEpisode", "validateGeneratedKidsEpisode", "validateCanonicalKidsEpisodeSnapshot", 'category: "other"', 'audience: "kids"', 'contentFormat: "series_episode"', 'voiceProfile: "kids_friendly"', "assertKidsStoryContract"]) {
+for (const token of ["buildKidsSeriesEpisode", "validateGeneratedKidsEpisode", "validateCanonicalKidsEpisodeSnapshot", 'category: "other"', 'audience: "kids"', 'contentFormat: "series_episode"', 'voiceProfile: "kids_friendly"', "assertKidsStoryContract"]) {
   if (!worker.includes(token)) failures.push("video worker missing kids/free mode contract: " + token);
+}
+const videoDistribution = read("src/features/videos/services/video-content-distribution.ts");
+if (!worker.includes("resolveAutomatedVideoMode(day * 3 + slot)") ||
+    !videoDistribution.includes("0, 2, 0, 1, 2, 5, 3, 0, 2, 1, 6, 0, 5, 4") ||
+    (videoDistribution.match(/\b5\b/g) ?? []).length < 2) {
+  failures.push("weighted 14-video rotation must retain recurring Kids episodes without requiring the legacy slot % 7 order");
 }
 const outcomePolicy = read("src/features/videos/services/background-job-outcome.ts");
 if (!outcomePolicy.includes("videoFailed > 0 && videoSucceeded > 0") ||

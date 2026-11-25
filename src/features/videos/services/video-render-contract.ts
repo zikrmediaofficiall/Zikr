@@ -43,7 +43,9 @@ export function resolveVideoResolution(
  * requested target duration stored on the generation request.
  */
 export function resolveVideoCatalogDuration(renderedDuration: unknown, maxDurationSeconds: number = MAX_AUTO_VIDEO_SECONDS): number {
-  const maxAllowed = maxDurationSeconds === 120 ? 120 : MAX_AUTO_VIDEO_SECONDS;
+  const maxAllowed = maxDurationSeconds === 135 ? 135
+    : maxDurationSeconds === 120 ? 120
+    : MAX_AUTO_VIDEO_SECONDS;
   const duration = Number(renderedDuration);
   if (!Number.isFinite(duration) || duration <= 0 || duration > maxAllowed) {
     throw new RangeError(

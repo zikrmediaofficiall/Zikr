@@ -8,10 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { redirectToAdminStepUp } from "@/features/admin/utils/step-up-client";
 import LaylProgramPanel from "@/features/admin/video-studio/components/layl-program-panel";
-import { VIDEO_VOICE_PROFILES, getDefaultVideoVoiceProfile } from "@/features/videos/services/voice-profiles";
+import AdvancedVideoGenerators from "@/features/admin/video-studio/components/advanced-video-generators";
+import {
+  VIDEO_VOICE_PROFILES,
+  getDefaultVideoVoiceProfile,
+} from "@/features/videos/services/voice-profiles";
 
 type Category = "quran" | "hadith" | "story" | "dua" | "adhkar" | "other";
 type Format = "horizontal" | "vertical";
+type HookStyle = "balanced" | "question" | "reflection" | "action";
 type Source = {
   id: string;
   category: Category;
@@ -76,17 +81,31 @@ const AUDIO_TYPES = [
   "audio/webm",
 ];
 const MAX_AUDIO_BYTES = 15 * 1024 * 1024;
+const DAILY_SHORT_VIDEO_CAP = 3;
+const PUBLISH_SLOTS = ["05:37", "14:22", "17:52"];
+const MIX_LABELS = [
+  "القرآن 4/14",
+  "الدعاء 3/14",
+  "الحديث 2/14",
+  "الأطفال 2/14",
+  "الأذكار 1/14",
+  "قصة موثقة 1/14",
+  "رسالة عامة 1/14",
+];
 
 export default function AdminVideoStudioClient() {
   const [category, setCategory] = useState<Category>("story");
   const [format, setFormat] = useState<Format>("vertical");
+  const [hookStyle, setHookStyle] = useState<HookStyle>("balanced");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [narration, setNarration] = useState("");
   const [sourceId, setSourceId] = useState("");
   const [sources, setSources] = useState<Source[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(false);
-  const [activeTemplates, setActiveTemplates] = useState<ActiveTemplateOption[]>([]);
+  const [activeTemplates, setActiveTemplates] = useState<
+    ActiveTemplateOption[]
+  >([]);
   const [templateVersionId, setTemplateVersionId] = useState("");
   const [voiceProfile, setVoiceProfile] = useState("documentary_male_msa");
   const [templatesLoading, setTemplatesLoading] = useState(false);
@@ -104,48 +123,90 @@ export default function AdminVideoStudioClient() {
 
   const isLocked = IS_SOURCE_LOCKED(category);
   const narrationLength = useMemo(() => narration.trim().length, [narration]);
-  const selectedSource = sources.find((source) => source.id === sourceId);
-  const selectedAudience = selectedSource?.audience === "kids" ? "kids" : "general";
-  const compatibleTemplates = activeTemplates.filter((template) => template.audience === selectedAudience);
+  const selectedSource = sources.find(source => source.id === sourceId);
+  const selectedAudience =
+    selectedSource?.audience === "kids" ? "kids" : "general";
+  const compatibleTemplates = activeTemplates.filter(
+    template => template.audience === selectedAudience
+  );
   const voiceOptions = useMemo(
-    () => VIDEO_VOICE_PROFILES.filter((profile) =>
-      profile.mode === "tts" && (selectedAudience === "kids" ? profile.style === "kids" : profile.style !== "kids"),
-    ),
-    [selectedAudience],
+    () =>
+      VIDEO_VOICE_PROFILES.filter(
+        profile =>
+          profile.mode === "tts" &&
+          (selectedAudience === "kids"
+            ? profile.style === "kids"
+            : profile.style !== "kids")
+      ),
+    [selectedAudience]
   );
 
   useEffect(() => {
-    if (templateVersionId && !compatibleTemplates.some((template) => template.versionId === templateVersionId)) {
+    if (
+      templateVersionId &&
+      !compatibleTemplates.some(
+        template => template.versionId === templateVersionId
+      )
+    ) {
       setTemplateVersionId("");
     }
   }, [templateVersionId, compatibleTemplates]);
 
   useEffect(() => {
-    const fallback = getDefaultVideoVoiceProfile(selectedAudience === "kids" ? "kids" : category);
-    setVoiceProfile(fallback.mode === "tts" ? fallback.id : "documentary_male_msa");
+    const fallback = getDefaultVideoVoiceProfile(
+      selectedAudience === "kids" ? "kids" : category
+    );
+    setVoiceProfile(
+      fallback.mode === "tts" ? fallback.id : "documentary_male_msa"
+    );
   }, [category, selectedAudience]);
 
   useEffect(() => {
     const controller = new AbortController();
     setTemplatesLoading(true);
-    void fetch("/api/admin/video/templates", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
+    void fetch("/api/admin/video/templates", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async response => {
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "تعذر تحميل القوالب النشطة.");
+        if (!response.ok)
+          throw new Error(data.error || "تعذر تحميل القوالب النشطة.");
         const templates = Array.isArray(data.templates) ? data.templates : [];
         const versions = Array.isArray(data.versions) ? data.versions : [];
         const activeOptions: ActiveTemplateOption[] = versions
           .filter((version: { status?: string }) => version.status === "active")
-          .flatMap((version: { id?: string; template_id?: string; version?: number }) => {
-            const template = templates.find((item: { id: string }) => item.id === version.template_id);
-            return template && typeof version.id === "string"
-              ? [{ versionId: version.id, title: template.title, slug: template.slug, audience: template.audience, version: version.version }]
-              : [];
-          });
+          .flatMap(
+            (version: {
+              id?: string;
+              template_id?: string;
+              version?: number;
+            }) => {
+              const template = templates.find(
+                (item: { id: string }) => item.id === version.template_id
+              );
+              return template && typeof version.id === "string"
+                ? [
+                    {
+                      versionId: version.id,
+                      title: template.title,
+                      slug: template.slug,
+                      audience: template.audience,
+                      version: version.version,
+                    },
+                  ]
+                : [];
+            }
+          );
         setActiveTemplates(activeOptions);
       })
-      .catch((cause) => {
-        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "تعذر تحميل القوالب النشطة.");
+      .catch(cause => {
+        if (!controller.signal.aborted)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "تعذر تحميل القوالب النشطة."
+          );
       })
       .finally(() => {
         if (!controller.signal.aborted) setTemplatesLoading(false);
@@ -254,26 +315,43 @@ export default function AdminVideoStudioClient() {
       }
     );
     const payload = await response.json().catch(() => ({}));
-    if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return null;
-    if (!response.ok || typeof payload.audioUrl !== "string" || typeof payload.mediaAssetId !== "string" || payload.auditRecorded !== true) {
-      const requestedReference = typeof payload.requestedUploadReference === "string" &&
+    if (
+      payload.error === "step_up_required" &&
+      redirectToAdminStepUp(payload.nextPath)
+    )
+      return null;
+    if (
+      !response.ok ||
+      typeof payload.audioUrl !== "string" ||
+      typeof payload.mediaAssetId !== "string" ||
+      payload.auditRecorded !== true
+    ) {
+      const requestedReference =
+        typeof payload.requestedUploadReference === "string" &&
         payload.requestedUploadReference !== payload.uploadReference
-        ? `؛ المرجع المطلوب: ${payload.requestedUploadReference}`
-        : "";
-      const recoveryReference = typeof payload.uploadReference === "string"
-        ? ` (مرجع الاسترداد: ${payload.uploadReference}${requestedReference})`
-        : "";
-      throw new Error(`${payload.error || "تعذر تأكيد تسجيل رفع الصوت في سجل التدقيق؛ لم يتم إرفاقه بطلب الفيديو."}${recoveryReference}`);
+          ? `؛ المرجع المطلوب: ${payload.requestedUploadReference}`
+          : "";
+      const recoveryReference =
+        typeof payload.uploadReference === "string"
+          ? ` (مرجع الاسترداد: ${payload.uploadReference}${requestedReference})`
+          : "";
+      throw new Error(
+        `${payload.error || "تعذر تأكيد تسجيل رفع الصوت في سجل التدقيق؛ لم يتم إرفاقه بطلب الفيديو."}${recoveryReference}`
+      );
     }
     if (payload.assetTrackingStatus !== "ready") {
-      const requestedReference = typeof payload.requestedUploadReference === "string" &&
+      const requestedReference =
+        typeof payload.requestedUploadReference === "string" &&
         payload.requestedUploadReference !== payload.uploadReference
-        ? `؛ المرجع المطلوب: ${payload.requestedUploadReference}`
-        : "";
-      const recoveryReference = typeof payload.uploadReference === "string"
-        ? ` (مرجع الاسترداد: ${payload.uploadReference}${requestedReference})`
-        : "";
-      setWarning(`تم رفع التسجيل، لكن حالة الأصل لم تصل إلى ready في مكتبة الوسائط؛ لن يتم إرفاقه بطلب الفيديو حتى اكتمال التسوية.${recoveryReference}`);
+          ? `؛ المرجع المطلوب: ${payload.requestedUploadReference}`
+          : "";
+      const recoveryReference =
+        typeof payload.uploadReference === "string"
+          ? ` (مرجع الاسترداد: ${payload.uploadReference}${requestedReference})`
+          : "";
+      setWarning(
+        `تم رفع التسجيل، لكن حالة الأصل لم تصل إلى ready في مكتبة الوسائط؛ لن يتم إرفاقه بطلب الفيديو حتى اكتمال التسوية.${recoveryReference}`
+      );
       return null;
     }
     setUploadedAudioUrl(payload.audioUrl);
@@ -285,8 +363,7 @@ export default function AdminVideoStudioClient() {
     setError(null);
     setMessage(null);
     setWarning(null);
-    if (title.trim().length < 3)
-      return setError("اكتب عنوانًا واضحًا للفيديو.");
+    if (title.trim().length < 3) return setError("اكتب عنوانًا واضحًا للفيديو.");
     if (description.trim().length < 5)
       return setError("أضف وصفًا موجزًا للفيديو.");
     if (isLocked && !sourceId)
@@ -322,6 +399,7 @@ export default function AdminVideoStudioClient() {
             renderer: "template",
             workflow: "ai-video-studio",
             videoFormat: format,
+            hookStyle,
             templateVersionId: templateVersionId || undefined,
             voiceProfile: category === "quran" ? "quran_reciter" : voiceProfile,
             language: "ar",
@@ -330,7 +408,11 @@ export default function AdminVideoStudioClient() {
         }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return;
+      if (
+        payload.error === "step_up_required" &&
+        redirectToAdminStepUp(payload.nextPath)
+      )
+        return;
       if (!response.ok)
         throw new Error(payload.error || "تعذر إنشاء طلب الفيديو.");
       if (payload.auditRecorded === true) {
@@ -342,7 +424,9 @@ export default function AdminVideoStudioClient() {
               : "تم حفظ الطلب. سيُستخدم صوت عربي إلكتروني طبيعي ما لم ترفع تسجيلًا بشريًا."
         );
       } else {
-        setWarning("تم حفظ طلب الفيديو بالفعل، لكن تعذر تأكيد تسجيله في سجل التدقيق. لا تعاود الإرسال؛ اطلب من مسؤول النظام مراجعة سجل الإدارة.");
+        setWarning(
+          "تم حفظ طلب الفيديو بالفعل، لكن تعذر تأكيد تسجيله في سجل التدقيق. لا تعاود الإرسال؛ اطلب من مسؤول النظام مراجعة سجل الإدارة."
+        );
       }
       setTitle("");
       setDescription("");
@@ -367,29 +451,74 @@ export default function AdminVideoStudioClient() {
     setMessage(null);
     setWarning(null);
     setBatchLoading(true);
-    const plans: Array<{ category: Category; title: string; description: string; sourceId?: string; narration?: string }> = [
-      { category: "quran", title: "تدبر سورة الفاتحة: خريطة العبودية والهداية", description: "إنتاج تعليمي من نص المصحف ومصدر التفسير المرفق.", sourceId: "quran:1:1" },
-      { category: "quran", title: "سورة العصر: رأس مال الوقت والعمل الصالح", description: "إنتاج تعليمي من نص المصحف ومصدر التفسير المرفق.", sourceId: "quran:103:1" },
-      { category: "other", title: "رسالة عامة: تثبت قبل أن تشارك", description: "رسالة توعوية أصلية عن التثبت قبل نشر المحتوى الديني.", narration: "قبل أن تشارك أي نص ديني، اسأل عن مصدره ونصه الكامل وسياقه. الشهرة لا تساوي الصحة، والصورة الجميلة لا تثبت نسبة الكلام إلى عالم. إذا وجدت خطأً بعد النشر فصححه بوضوح، واجعل التثبت عادة تحمي القارئ وتحفظ قيمة الكلمة." },
-      { category: "other", title: "رسالة عامة: اجعل التقنية خادمة للعبادة", description: "رسالة توعوية أصلية عن الاستخدام الهادئ للتقنية.", narration: "اجعل التقنية خادمة للعبادة لا بديلًا عنها. اختر وردًا واحدًا، قلل الإشعارات، واقرأ النص كاملًا قبل تشغيل العداد. الأرقام تساعد على التذكير لكنها لا تقيس الخشوع، والمحتوى التعليمي لا يغني عن سؤال أهل العلم في المسائل الخاصة." },
+    const plans: Array<{
+      category: Category;
+      title: string;
+      description: string;
+      sourceId?: string;
+      narration?: string;
+    }> = [
+      {
+        category: "quran",
+        title: "تدبر سورة الفاتحة: خريطة العبودية والهداية",
+        description: "إنتاج تعليمي من نص المصحف ومصدر التفسير المرفق.",
+        sourceId: "quran:1:1",
+      },
     ];
     try {
-      for (const category of ["hadith", "story", "dua", "adhkar"] as const) {
-        const response = await fetch(`/api/admin/video-generation/sources?category=${category}`, { cache: "no-store" });
+      // Keep manual creation aligned with the worker: one small daily pack,
+      // not a burst that can flood the generation and publishing queues.
+      for (const category of ["dua", "hadith", "adhkar", "story"] as const) {
+        if (plans.length >= DAILY_SHORT_VIDEO_CAP) break;
+        const response = await fetch(
+          `/api/admin/video-generation/sources?category=${category}`,
+          { cache: "no-store" }
+        );
         const data = await response.json().catch(() => ({}));
-        const firstTwo = Array.isArray(data.sources) ? data.sources.slice(0, 2) as Source[] : [];
-        for (const source of firstTwo) plans.push({ category, title: source.title, description: source.sourceLabel, sourceId: source.id });
+        const source = Array.isArray(data.sources)
+          ? (data.sources[0] as Source | undefined)
+          : undefined;
+        if (source)
+          plans.push({
+            category,
+            title: source.title,
+            description: source.sourceLabel,
+            sourceId: source.id,
+          });
       }
       let created = 0;
       let failed = 0;
       let auditFailures = 0;
       for (const plan of plans) {
-        const response = await fetch("/api/admin/videos/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-          title: plan.title, description: plan.description, category: plan.category, sourceId: plan.sourceId, narration: plan.narration,
-          content: { renderer: "template", workflow: "verified-batch", videoFormat: "vertical", language: "ar", resolution: "1080x1920", qualityPreset: "retention-first", hookSeconds: 3, captions: true, sourceCard: true, endCard: true }, 
-        }) });
+        const response = await fetch("/api/admin/videos/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: plan.title,
+            description: plan.description,
+            category: plan.category,
+            sourceId: plan.sourceId,
+            narration: plan.narration,
+            content: {
+              renderer: "template",
+              workflow: "verified-batch",
+              videoFormat: "vertical",
+              language: "ar",
+              resolution: "1080x1920",
+              qualityPreset: "retention-first",
+              hookSeconds: 3,
+              captions: true,
+              sourceCard: true,
+              endCard: true,
+            },
+          }),
+        });
         const payload = await response.json().catch(() => ({}));
-        if (payload.error === "step_up_required" && redirectToAdminStepUp(payload.nextPath)) return;
+        if (
+          payload.error === "step_up_required" &&
+          redirectToAdminStepUp(payload.nextPath)
+        )
+          return;
         if (response.ok) {
           created += 1;
           if (payload.auditRecorded !== true) auditFailures += 1;
@@ -398,14 +527,22 @@ export default function AdminVideoStudioClient() {
         }
       }
       if (auditFailures > 0) {
-        setWarning(`تم إنشاء ${created} طلبًا، لكن ${auditFailures} عملية لم يؤكد سجل التدقيق تسجيلها. لا تعاود إنشاء الدفعة؛ اطلب مراجعة سجل الإدارة.`);
+        setWarning(
+          `تم إنشاء ${created} طلبًا، لكن ${auditFailures} عملية لم يؤكد سجل التدقيق تسجيلها. لا تعاود إنشاء الدفعة؛ اطلب مراجعة سجل الإدارة.`
+        );
       } else if (failed > 0) {
-        setWarning(`تم إنشاء ${created} طلبًا وتعذر إنشاء ${failed} طلبات أخرى. راجع الطابور قبل إعادة المحاولة.`);
+        setWarning(
+          `تم إنشاء ${created} طلبًا وتعذر إنشاء ${failed} طلبات أخرى. راجع الطابور قبل إعادة المحاولة.`
+        );
       } else {
-        setMessage(`تم إنشاء ${created} طلبًا موثقًا من الأقسام المتاحة. افتح طابور الفيديوهات لمتابعة الرندر.`);
+        setMessage(
+          `تم إنشاء ${created} طلبًا موثقًا كحد أقصى لدفعة اليوم. لا تتجاوز الدفعات اليدوية الحصة اليومية البالغة ${DAILY_SHORT_VIDEO_CAP} فيديوهات.`
+        );
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "تعذر إنشاء دفعة الفيديوهات.");
+      setError(
+        cause instanceof Error ? cause.message : "تعذر إنشاء دفعة الفيديوهات."
+      );
     } finally {
       setBatchLoading(false);
     }
@@ -427,9 +564,15 @@ export default function AdminVideoStudioClient() {
             الإلكتروني.
           </p>
           <div className="mt-4 grid gap-2 text-xs text-brand-cream/60 sm:grid-cols-3">
-            <span className="rounded-xl border border-brand-gold/15 bg-brand-gold/5 px-3 py-2">افتتاحية قوية خلال 3 ثوانٍ</span>
-            <span className="rounded-xl border border-brand-gold/15 bg-brand-gold/5 px-3 py-2">ترجمة ومرجع واضحان</span>
-            <span className="rounded-xl border border-brand-gold/15 bg-brand-gold/5 px-3 py-2">نهاية عملية قابلة للتذكر</span>
+            <span className="rounded-xl border border-brand-gold/15 bg-brand-gold/5 px-3 py-2">
+              افتتاحية قوية خلال 3 ثوانٍ
+            </span>
+            <span className="rounded-xl border border-brand-gold/15 bg-brand-gold/5 px-3 py-2">
+              ترجمة ومرجع واضحان
+            </span>
+            <span className="rounded-xl border border-brand-gold/15 bg-brand-gold/5 px-3 py-2">
+              نهاية عملية قابلة للتذكر
+            </span>
           </div>
         </div>
         <Link
@@ -441,6 +584,72 @@ export default function AdminVideoStudioClient() {
       </header>
 
       <LaylProgramPanel />
+
+      <AdvancedVideoGenerators />
+
+      <Card className="border-brand-gold/20 bg-brand-gold/5 p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-brand-cream/40">
+              14-DAY OPERATING PLAN
+            </p>
+            <h2 className="mt-1 text-xl font-bold text-brand-gold">
+              خطة إنتاج ونشر مضبوطة
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-brand-cream/60">
+              ثلاث فيديوهات قصيرة يوميًا فقط؛ الفيديو الرأسي المعتمد يعاد
+              استخدامه على YouTube Shorts وFacebook Reels بدل توليد نسختين. لا
+              ينشر الفيديو فور اكتمال الرندر، بل ينتظر أقرب موعد شاغر بتوقيت
+              القاهرة.
+            </p>
+          </div>
+          <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-100">
+            <strong className="block text-emerald-200">
+              الحصة اليومية: {DAILY_SHORT_VIDEO_CAP}/3
+            </strong>
+            <span className="text-xs text-emerald-100/70">
+              دفعة الاستوديو لا تتجاوزها
+            </span>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {PUBLISH_SLOTS.map((slot, index) => (
+            <div
+              key={slot}
+              className="rounded-xl border border-brand-gold/15 bg-black/20 px-3 py-3"
+            >
+              <span className="block text-xs text-brand-cream/45">
+                الموعد {index + 1} — القاهرة
+              </span>
+              <strong className="mt-1 block text-lg text-brand-gold">
+                {slot}
+              </strong>
+              <span className="text-xs text-brand-cream/50">
+                YouTube Shorts + Facebook Reels
+              </span>
+            </div>
+          ))}
+        </div>
+        <div
+          className="mt-4 flex flex-wrap gap-2"
+          aria-label="توزيع أنواع الفيديوهات على دورة 14 فيديو"
+        >
+          {MIX_LABELS.map(label => (
+            <span
+              key={label}
+              className="rounded-full border border-brand-gold/15 px-3 py-1 text-xs text-brand-cream/65"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+        <p className="mt-3 text-xs leading-6 text-brand-cream/45">
+          المنصات المفعلة حاليًا: YouTube وFacebook فقط. Instagram وTikTok غير
+          مضافتين حتى تتوفر صلاحيات OAuth ومحولات نشر واختبارات خاصة بكل منصة.
+          الموعد والحصة قابلان للمراجعة بعد 7 و14 يومًا من بيانات المشاهدة
+          الفعلية.
+        </p>
+      </Card>
 
       <section
         aria-label="نوع المحتوى"
@@ -464,44 +673,65 @@ export default function AdminVideoStudioClient() {
 
       <Card className="space-y-5 border-brand-gold/20 p-6">
         <div>
-          <label htmlFor="video-template-version" className="mb-2 block text-sm text-brand-cream/70">نسخة القالب النشط</label>
+          <label
+            htmlFor="video-template-version"
+            className="mb-2 block text-sm text-brand-cream/70"
+          >
+            نسخة القالب النشط
+          </label>
           <select
             id="video-template-version"
             value={templateVersionId}
-            onChange={(event) => setTemplateVersionId(event.target.value)}
+            onChange={event => setTemplateVersionId(event.target.value)}
             disabled={templatesLoading || compatibleTemplates.length === 0}
             className="w-full rounded-lg border border-brand-gold/20 bg-black/30 px-4 py-3 text-brand-cream disabled:opacity-50"
           >
-            <option value="">{templatesLoading ? "جارٍ تحميل القوالب النشطة…" : "اختيار تلقائي حسب المحتوى"}</option>
-            {compatibleTemplates.map((template) => (
-              <option key={template.versionId} value={template.versionId}>{template.title} — v{template.version}</option>
+            <option value="">
+              {templatesLoading
+                ? "جارٍ تحميل القوالب النشطة…"
+                : "اختيار تلقائي حسب المحتوى"}
+            </option>
+            {compatibleTemplates.map(template => (
+              <option key={template.versionId} value={template.versionId}>
+                {template.title} — v{template.version}
+              </option>
             ))}
           </select>
-          <p className="mt-1 text-xs leading-6 text-brand-cream/45">يمكن اختيار إصدار نشط ومعتمد فقط. الإصدار المختار يُثبّت داخل الطلب ولا يتغير إذا تم تفعيل نسخة أخرى لاحقًا.</p>
+          <p className="mt-1 text-xs leading-6 text-brand-cream/45">
+            يمكن اختيار إصدار نشط ومعتمد فقط. الإصدار المختار يُثبّت داخل الطلب
+            ولا يتغير إذا تم تفعيل نسخة أخرى لاحقًا.
+          </p>
         </div>
         {category !== "quran" ? (
           <div>
-            <label htmlFor="video-voice-profile" className="mb-2 block text-sm text-brand-cream/70">صوت الراوي</label>
+            <label
+              htmlFor="video-voice-profile"
+              className="mb-2 block text-sm text-brand-cream/70"
+            >
+              صوت الراوي
+            </label>
             <select
               id="video-voice-profile"
               value={voiceProfile}
-              onChange={(event) => setVoiceProfile(event.target.value)}
+              onChange={event => setVoiceProfile(event.target.value)}
               disabled={loading || voiceOptions.length === 0}
               className="w-full rounded-lg border border-brand-gold/20 bg-black/30 px-4 py-3 text-brand-cream disabled:opacity-50"
             >
-              {voiceOptions.map((profile) => (
+              {voiceOptions.map(profile => (
                 <option key={profile.id} value={profile.id}>
                   {profile.labelAr} — {profile.voice}
                 </option>
               ))}
             </select>
             <p className="mt-1 text-xs leading-6 text-brand-cream/45">
-              يُستخدم الصوت المختار للسرد فقط؛ نصوص القرآن والحديث والمصادر المقفلة لا يعاد تأليفها أو تغييرها.
+              يُستخدم الصوت المختار للسرد فقط؛ نصوص القرآن والحديث والمصادر
+              المقفلة لا يعاد تأليفها أو تغييرها.
             </p>
           </div>
         ) : (
           <div className="rounded-xl border border-brand-gold/15 bg-black/15 p-4 text-sm leading-6 text-brand-cream/60">
-            القرآن يستخدم التلاوة البشرية الموثقة المرتبطة بالآية، ولا يستخدم تحويل النص إلى كلام اصطناعي.
+            القرآن يستخدم التلاوة البشرية الموثقة المرتبطة بالآية، ولا يستخدم
+            تحويل النص إلى كلام اصطناعي.
           </div>
         )}
         {category === "quran" ? (
@@ -510,8 +740,8 @@ export default function AdminVideoStudioClient() {
               تحديد آية من قاعدة المصحف
             </p>
             <p className="mt-1 text-sm leading-6 text-brand-cream/55">
-              سيُحمّل النص العثماني والتلاوة المرتبطة به من مصدر المشروع؛ لا
-              يمكن تعديل نص الآية يدويًا.
+              سيُحمّل النص العثماني والتلاوة المرتبطة به من مصدر المشروع؛ لا يمكن
+              تعديل نص الآية يدويًا.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <label className="text-sm text-brand-cream/70">
@@ -645,6 +875,33 @@ export default function AdminVideoStudioClient() {
           </div>
         </div>
 
+        <div className="rounded-xl border border-brand-gold/15 bg-black/10 p-4">
+          <label
+            htmlFor="video-hook-style"
+            className="mb-2 block text-sm text-brand-cream/70"
+          >
+            أسلوب الافتتاحية — أول 3 ثوانٍ
+          </label>
+          <select
+            id="video-hook-style"
+            value={hookStyle}
+            onChange={event => setHookStyle(event.target.value as HookStyle)}
+            disabled={loading || batchLoading}
+            className="w-full rounded-lg border border-brand-gold/20 bg-black/30 px-4 py-3 text-brand-cream"
+          >
+            <option value="balanced">
+              متوازن — اختيار تلقائي حسب نوع المحتوى
+            </option>
+            <option value="question">سؤال يفتح فضول المشاهد</option>
+            <option value="reflection">تأمل هادئ يناسب المحتوى الإيماني</option>
+            <option value="action">خطوة عملية قابلة للتطبيق</option>
+          </select>
+          <p className="mt-2 text-xs leading-6 text-brand-cream/45">
+            يغيّر هذا الاختيار الافتتاحية الظاهرة داخل الفيديو ونص المنشور
+            المصاحب، مع بقاء النص الديني والمصدر دون تعديل.
+          </p>
+        </div>
+
         <div>
           <div className="mb-2 flex items-center justify-between gap-3">
             <label
@@ -699,9 +956,9 @@ export default function AdminVideoStudioClient() {
               صوت بشري اختياري
             </label>
             <p className="mt-1 text-xs leading-6 text-brand-cream/50">
-              ارفع تسجيلًا بشريًا حقيقيًا لقراءة النص أعلاه
-              (MP3/M4A/WAV/OGG/WebM، حتى 15 MB). من دون تسجيل، سيستخدم العامل
-              صوتًا عربيًا إلكترونيًا طبيعيًا — وليس صوت إنسان.
+              ارفع تسجيلًا بشريًا حقيقيًا لقراءة النص أعلاه (MP3/M4A/WAV/OGG/WebM،
+              حتى 15 MB). من دون تسجيل، سيستخدم العامل صوتًا عربيًا إلكترونيًا
+              طبيعيًا — وليس صوت إنسان.
             </p>
             <input
               id="human-audio"
@@ -720,7 +977,10 @@ export default function AdminVideoStudioClient() {
         )}
 
         {warning && (
-          <div role="status" className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+          <div
+            role="status"
+            className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100"
+          >
             {warning}
           </div>
         )}
@@ -762,10 +1022,20 @@ export default function AdminVideoStudioClient() {
         <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="font-bold text-emerald-200">إنتاج دفعة موثقة من كل الأقسام</h2>
-              <p className="mt-1 text-sm leading-6 text-brand-cream/55">ينشئ النظام فيديوهين من القرآن، والحديث، والقصص، والدعاء، والأذكار، ورسالتين عامتين، مع إعادة التحقق من المصدر قبل الحفظ.</p>
+              <h2 className="font-bold text-emerald-200">
+                دفعة اليوم المضبوطة — {DAILY_SHORT_VIDEO_CAP} فيديوهات كحد أقصى
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-brand-cream/55">
+                ينشئ فيديو قرآن واحدًا ومصدرين موثقين من الأنواع المتاحة، ثم يترك
+                التوزيع والنشر المجدول للعامل. راجع الطابور قبل أي محاولة
+                إضافية.
+              </p>
             </div>
-            <Button variant="outline" onClick={() => void createVerifiedBatch()} disabled={batchLoading || loading}>
+            <Button
+              variant="outline"
+              onClick={() => void createVerifiedBatch()}
+              disabled={batchLoading || loading}
+            >
               {batchLoading ? "جارٍ إنشاء الدفعة…" : "إنشاء دفعة موثقة"}
             </Button>
           </div>
@@ -780,8 +1050,8 @@ export default function AdminVideoStudioClient() {
             عند الطلب وعند الرندر؛ أي اختلاف في النص يوقف الفيديو.
           </li>
           <li>
-            يُفحص ملف الفيديو للتأكد من وجود صورة وصوت، ودقة الأبعاد، وترميز
-            MP4، ومستوى صوت غير صامت قبل تسجيل النجاح.
+            يُفحص ملف الفيديو للتأكد من وجود صورة وصوت، ودقة الأبعاد، وترميز MP4،
+            ومستوى صوت غير صامت قبل تسجيل النجاح.
           </li>
           <li>
             التسجيل الذي ترفعه يُستخدم كما هو بعد فحصه تقنيًا؛ جودة الإلقاء

@@ -5,6 +5,11 @@ import { getVideoEngineConfig, isVideoAiPlanningEnabled, parseCustomVideoSpaces 
 const providerSource = readFileSync("src/features/videos/providers/hf-space-provider.ts", "utf8");
 const pythonSource = readFileSync("scripts/jobs/hf-space-video.py", "utf8");
 const visualsPageSource = readFileSync("src/app/admin/video/visuals/page.tsx", "utf8");
+const environmentExample = readFileSync(".env.example", "utf8");
+assert.match(environmentExample, /^VIDEO_AUTOMATION_DRY_RUN=false$/m, "production example config must not leave video generation in dry-run mode");
+assert.match(environmentExample, /^AUTO_VIDEO_PUBLISH_ENABLED=true$/m, "production example config must enable automated publishing");
+assert.match(environmentExample, /^AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL=false$/m, "automated QA must be the approval gate, not a routine human hold");
+
 
 const entries = parseCustomVideoSpaces(JSON.stringify([
   { space: "example/wan-free", variant: "wan2_2_fast", enabled: true },
@@ -65,6 +70,20 @@ assert.ok(
   visualsPageSource.includes("...(config.aiEnabled ? config.customSpaces.map((entry) => entry.name) : [])"),
   "Admin visuals must not label custom providers enabled while the global AI switch is off",
 );
+const automaticPublishingDefaults = getVideoEngineConfig({
+  NODE_ENV: "test",
+  VIDEO_AUTOMATION_DRY_RUN: "false",
+});
+assert.equal(automaticPublishingDefaults.dryRun, false);
+assert.equal(automaticPublishingDefaults.autoPublishEnabled, true);
+assert.equal(automaticPublishingDefaults.requiresApproval, false);
+const explicitHold = getVideoEngineConfig({
+  NODE_ENV: "test",
+  AUTO_VIDEO_PUBLISH_ENABLED: "false",
+  AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "true",
+});
+assert.equal(explicitHold.autoPublishEnabled, false);
+assert.equal(explicitHold.requiresApproval, true);
 const missingConfig = getVideoEngineConfig({ ...process.env, ...process.env, VIDEO_FREE_ONLY: "true", VIDEO_PROVIDER_ORDER: "hf_custom_2,hf_wan" });
 assert.ok(!missingConfig.order.includes("hf_custom_2"));
 console.log("Custom Hugging Face provider registry tests passed.");

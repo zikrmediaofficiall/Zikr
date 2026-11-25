@@ -8,6 +8,10 @@ import { getFacebookProfileSyncFailureCount } from "../../src/features/social/se
 import { isVideoPurgeLockResponseActive } from "../../src/features/videos/services/background-job-settings";
 import { recoverPendingVideoSocialQueueEnqueues } from "./template-video-automation";
 import {
+  resolveNextVideoPublishAt,
+  type VideoPublishScheduleRow,
+} from "../../src/features/social/services/video-publishing-schedule";
+import {
   claimPendingSocialPublishItems,
   processSocialPublishItem,
   retryPendingPublishedVideoCleanup,
@@ -97,6 +101,90 @@ export async function syncSocialInsights() {
   };
 }
 
+type DueVideoPublishQueueRow = VideoPublishScheduleRow & {
+  id: string;
+  updated_at: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+function completedVideoPublishPlatforms(metadata: Record<string, unknown> | null): string[] {
+  const results = metadata?.platformResults;
+  if (!results || typeof results !== "object" || Array.isArray(results)) return [];
+  return Object.entries(results as Record<string, unknown>)
+    .filter(([platform, value]) => {
+      if (!["youtube", "facebook_reels", "facebook"].includes(platform)) return false;
+      if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+      const result = value as Record<string, unknown>;
+      return result.ok === true && typeof result.remoteId === "string" && result.remoteId.trim().length > 0;
+    })
+    .map(([platform]) => platform);
+}
+
+async function rebalanceDueVideoPublishBacklog(): Promise<{ rescheduled: number; failed: number }> {
+  const now = new Date();
+  const cutoff = encodeURIComponent(new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString());
+  const rows = await supabaseServerAdminRequest<DueVideoPublishQueueRow[]>(
+    "/rest/v1/social_publish_queue?content_type=like.*_video&status=in.(queued,partial,processing,published)&created_at=gte." +
+      cutoff +
+      "&select=id,status,target_platforms,scheduled_at,published_at,created_at,updated_at,metadata&order=created_at.asc,id.asc&limit=1000",
+  );
+  if ((rows ?? []).length >= 1000) {
+    // The inventory may be truncated at the PostgREST page limit. Scheduling
+    // against an incomplete set could double-book a platform slot.
+    return { rescheduled: 0, failed: 1 };
+  }
+  const occupiedRows: DueVideoPublishQueueRow[] = (rows ?? []).map((row) => ({
+    ...row,
+    completed_platforms: completedVideoPublishPlatforms(row.metadata),
+  }));
+  const dueRows = occupiedRows.filter((row) =>
+    (row.status === "queued" || row.status === "partial") &&
+    (!row.scheduled_at || Date.parse(row.scheduled_at) <= now.getTime()) &&
+    (row.target_platforms ?? []).some((platform) => !(row.completed_platforms ?? []).includes(platform)),
+  );
+  let rescheduled = 0;
+  let failed = 0;
+
+  for (const row of dueRows) {
+    const nextScheduledAt = resolveNextVideoPublishAt({
+      now,
+      rows: occupiedRows.filter((candidate) => candidate.id !== row.id),
+      targetPlatforms: (row.target_platforms ?? []).filter((platform) => !(row.completed_platforms ?? []).includes(platform)),
+      minimumLeadMinutes: 15,
+      searchDays: 60,
+    });
+    if (!nextScheduledAt) {
+      failed += 1;
+      continue;
+    }
+    const nextUpdatedAt = new Date().toISOString();
+    const expectedVersion = row.updated_at
+      ? "eq." + encodeURIComponent(row.updated_at)
+      : "is.null";
+    const updated = await supabaseServerAdminRequest<Array<{ id: string }>>(
+      "/rest/v1/social_publish_queue?id=eq." + encodeURIComponent(row.id) +
+        "&status=eq." + encodeURIComponent(row.status) +
+        "&updated_at=" + expectedVersion,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ scheduled_at: nextScheduledAt, updated_at: nextUpdatedAt }),
+      },
+    );
+    if (!updated?.[0]?.id) {
+      // A different worker may have claimed or edited this row. Do not claim
+      // any more due video rows until the next poll has reconciled that race.
+      failed += 1;
+      continue;
+    }
+    const replacement = { ...row, scheduled_at: nextScheduledAt, updated_at: nextUpdatedAt };
+    const index = occupiedRows.findIndex((candidate) => candidate.id === row.id);
+    if (index >= 0) occupiedRows[index] = replacement;
+    rescheduled += 1;
+  }
+  return { rescheduled, failed };
+}
+
 export async function processSocialPublishQueue(limit = 10) {
   if (await isVideoPurgeInProgress()) {
     console.log("[social-worker] Video purge lock is active; no social queue item will be claimed.");
@@ -112,6 +200,20 @@ export async function processSocialPublishQueue(limit = 10) {
     }
   } catch (error) {
     console.error("[social-worker] Video social handoff recovery is unavailable; continuing existing queue processing:", error);
+  }
+  // Re-slot old due video rows before claiming them. This prevents historical
+  // null/past-due rows from bypassing the new per-platform Cairo cadence.
+  try {
+    const backlogSchedule = await rebalanceDueVideoPublishBacklog();
+    if (backlogSchedule.rescheduled > 0 || backlogSchedule.failed > 0) {
+      console.log("[social-worker] Video publishing backlog schedule:", JSON.stringify(backlogSchedule));
+    }
+    if (backlogSchedule.failed > 0) {
+      return { processed: 0, succeeded: 0, deferred: 0, authBlocked: 0, approvalBlocked: 0, failed: backlogSchedule.failed, backlogScheduleBlocked: true };
+    }
+  } catch (error) {
+    console.error("[social-worker] Could not safely schedule the video backlog; no queue rows will be claimed:", error);
+    return { processed: 0, succeeded: 0, deferred: 0, authBlocked: 0, approvalBlocked: 0, failed: 1, backlogScheduleBlocked: true };
   }
   // Reconcile deferred staging-cleanup metadata for posts already confirmed
   // on every target. The 48-hour retention worker removes only the redundant

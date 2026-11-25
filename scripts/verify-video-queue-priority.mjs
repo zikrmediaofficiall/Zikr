@@ -25,12 +25,13 @@ assert(
 );
 
 assert(
-  worker.includes("const priorityDay = Math.floor(Date.now() / 86_400_000);"),
-  "worker computes the same UTC day-index format as the seeder",
+  worker.includes('const priorityTimeZone = process.env.PROMO_VIDEO_TIMEZONE?.trim() || "Africa/Cairo";') &&
+    worker.includes("resolveZonedDailyVideoQuotaWindow(new Date(), priorityTimeZone).dayIndex"),
+  "worker computes the same Cairo-local day-index format as the video seeder",
 );
 assert(
   worker.includes("processTemplateVideoQueue(waveSize, priorityDay)"),
-  "worker passes the current UTC day to the prioritized queue processor",
+  "worker passes the current Cairo local day to the prioritized queue processor",
 );
 assert(
   worker.includes("const wave = [await processTemplateVideoQueue(waveSize, priorityDay)];"),
@@ -42,8 +43,19 @@ assert(
   "queue processor supports an optional daily priority key",
 );
 assert(
-  queue.includes("calculateDailyVideoQuotaState(todaysRows ?? [])"),
-  "daily video quota excludes terminal failed/cancelled requests while retaining their slot keys",
+  queue.includes("const dailyQuota = calculateDailyVideoQuotaState(todaysRows);") &&
+    queue.includes("resolveZonedDailyVideoQuotaWindow(now, quotaTimeZone)") &&
+    queue.includes("created_at=gte.${quotaDayStartIso}&created_at=lt.${quotaNextDayStartIso}") &&
+    queue.includes("startsWith(\"layl-weekly:\")") &&
+    queue.includes("const quotaInventoryRows = [...new Map(") &&
+    queue.includes("automation_key=like.promo-*") &&
+    queue.includes("created_at=gte.") &&
+    queue.includes("if ((dailyRows ?? []).length >= 1000") &&
+    queue.includes("seedWeeklyPromotionalVideoRequests(now, promoDailyCapacity)") &&
+    queue.includes("const promoDailyCapacity = Math.max(0, Math.min(batchSize, dailyTarget - dailyQuota.reservedCount))") &&
+    queue.includes("const alreadySeededToday = dailyQuota.reservedCount + promoCreated") &&
+    queue.includes("const remainingRunBatch = Math.max(0, batchSize - promoCreated)"),
+  "daily video quota counts deduplicated normal and promotional requests, excludes terminal failed/cancelled requests while retaining their slot keys, and fails closed on truncated inventory",
 );
 assert(
   queue.includes("const slot = dailyQuota.nextSlot + i;"),

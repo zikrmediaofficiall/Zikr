@@ -10,7 +10,7 @@ const generalVideoContract = [
   'from "./video-audience-visibility"',
   "metadata->>audience.eq.general",
   "isGeneralAudienceVideoMetadata(row.metadata)",
-  "renderableRows.slice(0, safeLimit)",
+  "const generalVideos: Video[] = renderableRows.map",
 ];
 for (const token of generalVideoContract) {
   assert.ok(videoService.includes(token), "video service must retain " + token);

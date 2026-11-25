@@ -30,6 +30,10 @@ assert.equal(
   "Hook selection must stay stable across retries.",
 );
 assert.ok(["fade", "slow"].includes(resolveDeterministicVideoMotion(stableInput.id)));
+for (const style of ["question", "reflection", "action"] as const) {
+  const styledHooks = new Set(ids.map((id) => resolveDeterministicVideoHook({ id, category: "quran", style })));
+  assert.ok(styledHooks.size >= 3, "Expected varied " + style + " hooks.");
+}
 const kidsScene = resolveDeterministicVideoScene({ id: "kids-1", category: "story", audience: "kids" });
 assert.equal(isVideoSceneAllowedForAudience(kidsScene, "kids"), true);
 assert.equal(isVideoSceneAllowedForAudience(kidsScene, "general"), true);

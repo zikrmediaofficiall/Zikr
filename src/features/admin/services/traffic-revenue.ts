@@ -4,13 +4,14 @@ import { createHash } from "node:crypto";
 
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/server";
-import { getYouTubeRefreshToken } from "@/features/social/services/youtube-oauth-credentials";
-import { averageRenderDuration } from "@/features/admin/services/traffic-revenue-metrics";
+import { getYouTubeRefreshToken, inspectStoredYouTubeAnalyticsCredential } from "@/features/social/services/youtube-oauth-credentials";
+import { averageRenderDuration, classifyYoutubeAnalyticsApiError, classifyYoutubeOAuthTokenError, getYoutubeAnalyticsStatusPresentation, type YoutubeAnalyticsStatus } from "@/features/admin/services/traffic-revenue-metrics";
 
 type CountResult = { count: number | null; error: { message: string } | null };
 
 export type YoutubeAnalyticsSnapshot = {
-  status: "connected" | "authorization_required" | "unavailable" | "not_configured";
+  status: YoutubeAnalyticsStatus;
+  message: string;
   startDate: string | null;
   endDate: string | null;
   views: number | null;
@@ -22,7 +23,7 @@ export type YoutubeAnalyticsSnapshot = {
   likes: number | null;
   comments: number | null;
   shares: number | null;
-  trafficSources: Array<{ source: string; views: number; watchMinutes: number }> | null;
+  trafficSources: Array<{ source: string; views: number | null; watchMinutes: number | null }> | null;
   capturedAt: string | null;
 };
 
@@ -280,13 +281,19 @@ function trafficSourceLabel(source: string): string {
 async function fetchYoutubeAnalyticsSnapshot(): Promise<YoutubeAnalyticsSnapshot> {
   const clientId = process.env.YOUTUBE_CLIENT_ID?.trim();
   const clientSecret = process.env.YOUTUBE_CLIENT_SECRET?.trim();
-  const refreshToken = await getYouTubeRefreshToken();
-  const unavailable = (status: YoutubeAnalyticsSnapshot["status"]): YoutubeAnalyticsSnapshot => ({
-    status, startDate: null, endDate: null, views: null, estimatedMinutesWatched: null,
+  const unavailable = (status: YoutubeAnalyticsStatus): YoutubeAnalyticsSnapshot => ({
+    status,
+    message: getYoutubeAnalyticsStatusPresentation(status).description,
+    startDate: null, endDate: null, views: null, estimatedMinutesWatched: null,
     averageViewDurationSeconds: null, averageViewPercentage: null, subscribersGained: null,
     subscribersLost: null, likes: null, comments: null, shares: null, trafficSources: null, capturedAt: null,
   });
-  if (!clientId || !clientSecret || !refreshToken) return unavailable("not_configured");
+  if (!clientId || !clientSecret) return unavailable("not_configured");
+  const credential = await inspectStoredYouTubeAnalyticsCredential();
+  if (credential.status === "permission_missing") return unavailable("scope_missing");
+  if (credential.status === "unavailable") return unavailable("unavailable");
+  if (credential.status !== "ready" || !credential.refreshToken) return unavailable("not_configured");
+  const refreshToken = credential.refreshToken;
 
   try {
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -301,10 +308,10 @@ async function fetchYoutubeAnalyticsSnapshot(): Promise<YoutubeAnalyticsSnapshot
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     });
+    const tokenPayload = await tokenResponse.json().catch(() => ({})) as { access_token?: string; error?: string };
     if (!tokenResponse.ok) {
-      return unavailable(tokenResponse.status === 400 || tokenResponse.status === 401 ? "authorization_required" : "unavailable");
+      return unavailable(classifyYoutubeOAuthTokenError(tokenResponse.status, tokenPayload));
     }
-    const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
     if (!tokenPayload.access_token) return unavailable("authorization_required");
 
     const end = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -336,10 +343,11 @@ async function fetchYoutubeAnalyticsSnapshot(): Promise<YoutubeAnalyticsSnapshot
       fetch(summaryUrl, { headers, cache: "no-store", signal: AbortSignal.timeout(12_000) }),
       fetch(trafficUrl, { headers, cache: "no-store", signal: AbortSignal.timeout(12_000) }),
     ]);
+    const summaryPayload = await summaryResponse.json().catch(() => ({})) as AnalyticsReport & { error?: unknown };
     if (!summaryResponse.ok) {
-      return unavailable(summaryResponse.status === 401 || summaryResponse.status === 403 ? "authorization_required" : "unavailable");
+      return unavailable(classifyYoutubeAnalyticsApiError(summaryResponse.status, summaryPayload));
     }
-    const summary = (await summaryResponse.json()) as AnalyticsReport;
+    const summary = summaryPayload;
     const row = summary.rows?.[0];
     let trafficSources: YoutubeAnalyticsSnapshot["trafficSources"] = null;
     if (trafficResponse.ok) {
@@ -350,25 +358,26 @@ async function fetchYoutubeAnalyticsSnapshot(): Promise<YoutubeAnalyticsSnapshot
         if (typeof sourceValue !== "string") return [];
         return [{
           source: trafficSourceLabel(sourceValue),
-          views: reportNumber(traffic, trafficRow, "views") ?? 0,
-          watchMinutes: reportNumber(traffic, trafficRow, "estimatedMinutesWatched") ?? 0,
+          views: reportNumber(traffic, trafficRow, "views"),
+          watchMinutes: reportNumber(traffic, trafficRow, "estimatedMinutesWatched"),
         }];
       });
     }
 
     return {
       status: "connected",
+      message: getYoutubeAnalyticsStatusPresentation("connected").description,
       startDate,
       endDate,
-      views: reportNumber(summary, row, "views") ?? 0,
-      estimatedMinutesWatched: reportNumber(summary, row, "estimatedMinutesWatched") ?? 0,
+      views: reportNumber(summary, row, "views"),
+      estimatedMinutesWatched: reportNumber(summary, row, "estimatedMinutesWatched"),
       averageViewDurationSeconds: reportNumber(summary, row, "averageViewDuration"),
       averageViewPercentage: reportNumber(summary, row, "averageViewPercentage"),
-      subscribersGained: reportNumber(summary, row, "subscribersGained") ?? 0,
-      subscribersLost: reportNumber(summary, row, "subscribersLost") ?? 0,
-      likes: reportNumber(summary, row, "likes") ?? 0,
-      comments: reportNumber(summary, row, "comments") ?? 0,
-      shares: reportNumber(summary, row, "shares") ?? 0,
+      subscribersGained: reportNumber(summary, row, "subscribersGained"),
+      subscribersLost: reportNumber(summary, row, "subscribersLost"),
+      likes: reportNumber(summary, row, "likes"),
+      comments: reportNumber(summary, row, "comments"),
+      shares: reportNumber(summary, row, "shares"),
       trafficSources,
       capturedAt: new Date().toISOString(),
     };

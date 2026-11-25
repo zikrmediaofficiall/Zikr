@@ -80,6 +80,47 @@ class HuggingFaceOutputSafetyTests(unittest.TestCase):
             FILE_URL,
         )
 
+    def test_nested_gradio_filedata_url_is_extracted(self):
+        self.assertEqual(
+            MODULE.extract_file_value({"video": {"url": FILE_URL, "meta": {"_type": "gradio.FileData"}}}),
+            FILE_URL,
+        )
+
+    def test_gradio_result_tuple_searches_all_nested_outputs(self):
+        self.assertEqual(
+            MODULE.extract_file_value([
+                {"caption": "generated"},
+                {"data": [{"video": {"path": "/tmp/generated-video.mp4"}}]},
+            ]),
+            "/tmp/generated-video.mp4",
+        )
+
+    def test_non_file_gradio_metadata_is_not_mistaken_for_a_video(self):
+        self.assertIsNone(MODULE.extract_file_value({"caption": "completed", "duration": 6}))
+
+    def test_caption_before_video_output_is_skipped(self):
+        self.assertEqual(
+            MODULE.extract_file_value([
+                "A generated video is ready.",
+                {"data": [{"video": {"path": "/tmp/generated-video.mp4"}}]},
+            ]),
+            "/tmp/generated-video.mp4",
+        )
+
+    def test_non_video_url_is_not_accepted_as_a_video(self):
+        self.assertIsNone(MODULE.extract_file_value({"url": "https://example.test/result.json"}))
+
+    def test_video_mime_type_allows_extensionless_gradio_url(self):
+        self.assertEqual(
+            MODULE.extract_file_value({"url": "https://space.hf.space/gradio_api/file=abc123", "mime_type": "video/mp4"}),
+            "https://space.hf.space/gradio_api/file=abc123",
+        )
+
+    def test_unsupported_video_container_mime_is_rejected(self):
+        self.assertIsNone(
+            MODULE.extract_file_value({"url": "https://space.hf.space/gradio_api/file=abc123", "mime_type": "video/webm"})
+        )
+
     def test_remote_file_path_is_converted_to_same_origin_file_url(self):
         result = MODULE.resolve_file_url(
             {"path": "/tmp/gradio/video output.mp4"},

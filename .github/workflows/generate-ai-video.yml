@@ -10,7 +10,7 @@ on:
       batch_size:
         description: "Number of new video jobs to seed in this run"
         required: false
-        default: "10"
+        default: "3"
         type: string
       urgent:
         description: "Whether this dispatch originated from the admin Run Now control"
@@ -47,8 +47,11 @@ jobs:
       AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"
       FACEBOOK_PUBLISHING_REQUESTED: ${{ vars.FACEBOOK_PUBLISHING_ENABLED || 'true' }}
       YOUTUBE_PUBLISHING_REQUESTED: ${{ vars.YOUTUBE_PUBLISHING_ENABLED || 'true' }}
-      AUTO_VIDEO_BATCH_SIZE: ${{ inputs.batch_size || '10' }}
-      DAILY_VIDEO_TARGET: "20"
+      YOUTUBE_UPLOAD_PRIVACY: "public"
+      AUTO_VIDEO_BATCH_SIZE: ${{ inputs.batch_size || '3' }}
+      DAILY_VIDEO_TARGET: "3"
+      PROMO_VIDEO_WEEKLY_TARGET: "2"
+      PROMO_VIDEO_TIMEZONE: "Africa/Cairo"
       AUTO_VIDEO_URGENT: ${{ inputs.urgent || 'false' }}
       VIDEO_DAILY_LIMIT: "24"
       VIDEO_AUTOMATION_DRY_RUN: "false"
@@ -69,7 +72,7 @@ jobs:
       HF_VIDEO_PYTHON: ${{ github.workspace }}/.automation-venv/bin/python
       # Generate on free visual AI providers with deterministic FFmpeg fallback; the canonical video record stays in ZIKR.
       AUTO_VIDEO_SECONDS: "25"
-      # Candidates are queued after source-locked automated QA; the social worker separately requires human review for Kids videos.
+      # Every generated video must pass snapshot-bound automated QA; Kids-suitable videos also require the strict automated Kids QA before public publishing and Kids-section cross-listing. No routine human approval hold is used.
       BACKGROUND_JOB_TARGET: "videos"
       VIDEO_TEMPLATE_VERSION: "2026-11-06-composition-sync-v8"
       VIDEO_OUTPUT_CRF: "17"

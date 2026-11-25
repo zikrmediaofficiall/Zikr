@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { getTrafficRevenueSnapshot } from "@/features/admin/services/traffic-revenue";
-import { getGa4ReportingStatusPresentation } from "@/features/admin/services/traffic-revenue-metrics";
+import { getGa4ReportingStatusPresentation, getYoutubeAnalyticsStatusPresentation } from "@/features/admin/services/traffic-revenue-metrics";
 
 const format = (value: number | null) =>
   value === null ? "غير متاح" : value.toLocaleString("ar-EG-u-nu-latn");
@@ -73,6 +73,7 @@ export async function TrafficRevenuePanel({
     snapshot.ga4Analytics.status,
     snapshot.integrations.ga4MeasurementConfigured,
   );
+  const youtubeAnalyticsStatus = getYoutubeAnalyticsStatusPresentation(snapshot.youtubeAnalytics.status);
 
   return (
     <section className="mt-8 space-y-6" dir="rtl" aria-labelledby="traffic-revenue-heading">
@@ -193,9 +194,9 @@ export async function TrafficRevenuePanel({
           <h3 className="font-bold text-brand-cream">تحليلات قناة YouTube</h3>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className={snapshot.integrations.youtubeAnalyticsConnected ? "border-emerald-400/20 text-emerald-200/80" : "border-amber-300/20 text-amber-100/75"}>
-              {snapshot.integrations.youtubeAnalyticsConnected ? "بيانات مالك القناة متصلة" : snapshot.youtubeAnalytics.status === "authorization_required" ? "تحتاج إعادة تفويض" : "غير متصلة"}
+              {youtubeAnalyticsStatus.label}
             </Badge>
-            {canManageYouTubeConnection ? (
+            {canManageYouTubeConnection && (snapshot.youtubeAnalytics.status === "connected" || youtubeAnalyticsStatus.canReauthorize) ? (
               <Link href="/api/admin/social/youtube/connect" className="rounded-lg border border-brand-gold/20 px-3 py-1.5 text-xs text-brand-gold hover:bg-brand-gold/10">
                 {snapshot.integrations.youtubeAnalyticsConnected ? "إعادة ربط YouTube" : "ربط YouTube للنشر والتحليلات"}
               </Link>
@@ -225,7 +226,7 @@ export async function TrafficRevenuePanel({
                     {snapshot.youtubeAnalytics.trafficSources.map((source) => (
                       <div key={source.source} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
                         <span className="text-brand-cream/80">{source.source}</span>
-                        <span className="tabular-nums text-brand-cream/65">{format(source.views)} مشاهدة · {format(Math.round(source.watchMinutes / 60))} ساعة مشاهدة</span>
+                        <span className="tabular-nums text-brand-cream/65">{format(source.views)} مشاهدة · {format(source.watchMinutes === null ? null : Math.round(source.watchMinutes / 60))} ساعة مشاهدة</span>
                       </div>
                     ))}
                   </div>
@@ -236,11 +237,7 @@ export async function TrafficRevenuePanel({
         ) : (
           <Card className="p-5">
             <p className="text-sm leading-7 text-brand-cream/65">
-              {snapshot.youtubeAnalytics.status === "authorization_required"
-                ? "تم حفظ صلاحيات OAuth المطلوبة في Supabase، لكن YouTube Analytics لم تسمح بقراءة التقرير. تحقق من تفعيل YouTube Analytics API وصلاحية الحساب على القناة؛ أعد ربط القناة فقط إذا كان التفويض نفسه مرفوضًا."
-                : snapshot.youtubeAnalytics.status === "not_configured"
-                  ? "يلزم ضبط YOUTUBE_CLIENT_ID وYOUTUBE_CLIENT_SECRET ثم ربط القناة من إدارة السوشيال لحفظ اعتماد OAuth موثّق الصلاحيات على Supabase."
-                  : "تعذر الوصول إلى تقارير YouTube Analytics حاليًا. لم يتم استبدال البيانات المفقودة بأصفار."}
+              {snapshot.youtubeAnalytics.message || youtubeAnalyticsStatus.description}
             </p>
           </Card>
         )}

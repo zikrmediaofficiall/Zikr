@@ -24,21 +24,45 @@ assert.match(service, /getCachedGa4AnalyticsSnapshot/);
 assert.match(service, /ga4ReportingConnected: ga4Analytics\.status === "connected"/);
 assert.match(service, /getYouTubeRefreshToken/);
 assert.match(service, /getCachedYoutubeAnalyticsSnapshot/);
+assert.match(service, /inspectStoredYouTubeAnalyticsCredential/);
+assert.match(service, /classifyYoutubeOAuthTokenError/);
+assert.match(service, /classifyYoutubeAnalyticsApiError/);
+assert.match(service, /getYoutubeAnalyticsStatusPresentation/);
+assert.match(service, /status: YoutubeAnalyticsStatus/);
+for (const metric of ["views", "estimatedMinutesWatched", "subscribersGained", "subscribersLost", "likes", "comments", "shares"]) {
+  assert.ok(
+    !service.includes(`reportNumber(summary, row, "${metric}") ?? 0`),
+    "missing YouTube Analytics report metrics must remain unavailable instead of being rendered as zero",
+  );
+}
+assert.match(metricsHelper, /"api_disabled"/);
+assert.match(metricsHelper, /"quota_exceeded"/);
+assert.match(metricsHelper, /"permission_denied"/);
+assert.match(metricsHelper, /"authorization_required"/);
+assert.match(metricsHelper, /"scope_missing"/);
+assert.match(service, /credential\.status === "permission_missing"\) return unavailable\("scope_missing"\)/);
+assert.match(panel, /youtubeAnalyticsStatus\.canReauthorize/);
+assert.match(metricsHelper, /classifyYoutubeAnalyticsApiError/);
+assert.match(metricsHelper, /classifyYoutubeOAuthTokenError/);
 assert.match(service, /monetagReportingConnected: false/);
 assert.match(service, /return result\.error \? null : \(result\.count \?\? 0\)/);
 assert.match(panel, /Google Analytics 4/);
 assert.match(panel, /قنوات الزيارات/);
 assert.match(panel, /أهم صفحات الدخول/);
 assert.match(panel, /تحليلات قناة YouTube/);
+assert.match(panel, /getYoutubeAnalyticsStatusPresentation/);
+assert.match(panel, /youtubeAnalyticsStatus\.label/);
+assert.match(panel, /snapshot\.youtubeAnalytics\.message/);
 assert.match(panel, /Monetag/);
 assert.match(panel, /getTrafficRevenueSnapshot/);
 assert.match(panel, /غير متاح/);
 assert.match(panel, /لا يستخدم هذا المحرك تحديث الصفحات أو النقرات الاصطناعية/);
 assert.doesNotMatch(panel, /facebook|instagram|tiktok|pinterest|whatsapp|مركز النشر الاجتماعي|نتائج النشر لكل منصة/i);
 assert.match(panel, /api\/admin\/social\/youtube\/connect/);
-assert.match(panel, /canManageYouTubeConnection\s*\?/);
+assert.match(panel, /canManageYouTubeConnection\s*&&/);
 assert.match(panel, /ربط YouTube للنشر والتحليلات/);
-assert.match(panel, /YouTube Analytics لم تسمح بقراءة التقرير/);
+assert.match(panel, /snapshot\.youtubeAnalytics\.message/);
+assert.match(panel, /youtubeAnalyticsStatus\.canReauthorize/);
 assert.match(youtubeConnect, /https:\/\/www\.googleapis\.com\/auth\/youtube\.upload/);
 assert.match(youtubeConnect, /https:\/\/www\.googleapis\.com\/auth\/youtube\.readonly/);
 assert.match(youtubeConnect, /https:\/\/www\.googleapis\.com\/auth\/yt-analytics\.readonly/);
