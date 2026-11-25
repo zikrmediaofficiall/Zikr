@@ -82,7 +82,7 @@ export function buildOmnisIncidents(input: {
       const existing = grouped.get(incidentKey);
       if (existing) {
         if (!existing.affectedModules.includes(moduleStatus.moduleId)) {
-          existing.affectedModules.push(module.moduleId);
+          existing.affectedModules.push(moduleStatus.moduleId);
         }
         continue;
       }
@@ -97,7 +97,7 @@ export function buildOmnisIncidents(input: {
         source: dependency.source,
         checkedAt: dependency.checkedAt,
         freshness: dependency.freshness,
-        affectedModules: [module.moduleId],
+        affectedModules: [moduleStatus.moduleId],
       });
     }
   }
