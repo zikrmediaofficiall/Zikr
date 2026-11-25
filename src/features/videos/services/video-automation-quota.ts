@@ -58,7 +58,7 @@ function datePartsForZone(date: Date, formatter: Intl.DateTimeFormat) {
 }
 
 function firstInstantOfLocalDate(localDate: string, timeZone: string, formatter: Intl.DateTimeFormat): Date {
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(localDate);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate);
   if (!match) throw new Error("A valid ISO local date is required for the video quota window.");
   const targetOrdinal = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   let low = targetOrdinal - 3 * 86_400_000;
