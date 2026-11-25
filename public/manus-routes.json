@@ -106,6 +106,9 @@
       "path": "/admin/omnis/push"
     },
     {
+      "path": "/admin/omnis/video-pipeline"
+    },
+    {
       "path": "/admin/omnis/workflows"
     },
     {
