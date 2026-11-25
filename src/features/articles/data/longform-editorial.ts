@@ -1,5 +1,6 @@
 import type { StaticArticle } from "@/features/articles/data/articles";
 import { longformExtraBatch1 } from "@/features/articles/data/longform-extra-1";
+import { longformExtraBatch2 } from "@/features/articles/data/longform-extra-2";
 
 const publishedAt = "2026-10-15T00:00:00.000Z";
 
@@ -599,7 +600,7 @@ const baseLongformEditorialArticles: StaticArticle[] = [
   }),
 ];
 
-export const longformEditorialArticles: StaticArticle[] = [...baseLongformEditorialArticles, ...longformExtraBatch1];
+export const longformEditorialArticles: StaticArticle[] = [...baseLongformEditorialArticles, ...longformExtraBatch1, ...longformExtraBatch2];
 
 export function getLongformEditorialArticle(slug: string): StaticArticle | null {
   return longformEditorialArticles.find((article) => article.slug === slug) ?? null;
