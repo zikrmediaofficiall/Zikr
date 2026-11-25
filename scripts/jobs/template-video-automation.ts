@@ -918,15 +918,30 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   // Daily quota: keys are unique per UTC day (kind:day:counter) so every run can create new
   // videos, and the DAILY_VIDEO_TARGET is spread evenly across the day instead of bursting.
   // Urgent admin "Run Now" may bypass time-of-day pacing, but never the daily quota.
-  const todaysRows = await supabaseServerAdminRequest<Array<{ id: string; status: string; automation_key: string | null }>>(
-    `/rest/v1/video_generation_requests?automation_key=like.*:${day}:*&select=id,status,automation_key&limit=1000`,
-  );
-  if ((todaysRows ?? []).length >= 1000) {
+  const quotaDayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const quotaNextDayStart = new Date(quotaDayStart.getTime() + 86_400_000);
+  const quotaDayStartIso = encodeURIComponent(quotaDayStart.toISOString());
+  const quotaNextDayStartIso = encodeURIComponent(quotaNextDayStart.toISOString());
+  const [dailyRows, promotionalRows] = await Promise.all([
+    supabaseServerAdminRequest<Array<{ id: string; status: string; automation_key: string | null }>>(
+      `/rest/v1/video_generation_requests?automation_key=like.*:${day}:*&select=id,status,automation_key&limit=1000`,
+    ),
+    // Promotional requests use publish-date keys rather than the numeric daily
+    // slot key. Count those created today so campaigns cannot bypass the
+    // three-short-video generation ceiling. Weekly Layl episodes are excluded.
+    supabaseServerAdminRequest<Array<{ id: string; status: string; automation_key: string | null }>>(
+      `/rest/v1/video_generation_requests?automation_key=like.promo-*&created_at=gte.${quotaDayStartIso}&created_at=lt.${quotaNextDayStartIso}&select=id,status,automation_key&limit=1000`,
+    ),
+  ]);
+  const todaysRows = [...new Map(
+    [...(dailyRows ?? []), ...(promotionalRows ?? [])].map((row) => [row.id, row]),
+  ).values()];
+  if ((dailyRows ?? []).length >= 1000 || (promotionalRows ?? []).length >= 1000 || todaysRows.length >= 1000) {
     throw new Error(
       "Daily video quota inventory reached 1,000 rows; refusing to seed requests from a truncated slot history.",
     );
   }
-  const dailyQuota = calculateDailyVideoQuotaState(todaysRows ?? []);
+  const dailyQuota = calculateDailyVideoQuotaState(todaysRows);
   const alreadySeededToday = dailyQuota.reservedCount;
   // Enforce a hard three-short-video daily ceiling, including urgent admin dispatches.
   const dailyTarget = Math.max(1, Math.min(3, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3));
