@@ -53,6 +53,15 @@ export function AnalyticsDashboard({ data }: { data: AdminAnalytics }) {
         </div>
       ) : null}
 
+      {data.partial.length ? (
+        <div role="status" className="rounded-2xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm leading-7 text-amber-100/80">
+          أرقام هذه المصادر جزئية لأن الاستعلام بلغ حد الصفوف: {data.partial.join("، ")}. اعتبرها حدًا أدنى.
+        </div>
+      ) : null}
+      <p className="text-xs text-brand-cream/40" dir="ltr">
+        Window: last 7 days from {data.periodStart.slice(0, 10)} · Generated {data.generatedAt.slice(0, 16).replace("T", " ")} UTC · cached up to 30s
+      </p>
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="مؤشرات المنصة">
         {metrics.map(({ label, value, note, icon: Icon, tone }) => (
           <Card key={label} className="relative overflow-hidden p-5">

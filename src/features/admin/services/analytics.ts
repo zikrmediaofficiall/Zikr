@@ -1,5 +1,6 @@
 import "server-only";
 
+import { partialSources } from "./analytics-completeness";
 import { unstable_cache } from "next/cache";
 import { supabaseServerAdminCount, supabaseServerAdminRequest } from "@/lib/supabase/server";
 
@@ -22,6 +23,10 @@ export type AdminAnalytics = {
   templatePerformance: TemplatePerformance[];
   templatePerformanceAvailable: boolean;
   unavailable: string[];
+  /** Sources whose query hit its row limit, so their numbers are lower bounds. */
+  partial: string[];
+  generatedAt: string;
+  periodStart: string;
 };
 
 export type TemplatePerformance = {
@@ -213,6 +218,13 @@ async function loadAdminAnalytics(): Promise<AdminAnalytics> {
     templatePerformance,
     templatePerformanceAvailable: templateRes.ok,
     unavailable,
+    partial: partialSources({
+      pageViews: { ok: viewsRes.ok, count: viewsRes.rows.length },
+      auditEvents: { ok: auditRes.ok, count: auditRes.rows.length },
+      videoRequests: { ok: templateRes.ok, count: templateRes.rows.length },
+    }),
+    generatedAt: now.toISOString(),
+    periodStart,
   };
 }
 
