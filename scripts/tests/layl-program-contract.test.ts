@@ -57,6 +57,8 @@ assert.throws(() => resolveVideoCatalogDuration(61), /no greater than 60 seconds
 const api = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
 assert.ok(api.includes("LAYL_EPISODES, LAYL_PROGRAM_ID"), "the server route must import the canonical Layl episode contract");
 assert.ok(api.includes('content.workflow === "layl-program"'), "the server must recognize only the dedicated Layl workflow");
+assert.ok(api.includes('approvalStatus: "awaiting_automated_review"'), "new video requests must wait for automated QA rather than human approval");
+assert.ok(api.includes("reviewRequired: false"), "new video requests must not require routine human review");
 assert.ok(api.includes("submittedContent.sourceUrl === episode?.referenceUrl"), "the server must pin each episode to its canonical reference");
 assert.ok(api.includes('voiceProfile: "egyptian_male_story"'), "the server must choose the Egyptian male voice profile");
 assert.ok(api.includes("submittedContent.visualBackground === episode?.visualBackground"), "the API must reject a mismatched episode background");
