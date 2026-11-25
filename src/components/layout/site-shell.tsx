@@ -68,7 +68,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
           {children}
           <EditorialDepth pathname={pathname} locale={initialLocale} />
           <EditorialUtilityDepth pathname={pathname} locale={initialLocale} />
-          <ContentExpansion pathname={pathname} />
+          <ContentExpansion pathname={pathname} locale={initialLocale === 'en' ? 'en' : 'ar'} />
         </main>
         <Footer socialLinks={{
           facebookPageUrl: socialSettings?.facebookPageUrl,

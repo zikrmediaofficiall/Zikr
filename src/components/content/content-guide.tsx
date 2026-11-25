@@ -12,6 +12,7 @@ type ContentGuideProps = {
   items: string[];
   links?: GuideLink[];
   note?: string;
+  locale?: "ar" | "en";
 };
 
 export function ContentGuide({
@@ -20,12 +21,14 @@ export function ContentGuide({
   items,
   links = [],
   note,
+  locale = "ar",
 }: ContentGuideProps) {
   return (
     <section
       aria-labelledby="content-guide-title"
       className="rounded-2xl border border-brand-gold/15 bg-brand-gold/5 p-5 md:p-6"
-      dir="rtl"
+      dir={locale === "en" ? "ltr" : "rtl"}
+      lang={locale}
     >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 rounded-xl border border-brand-gold/20 bg-black/15 p-2 text-brand-gold">
@@ -57,7 +60,7 @@ export function ContentGuide({
         <div className="mt-5 rounded-xl border border-brand-gold/10 bg-black/10 p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-brand-gold">
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            مراجع وروابط مساعدة
+            {locale === "en" ? "References and helpful links" : "مراجع وروابط مساعدة"}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {links.map((link) => (

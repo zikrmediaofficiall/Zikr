@@ -1093,14 +1093,52 @@ const EXISTING_DEDICATED_GUIDE_ROUTES = new Set([
   '/kids/progress', '/kids/puzzle', '/kids/parent-dashboard',
 ]);
 
+const PAGE_CONTENT_EN: Record<string, Page> = {
+  '/': page(
+    'Getting started',
+    'Start your journey with Zikr',
+    'Zikr brings reading, listening, learning and daily tools into one place. Each section serves a different goal, so you do not need to use everything at once. Pick what you need today and explore the rest of the library at your own pace.',
+    [
+      'A path for every goal',
+      'To read, start with the Quran and open tafsir when you need context. To learn, open Hadith, articles or the knowledge hub. For daily use, go to adhkar, supplications, the daily wird and prayer times. Listening gathers recitations, radio and audio in clear paths.',
+      'Build your routine around one steady habit: a short reading, a memorization review, learning a topic, or listening to a recitation. Do not let too many options distract you. Choose one step, then come back when you need the next one.',
+      'Know the type of content before relying on it',
+      'The platform shows different kinds of material: Quran text, hadith narrations, historical summaries, editorial explanations and tools that depend on outside services. Each is verified differently. Quoted text needs a reference, a summary needs a source, and a tool needs its settings and limits checked.',
+      'For a precise religious question, do not let an article, a search result or an AI answer replace a qualified scholar. Use the page to reach sources, phrase your question and understand terms, then return to a specialist reference.',
+    ],
+    [
+      { label: 'The Noble Quran', href: 'https://quran.com/' },
+      { label: 'Sunnah.com hadith library', href: 'https://sunnah.com/' },
+      { label: 'Editorial and sources policy', href: '/editorial-policy' },
+    ],
+  ),
+  '/quran': page(
+    'The Noble Quran',
+    'From reading to understanding and review',
+    'The Quran experience in Zikr does not stop at opening a surah. It helps the reader move between the text, the recitation, the meaning and memorization. The Quranic text must stay visibly and clearly distinct from translation, tafsir and editorial commentary.',
+    [
+      'Read within the context of the surah',
+      'When you stop at a verse, read the verses around it before forming a view of its subject. Check the surah name and the purpose of the passage, and do not take a sentence out of context for a lesson or a post. Open a recognized tafsir when a word or meaning needs explanation.',
+      'A translation helps non-Arabic speakers understand the meaning, but it is not the revealed Arabic text. When comparing two translations, remember that translators make different choices, and that questions needing a ruling go back to tafsir and scholars.',
+      'Combine reading and listening',
+      'You can set aside one session for silent reading and another for listening while following the mushaf. Repeated listening helps you learn where to pause and follow along, but it does not replace correction by a qualified teacher.',
+      'Use repeat options wisely: a short passage, a sensible number of repeats, then a break and review rather than endless playback. Keep the audio clear and make sure you can pause and resume without losing your place.',
+    ],
+    [
+      { label: 'The Noble Quran', href: 'https://quran.com/' },
+      { label: 'Tafsir and Quran lessons', href: 'https://quran.com/learning-plans/how-to-explore-the-quran/lessons/tafsir-and-lessons' },
+    ],
+  ),
+};
+
 const STATIC_KIDS_GUIDE_ROUTES = new Set([
   '/kids/games', '/kids/audio', '/kids/adventures', '/kids/achievements',
   '/kids/progress', '/kids/puzzle', '/kids/parent-dashboard',
 ]);
 
-function resolvePage(pathname: string): Page | null {
+function resolvePage(pathname: string, locale: 'ar' | 'en' = 'ar'): Page | null {
   const path = normalizePath(pathname);
-  const exact = PAGE_CONTENT[path];
+  const exact = (locale === 'en' ? PAGE_CONTENT_EN[path] : undefined) ?? PAGE_CONTENT[path];
   if (exact) return EXISTING_DEDICATED_GUIDE_ROUTES.has(path) ? null : exact;
   if (STATIC_KIDS_GUIDE_ROUTES.has(path)) return null;
 
@@ -1111,15 +1149,18 @@ function resolvePage(pathname: string): Page | null {
   return detailPrefix ? DETAIL_CONTENT[detailPrefix] : null;
 }
 
-export function ContentExpansion({ pathname }: { pathname: string }) {
+export function ContentExpansion({ pathname, locale = 'ar' }: { pathname: string; locale?: 'ar' | 'en' }) {
   if (!pathname?.trim()) return null;
-  const content = resolvePage(pathname);
+  const content = resolvePage(pathname, locale);
   if (!content) return null;
+  const normalized = normalizePath(pathname);
+  const isEnglishContent = locale === 'en' && (normalized === '/' || normalized === '/quran');
 
   return (
     <section
       className="border-y border-brand-gold/10 bg-[#071a13]/55 px-3 py-12 sm:px-4 sm:py-16"
-      dir="rtl"
+      dir={isEnglishContent ? 'ltr' : 'rtl'}
+      lang={isEnglishContent ? 'en' : 'ar'}
       aria-labelledby="content-expansion-title"
     >
       <div className="mx-auto max-w-5xl space-y-8">
@@ -1154,9 +1195,11 @@ export function ContentExpansion({ pathname }: { pathname: string }) {
         </div>
 
         <aside className="rounded-2xl border border-brand-gold/15 bg-brand-gold/5 p-5 sm:p-6">
-          <h3 className="font-bold text-brand-gold">مصادر وروابط مرتبطة</h3>
+          <h3 className="font-bold text-brand-gold">{isEnglishContent ? 'Sources and related links' : 'مصادر وروابط مرتبطة'}</h3>
           <p className="mt-2 text-sm leading-7 text-brand-cream/60">
-            افتح المرجع الأصلي عند التحقق من نص أو معلومة، وراجع سياسة التحرير عند وجود اختلاف أو نقص في البيانات.
+            {isEnglishContent
+              ? 'Open the original reference when verifying a text or a fact, and check the editorial policy when data differs or is missing.'
+              : 'افتح المرجع الأصلي عند التحقق من نص أو معلومة، وراجع سياسة التحرير عند وجود اختلاف أو نقص في البيانات.'}
           </p>
           <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
             {content.references.map((reference) => {
