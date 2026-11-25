@@ -129,22 +129,39 @@ export type YouTubeOAuthCredentialInput = {
   channelName: string | null;
 };
 
-export async function readStoredYouTubeRefreshToken(): Promise<string | null> {
+export type YouTubeAnalyticsCredentialReadiness = {
+  status: "ready" | "not_configured" | "permission_missing" | "unavailable";
+  refreshToken: string | null;
+};
+
+/** Read only the stored fields needed to explain why owner Analytics is unavailable. */
+export async function inspectStoredYouTubeAnalyticsCredential(): Promise<YouTubeAnalyticsCredentialReadiness> {
   try {
     const rows = await supabaseServerAdminRequest<StoredYouTubeOAuthCredential[]>(
       "/rest/v1/youtube_oauth_credentials?provider=eq.youtube&select=refresh_token,granted_scopes,channel_id&limit=1",
     );
     const row = Array.isArray(rows) ? rows[0] : null;
-    if (!matchesConfiguredYouTubeChannel(row?.channel_id)) return null;
-    const scopes = Array.isArray(row?.granted_scopes) ? row.granted_scopes : [];
-    if (!hasYouTubeReadScopes(scopes)) return null;
-    const token = row?.refresh_token;
-    return typeof token === "string" && token.trim() ? token.trim() : null;
+    if (!row) return { status: "not_configured", refreshToken: null };
+    if (!matchesConfiguredYouTubeChannel(row.channel_id)) {
+      return { status: "permission_missing", refreshToken: null };
+    }
+    const scopes = Array.isArray(row.granted_scopes) ? row.granted_scopes : [];
+    if (!hasYouTubeReadScopes(scopes)) {
+      return { status: "permission_missing", refreshToken: null };
+    }
+    const token = typeof row.refresh_token === "string" ? row.refresh_token.trim() : "";
+    if (!token) return { status: "not_configured", refreshToken: null };
+    return { status: "ready", refreshToken: token };
   } catch {
     // Fail closed. Environment refresh tokens are not used because their
     // granted scopes cannot be verified before analytics or publishing calls.
-    return null;
+    return { status: "unavailable", refreshToken: null };
   }
+}
+
+export async function readStoredYouTubeRefreshToken(): Promise<string | null> {
+  const credential = await inspectStoredYouTubeAnalyticsCredential();
+  return credential.status === "ready" ? credential.refreshToken : null;
 }
 
 /**
