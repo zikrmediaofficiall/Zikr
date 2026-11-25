@@ -148,8 +148,8 @@ export function getVideoEngineConfig(env = process.env): VideoEngineConfig {
       45,
       Math.max(5, Number(env.VIDEO_DEFAULT_DURATION ?? 8) || 8),
     ),
-    dryRun: bool(env.VIDEO_AUTOMATION_DRY_RUN, true),
-    autoPublishEnabled: bool(env.AUTO_VIDEO_PUBLISH_ENABLED, false),
-    requiresApproval: bool(env.AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL, true),
+    dryRun: bool(env.VIDEO_AUTOMATION_DRY_RUN, false),
+    autoPublishEnabled: bool(env.AUTO_VIDEO_PUBLISH_ENABLED, true),
+    requiresApproval: bool(env.AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL, false),
   };
 }
