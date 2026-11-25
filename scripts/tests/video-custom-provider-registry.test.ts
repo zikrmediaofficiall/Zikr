@@ -5,6 +5,11 @@ import { getVideoEngineConfig, isVideoAiPlanningEnabled, parseCustomVideoSpaces 
 const providerSource = readFileSync("src/features/videos/providers/hf-space-provider.ts", "utf8");
 const pythonSource = readFileSync("scripts/jobs/hf-space-video.py", "utf8");
 const visualsPageSource = readFileSync("src/app/admin/video/visuals/page.tsx", "utf8");
+const environmentExample = readFileSync(".env.example", "utf8");
+assert.match(environmentExample, /^VIDEO_AUTOMATION_DRY_RUN=false$/m, "production example config must not leave video generation in dry-run mode");
+assert.match(environmentExample, /^AUTO_VIDEO_PUBLISH_ENABLED=true$/m, "production example config must enable automated publishing");
+assert.match(environmentExample, /^AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL=false$/m, "automated QA must be the approval gate, not a routine human hold");
+
 
 const entries = parseCustomVideoSpaces(JSON.stringify([
   { space: "example/wan-free", variant: "wan2_2_fast", enabled: true },
