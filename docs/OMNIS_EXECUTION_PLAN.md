@@ -79,7 +79,7 @@ The registry in `src/features/admin/omnis/registry.ts` is the machine-readable s
 ### P01 — طبقة التحكم المركزية Control Plane
 
 - [x] `OMNIS-P01-01` — **توحيد واجهات الخدمات:** تعريف عقود قراءة وكتابة وتنفيذ موحدة مع صلاحيات خادمية.
-- [ ] `OMNIS-P01-02` — **توحيد حالة الوحدات:** توحيد نموذج الحالة والتوافر والاعتماديات وتاريخ الفحص.
+- [x] `OMNIS-P01-02` — **توحيد حالة الوحدات:** توحيد نموذج الحالة والتوافر والاعتماديات وتاريخ الفحص.
 - [ ] `OMNIS-P01-03` — **ربط سجل التدقيق:** تسجيل كل تغيير إداري وربطه بالمستخدم والمورد والنتيجة.
 
 ### P02 — سجل الإعدادات المركزي Configuration Registry
@@ -188,3 +188,5 @@ The overall project can only be marked complete after all 45 items are completed
 ## Change log
 
 - 2026-11-25: Established OMNIS plan scope, stable task keys, baseline audit, and execution-ledger design on `feat/zikr-omnis-control-plane-20261125`.
+- 2026-11-25: Completed `OMNIS-P01-02` on `48764a26acdbe9b6dd1163e449773d870104a192` after GitHub Quality Gate, all 32 PostgreSQL 17 checks, CircleCI, Android Debug, and Vercel Preview passed; authenticated browser E2E remains pending.
+- 2026-11-25: Started `OMNIS-P01-03` to connect control-plane decisions and transitions to the canonical immutable admin audit stream.
