@@ -50,7 +50,11 @@ assert(
     queue.includes("const quotaInventoryRows = [...new Map(") &&
     queue.includes("automation_key=like.promo-*") &&
     queue.includes("created_at=gte.") &&
-    queue.includes("if ((dailyRows ?? []).length >= 1000"),
+    queue.includes("if ((dailyRows ?? []).length >= 1000") &&
+    queue.includes("seedWeeklyPromotionalVideoRequests(now, promoDailyCapacity)") &&
+    queue.includes("const promoDailyCapacity = Math.max(0, Math.min(batchSize, dailyTarget - dailyQuota.reservedCount))") &&
+    queue.includes("const alreadySeededToday = dailyQuota.reservedCount + promoCreated") &&
+    queue.includes("const remainingRunBatch = Math.max(0, batchSize - promoCreated)"),
   "daily video quota counts deduplicated normal and promotional requests, excludes terminal failed/cancelled requests while retaining their slot keys, and fails closed on truncated inventory",
 );
 assert(
