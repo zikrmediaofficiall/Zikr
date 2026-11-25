@@ -88,6 +88,9 @@
       "path": "/admin/omnis/project"
     },
     {
+      "path": "/admin/omnis/studio"
+    },
+    {
       "path": "/admin/prophets"
     },
     {

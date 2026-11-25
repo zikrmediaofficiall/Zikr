@@ -14,7 +14,7 @@ export const OMNIS_CENTERS: readonly OmnisCenter[] = [
   { id: "project-explorer", title: "مستكشف المشروع", subtitle: "Project Explorer", path: "/admin/omnis/project", status: "partial", description: "فهرس GitHub للصفحات والخدمات وواجهات API، وخريطة اعتماديات وتحليل أثر نطاقي." },
   { id: "universal-control", title: "التحكم الموحد", subtitle: "Universal Control", path: "/admin/omnis", status: "partial", description: "أوامر موحدة حسب صلاحية المورد ونوع العملية." },
   { id: "configuration-studio", title: "استوديو الإعدادات", subtitle: "Configuration Studio", path: "/admin/settings", status: "partial", description: "سجل إعدادات typed مع مالك ونطاق وتحقق وتاريخ نسخ." },
-  { id: "website-experience", title: "استوديو تجربة الموقع", subtitle: "Website Experience", path: "/admin/sections", status: "partial", description: "إدارة الأقسام والصفحات والقوائم والثيمات والمعاينة." },
+  { id: "website-experience", title: "استوديو تجربة الموقع", subtitle: "Website Experience", path: "/admin/omnis/studio", status: "partial", description: "إدارة الأقسام والصفحات والقوائم والثيمات والمعاينة." },
   { id: "component-builder", title: "منشئ الصفحات والمكونات", subtitle: "Page & Component Builder", path: null, status: "planned", description: "إنشاء مكونات وصفحات من قوالب قابلة لإعادة الاستخدام." },
   { id: "mobile-application", title: "مركز التطبيق", subtitle: "Mobile Application", path: "/admin/android", status: "partial", description: "إعدادات Android والإصدارات والتوقيع والروابط والإشعارات." },
   { id: "journey-analytics", title: "تحليل رحلة المستخدم", subtitle: "Journey Analytics", path: "/admin/analytics", status: "partial", description: "تتبع أحداث الاستخدام ومسارات التصفح بمقاييس خصوصية." },
