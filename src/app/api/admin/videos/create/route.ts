@@ -116,10 +116,10 @@ export async function POST(request: NextRequest) {
       endCard: true,
       safeArea: true,
       audioMix: "voice-first",
-      reviewRequired: true,
+      reviewRequired: false,
     } as const;
     content = {
-      ...content, qualityProfile, approvalStatus: "awaiting_human_review",
+      ...content, qualityProfile, approvalStatus: "awaiting_automated_review",
       approvalReviewedAt: null, qualityReview: null,
       aiDisclosure: {
         version: "2026-01",
