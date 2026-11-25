@@ -99,7 +99,11 @@ assert.ok(worker.includes("async function seedWeeklyLaylEpisodeRequest(now: Date
 assert.ok(worker.includes('const automationKey = "layl-weekly:season-1:" + week'), "weekly generation must use one canonical ISO-week idempotency key");
 assert.ok(worker.includes("resolveNextScheduledLaylEpisode(now, latest)"), "the weekly worker must only advance after the last episode completed");
 assert.ok(worker.includes('content->>seriesId=eq.'), "weekly scheduling must inspect the canonical program queue records");
-assert.ok(worker.includes('skipSocialPublish: true'), "scheduled Layl episodes must remain internal until explicitly approved");
+const laylSeeder = worker.slice(
+  worker.indexOf("async function seedWeeklyLaylEpisodeRequest"),
+  worker.indexOf("async function seedWeeklyPromotionalVideoRequests"),
+);
+assert.ok(laylSeeder && !laylSeeder.includes("skipSocialPublish"), "scheduled Layl episodes must enter automated QA and public publishing after passing checks");
 assert.ok(worker.includes('automation_key: automationKey'), "each scheduled Layl episode must use the canonical weekly key in the queue");
 assert.ok(worker.includes("const isVerifiedLaylEditorial = category === \"other\""), "the QA gate must recognize only the eight canonical Layl episode references");
 assert.ok(worker.includes("episode.referenceLabel === sourceLabel"), "Layl source labels must match the canonical season references");
