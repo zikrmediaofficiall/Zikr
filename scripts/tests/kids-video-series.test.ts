@@ -17,6 +17,27 @@ import {
 assert.equal(KIDS_VIDEO_SERIES.length, 4, "the catalog must expose four distinct child-friendly series");
 assert.equal(KIDS_SERIES_EPISODES_PER_SEASON, 24, "the first catalog season must contain six episodes per series");
 
+// New episodes are Egyptian; historical MSA snapshots must remain accepted.
+const EGYPTIAN_MARKER = /(?:إيه|إزاي|عشان|مش |ده |دي |بقى|لسه|كده|هتعمل|هتسلّمها|اللي|لمّا|بتـ|بيتـ|بيساعدنا|بيحمي|بيبدأ)/u;
+for (let sequence = 1; sequence <= 48; sequence += 1) {
+  const egyptian = buildKidsSeriesEpisode(sequence);
+  const legacy = buildKidsSeriesEpisode(sequence, "legacy_msa");
+  assert.notEqual(egyptian.text, legacy.text, "new episode " + sequence + " must use Egyptian Arabic");
+  assert.ok(EGYPTIAN_MARKER.test(egyptian.text), "episode " + sequence + " should read naturally in Egyptian colloquial Arabic");
+  assert.ok(!egyptian.text.includes("{{detail}}"), "episode " + sequence + " must not keep unresolved placeholders");
+  const legacySnapshot = validateCanonicalKidsEpisodeSnapshot({
+    factorySequence: sequence,
+    sourceId: legacy.sourceId,
+    text: legacy.text,
+    seriesId: legacy.seriesId,
+    seasonNumber: legacy.seasonNumber,
+    episodeNumber: legacy.episodeNumber,
+    learningObjective: legacy.learningObjective,
+  });
+  assert.equal(legacySnapshot.ok, true, "legacy request " + sequence + " must remain valid: " + legacySnapshot.errors.join(" | "));
+}
+
+
 const generalStorySources = filterGeneralStorySources([
   { id: "verified-story", audience: "general" },
   { id: "legacy-general-story" },

@@ -24,7 +24,19 @@ import { buildVideoSocialQueueUpdateFilter } from "../../src/features/social/ser
 import { resolveSocialPublishCutoff } from "../../src/features/social/services/facebook-queue-recovery-policy";
 import { calculateDailyVideoQuotaState } from "../../src/features/videos/services/video-automation-quota";
 import { resolveAutomatedVideoMode } from "../../src/features/videos/services/video-content-distribution";
-import { resolveNextVideoPublishAt, type VideoPublishScheduleRow } from "../../src/features/social/services/video-publishing-schedule";
+import { canReserveVideoPublishAt, resolveNextVideoPublishAt, type VideoPublishScheduleRow } from "../../src/features/social/services/video-publishing-schedule";
+import {
+  DEFAULT_PROMO_VIDEO_TIME_ZONE,
+  resolvePromotionalVideoScheduledAt,
+  resolvePromotionalVideoConcept,
+  resolveWeeklyPromoVideoTarget,
+  selectPromotionalVideoConcept,
+  selectUpcomingWeeklyPromoSlots,
+} from "../../src/features/videos/data/promotional-video-campaign";
+import { buildProphetEpisodeCandidate, validateProphetEpisodeForQueue } from "../../src/features/videos/data/prophet-story-series";
+import { HADY_SHOW } from "../../src/features/videos/shows/hady-show";
+import { SHOW_TOPIC_BACKGROUNDS } from "../../src/features/videos/shows/topic-backgrounds";
+import { validateHadyEpisodeForProduction, type HadyEpisode } from "../../src/features/videos/shows/episode-contract";
 import {
   buildContentPublishQueueRecoveryFilter,
   buildProcessingVideoRequestLeaseFilter,
@@ -244,6 +256,30 @@ function siteUrl() {
   return getServerEnv().NEXT_PUBLIC_SITE_URL;
 }
 
+function resolveScheduledPromotionalConcept(content: Record<string, unknown>) {
+  const key = typeof content.automationKey === "string" ? content.automationKey.split(":") : [];
+  if (key.length !== 4 || (key[0] !== "promo-weekly" && key[0] !== "promo-manual")) return null;
+  const localDate = key[1];
+  const slot = Number(key[2]);
+  const timeZone = typeof content.promoScheduleTimeZone === "string" ? content.promoScheduleTimeZone : "";
+  if (!timeZone.trim()) return null;
+  let scheduledAt: Date | null;
+  try {
+    scheduledAt = resolvePromotionalVideoScheduledAt(localDate, slot, timeZone);
+  } catch {
+    return null;
+  }
+  if (!scheduledAt || content.promoScheduledAt !== scheduledAt.toISOString()) return null;
+  const day = Math.floor(Date.parse(`${localDate}T00:00:00.000Z`) / 86_400_000);
+  if (!Number.isSafeInteger(day) || !Number.isSafeInteger(slot) || slot < 0) return null;
+  const concept = key[0] === "promo-manual"
+    ? resolvePromotionalVideoConcept(key[3])
+    : selectPromotionalVideoConcept(day, slot);
+  if (!concept || concept.key !== key[3] || concept.key !== content.campaignKey ||
+      concept.variationIndex !== content.campaignVariant) return null;
+  return concept;
+}
+
 type BoundTemplateVersion = {
   label: string;
   config: NonNullable<ReturnType<typeof parseVideoTemplateConfig>>;
@@ -311,6 +347,12 @@ async function bindTemplateVersion(request: GeneratedRequest): Promise<BoundTemp
 
 function backgroundAsset(scene: AiVideoPlan["scene"], content?: Record<string, unknown>) {
   const audience: VideoTemplateAudience = content?.audience === "kids" ? "kids" : "general";
+  if (content?.workflow === "hady-program" && content.hadyShowId === HADY_SHOW.id) {
+    const requested = typeof content.visualBackground === "string" ? content.visualBackground : "";
+    const approved = new Set(Object.values(SHOW_TOPIC_BACKGROUNDS).flatMap((entry) => [entry.primary, ...entry.alternates]));
+    if (approved.has(requested as never)) return "public/video/templates/" + requested + ".svg";
+    return "public/video/templates/calm.svg";
+  }
   if (content?.workflow === "layl-program" && content.programId === LAYL_PROGRAM_ID) {
     const episodeBackground = typeof content.visualBackground === "string" ? content.visualBackground : "";
     if (episodeBackground && isVideoTemplateAssetAllowedForAudience(episodeBackground as VideoTemplateAsset, audience)) {
@@ -345,6 +387,29 @@ async function renderBackground(temp: string, scene: AiVideoPlan["scene"], width
   const source = path.join(process.cwd(), backgroundAsset(scene, content));
   const output = path.join(temp, "background.png");
   await execFileAsync("rsvg-convert", ["-w", String(width), "-h", String(height), source, "-o", output], { maxBuffer: 2 * 1024 * 1024, signal });
+  if (content?.workflow === "hady-program" && content.hadyShowId === HADY_SHOW.id) {
+    const closedSource = path.join(process.cwd(), HADY_SHOW.host.artwork.closed);
+    const openSource = path.join(process.cwd(), HADY_SHOW.host.artwork.open);
+    const closedOutput = path.join(temp, "hady-mouth-closed.png");
+    const openOutput = path.join(temp, "hady-mouth-open.png");
+    const animatedOutput = path.join(temp, "hady-host-loop.mp4");
+    await Promise.all([
+      execFileAsync("rsvg-convert", ["-w", String(width), "-h", String(height), closedSource, "-o", closedOutput], { maxBuffer: 2 * 1024 * 1024, signal }),
+      execFileAsync("rsvg-convert", ["-w", String(width), "-h", String(height), openSource, "-o", openOutput], { maxBuffer: 2 * 1024 * 1024, signal }),
+    ]);
+    const duration = Math.max(105, Math.min(135, Number(content.maxDurationSeconds) || 120));
+    await execFileAsync("ffmpeg", [
+      "-y",
+      "-loop", "1", "-framerate", "30", "-i", output,
+      "-loop", "1", "-framerate", "30", "-i", closedOutput,
+      "-loop", "1", "-framerate", "30", "-i", openOutput,
+      "-filter_complex", "[0:v][1:v]overlay=0:0:format=auto[closed];[closed][2:v]overlay=0:0:format=auto:enable='lt(mod(t,0.36),0.18)'[v]",
+      "-map", "[v]", "-t", String(duration), "-r", "30",
+      "-an", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-pix_fmt", "yuv420p",
+      animatedOutput,
+    ], { maxBuffer: 8 * 1024 * 1024, signal });
+    return animatedOutput;
+  }
   if (content?.workflow === "layl-program" && content.programId === LAYL_PROGRAM_ID) {
     const characterSource = path.join(process.cwd(), "public/video/templates/layl-character.svg");
     const characterOutput = path.join(temp, "layl-character.png");
@@ -740,12 +805,115 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
   }
 }
 
+async function seedWeeklyPromotionalVideoRequests(now: Date): Promise<number> {
+  const target = resolveWeeklyPromoVideoTarget(process.env.PROMO_VIDEO_WEEKLY_TARGET);
+  if (target === 0) return 0;
+  const timeZone = process.env.PROMO_VIDEO_TIMEZONE?.trim() || DEFAULT_PROMO_VIDEO_TIME_ZONE;
+  let slots: ReturnType<typeof selectUpcomingWeeklyPromoSlots>;
+  try {
+    // A zero-minute lead lets a recovered worker still enqueue the approved slot;
+    // scheduled_at remains authoritative even if rendering finishes after the slot.
+    slots = selectUpcomingWeeklyPromoSlots(now, timeZone, target, 0);
+  } catch (error) {
+    console.error("[template-video] Invalid weekly promo schedule configuration:", error instanceof Error ? error.message : String(error));
+    return 0;
+  }
+
+  let created = 0;
+  for (const publishSlot of slots) {
+    if (await isVideoGenerationPaused()) break;
+    const day = Math.floor(Date.parse(`${publishSlot.localDate}T00:00:00.000Z`) / 86_400_000);
+    const concept = selectPromotionalVideoConcept(day, publishSlot.slot);
+    const automationKey = `promo-weekly:${publishSlot.localDate}:${publishSlot.slot}:${concept.key}`;
+    if (await findByAutomationKey("video_generation_requests", automationKey)) continue;
+
+    const featureUrl = `${siteUrl()}${concept.featurePath}`;
+    const downloadUrl = `${siteUrl()}${concept.ctaPath}`;
+    const content: Record<string, unknown> = {
+      renderer: "template",
+      type: "promotional_product_video",
+      sourceType: "marketing",
+      sourceId: `promo:${concept.key}:${publishSlot.localDate}:${publishSlot.slot}`,
+      sourceUrl: featureUrl,
+      sourceLabel: "محتوى ترويجي أصلي من منصة ذِكر — عرض لمزايا الموقع والتطبيق",
+      campaignKey: concept.key,
+      campaignVariant: concept.variationIndex,
+      campaignFeature: concept.featureKey,
+      campaignFeaturePath: concept.featurePath,
+      campaignCtaPath: concept.ctaPath,
+      hook: concept.hook,
+      ctaUrl: downloadUrl,
+      textAr: concept.narration,
+      publicPath: concept.featurePath,
+      visualTheme: concept.visualTheme,
+      automationKey,
+      promoScheduleTimeZone: publishSlot.timeZone,
+      promoScheduledAt: publishSlot.scheduledAt,
+      aiMode: "marketing_promo",
+      aiProviderHint: publishSlot.slot === 0 ? "hf_ltx_fast" : "hf_wan",
+      voiceProfile: "egyptian_male_story",
+    };
+    const payload: Record<string, unknown> = {
+      title: concept.title,
+      description: concept.description,
+      category: "other",
+      content,
+      duration: TARGET_VIDEO_SECONDS,
+      status: "pending",
+      automation_key: automationKey,
+    };
+    const contentHash = videoContentHash({
+      category: "other",
+      sourceId: String(content.sourceId),
+      text: concept.narration,
+      format: engineConfig().defaultFormat,
+      templateVersion: VIDEO_TEMPLATE_VERSION,
+      language: "ar",
+      style: concept.visualTheme,
+    });
+    const sourceHashValue = sourceHash({ sourceId: String(content.sourceId), sourceUrl: featureUrl, text: concept.narration });
+    payload.content = { ...content, contentHash, sourceHash: sourceHashValue, templateVersion: VIDEO_TEMPLATE_VERSION };
+
+    if (engineConfig().dryRun) {
+      console.log(`[template-video] dry-run planned ${automationKey} at ${publishSlot.scheduledAt}`);
+      created += 1;
+      continue;
+    }
+
+    try {
+      await supabaseServerAdminRequest("/rest/v1/video_generation_requests", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          ...payload,
+          content_hash: contentHash,
+          source_hash: sourceHashValue,
+          provider: "template",
+          template_version: VIDEO_TEMPLATE_VERSION,
+        }),
+      });
+      console.log(`[template-video] Seeded promo ${automationKey} for ${publishSlot.scheduledAt} (${publishSlot.timeZone}).`);
+      created += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const duplicateAutomationKey = message.includes("duplicate key value violates unique constraint") && message.toLowerCase().includes("automation_key");
+      if (isContentHashConflict(error) || duplicateAutomationKey) {
+        console.info(`[template-video] Promo slot already exists for ${publishSlot.localDate}/${publishSlot.slot}; skipped duplicate.`);
+        continue;
+      }
+      console.error(`[template-video] Could not seed promo slot ${publishSlot.localDate}/${publishSlot.slot}:`, message.slice(0, 500));
+    }
+  }
+  return created;
+}
+
 export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   if (process.env.AUTO_VIDEO_ENABLED?.toLowerCase() === "false") return 0;
   if (await isVideoGenerationPaused()) return 0;
   const now = new Date();
   const day = dayIndex(now);
   let created = await seedWeeklyLaylEpisodeRequest(now);
+  created += await seedWeeklyPromotionalVideoRequests(now);
 
   // Daily quota: keys are unique per UTC day (kind:day:counter) so every run can create new
   // videos, and the DAILY_VIDEO_TARGET is spread evenly across the day instead of bursting.
@@ -1219,6 +1387,30 @@ export function assertKidsStoryContract(request: GeneratedRequest) {
     throw new Error("Child-directed video requires a defined learning objective.");
   }
   const normalizedText = text.normalize("NFC").trim();
+  if (content.workflow === "prophet-story") {
+    const candidate = buildProphetEpisodeCandidate(String(content.prophetId ?? ""), Number(content.prophetBeatSequence));
+    const review = content.prophetSourceReview && typeof content.prophetSourceReview === "object"
+      ? content.prophetSourceReview as Record<string, unknown>
+      : null;
+    const reviewResult = candidate
+      ? validateProphetEpisodeForQueue(candidate, review as Parameters<typeof validateProphetEpisodeForQueue>[1])
+      : { ok: false, errors: ["Source-locked prophet research candidate was not found."] };
+    if (!candidate || !reviewResult.ok ||
+        normalizedText !== candidate.researchSummaryAr.normalize("NFC").trim() ||
+        content.sourceId !== candidate.id ||
+        content.sourceUrl !== candidate.sourceUrls[0] ||
+        content.seriesId !== candidate.seriesId ||
+        content.seriesTitle !== candidate.seriesTitleAr ||
+        content.visualTheme !== "kids-nature" ||
+        content.clayVisualGuidance !== candidate.clayVisualGuidance ||
+        JSON.stringify(content.prophetVisualRules) !== JSON.stringify(candidate.visualRules)) {
+      throw new Error("Prophet story is not the same fully human-reviewed Quran-first research candidate: " + reviewResult.errors.join(" | "));
+    }
+    if (hasSuspiciousReligiousAttribution(normalizedText) || /https?:\/\//i.test(normalizedText)) {
+      throw new Error("Prophet story narration contains unsupported attribution or a raw source URL.");
+    }
+    return;
+  }
   if (normalizedText.length < 180 || normalizedText.length > 1500 || !normalizedText.includes("؟")) {
     throw new Error("Child-directed narration must be a short complete story ending with a question.");
   }
@@ -1331,6 +1523,74 @@ export async function validateSourceContent(request: GeneratedRequest) {
   const content = request.content || {};
   const text = contentText(request);
   if (!text) throw new Error("Template video requires text/script/narration content.");
+  if (content.workflow === "hady-program") {
+    const episode = content.hadyEpisode as HadyEpisode | undefined;
+    const reference = content.hadySourceReference && typeof content.hadySourceReference === "object"
+      ? content.hadySourceReference as Record<string, unknown>
+      : null;
+    const review = content.hadyReview && typeof content.hadyReview === "object"
+      ? content.hadyReview as Record<string, unknown>
+      : null;
+    const backgroundSet = new Set(Object.values(SHOW_TOPIC_BACKGROUNDS).flatMap((entry) => [entry.primary, ...entry.alternates]));
+    const episodeCheck = episode
+      ? validateHadyEpisodeForProduction(episode, backgroundSet)
+      : { ok: false, errors: ["Hady episode snapshot is missing."] };
+    if (
+      request.category !== "other" ||
+      content.hadyShowId !== HADY_SHOW.id ||
+      !episode ||
+      episode.titleAr !== request.title ||
+      episode.theme !== content.theme ||
+      episode.background !== content.visualBackground ||
+      review?.status !== "approved" ||
+      typeof review.reviewer !== "string" ||
+      !review.reviewer.trim() ||
+      review.reviewer.startsWith("system:") ||
+      !review.reviewedAt ||
+      !Number.isFinite(Date.parse(String(review.reviewedAt))) ||
+      !episode.review ||
+      episode.review.reviewer !== review.reviewer ||
+      episode.review.reviewedAt !== review.reviewedAt ||
+      !reference ||
+      reference.id !== content.sourceId ||
+      reference.url !== content.sourceUrl ||
+      typeof reference.label !== "string" ||
+      !reference.label.trim() ||
+      !["hadith", "story"].includes(String(reference.category)) ||
+      !episodeCheck.ok ||
+      text !== episode.segments.map((segment) => segment.text).join("\\n\\n")
+    ) {
+      throw new Error("Hady episode failed server-side source, five-part script, Egyptian dialect, duration or human-review validation: " + episodeCheck.errors.join(" | "));
+    }
+    const sourceCategory = reference.category as "hadith" | "story";
+    const source = await resolveVideoSource(sourceCategory, String(reference.id));
+    if (
+      !source ||
+      source.id !== reference.id ||
+      source.sourceUrl !== reference.url ||
+      source.sourceLabel !== reference.label ||
+      content.sourceId !== source.id ||
+      content.sourceUrl !== source.sourceUrl ||
+      !episode.segments[2]?.sourceRefs?.some((sourceRef) =>
+        sourceRef.verified &&
+        sourceRef.reference === source.id &&
+        sourceRef.kind === (sourceCategory === "hadith" ? "hadith" : "seerah"),
+      )
+    ) {
+      throw new Error("Hady episode source is missing, unpublished, or no longer matches the reviewed source reference.");
+    }
+    request.content = {
+      ...content,
+      sourceId: source.id,
+      sourceUrl: source.sourceUrl,
+      sourceLabel: "برنامج دقيقتين مع هادي — نص محرر راجع مصدره",
+      textAr: text,
+      audience: "general",
+      voiceProfile: HADY_SHOW.host.hostVoiceProfile,
+      maxDurationSeconds: 135,
+    };
+    return;
+  }
   if (["quran", "hadith", "dua", "adhkar", "story"].includes(request.category)) {
     let sourceId =
       typeof content.sourceId === "string"
@@ -1484,7 +1744,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
   throwIfVideoLeaseAborted(signal);
   const renderStartedAt = Date.now();
   const isLaylProgram = request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl";
-  const maxDurationSeconds = isLaylProgram ? 120 : MAX_AUTO_VIDEO_SECONDS;
+  const isHadyProgram = request.content?.workflow === "hady-program" && request.content?.hadyShowId === HADY_SHOW.id;
+  const isProphetStoryRequest = request.content?.workflow === "prophet-story" && request.content?.audience === "kids";
+  const maxDurationSeconds = isHadyProgram ? 135 : isLaylProgram ? 120 : MAX_AUTO_VIDEO_SECONDS;
   await validateSourceContent(request);
   throwIfVideoLeaseAborted(signal);
   const boundTemplate = await bindTemplateVersion(request);
@@ -1530,13 +1792,13 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     const isTemplatePreview = request.content.templatePreview === true;
     let aiPlan: AiVideoPlan = { ...DEFAULT_AI_VIDEO_PLAN };
     try {
-      if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal);
+      if (!isTemplatePreview && !isLaylProgram && !isHadyProgram && !isProphetStoryRequest) aiPlan = await generateAiVideoPlan(request, signal);
       throwIfVideoLeaseAborted(signal);
       request.content = {
         ...request.content,
         ai: {
-          provider: isTemplatePreview ? "template-preview" : isLaylProgram ? "layl-local-template" : aiPlanEnabled() ? "google-gemini" : "deterministic-fallback",
-          model: !isTemplatePreview && !isLaylProgram && aiPlanEnabled() ? (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite").trim() : null,
+          provider: isTemplatePreview ? "template-preview" : isLaylProgram ? "layl-local-template" : isHadyProgram ? "hady-local-cartoon" : isProphetStoryRequest ? "source-locked-symbolic-template" : aiPlanEnabled() ? "google-gemini" : "deterministic-fallback",
+          model: !isTemplatePreview && !isLaylProgram && !isHadyProgram && !isProphetStoryRequest && aiPlanEnabled() ? (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite").trim() : null,
           reflection: aiPlan.reflection || null,
           socialCaption: aiPlan.socialCaption || null,
           scene: aiPlan.scene,
@@ -1584,9 +1846,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     const isVertical = height >= width;
 
     const narrationProfile = narrationProfileForRequest(request);
-    const ttsVoice = (isLaylProgram ? narrationProfile.voice : process.env.ARABIC_TTS_VOICE?.trim() || narrationProfile.voice) ?? "";
-    const ttsRate = isLaylProgram ? narrationProfile.rate : process.env.ARABIC_TTS_RATE?.trim() || narrationProfile.rate;
-    const ttsPitch = isLaylProgram ? narrationProfile.pitch : process.env.ARABIC_TTS_PITCH?.trim() || narrationProfile.pitch;
+    const ttsVoice = (isLaylProgram || isHadyProgram ? narrationProfile.voice : process.env.ARABIC_TTS_VOICE?.trim() || narrationProfile.voice) ?? "";
+    const ttsRate = isLaylProgram || isHadyProgram ? narrationProfile.rate : process.env.ARABIC_TTS_RATE?.trim() || narrationProfile.rate;
+    const ttsPitch = isLaylProgram || isHadyProgram ? narrationProfile.pitch : process.env.ARABIC_TTS_PITCH?.trim() || narrationProfile.pitch;
     const narrationText = contentText(request);
     const narrationTextQuality = evaluateArabicNarrationText(narrationText, request.category);
     if (!narrationTextQuality.ok) {
@@ -1626,6 +1888,8 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     if (
       !isTemplatePreview &&
       !isLaylProgram &&
+      !isHadyProgram &&
+      !isProphetStoryRequest &&
       !boundTemplate &&
       engineConfig().aiEnabled &&
       engineConfig().order.some((provider) => provider !== "template") &&
@@ -1704,6 +1968,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       };
     }
     const backgroundPath = aiVideoPath || await renderBackground(temp, scene, width, height, request.content, signal);
+    const animatedBackground = isHadyProgram && !aiVideoPath;
     throwIfVideoLeaseAborted(signal);
     let audioKind = contentAudioKind(request, audioUrl);
     if (audioUrl) {
@@ -1793,7 +2058,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       "zoompan=z='min(zoom+" + composition.zoomIncrement + ",1.06)':x='(iw-iw/zoom)*" +
       cameraX + "':y='(ih-ih/zoom)*" + cameraY +
       "':d=1:s=" + width + "x" + height + ":fps=30";
-    const sourceFilter = aiVideoPath
+    const sourceFilter = aiVideoPath || animatedBackground
       ? `fps=30,scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1,${cameraFilter}`
       : cameraFilter;
     const filter = [
@@ -1810,7 +2075,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       "format=yuv420p",
     ].join(",");
     const args = [
-      "-y", ...(aiVideoPath ? ["-stream_loop", "-1", "-i", backgroundPath] : ["-loop", "1", "-framerate", "30", "-i", backgroundPath]), "-i", audioPath,
+      "-y", ...(aiVideoPath || animatedBackground ? ["-stream_loop", "-1", "-i", backgroundPath] : ["-loop", "1", "-framerate", "30", "-i", backgroundPath]), "-i", audioPath,
       "-map", "0:v:0",
       "-map", "1:a:0",
       "-t", duration.toFixed(2),
@@ -1938,6 +2203,27 @@ export function buildAutomatedVideoQaChecklist(
     content.sourceType === "editorial" &&
     sourceLabel === "محتوى تحريري أصلي من منصة ذِكر" &&
     !hasSuspiciousReligiousAttribution(contentText(request));
+  const promoConcept = resolveScheduledPromotionalConcept(content);
+  const isOriginalPromo = content.audience !== "kids" &&
+    category === "other" &&
+    content.type === "promotional_product_video" &&
+    content.aiMode === "marketing_promo" &&
+    content.sourceType === "marketing" &&
+    Boolean(promoConcept) &&
+    content.campaignFeature === promoConcept?.featureKey &&
+    content.campaignFeaturePath === promoConcept?.featurePath &&
+    content.campaignCtaPath === promoConcept?.ctaPath &&
+    content.hook === promoConcept?.hook &&
+    request.title === promoConcept?.title &&
+    request.description === promoConcept?.description &&
+    content.publicPath === promoConcept?.featurePath &&
+    sourceId === `promo:${promoConcept?.key}:${String(content.automationKey ?? "").split(":")[1]}:${String(content.automationKey ?? "").split(":")[2]}` &&
+    sourceUrl === `${siteUrl()}${promoConcept?.featurePath}` &&
+    content.ctaUrl === `${siteUrl()}${promoConcept?.ctaPath}` &&
+    contentText(request) === promoConcept?.narration &&
+    sourceLabel === "محتوى ترويجي أصلي من منصة ذِكر — عرض لمزايا الموقع والتطبيق" &&
+    /^https:\/\//i.test(sourceUrl) &&
+    !hasSuspiciousReligiousAttribution(contentText(request));
   const laylEpisode = content.workflow === "layl-program" &&
     content.programId === LAYL_PROGRAM_ID &&
     content.seriesId === LAYL_PROGRAM_ID &&
@@ -1957,9 +2243,58 @@ export function buildAutomatedVideoQaChecklist(
     Boolean(laylEpisode) &&
     !hasSuspiciousReligiousAttribution(contentText(request));
   const isLaylProgram = Boolean(isVerifiedLaylEditorial);
+  const hadyReview = content.hadyReview && typeof content.hadyReview === "object"
+    ? content.hadyReview as Record<string, unknown>
+    : {};
+  const hadySource = content.hadySourceReference && typeof content.hadySourceReference === "object"
+    ? content.hadySourceReference as Record<string, unknown>
+    : {};
+  const hadyEpisode = content.hadyEpisode && typeof content.hadyEpisode === "object"
+    ? content.hadyEpisode as Record<string, unknown>
+    : {};
+  const isVerifiedHadyEditorial = category === "other" &&
+    content.workflow === "hady-program" &&
+    content.hadyShowId === HADY_SHOW.id &&
+    content.aiMode === "hady_program" &&
+    content.sourceType === "editorial" &&
+    content.voiceProfile === HADY_SHOW.host.hostVoiceProfile &&
+    hadyReview.status === "approved" &&
+    typeof hadyReview.reviewer === "string" && Boolean(hadyReview.reviewer.trim()) &&
+    !hadyReview.reviewer.startsWith("system:") &&
+    typeof hadyReview.reviewedAt === "string" && Number.isFinite(Date.parse(hadyReview.reviewedAt)) &&
+    hadySource.id === content.sourceId &&
+    hadySource.url === content.sourceUrl &&
+    typeof hadySource.label === "string" && Boolean(hadySource.label.trim()) &&
+    /^https:\/\//i.test(String(hadySource.url ?? "")) &&
+    Array.isArray(hadyEpisode.segments) && hadyEpisode.segments.length === HADY_SHOW.segments.length &&
+    !hasSuspiciousReligiousAttribution(contentText(request));
+  const prophetReview = content.prophetSourceReview && typeof content.prophetSourceReview === "object"
+    ? content.prophetSourceReview as Record<string, unknown>
+    : null;
+  const prophetCandidate = content.workflow === "prophet-story"
+    ? buildProphetEpisodeCandidate(String(content.prophetId ?? ""), Number(content.prophetBeatSequence))
+    : null;
+  const prophetValidation = prophetCandidate
+    ? validateProphetEpisodeForQueue(prophetCandidate, prophetReview as Parameters<typeof validateProphetEpisodeForQueue>[1])
+    : { ok: false, errors: [] as string[] };
+  const isVerifiedProphetStory = category === "other" &&
+    content.audience === "kids" &&
+    content.workflow === "prophet-story" &&
+    content.aiMode === "source_locked" &&
+    content.sourceType === "prophet_story" &&
+    Boolean(prophetCandidate) &&
+    prophetValidation.ok &&
+    sourceId === prophetCandidate?.id &&
+    contentText(request) === prophetCandidate?.researchSummaryAr &&
+    sourceUrl === prophetCandidate?.sourceUrls[0] &&
+    content.seriesId === prophetCandidate?.seriesId &&
+    content.seriesTitle === prophetCandidate?.seriesTitleAr &&
+    content.clayVisualGuidance === prophetCandidate?.clayVisualGuidance &&
+    JSON.stringify(content.prophetVisualRules) === JSON.stringify(prophetCandidate?.visualRules) &&
+    content.visualTheme === "kids-nature";
   const sourceVerified = sourceCategories.has(category)
     ? Boolean(sourceId && /^https:\/\//i.test(sourceUrl) && sourceLabel.trim() && render.sourceLocked === true)
-    : isKidsSeries || isOriginalEditorial || isVerifiedLaylEditorial;
+    : isKidsSeries || isVerifiedProphetStory || isOriginalEditorial || isOriginalPromo || isVerifiedLaylEditorial || isVerifiedHadyEditorial;
 
   const audioKind = typeof audio.kind === "string" ? audio.kind : "";
   const voiceProfile = typeof audio.voiceProfile === "string" ? audio.voiceProfile : "";
@@ -1969,6 +2304,7 @@ export function buildAutomatedVideoQaChecklist(
   ]);
   const audioReviewed = approvedVoiceProfiles.has(voiceProfile) &&
     (!isLaylProgram || voiceProfile === LAYL_VOICE_PROFILE) &&
+    (!isVerifiedHadyEditorial || voiceProfile === HADY_SHOW.host.hostVoiceProfile) &&
     (category === "quran"
       ? audioKind === "verified_quran_recitation"
       : audioKind === "arabic_tts_narration" ||
@@ -1989,7 +2325,7 @@ export function buildAutomatedVideoQaChecklist(
     typeof media.publicId === "string" && Boolean(media.publicId.trim()) &&
     Number(media.bytes) >= 1024;
   const renderDuration = Number(render.durationSeconds);
-  const maximumReviewedDuration = isLaylProgram ? 120 : 60;
+  const maximumReviewedDuration = isLaylProgram ? 120 : isVerifiedHadyEditorial ? 135 : 60;
   const resolutionValid = render.resolution === "1080x1920" || render.resolution === "1920x1080";
   const visualAudience: VideoTemplateAudience = content.audience === "kids" ? "kids" : "general";
   const visualTheme = typeof content.visualTheme === "string" ? content.visualTheme : "";
@@ -2046,7 +2382,13 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
   const content = request.content ?? {};
   const ai = content.ai && typeof content.ai === "object" ? content.ai as Record<string, unknown> : {};
   const generatedCaption = typeof ai.socialCaption === "string" ? ai.socialCaption.trim() : "";
-  const hook = resolveDeterministicVideoHook({
+  const promoConcept = resolveScheduledPromotionalConcept(content);
+  const promoCta = promoConcept && content.sourceType === "marketing" &&
+    content.aiMode === "marketing_promo" &&
+    content.ctaUrl === `${siteUrl()}${promoConcept.ctaPath}`
+    ? "نزّل تطبيق ذِكر لأندرويد من الرابط الرسمي: " + String(content.ctaUrl)
+    : "";
+  const hook = promoConcept?.hook ?? resolveDeterministicVideoHook({
     id: request.id,
     category: request.category,
     audience: content.audience,
@@ -2060,7 +2402,7 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
     dua: "احفظ الدعاء وارجع إليه وقت الحاجة.",
     adhkar: "اجعل الذكر جزءًا ثابتًا من يومك.",
     story: "تابع القصة وشارك العبرة.",
-    other: content.audience === "kids" ? "شارك الحلقة مع الأسرة وتحدثوا عن فكرتها." : "احفظ الرسالة وشاركها لمن قد تنفعه.",
+    other: promoConcept ? "" : content.workflow === "hady-program" ? "تابع برنامج دقيقتين مع هادي." : content.audience === "kids" ? "شارك الحلقة مع الأسرة وتحدثوا عن فكرتها." : "احفظ الرسالة وشاركها لمن قد تنفعه.",
   };
   const tags: Record<string, string> = {
     quran: "#القرآن_الكريم #تدبر",
@@ -2077,6 +2419,7 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
     hook,
     request.title.trim(),
     generatedCaption || request.description?.trim() || "",
+    promoCta,
     callToAction[request.category] ?? callToAction.other,
     visualDisclosure,
     tags[request.category] ?? tags.other,
@@ -2230,6 +2573,16 @@ async function registerGeneratedVideoOnSite(
     qualityReview: request.content.qualityReview ?? null,
     contentFormat: typeof request.content.contentFormat === "string" ? request.content.contentFormat : null,
     aiMode: typeof request.content.aiMode === "string" ? request.content.aiMode : null,
+    workflow: typeof request.content.workflow === "string" ? request.content.workflow : null,
+    generationMode: typeof request.content.generationMode === "string" ? request.content.generationMode : null,
+    prophetId: typeof request.content.prophetId === "string" ? request.content.prophetId : null,
+    prophetBeatSequence: Number.isInteger(Number(request.content.prophetBeatSequence)) ? Number(request.content.prophetBeatSequence) : null,
+    prophetSourceReview: request.content.prophetSourceReview ?? null,
+    prophetVisualRules: request.content.prophetVisualRules ?? null,
+    clayVisualGuidance: request.content.clayVisualGuidance ?? null,
+    hadyShowId: request.content.hadyShowId ?? null,
+    hadyReview: request.content.hadyReview ?? null,
+    hadySourceReference: request.content.hadySourceReference ?? null,
     quality: {
       passed: true,
       checks: [
@@ -2248,7 +2601,7 @@ async function registerGeneratedVideoOnSite(
     description: request.description ?? null,
     youtube_id: null,
     thumbnail_url: resolveCloudinaryVideoPoster(rendered.videoUrl),
-    duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl" ? 120 : MAX_AUTO_VIDEO_SECONDS),
+    duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === "hady-program" ? 135 : request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl" ? 120 : MAX_AUTO_VIDEO_SECONDS),
     views: 0,
     published: false,
     category_id: categoryRows?.[0]?.id ?? null,
@@ -2484,6 +2837,21 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
         "&select=id,status,target_platforms,scheduled_at,published_at,created_at&order=created_at.desc&limit=1000" +
         excluded,
     );
+    const promoSlot = content.type === "promotional_product_video"
+      ? new Date(String(content.promoScheduledAt ?? ""))
+      : null;
+    if (
+      promoSlot &&
+      Number.isFinite(promoSlot.getTime()) &&
+      canReserveVideoPublishAt({
+        scheduledAt: promoSlot,
+        now: new Date(),
+        rows: rows ?? [],
+        targetPlatforms: queueTargets,
+        minimumLeadMinutes: 15,
+      })
+    ) return promoSlot.toISOString();
+
     const scheduledAt = resolveNextVideoPublishAt({
       now: new Date(),
       rows: rows ?? [],

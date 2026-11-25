@@ -134,3 +134,42 @@ export function resolveNextVideoPublishAt(input: {
   }
   return null;
 }
+
+
+/** Reserve a fixed weekly campaign slot without bypassing platform pacing or its daily cap. */
+export function canReserveVideoPublishAt(input: {
+  scheduledAt: string | Date;
+  now?: Date;
+  rows: readonly VideoPublishScheduleRow[];
+  targetPlatforms: readonly string[];
+  minimumLeadMinutes?: number;
+}): boolean {
+  const now = input.now ?? new Date();
+  const scheduled = input.scheduledAt instanceof Date ? input.scheduledAt : new Date(input.scheduledAt);
+  if (!Number.isFinite(now.getTime()) || !Number.isFinite(scheduled.getTime())) return false;
+  const platforms = [...new Set(input.targetPlatforms)];
+  if (platforms.length === 0 || platforms.some((platform) => !VALID_TARGETS.has(platform))) return false;
+  const leadMs = Math.max(0, input.minimumLeadMinutes ?? 15) * 60_000;
+  if (scheduled.getTime() < now.getTime() + leadMs) return false;
+
+  const dayKey = cairoDateKey(scheduled);
+  const candidateSlot = nearestSlotIndex(scheduled);
+  const dailyCounts = new Map<string, number>();
+  const occupiedPlatforms = new Set<string>();
+  for (const row of input.rows) {
+    if (!["queued", "partial", "processing", "published"].includes(row.status)) continue;
+    const at = rowReservationTime(row);
+    if (!at || cairoDateKey(at) !== dayKey) continue;
+    const sameWindow = Math.abs(at.getTime() - scheduled.getTime()) < SLOT_MATCH_TOLERANCE_MS;
+    const slotIndex = nearestSlotIndex(at);
+    for (const platform of row.target_platforms ?? []) {
+      if (!VALID_TARGETS.has(platform)) continue;
+      dailyCounts.set(platform, (dailyCounts.get(platform) ?? 0) + 1);
+      if (sameWindow || (candidateSlot !== null && slotIndex === candidateSlot)) occupiedPlatforms.add(platform);
+    }
+  }
+  return platforms.every((platform) =>
+    (dailyCounts.get(platform) ?? 0) < VIDEO_PUBLISH_DAILY_PLATFORM_LIMIT &&
+    !occupiedPlatforms.has(platform),
+  );
+}

@@ -69,7 +69,7 @@ export function resolveVideoSourceDisclosureLine(content: unknown, fallbackSourc
   const sourceType = normalizeMarker(record.sourceType);
   const sourceLabel = cleanString(record.sourceLabel);
   if (isOriginalKidsFiction(record)) return resolveOriginalKidsFictionSourceLabel(sourceLabel);
-  if (sourceType === "editorial") return resolveOriginalEditorialSourceLabel(sourceLabel);
+  if (sourceType === "editorial" || sourceType === "marketing") return resolveOriginalEditorialSourceLabel(sourceLabel);
   const sourceUrl = fallbackSourceUrl.trim();
   return sourceUrl ? "المصدر: " + sourceUrl : sourceLabel ?? "";
 }
@@ -88,7 +88,7 @@ export function resolveKidsVideoPublicDisclosure(
   const originalFiction = isOriginalKidsFiction(record);
   const normalizedSourceType = normalizeMarker(record.sourceType);
   const sourceType = originalFiction ? "original_kids_fiction" : normalizedSourceType || cleanString(record.sourceType);
-  const editorial = normalizedSourceType === "editorial";
+  const editorial = normalizedSourceType === "editorial" || normalizedSourceType === "marketing";
   const sourceLabel = originalFiction
     ? resolveOriginalKidsFictionSourceLabel(record.sourceLabel)
     : editorial

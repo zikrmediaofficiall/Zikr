@@ -134,6 +134,28 @@ for (const token of [
 ]) {
   if (!socialPublisher.includes(token)) failures.push(`social publisher missing automated delivery contract: ${token}`);
 }
+const promoCampaign = read("src/features/videos/data/promotional-video-campaign.ts");
+for (const token of ["DEFAULT_WEEKLY_PROMO_VIDEO_TARGET = 2", "Wednesday", "Friday", "selectUpcomingWeeklyPromoSlots", "resolvePromotionalVideoScheduledAt"]) {
+  if (!promoCampaign.includes(token)) failures.push("weekly promo calendar missing contract: " + token);
+}
+const hadyShow = read("src/features/videos/shows/hady-show.ts");
+const hadyContract = read("src/features/videos/shows/episode-contract.ts");
+for (const token of ["egyptian_male_story", "targetSeconds: 120", "maxSeconds: 135", "host-hady-open.svg", "host-hady-closed.svg"]) {
+  if (!hadyShow.includes(token)) failures.push("Hady show assets/voice/duration contract missing: " + token);
+}
+for (const token of ["validateHadyEpisodeForProduction", "FREE_TEXT_ATTRIBUTION", "RULING_TERMS", "human reviewer"]) {
+  if (!hadyContract.includes(token)) failures.push("Hady source/editorial safety contract missing: " + token);
+}
+const prophetSeries = read("src/features/videos/data/prophet-story-series.ts");
+for (const token of ["research_candidate_not_approved", "autoPublishEligible: false", "validateProphetEpisodeForQueue", "clayVisualGuidance"]) {
+  if (!prophetSeries.includes(token)) failures.push("Prophet story source-lock contract missing: " + token);
+}
+const advancedStudio = read("src/features/admin/video-studio/components/advanced-video-generators.tsx");
+for (const token of ["workflow: \"kids-series\"", "workflow: \"promo-campaign\"", "workflow: \"prophet-story\"", "workflow: \"hady-program\""]) {
+  if (!advancedStudio.includes(token)) failures.push("specialized video generator UI workflow missing: " + token);
+}
+const studioPage = read("src/features/admin/video-studio/components/admin-video-studio-client.tsx");
+if (!studioPage.includes("<AdvancedVideoGenerators />")) failures.push("specialized video generators must be mounted in the admin studio page");
 const approvalService = read("src/features/videos/services/video-publish-approval.ts");
 const kidsVideoPublication = read("src/features/videos/services/kids-video-publication.ts");
 const adminVideoRequestsClient = read("src/features/admin/video-requests/components/admin-video-requests-client.tsx");

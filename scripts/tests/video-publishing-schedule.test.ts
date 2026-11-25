@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  canReserveVideoPublishAt,
   resolveNextVideoPublishAt,
   VIDEO_PUBLISH_SLOTS,
 } from "../../src/features/social/services/video-publishing-schedule";
@@ -72,5 +73,31 @@ assert.equal(
   "2026-11-26T03:37:00.000Z",
   "Three off-slot manual videos must still exhaust the per-platform daily quota.",
 );
+const offSlot = (scheduled_at: string) => ({
+  ...occupied(scheduled_at),
+  target_platforms: ["youtube", "facebook_reels"],
+});
+assert.equal(canReserveVideoPublishAt({
+  now,
+  scheduledAt: "2026-11-25T15:00:00.000Z",
+  rows: [],
+  targetPlatforms: ["youtube", "facebook_reels"],
+}), true, "a future campaign slot may be reserved when daily capacity remains");
+assert.equal(canReserveVideoPublishAt({
+  now,
+  scheduledAt: "2026-11-25T15:00:00.000Z",
+  rows: [
+    offSlot("2026-11-25T05:30:00.000Z"),
+    offSlot("2026-11-25T09:00:00.000Z"),
+    offSlot("2026-11-25T14:00:00.000Z"),
+  ],
+  targetPlatforms: ["youtube", "facebook_reels"],
+}), false, "a campaign slot must not bypass the daily platform quota");
+assert.equal(canReserveVideoPublishAt({
+  now,
+  scheduledAt: "2026-11-25T02:00:00.000Z",
+  rows: [],
+  targetPlatforms: ["youtube"],
+}), false, "a past campaign slot must never become an immediate post");
 assert.equal(resolveNextVideoPublishAt({ now, rows: [], targetPlatforms: ["tiktok"] }), null);
 console.log("Cairo video publishing schedule tests passed.");

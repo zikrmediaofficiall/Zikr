@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { redirectToAdminStepUp } from "@/features/admin/utils/step-up-client";
 import LaylProgramPanel from "@/features/admin/video-studio/components/layl-program-panel";
+import AdvancedVideoGenerators from "@/features/admin/video-studio/components/advanced-video-generators";
 import {
   VIDEO_VOICE_PROFILES,
   getDefaultVideoVoiceProfile,
@@ -583,6 +584,8 @@ export default function AdminVideoStudioClient() {
       </header>
 
       <LaylProgramPanel />
+
+      <AdvancedVideoGenerators />
 
       <Card className="border-brand-gold/20 bg-brand-gold/5 p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

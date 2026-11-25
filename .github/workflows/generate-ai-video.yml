@@ -49,6 +49,8 @@ jobs:
       YOUTUBE_PUBLISHING_REQUESTED: ${{ vars.YOUTUBE_PUBLISHING_ENABLED || 'true' }}
       AUTO_VIDEO_BATCH_SIZE: ${{ inputs.batch_size || '3' }}
       DAILY_VIDEO_TARGET: "3"
+      PROMO_VIDEO_WEEKLY_TARGET: "2"
+      PROMO_VIDEO_TIMEZONE: "Africa/Cairo"
       AUTO_VIDEO_URGENT: ${{ inputs.urgent || 'false' }}
       VIDEO_DAILY_LIMIT: "24"
       VIDEO_AUTOMATION_DRY_RUN: "false"

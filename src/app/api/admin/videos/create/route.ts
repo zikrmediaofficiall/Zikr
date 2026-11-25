@@ -14,6 +14,13 @@ import { versionedTemplateLabel } from "@/features/videos/services/video-templat
 import { resolveVideoResolution } from "@/features/videos/services/video-render-contract";
 import { isReadyAdminNarrationAsset, parseAdminNarrationAssetUrl } from "@/features/media/services/video-audio-source";
 import { LAYL_EPISODES, LAYL_PROGRAM_ID } from "@/features/videos/data/layl-program";
+import { buildKidsSeriesEpisode, validateCanonicalKidsEpisodeSnapshot } from "@/features/videos/data/kids-story-factory";
+import { buildProphetEpisodeCandidate, validateProphetEpisodeForQueue } from "@/features/videos/data/prophet-story-series";
+import { HADY_SHOW } from "@/features/videos/shows/hady-show";
+import { SHOW_TOPIC_BACKGROUNDS, SHOW_TOPIC_THEMES, backgroundForTheme } from "@/features/videos/shows/topic-backgrounds";
+import { validateHadyEpisodeForProduction, type HadyEpisode } from "@/features/videos/shows/episode-contract";
+import { resolvePromotionalVideoScheduledAt, resolvePromotionalVideoConcept, DEFAULT_PROMO_VIDEO_TIME_ZONE } from "@/features/videos/data/promotional-video-campaign";
+import { getServerEnv } from "@/lib/env";
 
 const VALID_CATEGORIES = [
   "quran",
@@ -185,7 +192,8 @@ export async function POST(request: NextRequest) {
       const candidate =
         typeof body.narration === "string" ? body.narration : "";
       narration = candidate.replace(/\s+/g, " ").trim();
-      if (narration.length < 30 || narration.length > 2500) {
+      const maxNarrationLength = content.workflow === "hady-program" ? 7000 : 2500;
+      if (narration.length < 30 || narration.length > maxNarrationLength) {
         return NextResponse.json(
           { error: "النص العام يجب أن يكون بين 30 و2500 حرف." },
           { status: 400 }
@@ -199,6 +207,262 @@ export async function POST(request: NextRequest) {
         prompt: narration,
         aiMode: "general_reminder",
       };
+    }
+
+
+    if (content.workflow === "kids-series") {
+      const sequence = Number(submittedContent.factorySequence);
+      const episode = buildKidsSeriesEpisode(sequence);
+      const snapshot = validateCanonicalKidsEpisodeSnapshot({
+        factorySequence: sequence,
+        sourceId: submittedContent.sourceId,
+        text: typeof body.narration === "string" ? body.narration : submittedContent.textAr,
+        seriesId: submittedContent.seriesId,
+        seasonNumber: submittedContent.seasonNumber,
+        episodeNumber: submittedContent.episodeNumber,
+        learningObjective: submittedContent.learningObjective,
+      });
+      if (!snapshot.ok) {
+        return NextResponse.json({ error: "قصة الأطفال لا تطابق الحلقة الأصلية المعتمدة: " + snapshot.errors.join(" | ") }, { status: 422 });
+      }
+      content = {
+        ...content,
+        type: "kids_story_episode",
+        sourceType: "original_kids_fiction",
+        sourceId: episode.sourceId,
+        sourceUrl: `${getServerEnv().NEXT_PUBLIC_SITE_URL}/kids`,
+        sourceLabel: "قصة تربوية خيالية أصلية من ذِكر — ليست آية أو حديثًا أو واقعة تاريخية.",
+        textAr: episode.text,
+        text: episode.text,
+        script: episode.text,
+        prompt: episode.text,
+        audience: "kids",
+        contentFormat: "series_episode",
+        seriesId: episode.seriesId,
+        seriesTitle: episode.seriesTitle,
+        seasonNumber: episode.seasonNumber,
+        episodeNumber: episode.episodeNumber,
+        episodeTitle: episode.episodeTitle,
+        ageGroup: episode.ageGroup,
+        learningObjective: episode.learningObjective,
+        visualTheme: episode.visualTheme,
+        style: episode.visualTheme,
+        generationMode: episode.generationMode,
+        factorySequence: sequence,
+        voiceProfile: "kids_friendly",
+        publicPath: "/kids",
+        aiMode: "original_kids_story",
+      };
+      narration = episode.text;
+    }
+
+    if (content.workflow === "prophet-story") {
+      if (category !== "other") {
+        return NextResponse.json({ error: "قصص الأنبياء تُنشأ عبر مسار قصص الأنبياء المراجع فقط." }, { status: 422 });
+      }
+      const prophetId = typeof submittedContent.prophetId === "string" ? submittedContent.prophetId : "";
+      const beatSequence = Number(submittedContent.beatSequence);
+      const candidate = buildProphetEpisodeCandidate(prophetId, beatSequence);
+      const verifiedReferences = Array.isArray(submittedContent.verifiedReferences)
+        ? submittedContent.verifiedReferences.filter((value): value is string => typeof value === "string")
+        : [];
+      const review = {
+        status: "approved" as const,
+        reviewerId: auth.profile.id,
+        reviewedAt: new Date().toISOString(),
+        sourceReferencesVerified: verifiedReferences,
+        unsupportedDetailsRemoved: submittedContent.unsupportedDetailsRemoved === true,
+        scriptReviewed: submittedContent.scriptReviewed === true,
+        childSafetyReviewed: submittedContent.childSafetyReviewed === true,
+        symbolicClayVisualsReviewed: submittedContent.symbolicClayVisualsReviewed === true,
+      };
+      if (!candidate) {
+        return NextResponse.json({ error: "مشهد قصة الأنبياء غير موجود في سجل البحث." }, { status: 404 });
+      }
+      const reviewResult = validateProphetEpisodeForQueue(candidate, review);
+      if (!reviewResult.ok) {
+        return NextResponse.json({ error: "مراجعة قصة الأنبياء غير مكتملة: " + reviewResult.errors.join(" | ") }, { status: 422 });
+      }
+      const firstSourceUrl = candidate.sourceUrls[0];
+      if (!firstSourceUrl || !candidate.sourceUrls.every((url) => /^https:\/\//i.test(url))) {
+        return NextResponse.json({ error: "مراجع القصة غير صالحة؛ تم إيقاف الإنتاج." }, { status: 422 });
+      }
+      const storyText = candidate.researchSummaryAr;
+      content = {
+        ...content,
+        type: "prophet_story_episode",
+        workflow: "prophet-story",
+        sourceType: "prophet_story",
+        sourceId: candidate.id,
+        sourceUrl: firstSourceUrl,
+        sourceLabel: "مراجع قرآنية مرشحة راجعها محرر ذِكر: " + candidate.sourceReferences.join("، "),
+        additionalSources: candidate.sourceUrls.slice(1).map((url, index) => ({
+          label: "مرجع قرآني " + (index + 2),
+          url,
+        })),
+        textAr: storyText,
+        text: storyText,
+        script: storyText,
+        prompt: storyText,
+        audience: "kids",
+        contentFormat: "series_episode",
+        prophetId: candidate.prophetId,
+        prophetBeatSequence: candidate.episodeNumber,
+        seriesId: candidate.seriesId,
+        seriesTitle: candidate.seriesTitleAr,
+        seasonNumber: 1,
+        episodeNumber: candidate.episodeNumber,
+        episodeTitle: candidate.episodeTitleAr,
+        ageGroup: "مناسب للأسرة والأطفال",
+        learningObjective: "عرض المعنى القرآني دون إضافة تفاصيل غير مثبتة",
+        visualTheme: "kids-nature",
+        visualBackground: "kids-nature",
+        clayVisualGuidance: candidate.clayVisualGuidance,
+        prophetVisualRules: candidate.visualRules,
+        excludedDetails: candidate.excludedDetails,
+        prophetSourceReview: {
+          status: "approved",
+          reviewerId: review.reviewerId,
+          reviewedAt: review.reviewedAt,
+          sourceReferencesVerified: review.sourceReferencesVerified,
+          unsupportedDetailsRemoved: review.unsupportedDetailsRemoved,
+          scriptReviewed: review.scriptReviewed,
+          childSafetyReviewed: review.childSafetyReviewed,
+          symbolicClayVisualsReviewed: review.symbolicClayVisualsReviewed,
+        },
+        generationMode: "source_locked_prophet_research",
+        voiceProfile: "kids_friendly",
+        publicPath: "/kids",
+        aiMode: "source_locked",
+        sourceVerifiedAtRequest: true,
+      };
+      narration = storyText;
+    }
+
+    if (content.workflow === "promo-campaign") {
+      const campaignKey = typeof submittedContent.campaignKey === "string" ? submittedContent.campaignKey : "";
+      const localDate = typeof submittedContent.localDate === "string" ? submittedContent.localDate : "";
+      const slot = Number(submittedContent.slot);
+      const timeZone = DEFAULT_PROMO_VIDEO_TIME_ZONE;
+      const concept = resolvePromotionalVideoConcept(campaignKey);
+      const scheduledAt = resolvePromotionalVideoScheduledAt(localDate, slot, timeZone);
+      if (!concept || !scheduledAt || scheduledAt.getTime() < Date.now() + 15 * 60_000 ||
+          title !== concept.title || description !== concept.description) {
+        return NextResponse.json({ error: "فكرة الحملة أو موعدها غير صالح. اختر أحد المواعيد الترويجية المعتمدة القادمة." }, { status: 422 });
+      }
+      const baseUrl = getServerEnv().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+      const featureUrl = baseUrl + concept.featurePath;
+      const downloadUrl = baseUrl + concept.ctaPath;
+      const automationKey = `promo-manual:${localDate}:${slot}:${concept.key}`;
+      content = {
+        ...content,
+        type: "promotional_product_video",
+        workflow: "promo-campaign",
+        sourceType: "marketing",
+        sourceId: `promo:${concept.key}:${localDate}:${slot}`,
+        sourceUrl: featureUrl,
+        sourceLabel: "محتوى ترويجي أصلي من منصة ذِكر — عرض لمزايا الموقع والتطبيق",
+        campaignKey: concept.key,
+        campaignVariant: concept.variationIndex,
+        campaignFeature: concept.featureKey,
+        campaignFeaturePath: concept.featurePath,
+        campaignCtaPath: concept.ctaPath,
+        hook: concept.hook,
+        ctaUrl: downloadUrl,
+        textAr: concept.narration,
+        text: concept.narration,
+        script: concept.narration,
+        publicPath: concept.featurePath,
+        visualTheme: concept.visualTheme,
+        automationKey,
+        promoScheduleTimeZone: timeZone,
+        promoScheduledAt: scheduledAt.toISOString(),
+        aiMode: "marketing_promo",
+        voiceProfile: "egyptian_male_story",
+        videoFormat: "vertical",
+        resolution: "1080x1920",
+      };
+      narration = concept.narration;
+    }
+
+    if (content.workflow === "hady-program") {
+      const theme = typeof submittedContent.theme === "string" ? submittedContent.theme : "";
+      const sourceCategory = submittedContent.sourceCategory === "hadith" ? "hadith"
+        : submittedContent.sourceCategory === "story" ? "story" : "";
+      const sourceId = typeof submittedContent.sourceId === "string" ? submittedContent.sourceId.trim() : "";
+      const rawSegments = Array.isArray(submittedContent.segments) ? submittedContent.segments : [];
+      const requiredSegmentIds = HADY_SHOW.segments.map((segment) => segment.id);
+      const validSegments = rawSegments.length === requiredSegmentIds.length &&
+        rawSegments.every((segment, index) => segment && typeof segment === "object" &&
+          (segment as Record<string, unknown>).id === requiredSegmentIds[index] &&
+          typeof (segment as Record<string, unknown>).text === "string");
+      if (!SHOW_TOPIC_THEMES.includes(theme as never) || !sourceCategory || !sourceId ||
+          submittedContent.humanReviewed !== true || !validSegments) {
+        return NextResponse.json({ error: "أكمل موضوع الحلقة والمصدر والمراجعة البشرية والأجزاء الخمسة قبل الإنتاج." }, { status: 422 });
+      }
+      const verifiedSource = await resolveVideoSource(sourceCategory, sourceId);
+      if (!verifiedSource) {
+        return NextResponse.json({ error: "مصدر حلقة هادي غير موجود أو غير منشور؛ حدّث المصادر واختر مصدرًا موثقًا." }, { status: 422 });
+      }
+      const sourceKind = sourceCategory === "hadith" ? "hadith" as const : "seerah" as const;
+      const segments = rawSegments.map((segment, index) => ({
+        id: requiredSegmentIds[index],
+        text: String((segment as Record<string, unknown>).text),
+        ...(index === 2 ? {
+          sourceRefs: [{ kind: sourceKind, reference: verifiedSource.id, verified: true }],
+        } : {}),
+      }));
+      const episode = {
+        week: Number.isInteger(Number(submittedContent.week)) ? Number(submittedContent.week) : 1,
+        titleAr: title,
+        theme,
+        background: backgroundForTheme(theme as keyof typeof SHOW_TOPIC_BACKGROUNDS),
+        segments,
+        review: {
+          status: "approved" as const,
+          reviewer: auth.profile.id,
+          reviewedAt: new Date().toISOString(),
+        },
+      } as HadyEpisode;
+      const knownBackgrounds = new Set(Object.values(SHOW_TOPIC_BACKGROUNDS).flatMap((entry) => [entry.primary, ...entry.alternates]));
+      const episodeCheck = validateHadyEpisodeForProduction(episode, knownBackgrounds);
+      if (!episodeCheck.ok) {
+        return NextResponse.json({ error: "حلقة هادي لم تجتز فحص النص والمصدر والمدة: " + episodeCheck.errors.join(" | ") }, { status: 422 });
+      }
+      const scriptText = episode.segments.map((segment) => segment.text).join("\n\n");
+      content = {
+        ...content,
+        type: "hady_episode",
+        workflow: "hady-program",
+        hadyShowId: HADY_SHOW.id,
+        hadyEpisode: episode,
+        hadySourceReference: {
+          category: sourceCategory,
+          id: verifiedSource.id,
+          label: verifiedSource.sourceLabel,
+          url: verifiedSource.sourceUrl,
+        },
+        hadyReview: episode.review,
+        sourceType: "editorial",
+        sourceLabel: "برنامج دقيقتين مع هادي — نص محرر راجع مصدره",
+        sourceUrl: verifiedSource.sourceUrl,
+        sourceId: verifiedSource.id,
+        textAr: scriptText,
+        text: scriptText,
+        script: scriptText,
+        prompt: scriptText,
+        aiMode: "hady_program",
+        voiceProfile: HADY_SHOW.host.hostVoiceProfile,
+        audience: "general",
+        visualTheme: "calm",
+        visualBackground: backgroundForTheme(theme as keyof typeof SHOW_TOPIC_BACKGROUNDS),
+        maxDurationSeconds: 120,
+        videoFormat: "vertical",
+        resolution: "1080x1920",
+        publicPath: "/videos",
+      };
+      narration = scriptText;
+      source = verifiedSource;
     }
 
     if (content.workflow === "layl-program") {
@@ -243,6 +507,9 @@ export async function POST(request: NextRequest) {
       delete content.programId;
       delete content.maxDurationSeconds;
     }
+
+    // The two-minute Hady format is a server-validated editorial exception to the 60s Shorts cap.
+    if (content.workflow === "hady-program") content.maxDurationSeconds = 135;
 
     const requestedAudience = normalizeVideoAudience(content.audience);
     if (!requestedAudience) {
@@ -395,7 +662,7 @@ export async function POST(request: NextRequest) {
       permission: "video.manage",
       resourceType: "video_generation_requests",
       resourceId: result.id,
-      metadata: { category, sourceVerified: Boolean(source), hasHumanAudio: Boolean(humanAudioUrl), humanAudioAssetId, templateVersionId: typeof content.templateVersionId === "string" ? content.templateVersionId : null, templateVersion: typeof content.templateVersion === "string" ? content.templateVersion : null },
+      metadata: { category, sourceVerified: Boolean(source) || Boolean(content.prophetSourceReview), hasHumanAudio: Boolean(humanAudioUrl), humanAudioAssetId, templateVersionId: typeof content.templateVersionId === "string" ? content.templateVersionId : null, templateVersion: typeof content.templateVersion === "string" ? content.templateVersion : null },
       }),
       (auditError) => console.error("[api/admin/videos/create] audit event failed after committed mutation:", auditError),
     );
@@ -409,7 +676,7 @@ export async function POST(request: NextRequest) {
           : category === "quran"
             ? "source_quran_recitation"
             : "arabic_neural_tts",
-        sourceVerified: Boolean(source),
+        sourceVerified: Boolean(source) || Boolean(content.prophetSourceReview),
         humanAudioAssetId,
       },
       { status: 201 }
