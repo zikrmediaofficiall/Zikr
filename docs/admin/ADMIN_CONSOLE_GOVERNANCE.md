@@ -4,7 +4,7 @@
 **مصدر الحقيقة للتنقل:** `src/features/admin/config/navigation.ts`  
 **مصدر الحقيقة للصلاحيات:** `src/features/admin/services/permissions.ts`
 
-تعتمد اللوحة على 10 مناطق تنقل تشغيلية تضم 50 رابطًا إداريًا ظاهرًا و51 صفحة فعلية (تشمل صفحة تحقق MFA المنفصلة). لا توجد صفحات Redirect توافقية أو مسارات قديمة مفعلة. مصدر الحقيقة للمسارات هو `src/features/admin/config/navigation.ts`، بينما يربط `src/features/admin/config/modules.ts` كل مجال بمالكه وصلاحياته وجداوله دون إعادة تعريف المسارات. ملف التنقل هو المصدر المنفرد لترتيب الصفحات والأيقونات، بينما يرشّح `src/app/admin/layout.tsx` الروابط بحسب دور المستخدم. لا تُضاف روابط إلى قائمة الإدارة قبل وجود صفحة فعلية وفحص صلاحية خادمي.
+تعتمد اللوحة على 10 مناطق تنقل تشغيلية تضم 51 رابطًا إداريًا ظاهرًا و52 صفحة فعلية (تشمل صفحة تحقق MFA المنفصلة). لا توجد صفحات Redirect توافقية أو مسارات قديمة مفعلة. مصدر الحقيقة للمسارات هو `src/features/admin/config/navigation.ts`، بينما يربط `src/features/admin/config/modules.ts` كل مجال بمالكه وصلاحياته وجداوله دون إعادة تعريف المسارات. ملف التنقل هو المصدر المنفرد لترتيب الصفحات والأيقونات، بينما يرشّح `src/app/admin/layout.tsx` الروابط بحسب دور المستخدم. لا تُضاف روابط إلى قائمة الإدارة قبل وجود صفحة فعلية وفحص صلاحية خادمي.
 
 ### مركز ZIKR OMNIS الموحد\n\nالمسار `/admin/omnis` هو بوابة القيادة المعمارية وسجل تنفيذ الخطة، ومحمي بصلاحية `system.manage`. يعرض 30 مركز تحكم بحالات صريحة (قائم/جزئي/مخطط) وسجل Supabase لمراحل OMNIS. لا يعني ظهور المركز أنه اكتمل؛ ويُسجل إغلاق كل نقطة فقط بعد Commit SHA صالح وملخص اختبارات. تحديث الحالات يتطلب Step-up MFA، ويُكتب في سجل الأحداث وسجل تدقيق الإدارة. مفاتيح المهام ثابتة، والإدراج لا يكرر الموجود.\n\n### المسارات الرسمية المضافة في مركز التشغيل
 
@@ -79,6 +79,7 @@
 | `/admin/video/visuals` | العناصر المرئية | `video.manage` |
 | `/admin/video/templates` | استوديو القوالب | `video.manage` |
 | `/admin/video/qa` | ضبط الجودة | `video.manage` |
+| `/admin/video/performance` | أداء الهوك | `video.manage` |
 
 ### الوسائط والذاكرة
 
@@ -159,7 +160,7 @@
 | الحسابات والصلاحيات | `/admin/users`, `/admin/security` | `profiles`, `admin_role_assignments` | تغيير الأدوار عبر Server Actions المحمية، مع MFA للعمليات الحساسة وسجل تدقيق. |
 | التدقيق والإعدادات | `/admin/audit`, `/admin/settings` | `admin_audit_events`, `admin_settings`, `admin_rate_limits` | أحداث الإدارة تضاف عبر خدمة التدقيق؛ لا تسجل الرموز أو كلمات المرور أو مفاتيح السر. |
 | المحتوى والمعرفة | `/admin/content`, `/admin/library`, `/admin/editorial`, `/admin/knowledge` | `content_library`, `content_revisions`, `articles`, `stories`, `hadiths`, `duas`, `prophets`, `companions`, `scholars` | تُراجع صلاحية القراءة/التعديل/النشر مستقلة، ولا يكفي إخفاء الرابط من القائمة. |
-| الفيديو والوسائط | `/admin/video`, `/admin/video/requests`, `/admin/video/review`, `/admin/video/studio`, `/admin/video/sources`, `/admin/video/scripts`, `/admin/video/voices`, `/admin/video/visuals`, `/admin/video/templates`, `/admin/video/qa`, `/admin/memory` | `videos`, `video_generation_requests`, `media_assets` وموارد التخزين | لا يُعلن عن تنفيذ فوري إذا كانت العملية قد دخلت طابور عامل مجدول. |
+| الفيديو والوسائط | `/admin/video`, `/admin/video/requests`, `/admin/video/review`, `/admin/video/studio`, `/admin/video/sources`, `/admin/video/scripts`, `/admin/video/voices`, `/admin/video/visuals`, `/admin/video/templates`, `/admin/video/qa`, `/admin/video/performance`, `/admin/memory` | `videos`, `video_generation_requests`, `media_assets` وموارد التخزين | لا يُعلن عن تنفيذ فوري إذا كانت العملية قد دخلت طابور عامل مجدول. |
 | سجل المنصات التاريخي | غير ظاهر في التنقل | `social_publish_queue`, `social_sync_jobs`, `social_platform_credentials` | سجلات للقراءة والتدقيق فقط؛ لا مهام نشر جديدة ولا سياسات قراءة عامة لبيانات OAuth. |
 | الأطفال والألعاب | `/admin/kids` وما يتفرع عنها | `kids_content`, `kids_games`, `kids_game_levels`, `kids_game_questions`, `kids_game_results` وجداول التقدم والنتائج | تعديلات اللعب ونتائج الأطفال تُفحص بعقود الاختبار وسياسات RLS الخاصة بالمجال. |
 | الصوت | `/admin/audio`, `/admin/site-audio` | `site_audio_assets` ومصادر الصوت | تُختبر روابط الأصول وحالات فشل التحميل؛ لا تُعرض حالة نجاح وهمية عند فشل القراءة. |

@@ -117,6 +117,7 @@ assert.equal(scheduleKidsBackfillWithinUtcDay(new Date("2026-11-11T23:58:00.000Z
 assert.notEqual(createWrittenAutomationKey("quran","1"),createWrittenAutomationKey("quran","2"));
 assert.deepEqual(validateWrittenPostDraft(draft),{ok:true});
 assert.equal(validateWrittenPostDraft({...draft,question:123 as unknown as string}).ok,false,"malformed AI question values must be rejected before the post builder");
+assert.equal(validateWrittenPostDraft({...draft,hook:draft.title+" "}).reason,"duplicate_fields","a hook that only repeats the title is filler");
 assert.equal(validateWrittenPostDraft({...draft,question:"سؤال طويل ".repeat(30)}).ok,false,"generated questions must stay within the bounded post contract");
 assert.equal(validateWrittenPostDraft({...draft,hook:"قالَ رسولُ اللهِ ﷺ: هذا نص غير موثق."}).ok,false,"religious attribution with Arabic diacritics must be normalized before screening");
 assert.doesNotThrow(()=>buildWrittenPost(source,{...draft,question:123 as unknown as string}),"the post builder must never throw on malformed optional AI question data");

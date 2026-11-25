@@ -12,6 +12,7 @@ const modules = [
   { href: "/admin/video/visuals", label: "المشاهد", description: "مزودات AI، الخلفيات، الحركة والسياسة البصرية." },
   { href: "/admin/video/templates", label: "القوالب", description: "إصدارات FFmpeg ودقات الإخراج." },
   { href: "/admin/video/qa", label: "الجودة", description: "فحص المصدر، الصوت، المدة، الترميز والنتيجة النهائية." },
+  { href: "/admin/video/performance", label: "الأداء", description: "متوسط المشاهدات لكل نوع افتتاحية (تجربة الهوك)." },
   { href: "/admin/video/requests", label: "الطابور", description: "طلبات الانتظار والمعالجة وإعادة المحاولة." },
   { href: "/admin/memory", label: "الذاكرة", description: "ملفات الفيديو المولّدة وذاكرة ملفات الموقع." },
   { href: "/admin/automation", label: "الأتمتة", description: "الهدف اليومي، AI، المدة، التشغيل العاجل والجدولة." },

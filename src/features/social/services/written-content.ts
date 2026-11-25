@@ -141,6 +141,9 @@ export function validateWrittenPostDraft(value:unknown):{ok:boolean;reason?:stri
   .replace(/ى/g,"ي")
   .replace(/\s+/g," ")
   .trim();
+ const squash=(v:string)=>v.normalize("NFKC").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[^\p{L}\p{N}]+/gu," ").trim();
+ // Low-effort drafts repeat the same words in several fields; they read as filler and do not earn clicks.
+ if(squash(title)===squash(hook)||squash(hook)===squash(reflection)||(question&&squash(question)===squash(hook)))return {ok:false,reason:"duplicate_fields"};
  if(/(?:قال\s+(?:رسول\s+الله|النبي|تعالى)|رواه|روى\s+\S+|حديث\s+قدسي|فتوى\s+قاطعة)/u.test(generatedText))return {ok:false,reason:"unattributed_religious_quote"};
  return {ok:true};
 }
