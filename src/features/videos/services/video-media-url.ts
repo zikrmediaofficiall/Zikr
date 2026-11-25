@@ -90,6 +90,25 @@ export function isGeneratedCloudinaryVideoUrl(value: unknown, cloudName: string)
  * Resolve the real first-frame poster for a Cloudinary-hosted generated video.
  * The image remains in Cloudinary; this does not create or persist a fake thumbnail.
  */
+export const HOOK_FRAME_POSTER_SECONDS = 1.6;
+
+export function isHookFramePosterEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED === "true";
+}
+
+/**
+ * Poster for a rendered video. Default is the first frame (so_0), which sits
+ * inside the fade-in and is usually dark. With VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED
+ * it uses the frame at 1.6s, after the fade-in and while the opening hook line is
+ * on screen, so the thumbnail carries the hook text. Same Cloudinary URL
+ * validation as the default poster; no upload and no extra network call.
+ */
+export function resolveVideoPoster(videoUrl: string | null | undefined, env: Record<string, string | undefined> = process.env): string | null {
+  const poster = resolveCloudinaryVideoPoster(videoUrl);
+  if (!poster || !isHookFramePosterEnabled(env)) return poster;
+  return poster.replace("/video/upload/so_0/", "/video/upload/so_" + HOOK_FRAME_POSTER_SECONDS + "/");
+}
+
 export function resolveCloudinaryVideoPoster(videoUrl: string | null | undefined): string | null {
   if (typeof videoUrl !== "string" || !videoUrl.trim()) return null;
   try {

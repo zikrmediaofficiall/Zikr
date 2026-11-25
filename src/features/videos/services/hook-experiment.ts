@@ -41,3 +41,45 @@ export function chooseHookStyle(input: {
   const avg = (s: ExperimentHookStyle) => input.stats[s].totalViews / Math.max(1, input.stats[s].videos);
   return [...styles].sort((a, b) => avg(b) - avg(a))[0];
 }
+
+export type HookExperimentRequestRow = { id: string; content?: { hookStyle?: unknown; audience?: unknown } | null };
+export type HookExperimentQueueRow = { id: string; content_id: string | null };
+export type HookExperimentInsightRow = { queue_id: string; metrics?: { views?: unknown } | null };
+
+/**
+ * Sums measured views per hook style. A video counts once it has at least one
+ * insight row. Requests without an experiment style, and kids requests, are
+ * ignored so legacy "balanced" or unset rows never skew the comparison.
+ */
+export function aggregateHookStyleStats(
+  requests: HookExperimentRequestRow[],
+  queueRows: HookExperimentQueueRow[],
+  insights: HookExperimentInsightRow[],
+): HookStyleStats {
+  const stats: HookStyleStats = {
+    question: { videos: 0, totalViews: 0 },
+    reflection: { videos: 0, totalViews: 0 },
+    action: { videos: 0, totalViews: 0 },
+  };
+  const styleByRequest = new Map<string, ExperimentHookStyle>();
+  for (const request of requests) {
+    const style = request.content?.hookStyle;
+    if (request.content?.audience === "kids") continue;
+    if ((EXPERIMENT_HOOK_STYLES as readonly unknown[]).includes(style)) styleByRequest.set(request.id, style as ExperimentHookStyle);
+  }
+  const viewsByRequest = new Map<string, number>();
+  const requestByQueue = new Map<string, string>();
+  for (const row of queueRows) if (row.content_id && styleByRequest.has(row.content_id)) requestByQueue.set(row.id, row.content_id);
+  for (const insight of insights) {
+    const requestId = requestByQueue.get(insight.queue_id);
+    if (!requestId) continue;
+    const views = Number(insight.metrics?.views ?? 0);
+    viewsByRequest.set(requestId, (viewsByRequest.get(requestId) ?? 0) + (Number.isFinite(views) && views > 0 ? views : 0));
+  }
+  for (const [requestId, views] of viewsByRequest) {
+    const style = styleByRequest.get(requestId)!;
+    stats[style].videos += 1;
+    stats[style].totalViews += views;
+  }
+  return stats;
+}

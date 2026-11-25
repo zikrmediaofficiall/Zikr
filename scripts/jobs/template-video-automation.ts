@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import { HOOK_FRAME_POSTER_SECONDS, isHookFramePosterEnabled } from "../../src/features/videos/services/video-media-url";
 import { growthOverlayCta } from "../../src/features/videos/services/video-cta";
+import { aggregateHookStyleStats, chooseHookStyle, isHookExperimentEnabled, type HookExperimentInsightRow, type HookExperimentQueueRow, type HookExperimentRequestRow } from "../../src/features/videos/services/hook-experiment";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1766,6 +1768,43 @@ function requestedVideoShape(request: GeneratedRequest) {
   return resolveVideoResolution(request.content?.resolution, request.content?.videoFormat);
 }
 
+const HOOK_STYLE_VALUES = ["question", "reflection", "action", "balanced"];
+
+// Flagged A/B of hook styles (VIDEO_HOOK_EXPERIMENT_ENABLED). Only fills a style
+// when the request has none; never overrides an explicit admin choice, never
+// touches kids content, and any lookup failure falls back to the old default.
+async function applyHookExperiment(request: GeneratedRequest): Promise<void> {
+  if (!isHookExperimentEnabled()) return;
+  if (request.content?.audience === "kids" || HOOK_STYLE_VALUES.includes(String(request.content?.hookStyle ?? ""))) return;
+  try {
+    const requests = await supabaseServerAdminRequest<HookExperimentRequestRow[]>(
+      "/rest/v1/video_generation_requests?content->>hookStyle=in.(question,reflection,action)&select=id,content&order=created_at.desc&limit=400",
+    );
+    const ids = (requests ?? []).map((row) => row.id);
+    let queueRows: HookExperimentQueueRow[] = [];
+    let insights: HookExperimentInsightRow[] = [];
+    if (ids.length) {
+      queueRows = (await supabaseServerAdminRequest<HookExperimentQueueRow[]>(
+        "/rest/v1/social_publish_queue?content_id=in.(" + ids.join(",") + ")&select=id,content_id&limit=1000",
+      )) ?? [];
+      const queueIds = queueRows.map((row) => row.id);
+      if (queueIds.length) {
+        insights = (await supabaseServerAdminRequest<HookExperimentInsightRow[]>(
+          "/rest/v1/social_post_insights?queue_id=in.(" + queueIds.join(",") + ")&select=queue_id,metrics&limit=2000",
+        )) ?? [];
+      }
+    }
+    const style = chooseHookStyle({
+      seed: request.id,
+      audience: request.content?.audience,
+      stats: aggregateHookStyleStats(requests ?? [], queueRows, insights),
+    });
+    request.content = { ...request.content, hookStyle: style, hookStyleSource: "experiment" };
+  } catch {
+    // Experiment data is optional; keep the default hook.
+  }
+}
+
 async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
   throwIfVideoLeaseAborted(signal);
   const renderStartedAt = Date.now();
@@ -2464,7 +2503,11 @@ function resolveCloudinaryVideoPoster(videoUrl: string): string | null {
     const posterPath = parsed.pathname
       .replace("/video/upload/", "/video/upload/so_0/")
       .replace(/\.(mp4|webm|mov|m4v)$/i, ".jpg");
-    return parsed.origin + posterPath;
+    const poster = parsed.origin + posterPath;
+    // Flagged: frame after the fade-in with the hook on screen instead of the dark first frame.
+    return isHookFramePosterEnabled()
+      ? poster.replace("/video/upload/so_0/", "/video/upload/so_" + HOOK_FRAME_POSTER_SECONDS + "/")
+      : poster;
   } catch {
     return null;
   }
@@ -3393,6 +3436,7 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
           },
           operation,
         );
+      await applyHookExperiment(request);
       const rendered = await withLeaseHeartbeat((signal) => renderVideo(request, signal));
       const qaChecks = buildAutomatedVideoQaChecklist(request, rendered);
       const qaReviewedAt = new Date().toISOString();
