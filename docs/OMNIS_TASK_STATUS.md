@@ -11,16 +11,16 @@ no DB runner yet. **Not built** = nothing exists for the deliverable.
 | Task | Status | Evidence (code) | Gap to the plan's deliverable | Commit |
 |---|---|---|---|---|
 | P03-01 operational status board | Built | `src/features/admin/services/omnis-module-status.ts`, `src/features/admin/omnis/module-status.ts`, `/admin/omnis` | none known | 9b1f04b |
-| P03-02 alerts and incidents | Partial | `omnis/incidents.ts`, `omnis/incident-lifecycle.ts` (acknowledge, resolve, history) | no assignee/owner field on incidents | 4f5ba05, c930300 |
+| P03-02 alerts and incidents | Built | `omnis/incidents.ts`, `omnis/incident-lifecycle.ts` (acknowledge, resolve, history, owner via `incident.owner`) | none known | 4f5ba05, c930300 |
 | P03-03 safe quick commands | Built | `omnis/commands.ts`, `/admin/omnis/actions.ts` (step-up, confirmation phrase, audit) | none known | 53632df |
 | P04-01 resource index | Built | `omnis/resource-index.ts`, `/admin/omnis/project` | none known | 0168a8e |
 | P04-02 dependency map | Built | `omnis/import-graph.ts`, generated graph | code only, non-code resources use area fallback | 53632df |
-| P04-03 pre-change impact analysis | Partial | related-test discovery in import graph | no gate that blocks an unscoped change | 53632df |
+| P04-03 pre-change impact analysis | Built | `evaluateOmnisChangeScope` in `omnis/resource-index.ts`, `scripts/omnis-change-scope.ts` (`pnpm omnis:impact`), test | not wired as a required CI gate | 5f642c3 |
 | P05-01 site experience management | Partial | `/admin/omnis/studio` (read-only), `/admin/sections` | no menu/theme editing, no preview | 3eea40c |
-| P05-02 page and component builder | Not built | none | whole task | in progress |
+| P05-02 page and component builder | Built (flagged CUSTOM_PAGES_ENABLED) | `site-content/pages/*`, `/p/[slug]`, `/admin/omnis/pages`, migration 20261125200000 (not applied) | typed blocks only, no free HTML | 2782d8e, 37bd982 |
 | P05-03 Android management | Partial | `/admin/android`, `c53e718` signing/app-links readiness, push readiness | notification management beyond readiness check | c53e718, d8be417 |
-| P06-01 unified content management | Partial | `/admin/library`, `/admin/editorial`, `/admin/content`, `content-schedule.ts` | source requirement only on `content_library` | existing, 4b465bd |
-| P06-02 verification and documentation | Partial | `features/editorial/source-verification.ts`, `publish-gate.ts` | no Quran/hadith text reference check | 4b465bd, 73806cb |
+| P06-01 unified content management | Built (migration file, not applied, enforcement off) | `/admin/library`, `/admin/editorial`, `content-schedule.ts`, migration 20261125210000 source gate for `kids_game_questions` and `media_assets` (transition-only, per-table `omnis_source_gate_config`) | needs apply + enabling; 30 published media_assets have no source | 4b465bd, this commit |
+| P06-02 verification and documentation | Built (flagged SOURCE_TEXT_CHECK_ENABLED) | `source-verification.ts`, `publish-gate.ts`, `quote-verification.ts` + service (Quran/hadith quotes vs corpus) | Uthmani spelling matched with alef-folding; untested against live publish | 4b465bd, 73806cb, 5f642c3 |
 | P06-03 editorial governance | Built | `editorial/review-transitions.ts`, audited unpublish | none known | 10d6f8f |
 | P07-01 model and provider management | Partial | Gemini fallback route `a6cf276` | no provider budgets or limits | a6cf276 |
 | P07-02 video and audio factory | Partial | `/admin/video/*`, video job, templates | unification is existing admin; not re-audited against plan | existing |
