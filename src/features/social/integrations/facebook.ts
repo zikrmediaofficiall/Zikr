@@ -1,0 +1,224 @@
+import { getServerEnv } from '@/lib/env';
+import { supabaseServerAdminRequest } from '@/lib/supabase/admin-rest';
+import { readStoredFacebookCredential } from '@/features/social/services/facebook-credentials';
+import { buildFacebookPublicProfileSyncUpsert } from '@/features/social/services/facebook-profile-contract';
+
+export type FacebookPageProfile = {
+  id: string;
+  name: string;
+  description: string;
+  category: string | null;
+  website: string | null;
+  avatarUrl: string | null;
+  coverUrl: string | null;
+  pageUrl: string;
+  likesCount: number | null;
+  followersCount: number | null;
+  followingCount: number | null;
+  syncedAt: string | null;
+  stale: boolean;
+  configured: boolean;
+  error?: string;
+};
+
+type CachedRow = Record<string, unknown>;
+
+const PROFILE_TTL_MS = 30 * 60 * 1000;
+const FALLBACK_PAGE_URL = 'https://www.facebook.com/zikrmediaofficial1';
+
+function toProfile(row: CachedRow | null, pageId: string): FacebookPageProfile | null {
+  if (!row || row.platform !== 'facebook' || String(row.external_id ?? '') !== pageId) return null;
+  return {
+    id: String(row.external_id ?? pageId),
+    name: String(row.name ?? 'ذِكر | ZIKR'),
+    description: String(row.description ?? ''),
+    category: row.category ? String(row.category) : null,
+    website: row.website ? String(row.website) : null,
+    avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+    coverUrl: row.cover_url ? String(row.cover_url) : null,
+    pageUrl: String(row.page_url ?? FALLBACK_PAGE_URL),
+    likesCount: row.likes_count == null ? null : Number(row.likes_count),
+    followersCount: row.followers_count == null ? null : Number(row.followers_count),
+    followingCount: row.following_count == null ? null : Number(row.following_count),
+    syncedAt: row.synced_at ? String(row.synced_at) : null,
+    stale: false,
+    configured: true,
+  };
+}
+
+async function readCachedProfile(pageId: string): Promise<FacebookPageProfile | null> {
+  const rows = await supabaseServerAdminRequest<CachedRow[]>(
+    "/rest/v1/social_platform_profiles?platform=eq.facebook&select=*&limit=1",
+  );
+  const row = Array.isArray(rows) ? rows[0] ?? null : null;
+  return toProfile(row, pageId);
+}
+
+type FacebookGraphProfileResponse = {
+  id?: unknown;
+  name?: unknown;
+  about?: unknown;
+  description?: unknown;
+  category?: unknown;
+  website?: unknown;
+  link?: unknown;
+  picture?: { data?: { url?: unknown } };
+  cover?: { source?: unknown };
+  fan_count?: unknown;
+  followers_count?: unknown;
+  error?: { message?: unknown };
+};
+
+function safeFacebookProfileError(error: unknown): string {
+  const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
+  if (
+    message.includes("session has expired") ||
+    message.includes("error validating access token") ||
+    message.includes("invalid oauth") ||
+    message.includes("access token has expired") ||
+    message.includes("oauthexception") ||
+    message.includes("code 190")
+  ) {
+    return "اتصال صفحة Facebook يحتاج إلى التجديد من مركز النشر.";
+  }
+  if (message.includes("permission") || message.includes("code 10") || message.includes("code 200")) {
+    return "اتصال صفحة Facebook يحتاج إلى مراجعة الصلاحيات من مركز النشر.";
+  }
+  return "تعذر تحديث بيانات صفحة Facebook حاليًا.";
+}
+
+async function fetchGraphProfile(pageId: string, accessToken: string, version: string) {
+  const url = new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(pageId)}`);
+  url.searchParams.set('fields', 'id,name,about,description,category,website,link,picture.type(large),cover,fan_count,followers_count');
+  url.searchParams.set('access_token', accessToken);
+
+  const response = await fetch(url, {
+    headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+    cache: 'no-store',
+  });
+  const body = await response.json().catch(() => ({})) as FacebookGraphProfileResponse;
+  if (!response.ok || body.error) {
+    throw new Error(String(body?.error?.message ?? `Facebook Graph API failed (${response.status}).`));
+  }
+  return body;
+}
+
+export async function getFacebookPageProfile(): Promise<FacebookPageProfile | null> {
+  const env = getServerEnv();
+  const storedCredential = await readStoredFacebookCredential();
+  const pageId = storedCredential?.page_id?.trim() || env.FACEBOOK_PAGE_ID?.trim() || '';
+  const pageAccessToken = storedCredential?.page_access_token?.trim() || '';
+  const graphVersion = env.FACEBOOK_GRAPH_API_VERSION || 'v26.0';
+  if (!pageId) return null;
+
+  const fallbackAvatar = `https://graph.facebook.com/${encodeURIComponent(pageId)}/picture?type=large`;
+
+  let cached: FacebookPageProfile | null = null;
+  try {
+    cached = await readCachedProfile(pageId);
+  } catch {
+    cached = null;
+  }
+
+  const nextSyncAt = cached?.syncedAt ? new Date(cached.syncedAt).getTime() + PROFILE_TTL_MS : 0;
+  if (cached && nextSyncAt > Date.now() && storedCredential?.connection_status !== 'reauthorization_required') return { ...cached, avatarUrl: cached.avatarUrl ?? fallbackAvatar };
+
+  if (!pageAccessToken || !graphVersion) {
+    return cached
+      ? { ...cached, stale: true, avatarUrl: cached.avatarUrl ?? fallbackAvatar, error: 'Facebook Page credentials are not configured.' }
+      : {
+          id: pageId,
+          name: 'ذِكر | ZIKR',
+          description: 'تابع أحدث محتوى ذِكر على صفحتنا الرسمية على فيسبوك.',
+          category: 'منصة محتوى إسلامي',
+          website: null,
+          avatarUrl: fallbackAvatar,
+          coverUrl: null,
+          pageUrl: FALLBACK_PAGE_URL,
+          likesCount: null,
+          followersCount: null,
+          followingCount: null,
+          syncedAt: null,
+          stale: true,
+          configured: true,
+          error: 'Facebook Page credentials are not configured.',
+        };
+  }
+
+  try {
+    const body = await fetchGraphProfile(pageId, pageAccessToken, graphVersion);
+    const syncedAt = new Date().toISOString();
+    const profile = buildFacebookPublicProfileSyncUpsert({
+      pageId,
+      name: body.name,
+      description: typeof body.description === 'string' && body.description.trim()
+        ? body.description
+        : body.about,
+      category: body.category,
+      website: body.website,
+      avatarUrl: body?.picture?.data?.url,
+      coverUrl: body?.cover?.source,
+      pageUrl: body.link,
+      followersCount: body.followers_count,
+      likesCount: body.fan_count,
+      fallbackAvatar,
+      syncedAt,
+      cached,
+    });
+
+    await supabaseServerAdminRequest(
+      "/rest/v1/social_platform_profiles?on_conflict=platform",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=minimal",
+        },
+        body: JSON.stringify(profile),
+      },
+    );
+
+    return {
+      id: profile.external_id,
+      name: profile.name,
+      description: profile.description,
+      category: profile.category,
+      website: profile.website,
+      avatarUrl: profile.avatar_url,
+      coverUrl: profile.cover_url,
+      pageUrl: profile.page_url,
+      likesCount: profile.likes_count,
+      followersCount: profile.followers_count,
+      followingCount: cached?.followingCount ?? null,
+      syncedAt,
+      stale: false,
+      configured: true,
+    };
+  } catch (error) {
+    return cached
+      ? {
+          ...cached,
+          stale: true,
+          avatarUrl: cached.avatarUrl ?? fallbackAvatar,
+          error: safeFacebookProfileError(error),
+        }
+      : {
+          id: pageId,
+          name: 'ذِكر | ZIKR',
+          description: 'تابع أحدث محتوى ذِكر على صفحتنا الرسمية على فيسبوك.',
+          category: 'منصة محتوى إسلامي',
+          website: null,
+          avatarUrl: fallbackAvatar,
+          coverUrl: null,
+          pageUrl: FALLBACK_PAGE_URL,
+          likesCount: null,
+          followersCount: null,
+          followingCount: null,
+          syncedAt: null,
+          stale: true,
+          configured: true,
+          error: safeFacebookProfileError(error),
+        };
+  }
+}

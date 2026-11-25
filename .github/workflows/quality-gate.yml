@@ -1,0 +1,219 @@
+name: ZIKR Quality Gate
+# Canonical source-gate check: ZIKR / Quality Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zikr-quality-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: "ZIKR / Quality Gate"
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
+      NEXT_PUBLIC_SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxdHNzdmx2bWt6ZWV5cWdocWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5OTAzNDEsImV4cCI6MjEwOTU2NjM0MX0.jux_q16W3CL3lUFT3P4DvqmnjTYWXTlIF86g2j_AKhw
+      NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID: 224706285284-fubdladk24v49v2lnq4p5jrk5ht1uqk8.apps.googleusercontent.com
+      AUTH_CALLBACK_URL: https://zikrmediaofficial.vercel.app/auth/callback
+      QUALITY_GATE_FULL_SCOPE: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && (startsWith(github.head_ref, 'codex/zikr-comprehensive-repair-') || startsWith(github.head_ref, 'codex/zikr-final-cleanup-') || startsWith(github.head_ref, 'audit/zikr-'))) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check Supabase Edge Functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno check supabase/functions/health/index.ts
+          deno check supabase/functions/spiritual-ai/index.ts
+          deno check supabase/functions/source-verified-content-agent/index.ts
+          deno check --config supabase/functions/prayer-notification-worker/deno.json supabase/functions/prayer-notification-worker/index.ts
+
+      - name: Verify toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          pnpm --version
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm config set fetch-retries 5
+          pnpm config set fetch-timeout 120000
+          pnpm config set fetch-retry-mintimeout 20000
+          pnpm config set fetch-retry-maxtimeout 120000
+          pnpm config set network-concurrency 8
+          pnpm install --frozen-lockfile --prefer-offline --reporter=append-only
+        timeout-minutes: 15
+
+      - name: Verify Kids result trigger against PostgreSQL 17
+        shell: bash
+        run: pnpm kids:db-trigger:check
+        timeout-minutes: 5
+
+      - name: Verify atomic Admin role update against PostgreSQL 17
+        shell: bash
+        run: pnpm admin:role-db:check
+        timeout-minutes: 5
+
+      - name: Verify atomic video approval updates against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/video-approval-atomic.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify safe video request deletion against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/video-request-delete.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify background reminder scheduling against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/background-reminder-schedule.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify Nominatim global minimum request interval against PostgreSQL 17
+        shell: bash
+        run: pnpm nominatim:db:check
+        timeout-minutes: 5
+
+      - name: Verify atomic prayer-location default updates against PostgreSQL 17
+        shell: bash
+        run: pnpm prayer-location:db:check
+        timeout-minutes: 5
+
+      - name: Verify prophet section public-read policy against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/prophet-sections-rls.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify RLS auth initplan regex migration against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/rls-initplan-rewrite.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify Kids game and question publication policies against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/kids-game-levels-rls.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify profile auth timestamps and sensitive-field guard against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/profile-auth-timestamps.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify Kids content active-state public-read policy against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/kids-content-active-rls.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify public video audience RLS against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/kids-video-public-read-rls.integration.sh
+
+      - name: Verify video-like read/write visibility against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/video-like-count-visibility.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify client table privilege hardening against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/client-table-privilege-hardening.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify video Storage retention RPC contract against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/video-storage-retention-contract.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify admin-managed write permissions against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/admin-managed-write-rls.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify shared rate-limit null arguments against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/admin-rate-limit-arguments.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify source-agent cron reconciliation against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/source-agent-cron-reconcile.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify prayer push cron reconciliation against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/prayer-push-cron-reconcile.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify scheduled content active-queue uniqueness against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/content-publish-active-queue.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify site-audio upload-intent retention contract against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/site-audio-upload-intents.integration.sh
+        timeout-minutes: 5
+
+      - name: Verify social-publish target-platform contract against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/social-publish-target-platforms.integration.sh
+        timeout-minutes: 5
+
+      - name: Run canonical source and architecture gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${QUALITY_GATE_FULL_SCOPE}" == "true" ]]; then
+            echo "Running the full verification suite for main or a comprehensive repair branch."
+            pnpm verify
+          else
+            echo "Running the pull-request verification suite."
+            pnpm verify:pr
+          fi
+        timeout-minutes: 30
+
+      - name: Report release rule
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${QUALITY_GATE_FULL_SCOPE}" == "true" ]]; then
+            echo "QUALITY_GATE=PASSED_FULL (tests, integrity, mobile, SEO, security, lint, types, and production build)"
+          else
+            echo "QUALITY_GATE=PASSED_PR (tests, integrity, security, lint, types, and architecture)"
+          fi
+          echo "Vercel automatic Git deployments are disabled."
+          echo "Production deployment is available only through the manual release workflow."

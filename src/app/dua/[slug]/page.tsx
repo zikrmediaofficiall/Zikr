@@ -1,0 +1,150 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { cache } from 'react';
+import { Container } from '@/components/ui/container';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { getDuaBySlug } from '@/features/dua/services/dua';
+import type { Dua } from '@/features/dua/types/dua';
+import { pageMetadata } from '@/lib/site';
+import { getRequestLocale } from '@/lib/i18n/server';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 1800;
+
+const MIN_PUBLIC_DUA_CHARS = 10;
+
+const loadDua = cache(
+  (slug: string, locale: "ar" | "en") => getDuaBySlug(slug, locale),
+);
+
+function hasPublicDuaContent(dua: Dua | null): dua is Dua {
+  const contentLocale = dua?.contentLocale ?? "ar";
+  const title = contentLocale === "en" ? dua?.titleEn : dua?.titleAr;
+  const text = contentLocale === "en" ? dua?.textEn : dua?.textAr;
+  return Boolean(title?.trim() && text?.trim() && text.trim().length >= MIN_PUBLIC_DUA_CHARS);
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const locale = await getRequestLocale();
+  const dua = await loadDua(slug, locale);
+  const isEnglish = (dua?.contentLocale ?? locale) === "en";
+
+  return pageMetadata({
+    title: isEnglish ? (dua?.titleEn ?? 'Dua not found') : (dua?.titleAr ?? 'الدعاء غير موجود'),
+    description: isEnglish ? dua?.textEn?.trim().slice(0, 160) || 'A supplication in ZIKR.' : dua?.textAr?.trim().slice(0, 160) || 'دعاء مأثور في منصة ذِكرٌ.',
+    path: `/dua/${slug}`,
+    noindex: !hasPublicDuaContent(dua),
+  });
+}
+
+export default async function DuaDetailPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const locale = await getRequestLocale();
+  const dua = await loadDua(slug, locale);
+
+  if (!hasPublicDuaContent(dua)) {
+    return (
+      <Container className="py-16 max-w-2xl" dir={locale === "en" ? "ltr" : "rtl"}>
+        <Card className="space-y-4 p-8 text-center">
+          <h1 className="text-2xl font-bold text-brand-gold">
+            {locale === "en" ? "Supplication not found" : "الدعاء غير موجود"}
+          </h1>
+          <p className="leading-7 text-brand-cream/70">
+            {locale === "en"
+              ? "This supplication is unavailable or is not approved for public display."
+              : "هذا الدعاء غير متاح حاليًا أو لم يستوفِ شروط العرض العام."}
+          </p>
+          <div className="flex justify-center">
+            <Button href="/dua" variant="secondary">
+              {locale === "en" ? "Back to Duas" : "العودة إلى الأدعية"}
+            </Button>
+          </div>
+        </Card>
+      </Container>
+    );
+  }
+  const isEnglish = (dua.contentLocale ?? locale) === "en";
+
+  return (
+    <Container className="py-12 space-y-8 max-w-2xl" dir={isEnglish ? "ltr" : "rtl"}>
+      <nav className="text-sm text-brand-cream/60" aria-label={isEnglish ? "Breadcrumb" : "مسار التنقل"}>
+        <Link href="/" className="hover:text-brand-gold">{isEnglish ? "Home" : "الرئيسية"}</Link>
+        <span className="mx-2">/</span>
+        <Link href="/dua" className="hover:text-brand-gold">{isEnglish ? "Duas" : "الأدعية"}</Link>
+        <span className="mx-2">/</span>
+        <span>{isEnglish ? dua.titleEn : dua.titleAr}</span>
+      </nav>
+
+      {locale === "en" && dua.contentLocale === "ar" && (
+        <aside className="rounded-2xl border border-brand-gold/20 bg-brand-gold/5 p-4 text-sm leading-7 text-brand-cream/80" role="status">
+          The English translation is not available yet. The original Arabic supplication is shown below.
+        </aside>
+      )}
+
+      <header className="text-center space-y-4">
+        <h1 className="text-4xl font-bold text-brand-gold">{isEnglish ? dua.titleEn : dua.titleAr}</h1>
+      </header>
+
+      <Card className="p-8 space-y-6 bg-black/30 border-brand-gold/30">
+        <div className="space-y-4">
+          <p className={`text-2xl leading-relaxed text-brand-cream text-center ${isEnglish ? "" : "font-arabic"}`} dir={isEnglish ? "ltr" : "rtl"}>
+            {isEnglish ? dua.textEn : dua.textAr}
+          </p>
+        </div>
+      </Card>
+
+      <section className="space-y-4">
+        {!isEnglish && dua.occasionAr && (
+          <Card className="p-4 space-y-2 border-brand-gold/20">
+            <h2 className="text-lg font-bold text-brand-gold">المناسبة</h2>
+            <p className="text-brand-cream/90 leading-7">{dua.occasionAr}</p>
+          </Card>
+        )}
+        {!isEnglish && dua.sourceAr && (
+          <Card className="p-4 space-y-2 border-brand-gold/20">
+            <h2 className="text-lg font-bold text-brand-gold">المصدر</h2>
+            <p className="text-brand-cream/90 leading-7">
+              {dua.sourceUrl ? (
+                <a href={dua.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand-gold underline decoration-brand-gold/40 underline-offset-4">
+                  {dua.sourceAr}
+                </a>
+              ) : dua.sourceAr}
+            </p>
+          </Card>
+        )}
+        {!isEnglish && dua.benefitsAr && (
+          <Card className="p-4 space-y-2 border-brand-gold/20">
+            <h2 className="text-lg font-bold text-brand-gold">الفوائد</h2>
+            <p className="text-brand-cream/90 leading-7">{dua.benefitsAr}</p>
+          </Card>
+        )}
+      </section>
+
+      <Card className="p-6 space-y-4 bg-brand-gold/10 border-brand-gold/20">
+        <h2 className="text-xl font-bold text-brand-gold">{isEnglish ? "Virtue of supplication" : "فضل الدعاء"}</h2>
+        {isEnglish ? (
+          <p className="text-brand-cream/70 text-sm leading-relaxed text-center">
+            The English translation of this supporting quotation is not stored in the current canonical content source.
+          </p>
+        ) : (
+          <p className="text-brand-cream/90 font-arabic text-lg leading-relaxed text-center">
+            قال رسول الله ﷺ: «الدعاء هو العبادة».
+          </p>
+        )}
+        <div className="text-center">
+          <Button href="/dua" variant="secondary">{isEnglish ? "Back to Duas" : "العودة إلى الأدعية"}</Button>
+        </div>
+      </Card>
+    </Container>
+  );
+}

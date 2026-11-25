@@ -1,0 +1,128 @@
+# ZIKR Kids World
+
+## Scope
+
+Kids World is the Arabic-first, RTL-friendly game area under `/kids/games`. The central registry in `lib/games/registry.ts` is the source of truth for the thirteen registered game IDs, runtime kind, age groups, difficulty options, score limits, and display metadata. The registry is shared by the game shell, Kids content adapter, score validator, admin selector, seed migration, and progress labels.
+
+## Adding a game
+
+Add a complete entry to `GAME_REGISTRY` first. Choose a runtime kind that is implemented by `WorldGameStage`; do not add a catalog-only label. Set conservative per-game limits and keep the Arabic description accurate. For a verified-content game, add or reuse data in `lib/data/kids-content.ts` and expose it through `lib/games/verified-content.ts`. Keep Quran text sourced from the existing database retrieval path; never generate, normalize, or paraphrase it.
+
+If the game is publishable through the Kids admin form, the registry selector already exposes it. The server action still validates `gameId` with `isRegisteredGameId`; client options are not an authorization boundary. Add an idempotent seed row only when the game should ship in the default catalog, and use a new migration rather than editing a migration already applied to Supabase.
+
+## Per-game content provenance
+
+`src/lib/games/content-manifest.ts` is the per-game content provenance contract. It exposes each registered game's source references and fields, age groups from the canonical registry, learning objective, content revision, and review status.
+
+- `canonical-source`: the content is retrieved from the canonical source, such as Quran text from the Quran database.
+- `approved-source-linked`: the runtime points to the named approved Kids content records; CI checks that the records still exist and satisfy their structure.
+- `gameplay-only`: no religious or factual quiz text is authored by that game's runtime.
+- `editorial-review-required`: content remains flagged until its specific source/curriculum review is recorded.
+- `repository-copy-review-complete`: a repository-level wording and basic safety review is recorded; this is not external child-development or religious certification.
+
+The current review record is `docs/kids-content-editorial-audit-2026-10-21.md`. It documents the three scenario sources, Good Deeds, Cleanup, and the Letter Lab audio-copy mismatch. Letter Lab curriculum review remains outstanding.
+
+The manifest test runs as part of `pnpm test` and therefore the PR and main quality gates. A missing required record, invalid quiz answer index, incomplete wudu sequence, duplicate scenario prompt, or unavailable canonical Quran text must fail validation or return a safe unavailable response.
+
+## Runtime and accessibility
+
+`KidsWorldGameShell` owns difficulty, HUD, pause, mute, fullscreen, restart, result submission, and offline status. `WorldGameStage` dispatches the registered game ID to its dedicated React runtime; the current 13-game implementation does not use Phaser or a Canvas game engine. Each runtime receives pause and restart state through props and reports HUD/result events to the shell. Do not reintroduce an inert controller abstraction.
+
+The game scenes use repository-managed inline SVG artwork and three shared local WebP environments. These provide distinct game foregrounds but do not yet constitute 13 independently illustrated environments. Real-device touch, keyboard, screen-reader, focus-order, reduced-motion, and fullscreen acceptance must be tested before release; automated source checks do not certify those experiences.
+
+`ToneFeedback` combines synthesized Web Audio event tones with optional local MP3 theme tracks. Audio is non-autoplay and follows the shell's mute state. The MP3 files remain flagged for source/licensing review; being stored locally does not establish usage rights. Do not add unlicensed music, commercial characters, iframe games, trackers, ads, gambling, or monetization.
+
+## Verified educational content
+
+Wudu steps and Kids quiz questions must come from `lib/games/verified-content.ts`, which adapts existing approved Kids content without inventing material. Wudu choices may be shuffled for play, but their exact approved wording must remain unchanged. Verse Puzzle receives exact Quran text from `/api/kids/games/verse`; it uses indexed tokens so repeated words remain distinct and completion is checked against original token indexes.
+
+When English UI is selected, verified dhikr, wudu, Quran, and quiz source text remains in its approved Arabic wording. Show a clear English-language note explaining this, but do not disable the game or hide its briefing solely because a reviewed English source translation is unavailable; controls, status labels, and instructions should remain localized.
+
+## Persistence and RLS
+
+Anonymous play is local. When an authenticated result is submitted, `app/api/kids/games/score/route.ts` authenticates with the cookie-bound Supabase client, derives `authData.user.id` on the server, validates the payload, and invokes `kids_record_game_result_internal` through `createAdminClient()`. The internal RPC derives XP in SQL and performs the result, per-game progress, player progress, and achievement updates atomically. It accepts no client XP parameter and is executable only by `service_role`. The legacy `kids_record_game_result` signature remains only for migration-history compatibility and is not executable by application roles.
+
+The tables `kids_game_results`, `kids_player_progress`, `kids_game_progress`, `kids_achievements`, and `kids_user_achievements` have private user RLS where applicable. Never pass a client user ID as authority, expose the service-role key, or grant authenticated clients access to the internal processor. Apply database changes only through additive migrations and verify grants, policies, and Supabase advisors after each live change.
+
+## Offline queue
+
+`lib/games/offline-queue.ts` stores unsent results in IndexedDB with bounded retry metadata, deduplication by client submission ID, and online-event synchronization. Private score/progress APIs stay network-only in the service worker; only the public verified verse endpoint is eligible for the controlled content cache. Do not cache user-specific responses or allow unbounded queue growth.
+
+## Validation commands
+
+Run the following from the repository root after changes:
+
+```bash
+pnpm check
+pnpm lint
+pnpm test
+pnpm build
+pnpm verify
+```
+
+For live Supabase verification, confirm the new migration appears in the migration list, inspect function grants for both result processors, query only bounded metadata, and run security and performance advisors. For browser verification, test `/kids`, `/kids/games`, each registered game, `/kids/progress`, `/kids/achievements`, a non-game Kids detail page, guest score handling, pause/mute/restart, touch behavior, and console/runtime errors. Production deployment status must be reported from the actual Vercel deployment state; a blocked deployment is not a successful live verification.
+
+## ZIKR Memory content contract
+
+ZIKR Memory uses the structured `memory_pairs` field from the existing `game-memory-dhikr-cards` Kids content item. The runtime must consume these verified pairs through `getVerifiedMemoryPairs()`; it must not parse prose from `content_ar` or duplicate the pair text inside the component.
+
+Difficulty is gameplay, not metadata only: easy uses 3 pairs, normal 4, and hard 5. The content integrity check `pnpm kids:memory:check` is part of both PR and main canonical verification.
+
+The current pair count is intentionally small so the first reference game remains readable and touch-friendly. New pairs should be added to the structured source first, then covered by the integrity check before the runtime is expanded.
+
+
+## Wudu Challenge content contract
+
+Wudu Challenge consumes the structured `wudu_steps` and `wudu_after_dhikr` fields from the existing `wudu-steps` Kids content item through `getVerifiedWuduContent()`. The game must not parse numbered prose from `content_ar` or duplicate the approved step wording in the runtime.
+
+Difficulty is gameplay: easy uses 5 steps, normal 7, and hard 9. The hard level completes the full structured sequence and then shows the existing completion dhikr. The content integrity check `pnpm kids:wudu:check` is part of PR and main verification.
+
+
+## Verse Puzzle content and gameplay contract
+
+Verse Puzzle consumes exact Quran text from the existing server-only Quran retrieval path through `/api/kids/games/verse`. The runtime may shuffle and index tokens for play, but it must never normalize, paraphrase, generate, or replace Quran text.
+
+Difficulty is gameplay, not metadata only: easy uses a guided mode with an optional next-word hint and no mistake penalty; normal removes the hint and counts mistakes; hard removes the hint and resets the current sequence after a wrong choice. The content source remains exact in every difficulty.
+
+The content integrity check `pnpm kids:verse:check` verifies the configured difficulty/source mapping against the local canonical Quran corpus and the gameplay rules.
+
+
+## ZIKR Quiz presentation contract
+
+ZIKR Quiz consumes only the verified questions returned by `getVerifiedKidsQuizQuestions()`. The dedicated runtime does not duplicate question text, invent explanations, or alter the approved answer indexes.
+
+The rebuild is presentation/feedback focused: it adds a clear question/progress hierarchy, category context, score/correct/streak HUD, selected-answer states, explicit correct/incorrect feedback, responsive answer cards, and a completion result through the existing Game Shell submission/offline path. Difficulty remains meaningful through 5/7/10 questions for easy/normal/hard.
+
+The content integrity check `pnpm kids:quiz:check` is included in both PR and main verification and ensures the verified adapter and dedicated runtime remain present.
+
+
+## Mosque Adventure gameplay contract
+
+Mosque Adventure uses a dedicated React runtime instead of the shared lane-based Phaser adventure mode. The map is a sequential fictional learning route with touch-friendly station interaction, verified scenario checkpoints, progress, mistakes, score, and completion feedback.
+
+Scenario text and answer indexes come only from `getApprovedScenarioQuestions()`; the runtime must not duplicate or invent scenario question content. Difficulty is gameplay: easy uses 3 stations and one scenario checkpoint, normal uses 4 stations and two checkpoints, and hard uses 5 stations with two checkpoints and a larger mistake penalty.
+
+The content integrity check `pnpm kids:mosque:check` is part of PR and main verification.
+
+
+## Responsive gameplay and 30-level catalog
+
+The shared game shell must not repeat the artwork or HUD already rendered inside the game stage. On phones, controls use a two-column touch grid; approved Wudu and Quran wording wraps rather than truncates; Verse Puzzle tokens and Quiz answer cards reflow for small screens; and the daily mission is collapsed below the active game. Native fullscreen respects device safe areas.
+
+The central level system now provides 30 levels per game and difficulty with expanded themed names and deterministic seeds. Verse Puzzle uses exact source text from the canonical Mushaf corpus and has 30 unique references within each difficulty. The additive migration `20261021010000_kids_games_level_catalog_extend_to_30.sql` adds levels 21–30 and catalog metadata without modifying existing player progress or result history.
+
+
+## Kids information architecture
+
+The canonical bilingual section links live in `src/features/kids/data/navigation.ts` and are rendered by `KidsSectionNavigation` from the shared Kids layout. This keeps home, activities, learning, audio, games, creativity, progress, achievements, and family guidance reachable with consistent Arabic/English labels. Keep destinations unique, preserve a direct game-catalogue path, and do not duplicate navigation arrays in page components.
+
+The Kids game catalogue already filters by age group, skill/search terms, category, difficulty, and duration. The landing page must derive its displayed game total from `GAME_REGISTRY`. The `kids-navigation.test.ts` contract verifies the canonical links, direct or dynamic route targets, bilingual copy, catalogue filters, and count consistency. Manual small-screen and child/caregiver usability checks remain part of release acceptance.
+
+
+## Game result integrity and offline recovery
+
+The score endpoint rejects request bodies larger than 16 KiB. Result metadata is limited to the approved runtime keys, bounded strings, arrays, nesting depth, key count, and a 4 KiB serialized payload. The database insert trigger independently enforces the canonical game IDs, per-game score/collectible/distance ceilings, metadata shape/size, and a per-user 60-results-per-minute guard. XP remains calculated by the server-side result processor; client-supplied XP is never accepted. These controls harden the submission boundary but do not cryptographically prove that a reported score was earned through real gameplay: the current React runtimes still report their outcome from the client. Full anti-cheat assurance requires a separate server-authoritative session/event design and must not be claimed from this rate guard alone.
+
+Offline game results remain in IndexedDB through transient failures. After five failed attempts or a permanent client validation response, an item enters a visible failed state instead of being silently retained or deleted. A full queue refuses new results rather than evicting older ones. The game shell syncs eligible results on mount, reconnection, and return to the tab, and exposes manual retry controls for pending and failed results. HTTP 401 pauses retries until a session is available; HTTP 429 respects Retry-After or schedules a bounded delay without consuming the failure budget. Concurrent sync triggers in one page share one in-flight request. Idempotency continues to use the original client submission ID.
+
+Pause is state-driven: the Game Shell updates the paused prop consumed by each runtime. The former no-op StageController contract has been removed. Runtime and device acceptance (touch, keyboard, screen reader, background/foreground, offline/reconnect, and actual Android devices) remains a release gate and cannot be certified by static checks alone.

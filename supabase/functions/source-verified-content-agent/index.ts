@@ -1,0 +1,231 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { authorizeSchedulerBearer } from "../_shared/scheduler-auth.ts";
+import { getSourceAgentRunStatus, getSourceParserSkipReason, parseSourceItems } from "./parse-items.ts";
+
+const PROJECT_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+if (!PROJECT_URL || !SERVICE_ROLE_KEY) {
+  throw new Error("Missing Supabase Edge Function service credentials.");
+}
+
+const supabase = createClient(PROJECT_URL, SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+type Source = {
+  id: string;
+  name: string;
+  base_url: string;
+  fetch_url: string | null;
+  api_key_secret_name: string | null;
+  source_type: "quran" | "hadith" | "dua" | "tafsir" | "article";
+  parser_key: string;
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+}
+
+async function isAuthorized(request: Request): Promise<boolean> {
+  return authorizeSchedulerBearer(
+    request.headers.get("authorization"),
+    async () => {
+      const { data, error } = await supabase.rpc("get_push_scheduler_secret");
+      return error ? null : data;
+    },
+  );
+}
+
+async function processSource(source: Source, now: string) {
+  const parserSkipReason = getSourceParserSkipReason(source);
+  if (parserSkipReason) {
+    return {
+      fetched: 0,
+      queued: 0,
+      skipped: 1,
+      failed: 0,
+      reason: parserSkipReason,
+    };
+  }
+  if (!source.fetch_url)
+    return {
+      fetched: 0,
+      queued: 0,
+      skipped: 1,
+      failed: 0,
+      reason: "missing_fetch_url",
+    };
+  const headers = new Headers({ Accept: "application/json" });
+  if (source.api_key_secret_name) {
+    const key = Deno.env.get(source.api_key_secret_name);
+    if (!key)
+      return {
+        fetched: 0,
+        queued: 0,
+        skipped: 1,
+        failed: 0,
+        reason: "missing_source_secret",
+      };
+    headers.set("Authorization", `Bearer ${key}`);
+  }
+
+  const response = await fetch(source.fetch_url, {
+    headers,
+    redirect: "error",
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok)
+    throw new Error(`${source.name} returned HTTP ${response.status}`);
+  const payload = await response.json();
+  const parseResult = parseSourceItems(source, payload, now);
+  if (parseResult.kind === "skipped") {
+    return {
+      fetched: 0,
+      queued: 0,
+      skipped: 1,
+      failed: 0,
+      reason: parseResult.reason,
+    };
+  }
+  const items = parseResult.items;
+  let queued = 0;
+
+  for (const item of items) {
+    const contentHash = await sha256(
+      `${source.id}:${item.externalId}:${item.sourceUrl}`
+    );
+    const { data: insertedRows, error } = await supabase
+      .from("content_agent_queue")
+      .upsert(
+        {
+          source_id: source.id,
+          external_id: item.externalId,
+          content_type: source.source_type,
+          title: item.title,
+          body: item.body,
+          source_url: item.sourceUrl,
+          source_retrieved_at: now,
+          content_hash: contentHash,
+          status: "pending",
+          is_machine_generated: false,
+          metadata: item.metadata,
+          updated_at: now,
+        },
+        { onConflict: "source_id,external_id", ignoreDuplicates: true }
+      )
+      .select("id");
+    if (error) throw error;
+    queued += insertedRows?.length ?? 0;
+  }
+
+  return { fetched: items.length, queued, skipped: 0, failed: 0 };
+}
+
+function nextDailyRunAt(startedAt: string): string {
+  const next = new Date(startedAt);
+  next.setUTCHours(3, 0, 0, 0);
+  if (next.getTime() <= Date.parse(startedAt)) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+  return next.toISOString();
+}
+
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value)
+  );
+  return [...new Uint8Array(digest)]
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+Deno.serve(async request => {
+  if (request.method !== "POST")
+    return json({ error: "Method not allowed" }, 405);
+  if (!(await isAuthorized(request)))
+    return json({ error: "Unauthorized" }, 401);
+
+  const startedAt = new Date().toISOString();
+  const { data: run, error: runError } = await supabase
+    .from("content_agent_runs")
+    .insert({ started_at: startedAt, status: "running" })
+    .select("id")
+    .single();
+  if (runError) return json({ error: "Unable to create run record" }, 500);
+
+  const summary = {
+    fetched: 0,
+    queued: 0,
+    skipped: 0,
+    failed: 0,
+    sources: [] as Array<Record<string, unknown>>,
+  };
+  const { data: sources, error: sourceError } = await supabase
+    .from("content_agent_sources")
+    .select(
+      "id,name,base_url,fetch_url,api_key_secret_name,source_type,parser_key"
+    )
+    .eq("enabled", true)
+    .lte("next_run_at", startedAt)
+    .limit(10);
+  if (sourceError) {
+    await supabase
+      .from("content_agent_runs")
+      .update({
+        finished_at: new Date().toISOString(),
+        status: "failed",
+        failed_count: 1,
+        details: { error: sourceError.message },
+      })
+      .eq("id", run.id);
+    return json({ error: "Unable to load sources" }, 500);
+  }
+
+  for (const source of (sources ?? []) as Source[]) {
+    try {
+      const result = await processSource(source, startedAt);
+      summary.fetched += result.fetched;
+      summary.queued += result.queued;
+      summary.skipped += result.skipped;
+      summary.sources.push({ name: source.name, ...result });
+      await supabase
+        .from("content_agent_sources")
+        .update({
+          last_checked_at: startedAt,
+          next_run_at: nextDailyRunAt(startedAt),
+        })
+        .eq("id", source.id);
+    } catch (error) {
+      summary.failed += 1;
+      summary.sources.push({
+        name: source.name,
+        failed: 1,
+        error: error instanceof Error ? error.message : "unknown error",
+      });
+      await supabase
+        .from("content_agent_sources")
+        .update({ last_checked_at: startedAt })
+        .eq("id", source.id);
+    }
+  }
+
+  const finalStatus = getSourceAgentRunStatus(summary);
+  await supabase
+    .from("content_agent_runs")
+    .update({
+      finished_at: new Date().toISOString(),
+      status: finalStatus,
+      fetched_count: summary.fetched,
+      queued_count: summary.queued,
+      skipped_count: summary.skipped,
+      failed_count: summary.failed,
+      details: summary,
+    })
+    .eq("id", run.id);
+  return json({ ok: summary.failed === 0 && summary.skipped === 0, runId: run.id, ...summary });
+});

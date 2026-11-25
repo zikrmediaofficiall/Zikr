@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${SUPABASE_DB_URL:?SUPABASE_DB_URL is required}"
+: "${EXPECTED_PROJECT_REF:?EXPECTED_PROJECT_REF is required}"
+
+python3 scripts/verify-supabase-db-url.py
+
+psql "${SUPABASE_DB_URL}" -v ON_ERROR_STOP=1 -At -F '|' <<'SQL' > /tmp/zikr-supabase-preflight.txt
+SELECT
+  (SELECT count(*) FROM public.quran_ayahs),
+  (SELECT count(DISTINCT (surah_id, ayah_number)) FROM public.quran_ayahs),
+  (SELECT count(*) FROM public.quran_surahs),
+  (SELECT count(*) FILTER (WHERE author = 'التفسير الميسر') FROM public.quran_tafsir),
+  (SELECT count(DISTINCT (surah_id, ayah_number)) FILTER (WHERE author = 'التفسير الميسر') FROM public.quran_tafsir),
+  (SELECT count(*) FILTER (WHERE author = 'التفسير الميسر' AND (tafsir_ar IS NULL OR length(trim(tafsir_ar)) = 0)) FROM public.quran_tafsir),
+  (SELECT count(*) FILTER (WHERE author = 'التفسير الميسر' AND (source_url IS DISTINCT FROM ('https://api.alquran.cloud/v1/surah/' || surah_id::text || '/ar.muyassar') OR retrieved_at IS NULL)) FROM public.quran_tafsir),
+  (SELECT count(*) FROM public.hadiths),
+  (SELECT count(*) FROM public.duas),
+  (SELECT count(*) FROM public.stories),
+  (SELECT count(*) FROM public.prophets),
+  (SELECT count(*) FROM public.scholars),
+  (SELECT count(*) FROM public.companions),
+  (SELECT count(*) FROM public.articles),
+  (SELECT count(*) FROM public.kids_games),
+  (SELECT count(*) FROM public.article_categories),
+  (SELECT count(*) FROM public.battles),
+  (SELECT count(*) FROM public.battle_events),
+  (SELECT count(*) FROM public.conquests),
+  (SELECT count(*) FROM public.conquest_events),
+  (SELECT count(*) FROM public.companion_stories),
+  (SELECT count(*) FROM public.prophet_sections),
+  (SELECT count(*) FROM public.hadith_books),
+  (SELECT count(*) FROM public.quran_reciters),
+  (SELECT count(*) FROM public.quran_audio),
+  (SELECT count(*) FROM public.kids_game_levels),
+  (SELECT count(*) FROM public.kids_content),
+  (SELECT count(*) FROM public.video_categories),
+  (SELECT count(*) FROM public.videos),
+  (SELECT count(*) FROM public.media_assets),
+  (SELECT count(*) FROM public.site_audio_assets),
+  (SELECT count(*) FROM public.tawasheeh),
+  (SELECT count(*) FROM public.tawasheeh_categories),
+  (SELECT count(*) FROM public.content_library),
+  (SELECT count(*) FROM public.content_agent_sources),
+  (SELECT count(*) FROM public.site_settings),
+  (SELECT count(*) FROM public.admin_settings WHERE key IN ('video_automation_enabled', 'video_automation_batch_size', 'video_automation_ai_enabled')),
+  (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity = false),
+  (SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'quran_tafsir' AND policyname = 'tmp_zikr_seed_loader'),
+  (SELECT count(*) FROM pg_roles WHERE rolname = 'zikr_seed_loader' AND rolcanlogin);
+SQL
+
+IFS='|' read -r ayahs distinct_ayahs surahs tafsir_muyassar tafsir_muyassar_distinct empty_tafsir_muyassar invalid_tafsir_muyassar_metadata hadiths duas stories prophets scholars companions articles kids_games article_categories battles battle_events conquests conquest_events companion_stories prophet_sections hadith_books quran_reciters quran_audio kids_game_levels kids_content video_categories videos media_assets site_audio_assets tawasheeh tawasheeh_categories content_library content_agent_sources site_settings video_settings unprotected_tables temporary_policy seed_role_logins < /tmp/zikr-supabase-preflight.txt
+
+assert_eq() {
+  local actual="$1"
+  local expected="$2"
+  local label="$3"
+  if [[ "$actual" != "$expected" ]]; then
+    echo "PRECHECK FAILED: ${label}: expected ${expected}, got ${actual}" >&2
+    exit 1
+  fi
+  echo "PASS: ${label} = ${actual}"
+}
+
+assert_positive() {
+  local actual="$1"
+  local label="$2"
+  if [[ ! "$actual" =~ ^[0-9]+$ ]] || (( actual <= 0 )); then
+    echo "PRECHECK FAILED: ${label} must be greater than zero; got ${actual}" >&2
+    exit 1
+  fi
+  echo "PASS: ${label} = ${actual}"
+}
+
+assert_eq "$ayahs" "6236" "Quran ayah rows"
+assert_eq "$distinct_ayahs" "6236" "distinct Quran ayahs"
+assert_eq "$surahs" "114" "Quran surahs"
+expected_tafsir_count="${TAFSIR_EXPECTED_COUNT:-6236}"
+case "${expected_tafsir_count}" in
+  0,6236)
+    if [[ "${tafsir_muyassar}" != "0" && "${tafsir_muyassar}" != "6236" ]]; then
+      echo "PRECHECK FAILED: التفسير الميسر must be either absent (0) or complete (6236); got ${tafsir_muyassar}." >&2
+      exit 1
+    fi
+    ;;
+  0|6236)
+    assert_eq "${tafsir_muyassar}" "${expected_tafsir_count}" "التفسير الميسر rows"
+    ;;
+  *)
+    echo "Invalid TAFSIR_EXPECTED_COUNT; use 0, 6236, or 0,6236." >&2
+    exit 1
+    ;;
+esac
+assert_eq "${tafsir_muyassar_distinct}" "${tafsir_muyassar}" "unique التفسير الميسر ayah pairs"
+assert_eq "${empty_tafsir_muyassar}" "0" "empty التفسير الميسر rows"
+assert_eq "${invalid_tafsir_muyassar_metadata}" "0" "التفسير الميسر source metadata"
+assert_eq "$video_settings" "3" "required video automation settings"
+assert_eq "$unprotected_tables" "0" "public tables without RLS"
+assert_eq "$temporary_policy" "0" "temporary seed-loader policies"
+assert_eq "$seed_role_logins" "0" "temporary seed-loader roles with LOGIN"
+assert_positive "$hadiths" "Hadith rows"
+assert_positive "$duas" "Dua rows"
+assert_positive "$stories" "Story rows"
+assert_positive "$prophets" "Prophet rows"
+assert_positive "$scholars" "Scholar rows"
+assert_positive "$companions" "Companion rows"
+assert_positive "$articles" "Article rows"
+assert_positive "$kids_games" "Kids game rows"
+assert_positive "$article_categories" "Article category rows"
+assert_positive "$battles" "Battle rows"
+assert_positive "$battle_events" "Battle event rows"
+assert_positive "$conquests" "Conquest rows"
+assert_positive "$conquest_events" "Conquest event rows"
+assert_positive "$companion_stories" "Companion story rows"
+assert_positive "$prophet_sections" "Prophet section rows"
+assert_positive "$hadith_books" "Hadith book rows"
+assert_positive "$quran_reciters" "Quran reciter rows"
+assert_positive "$quran_audio" "Quran audio rows"
+assert_positive "$kids_game_levels" "Kids game level rows"
+assert_positive "$kids_content" "Kids content rows"
+assert_positive "$video_categories" "Video category rows"
+assert_positive "$videos" "Video catalog rows"
+assert_positive "$media_assets" "Media asset rows"
+assert_positive "$site_audio_assets" "Site audio asset rows"
+assert_positive "$tawasheeh" "Tawasheeh rows"
+assert_positive "$tawasheeh_categories" "Tawasheeh category rows"
+assert_positive "$content_library" "Content library rows"
+assert_positive "$content_agent_sources" "Content agent source rows"
+assert_positive "$site_settings" "Site settings rows"
+
+# Only reconcile migration metadata after schema parity is proven. This command
+# does not execute migration SQL on production; it compares the live schema with
+# a shadow database rebuilt from the repository migration chain.
+diff_file="$(mktemp)"
+diff_log="$(mktemp)"
+trap 'rm -f "$diff_file" "$diff_log" /tmp/zikr-supabase-preflight.txt' EXIT
+# PGSSLMODE=require is intentionally scoped away from the Supabase CLI here:
+# the CLI also starts a local shadow database that does not support TLS. The
+# production endpoint requires TLS, and verify-supabase-db-url.py rejects any
+# explicitly weakened sslmode in the supplied remote connection URL.
+if env -u PGSSLMODE supabase db diff \
+  --db-url "$SUPABASE_DB_URL" \
+  --schema public,private,storage,extensions \
+  --use-pg-delta \
+  --strict-coverage \
+  --output "$diff_file" >"$diff_log" 2>&1; then
+  cat "$diff_log"
+else
+  pgdelta_status=$?
+  cat "$diff_log" >&2
+
+  # pg-delta can fail to plan a schema-ACL REVOKE for this retired seed role
+  # when the role is absent from the live project. Fall back only for that
+  # exact dependency error, and only after proving the role is absent on the
+  # actual PostgreSQL target. Migra must still produce an empty schema diff.
+  if grep -Fq 'consumes role:zikr_seed_loader' "$diff_log"; then
+    role_exists="$(psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At -c \
+      "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zikr_seed_loader')")"
+    if [[ "$role_exists" != "f" ]]; then
+      echo "REFUSING MIGRATION HISTORY REPAIR: pg-delta hit the retired-role dependency, but zikr_seed_loader still exists on the target." >&2
+      exit "$pgdelta_status"
+    fi
+
+    echo "NOTICE: pg-delta hit the known absent zikr_seed_loader ACL dependency; retrying the schema-only diff with migra."
+    if ! env -u PGSSLMODE supabase db diff \
+      --use-migra \
+      --db-url "$SUPABASE_DB_URL" \
+      --schema public,private,storage,extensions \
+      --output "$diff_file" >"$diff_log" 2>&1; then
+      cat "$diff_log" >&2
+      echo "MIGRA_SCHEMA_DIFF_FAILED: refusing migration history repair." >&2
+      exit 1
+    fi
+    cat "$diff_log"
+  else
+    echo "PG_DELTA_SCHEMA_DIFF_FAILED: no approved compatibility fallback matches this error." >&2
+    exit "$pgdelta_status"
+  fi
+fi
+
+non_comment_diff="$(grep -vE '^[[:space:]]*(--|$)' "$diff_file" || true)"
+if [[ -n "${non_comment_diff//[[:space:]]/}" ]]; then
+  echo "SCHEMA DRIFT DETECTED. Migration history will not be repaired and deployment must stop." >&2
+  cat "$diff_file" >&2
+  exit 1
+fi
+echo "PASS: live public/storage/extensions schema matches the replayed repository migration chain."
+
+mapfile -t local_versions < <(
+  find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' |
+    sed -E 's/^([0-9]{14})_.*/\1/' |
+    sort -u
+)
+if [[ "${#local_versions[@]}" -eq 0 ]]; then
+  echo "No versioned SQL migration files found." >&2
+  exit 1
+fi
+
+remote_versions_text="$(psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At -c 'SELECT version FROM supabase_migrations.schema_migrations ORDER BY version')"
+mapfile -t remote_versions <<< "$remote_versions_text"
+
+declare -A local_set=()
+declare -A remote_set=()
+for version in "${local_versions[@]}"; do local_set["$version"]=1; done
+for version in "${remote_versions[@]}"; do
+  [[ "$version" =~ ^[0-9]{14}$ ]] || { echo "Unexpected remote migration version: $version" >&2; exit 1; }
+  remote_set["$version"]=1
+  if [[ -z "${local_set[$version]+x}" ]]; then
+    echo "Remote migration version $version has no matching local SQL file; refusing automatic repair." >&2
+    exit 1
+  fi
+done
+
+missing_versions=()
+for version in "${local_versions[@]}"; do
+  if [[ -z "${remote_set[$version]+x}" ]]; then missing_versions+=("$version"); fi
+done
+
+echo "Local migration versions: ${#local_versions[@]}; remote recorded versions: ${#remote_versions[@]}; missing history entries: ${#missing_versions[@]}."
+if [[ "${#missing_versions[@]}" -gt 0 ]]; then
+  # All changes are history-only. Do not run db push and do not re-execute SQL.
+  supabase migration repair --db-url "$SUPABASE_DB_URL" --status applied "${missing_versions[@]}"
+fi
+
+final_versions_text="$(psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At -c 'SELECT version FROM supabase_migrations.schema_migrations ORDER BY version')"
+mapfile -t final_versions <<< "$final_versions_text"
+if [[ "${#final_versions[@]}" -ne "${#local_versions[@]}" ]]; then
+  echo "Migration history reconciliation failed: expected ${#local_versions[@]} versions, found ${#final_versions[@]}." >&2
+  exit 1
+fi
+for version in "${local_versions[@]}"; do
+  if [[ -z "$(printf '%s\n' "${final_versions[@]}" | grep -Fx "$version" || true)" ]]; then
+    echo "Migration version still missing after repair: $version" >&2
+    exit 1
+  fi
+done
+echo "SUPABASE_MIGRATION_HISTORY_RECONCILED: ${#final_versions[@]} versions recorded; schema and content preflight passed."

@@ -1,0 +1,82 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'node:crypto';
+import { requireAdminApi } from '@/features/admin/services/admin';
+import { readBoundedRequestBytes } from '@/lib/request/bounded-json-body';
+import { recordAdminAuditEvent } from '@/features/admin/services/audit';
+import { runPostCommitAudit } from '@/features/admin/services/post-commit-audit';
+import { uploadCloudinaryImage } from '@/features/media/services/cloudinary';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_REQUEST_BYTES = MAX_IMAGE_BYTES + 64 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const ALLOWED_FOLDERS = new Set(['homepage', 'stories', 'articles', 'videos', 'competitions', 'branding', 'kids', 'media']);
+
+function errorResponse(message: string, status: number) {
+  return NextResponse.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } });
+}
+
+function safeFolder(value: FormDataEntryValue | null) {
+  const folder = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return ALLOWED_FOLDERS.has(folder) ? folder : null;
+}
+
+export async function POST(request: NextRequest) {
+  const guard = await requireAdminApi('media.manage');
+  if (!guard.ok) return errorResponse(guard.error, guard.status);
+
+  try {
+    const contentType = request.headers.get('content-type') ?? '';
+    if (!contentType.toLowerCase().startsWith('multipart/form-data;')) {
+      return errorResponse('Invalid multipart image upload.', 400);
+    }
+    const bodyResult = await readBoundedRequestBytes(request, MAX_IMAGE_REQUEST_BYTES);
+    if (!bodyResult.ok) return errorResponse(bodyResult.error, bodyResult.status);
+
+    let formData: FormData;
+    try {
+      formData = await new Response(bodyResult.bytes, {
+        headers: { 'Content-Type': contentType },
+      }).formData();
+    } catch {
+      return errorResponse('Invalid multipart image upload.', 400);
+    }
+    const file = formData.get('file');
+    const folder = safeFolder(formData.get('folder'));
+    const requestedPublicId = typeof formData.get('publicId') === 'string' ? String(formData.get('publicId')).trim() : '';
+
+    if (!(file instanceof File)) return errorResponse('يرجى اختيار صورة صالحة.', 400);
+    if (!folder) return errorResponse('مجلد الرفع غير صالح.', 400);
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) return errorResponse('الصيغ المدعومة: JPG وPNG وWEBP وGIF.', 400);
+    if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) return errorResponse('حجم الصورة يجب ألا يتجاوز 4 ميجابايت.', 400);
+
+    const upload = await uploadCloudinaryImage({
+      file,
+      folder: `zikr/${folder}`,
+      publicId: requestedPublicId || `${guard.profile.id}-${randomUUID()}`,
+      tags: ['zikr', 'admin', folder],
+      maxBytes: MAX_IMAGE_BYTES,
+    });
+    const auditRecorded = await runPostCommitAudit(
+      () => recordAdminAuditEvent({
+        action: "media.cloudinary.image.upload",
+        permission: "media.manage",
+        resourceType: "cloudinary_assets",
+        resourceId: upload.publicId,
+        metadata: { folder, bytes: upload.bytes, format: upload.format },
+      }),
+      (auditError) => console.warn("[api/admin/cloudinary/image] audit event unavailable after upload:", auditError),
+    );
+
+    return NextResponse.json({ ...upload, auditRecorded }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('[api/admin/cloudinary/image] POST error:', error);
+    return errorResponse(error instanceof Error ? error.message : 'تعذر رفع الصورة إلى Cloudinary.', 500);
+  }
+}
+
+export async function GET() {
+  return errorResponse('Method not allowed', 405);
+}

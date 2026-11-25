@@ -1,0 +1,677 @@
+name: Publish Android Release Assets
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+    # Recovery branches are published through the explicit workflow_dispatch
+    # retry path below. GitHub Actions combines simultaneous tag/branch filters,
+    # which silently prevents the branch recovery event from starting.
+  workflow_dispatch:
+    inputs:
+      retry:
+        description: "Retry the current release after CircleCI/Supabase artifacts are ready"
+        required: true
+        default: "false"
+        type: boolean
+      source_commit:
+        description: "Exact immutable tag-target SHA for owner-authorized recovery dispatched from main"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+  statuses: read
+  checks: read
+  pull-requests: read
+
+# Tag pushes and recovery dispatches can target the same GitHub Release from
+# different refs. A single shared lock prevents concurrent asset delete/upload
+# races that can produce GitHub uploads.github.com 404 responses.
+concurrency:
+  group: android-release-publish-global
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify and publish Android release
+    # Main recovery is reachable only from the owner-only dispatcher:
+    # its GITHUB_TOKEN workflow_dispatch actor is github-actions[bot].
+    if: >-
+      (github.event_name == 'push' && github.ref_type == 'tag') ||
+      (github.event_name == 'workflow_dispatch' &&
+       inputs.retry == true &&
+       (github.ref_type == 'tag' ||
+        (github.ref == 'refs/heads/main' && github.actor == 'github-actions[bot]') ||
+        startsWith(github.ref_name, 'android-release-v')))
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact release ref
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Decide whether this is a release publish run
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          PUBLISH=false
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            PUBLISH=true
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.retry }}" == "true" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            PUBLISH=true
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.retry }}" == "true" && "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" =~ ^android-release-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            PUBLISH=true
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.retry }}" == "true" && "${GITHUB_REF}" == "refs/heads/main" && "${GITHUB_ACTOR}" == "github-actions[bot]" && -f docs/finalization/RELEASE_RETRY.flag ]]; then
+            PUBLISH=true
+          fi
+          echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release tag
+        id: resolve_tag
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT_INPUT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" =~ ^android-release-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            TAG="${GITHUB_REF_NAME#android-release-}"
+          else
+            TAG="$(tr -d '\r\n' < .release-tag)"
+          fi
+          # The release branch and canonical package/tag metadata must agree.
+          if [[ "${GITHUB_REF_TYPE}" == "branch" ]]; then
+            test "${TAG}" = "$(tr -d '\r\n' < .release-tag)"
+          fi
+          EXPECTED_TAG="v$(jq -r '.version' package.json)"
+          test "$TAG" = "$EXPECTED_TAG"
+
+          # Always resolve the immutable tag target, including manual retries
+          # dispatched from main. All CI prerequisites are checked against this
+          # exact source commit, never against the dispatching branch by accident.
+          TAG_REF_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}")"
+          TAG_REF_TYPE="$(jq -r '.object.type' <<< "$TAG_REF_JSON")"
+          TAG_REF_SHA="$(jq -r '.object.sha' <<< "$TAG_REF_JSON")"
+          if [[ "$TAG_REF_TYPE" == "tag" ]]; then
+            TAG_OBJECT_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${TAG_REF_SHA}")"
+            TAG_TARGET_TYPE="$(jq -r '.object.type' <<< "$TAG_OBJECT_JSON")"
+            TAG_TARGET_SHA="$(jq -r '.object.sha' <<< "$TAG_OBJECT_JSON")"
+          else
+            TAG_TARGET_TYPE="$TAG_REF_TYPE"
+            TAG_TARGET_SHA="$TAG_REF_SHA"
+          fi
+          if [[ "$TAG_TARGET_TYPE" != "commit" ]]; then
+            echo "::error title=Android release tag is not a commit::Tag ${TAG} does not resolve to a commit." >&2
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_TYPE}" == "tag" || "${GITHUB_REF_NAME}" =~ ^android-release-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            if [[ "$TAG_TARGET_SHA" != "${GITHUB_SHA}" ]]; then
+              echo "::error title=Android release tag/source mismatch::Tag ${TAG} points to ${TAG_TARGET_SHA}, but this run is checking out ${GITHUB_SHA}. Rebuild from the exact tag commit; do not publish recovery-branch binaries under an older immutable tag." >&2
+              exit 1
+            fi
+            if [[ -n "${SOURCE_COMMIT_INPUT}" ]]; then
+              echo "::error title=Unexpected source commit input::source_commit is accepted only for the owner-authorized main recovery path." >&2
+              exit 1
+            fi
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            if [[ ! "${SOURCE_COMMIT_INPUT}" =~ ^[0-9a-f]{40}$ || "${SOURCE_COMMIT_INPUT}" != "$TAG_TARGET_SHA" ]]; then
+              echo "::error title=Android recovery source mismatch::main recovery must provide the exact immutable tag target SHA." >&2
+              exit 1
+            fi
+            RELEASE_SOURCE_PATHS=(
+              package.json
+              .release-tag
+              "docs/releases/${TAG#v}.md"
+              android/app/build.gradle
+              src/components/layout/footer.tsx
+              ios/App/App.xcodeproj/project.pbxproj
+              ios/App/App/Info.plist
+            )
+            SOURCE_COMPARE_DIR="$(mktemp -d)"
+            trap 'rm -rf "$SOURCE_COMPARE_DIR"' EXIT
+            index=0
+            for release_path in "${RELEASE_SOURCE_PATHS[@]}"; do
+              source_file="${SOURCE_COMPARE_DIR}/${index}"
+              gh api --jq '.content' "repos/${GITHUB_REPOSITORY}/contents/${release_path}?ref=${TAG_TARGET_SHA}" |
+                tr -d '\r\n' |
+                base64 --decode > "$source_file"
+              if ! cmp -s "$source_file" "$release_path"; then
+                echo "::error title=Android recovery metadata drift::The current main tree differs from the exact tag target at ${release_path}. Refusing to publish assets built from the tag." >&2
+                exit 1
+              fi
+              index=$((index + 1))
+            done
+            echo "Verified all release identity files on main against GitHub's contents API at immutable source $TAG_TARGET_SHA."
+          else
+            echo "::error title=Unsupported Android recovery ref::Publisher must run from the exact tag/recovery branch or the guarded main source_commit path." >&2
+            exit 1
+          fi
+
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "TAG_TARGET_SHA=$TAG_TARGET_SHA" >> "$GITHUB_ENV"
+          echo "RELEASE_SOURCE_SHA=$TAG_TARGET_SHA" >> "$GITHUB_ENV"
+          echo "tag_target_sha=$TAG_TARGET_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Verify GitHub cryptographic tag signature and exact commit target
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          verified=false
+          for attempt in $(seq 1 10); do
+            ref_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/$TAG")"
+            if [[ "$(jq -r '.object.type' <<< "$ref_json")" != "tag" ]]; then
+              echo "::error title=Android release tag is not annotated::The release tag must be an annotated signed tag."
+              exit 1
+            fi
+            tag_object="$(jq -r '.object.sha' <<< "$ref_json")"
+            tag_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/$tag_object")"
+            signature_verified="$(jq -r '.verification.verified // false' <<< "$tag_json")"
+            signature_reason="$(jq -r '.verification.reason // ""' <<< "$tag_json")"
+            signed_target="$(jq -r '.object.sha // ""' <<< "$tag_json")"
+            if [[ "$signature_verified" == "true" && "$signature_reason" == "valid" && "$signed_target" == "$TAG_TARGET_SHA" ]]; then
+              verified=true
+              break
+            fi
+            sleep 3
+          done
+          if [[ "$verified" != "true" ]]; then
+            echo "::error title=Android Git tag signature is unverified::GitHub must report verification.verified=true, reason=valid, and the exact immutable target SHA before any asset is uploaded."
+            exit 1
+          fi
+          echo "PASS: GitHub cryptographically verified $TAG -> $TAG_TARGET_SHA."
+
+      - name: Verify explicit recovery guard for manual dispatch
+        if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          retry_flag="docs/finalization/RELEASE_RETRY.flag"
+          if [[ ! -s "${retry_flag}" ]] || [[ "$(tr -d '\r\n' < "${retry_flag}")" != "RETRY" ]]; then
+            echo "::error title=Android release retry is not authorized::Manual publisher dispatch requires the exact RELEASE_RETRY.flag value RETRY." >&2
+            exit 1
+          fi
+          version="$(jq -r '.version' package.json)"
+          tag="$(tr -d '\r\n' < .release-tag)"
+          if [[ "${tag}" != "${TAG}" ]]; then
+            echo "::error title=Android release tag metadata mismatch::The repository .release-tag value must equal the immutable release tag ${TAG}." >&2
+            exit 1
+          fi
+          notes="docs/releases/${version}.md"
+          if [[ ! -s "${notes}" ]] || ! grep -Fq "Release tag: \`${tag}\`" "${notes}"; then
+            echo "::error title=Android release notes are not canonical::Manual publisher dispatch requires release notes declaring the exact canonical tag." >&2
+            exit 1
+          fi
+          releases_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
+          matching_releases="$(jq -c --arg tag "${TAG}" '[.[]? | select(.tag_name == $tag)]' <<< "${releases_json}")"
+          matching_count="$(jq -r 'length' <<< "${matching_releases}")"
+          if [[ "${matching_count}" != "1" ]]; then
+            echo "::error title=Android recovery release draft is missing or ambiguous::Manual publisher dispatch requires exactly one GitHub Release record for ${TAG}; found ${matching_count}." >&2
+            exit 1
+          fi
+          release_json="$(jq -c '.[0]' <<< "${matching_releases}")"
+          release_draft="$(jq -r '.draft // false' <<< "${release_json}")"
+          release_prerelease="$(jq -r '.prerelease // false' <<< "${release_json}")"
+          if [[ "${release_draft}" != "true" || "${release_prerelease}" != "false" ]]; then
+            echo "::error title=Android recovery release state is not eligible::Manual publisher dispatch requires a single draft, non-prerelease GitHub Release for ${TAG}." >&2
+            exit 1
+          fi
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            if [[ "${RELEASE_SOURCE_SHA:-}" != "${TAG_TARGET_SHA}" ]]; then
+              echo "::error title=Android recovery source mismatch::main dispatch must remain bound to the exact immutable GPG tag target commit." >&2
+              exit 1
+            fi
+          elif [[ "${TAG_TARGET_SHA}" != "${GITHUB_SHA}" ]]; then
+            echo "::error title=Android recovery source mismatch::Manual publisher dispatch must run from the exact immutable tag target; tag target ${TAG_TARGET_SHA}, dispatch SHA ${GITHUB_SHA}." >&2
+            exit 1
+          fi
+          status_json="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TAG_TARGET_SHA}/status")"
+          android_rebuild_state="$(jq -r '[.statuses[]? | select(.context == "ci/circleci: android-rebuild")] | sort_by(.updated_at // .created_at) | last // {} | .state // empty' <<< "${status_json}")"
+          if [[ "${android_rebuild_state}" != "success" ]]; then
+            echo "::error title=Signed Android recovery build is not successful::Manual publisher dispatch requires ci/circleci: android-rebuild=success on ${TAG_TARGET_SHA}; found ${android_rebuild_state:-missing}." >&2
+            exit 1
+          fi
+          echo "PASS: manual Android recovery has an explicit retry flag, canonical release notes, exact tag SHA, and successful signed rebuild."
+          
+      - name: Verify canonical GitHub owner identity before publishing Android assets
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT_SHA: ${{ steps.resolve_tag.outputs.tag_target_sha }}
+          REQUIRE_VERCEL_STATUS: "false"
+          ALLOW_PRIVATE_ANDROID_DRAFT_FAILURE: ${{ github.event_name == 'workflow_dispatch' && inputs.retry == true }}
+        run: node scripts/verify-release-gates.mjs
+
+      - name: Fail fast if a published immutable release is missing APK/AAB
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RELEASE_JSON=""
+          RELEASES_JSON=""
+          for attempt in $(seq 1 30); do
+            RELEASES_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" 2>/dev/null || true)"
+            if [[ -n "$RELEASES_JSON" ]]; then
+              MATCH_COUNT="$(jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag)] | length' <<< "$RELEASES_JSON" 2>/dev/null || printf '0')"
+              if [[ ! "$MATCH_COUNT" =~ ^[0-9]+$ ]]; then
+                echo "::error title=Invalid Android release list::Could not count release records for ${TAG}." >&2
+                exit 1
+              fi
+              if (( MATCH_COUNT > 1 )); then
+                echo "::error title=Ambiguous Android release draft::Found ${MATCH_COUNT} GitHub releases for ${TAG}. Resolve duplicate release records before publishing; no release was modified." >&2
+                exit 1
+              fi
+              if (( MATCH_COUNT == 1 )); then
+                RELEASE_JSON="$(jq -c --arg tag "$TAG" '[.[] | select(.tag_name == $tag)] | .[0] | {id: .id, isDraft: .draft, assets: .assets}' <<< "$RELEASES_JSON")"
+                break
+              fi
+            fi
+            echo "Waiting for the release draft to be created (attempt $attempt/30)..."
+            sleep 5
+          done
+          # v1.1.4 is a previously-created recovery draft that GitHub may
+          # omit from the release list and cannot resolve by tag, so try its
+          # verified numeric ID before failing the release preflight.
+          if [[ -z "$RELEASE_JSON" && "$TAG" == "v1.1.4" ]]; then
+            RELEASE_BODY="$(gh api "repos/${GITHUB_REPOSITORY}/releases/413815658" 2>/dev/null || true)"
+            if [[ -n "$RELEASE_BODY" ]] && [[ "$(jq -r '.tag_name // empty' <<< "$RELEASE_BODY")" == "$TAG" ]]; then
+              RELEASE_JSON="$(jq -c '{id: .id, isDraft: .draft, assets: .assets}' <<< "$RELEASE_BODY")"
+            fi
+          fi
+
+          if [[ -z "$RELEASE_JSON" ]]; then
+            echo "::error title=Android release draft not found::No GitHub Release exists for $TAG. The release manager must create a draft before publishing assets." >&2
+            exit 1
+          fi
+
+          RELEASE_ID="$(jq -r '.id // empty' <<< "$RELEASE_JSON")"
+          if [[ ! "$RELEASE_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error title=Invalid GitHub release identity::Could not resolve the GitHub release ID for $TAG." >&2
+            exit 1
+          fi
+          echo "RELEASE_ID=$RELEASE_ID" >> "$GITHUB_ENV"
+
+          if [[ "$(jq -r '.isDraft' <<< "$RELEASE_JSON")" == "true" ]]; then
+            echo "Release $TAG is still a draft; artifact build and checksum verification may continue."
+            exit 0
+          fi
+
+          ASSET_NAMES="$(jq -r '.assets[].name' <<< "$RELEASE_JSON")"
+          REQUIRED_ASSETS=(app-release.apk app-release.aab SHA256SUMS release-metadata.json)
+          MISSING=()
+          for asset in "${REQUIRED_ASSETS[@]}"; do
+            if ! grep -Fxq "$asset" <<< "$ASSET_NAMES"; then
+              MISSING+=("$asset")
+            fi
+          done
+          if (("${#MISSING[@]}" > 0)); then
+            echo "::error title=Published immutable release missing APK/AAB::Release $TAG is already public and immutable, but lacks: ${MISSING[*]}. GitHub will not allow these assets to be attached afterward. Create the next semantic Android release and keep it in draft until the signed artifacts pass verification." >&2
+            exit 1
+          fi
+          echo "Published release already lists the required assets; the full byte-for-byte verification will run after artifact checks."
+
+
+      - name: Verify all CircleCI and GitHub release prerequisites before waiting for artifacts
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          latest_context_state() {
+            local context="$1"
+            jq -r --arg context "$context" \
+              '[.[] | select(.context == $context)] | sort_by(.updated_at) | (last // {}) | .state // ""'
+          }
+
+          required_contexts=(
+            "ci/circleci: config-guard"
+            "ci/circleci: source-verify"
+            "ci/circleci: application-build-docs"
+            "ci/circleci: supabase-production-gate"
+            "ci/circleci: android-rebuild"
+            "ci/circleci: android-release-dispatch"
+          )
+
+          for attempt in $(seq 1 240); do
+            status_json="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TAG_TARGET_SHA}/status" 2>/dev/null || printf '{}')"
+            statuses="$(jq -c '.statuses // []' <<< "$status_json")"
+            combined_state="$(jq -r '.state // ""' <<< "$status_json")"
+            pending=false
+            for context in "${required_contexts[@]}"; do
+              state="$(latest_context_state "$context" <<< "$statuses")"
+              case "$state" in
+                success) ;;
+                failure|error|cancelled)
+                  echo "::error title=Required CircleCI gate failed::${context} is ${state} for source commit ${TAG_TARGET_SHA}; refusing to publish Android assets." >&2
+                  exit 1
+                  ;;
+                *)
+                  echo "Waiting for ${context} (state='${state}', attempt ${attempt}/240)..."
+                  pending=true
+                  ;;
+              esac
+            done
+
+            check_runs="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TAG_TARGET_SHA}/check-runs?per_page=100" 2>/dev/null || printf '{}')"
+            quality="$(jq -c '[.check_runs[]? | select(.name == "ZIKR / Quality Gate" and .head_sha == env.TAG_TARGET_SHA)] | sort_by(.started_at) | last // {}' <<< "$check_runs")"
+            quality_status="$(jq -r '.status // ""' <<< "$quality")"
+            quality_conclusion="$(jq -r '.conclusion // ""' <<< "$quality")"
+            if [[ "$quality_status" == "completed" && "$quality_conclusion" != "success" ]]; then
+              echo "::error title=GitHub Quality Gate failed::The latest ZIKR / Quality Gate did not pass for ${TAG_TARGET_SHA}." >&2
+              exit 1
+            fi
+            if [[ "$quality_status" != "completed" || "$quality_conclusion" != "success" ]]; then
+              echo "Waiting for the exact source commit's ZIKR / Quality Gate (attempt ${attempt}/240)..."
+              pending=true
+            fi
+
+            # This one CircleCI context is a read-only visibility check. GitHub
+            # hides draft Releases from unauthenticated REST clients, so CircleCI
+            # may report failure even while the exact draft exists. The earlier
+            # authenticated release preflight in this workflow has already
+            # required one matching draft and verified its draft/non-prerelease
+            # state. Permit only this exact context failure; every other failure
+            # remains blocking.
+            draft_gate_state="$(latest_context_state "ci/circleci: android-release-draft" <<< "$statuses")"
+            unexpected_failures="$(jq -r '[.[]? | select(.state == "failure" or .state == "error" or .state == "cancelled") | select(.context != "ci/circleci: android-release-draft") | .context] | unique | join(", ")' <<< "$statuses")"
+            if [[ -n "$unexpected_failures" ]]; then
+              echo "::error title=Required release status failed::Unexpected failing commit status(es): ${unexpected_failures}. Refusing to publish Android assets."
+              exit 1
+            fi
+            if [[ "$draft_gate_state" == "failure" || "$draft_gate_state" == "error" || "$draft_gate_state" == "cancelled" ]]; then
+              echo "::warning::CircleCI could not enumerate the private draft without a GitHub token; the authenticated release preflight verified the single eligible draft for ${TAG}."
+            fi
+
+            non_draft_pending="$(jq -r '[.[]? | select(.state == "pending") | select(.context != "ci/circleci: android-release-draft") | .context] | unique | join(", ")' <<< "$statuses")"
+            if [[ -n "$non_draft_pending" ]]; then
+              echo "Waiting for other commit status(es): ${non_draft_pending}."
+              pending=true
+            fi
+
+            if [[ "$pending" == "false" ]]; then
+              echo "All required CircleCI contexts and the GitHub Quality Gate passed for ${TAG_TARGET_SHA}."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error title=Android release prerequisites unavailable::Required CircleCI contexts and the GitHub Quality Gate did not all pass for ${TAG_TARGET_SHA} within 60 minutes."
+          exit 1
+
+      - name: Install Android SDK
+        if: steps.gate.outputs.publish == 'true'
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: Install Java 21
+        if: steps.gate.outputs.publish == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Wait for GitHub Release Android artifacts
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          asset_url() {
+            local assets_json="$1"
+            local asset_name="$2"
+            jq -r --arg name "$asset_name" '.[] | select(.name == $name) | .url' <<< "$assets_json" | head -n 1
+          }
+          download_asset() {
+            local asset_url_value="$1"
+            local output_path="$2"
+            curl --fail --silent --show-error --location --retry 3 \
+              -H "Accept: application/octet-stream" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$asset_url_value" -o "$output_path"
+          }
+          for attempt in $(seq 1 120); do
+            ASSETS_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" --paginate 2>/dev/null || true)"
+            APK_URL="$(asset_url "$ASSETS_JSON" app-release.apk)"
+            AAB_URL="$(asset_url "$ASSETS_JSON" app-release.aab)"
+            SUMS_URL="$(asset_url "$ASSETS_JSON" SHA256SUMS)"
+            METADATA_URL="$(asset_url "$ASSETS_JSON" release-metadata.json)"
+            if [[ -n "$APK_URL" && -n "$AAB_URL" && -n "$SUMS_URL" && -n "$METADATA_URL" ]] \
+              && download_asset "$APK_URL" app-release.apk \
+              && download_asset "$AAB_URL" app-release.aab \
+              && download_asset "$SUMS_URL" SHA256SUMS \
+              && download_asset "$METADATA_URL" release-metadata.json; then
+              echo "Android artifacts are available on the GitHub Draft Release."
+              exit 0
+            fi
+            echo "Waiting for CircleCI GitHub Release assets (attempt $attempt/120; up to 60 minutes)..."
+            rm -f release-metadata.json app-release.apk app-release.aab SHA256SUMS
+            sleep 30
+          done
+          echo "Timed out waiting for GitHub Release Android artifacts after 60 minutes." >&2
+          exit 1
+
+      - name: Verify release metadata
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG}"
+          VERSION="${TAG#v}"
+          test "$(jq -r .tag release-metadata.json)" = "$TAG"
+          test "$(jq -r .version release-metadata.json)" = "$VERSION"
+          test "$(jq -r .applicationId release-metadata.json)" = "com.zikr.app"
+          test "$(jq -r .targetSdk release-metadata.json)" = "36"
+          grep -F "${TAG}" .release-tag
+          SOURCE_COMMIT="$(jq -r '.sourceCommit // empty' release-metadata.json)"
+          if [[ ! "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=Invalid Android artifact provenance::Release metadata is missing a valid source commit." >&2
+            exit 1
+          fi
+
+          TAG_REF_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}")"
+          TAG_REF_TYPE="$(jq -r '.object.type' <<< "$TAG_REF_JSON")"
+          TAG_REF_SHA="$(jq -r '.object.sha' <<< "$TAG_REF_JSON")"
+          if [[ "$TAG_REF_TYPE" == "tag" ]]; then
+            TAG_OBJECT_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${TAG_REF_SHA}")"
+            TAG_TARGET_TYPE="$(jq -r '.object.type' <<< "$TAG_OBJECT_JSON")"
+            TAG_TARGET_SHA="$(jq -r '.object.sha' <<< "$TAG_OBJECT_JSON")"
+          else
+            TAG_TARGET_TYPE="$TAG_REF_TYPE"
+            TAG_TARGET_SHA="$TAG_REF_SHA"
+          fi
+          if [[ "$TAG_TARGET_TYPE" != "commit" || "$TAG_TARGET_SHA" != "$SOURCE_COMMIT" ]]; then
+            echo "::error title=Android artifact/tag provenance mismatch::Tag ${TAG} resolves to ${TAG_TARGET_SHA}, but signed artifact metadata names source commit ${SOURCE_COMMIT}. Refusing to publish a binary built from a different commit." >&2
+            exit 1
+          fi
+
+          if [[ "${SOURCE_COMMIT}" != "${TAG_TARGET_SHA}" ]]; then
+            echo "::error title=Android artifact/tag provenance mismatch::Artifact source commit ${SOURCE_COMMIT} does not match immutable tag target ${TAG_TARGET_SHA}." >&2
+            exit 1
+          fi
+
+      - name: Verify checksums
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAX_GITHUB_RELEASE_ASSET_BYTES=2147483648
+          for artifact in app-release.apk app-release.aab; do
+            size_bytes="$(stat -c '%s' "$artifact")"
+            if (( size_bytes > MAX_GITHUB_RELEASE_ASSET_BYTES )); then
+              echo "::error title=Artifact exceeds GitHub Release asset limit::$artifact is larger than 2 GiB ($size_bytes bytes)." >&2
+              exit 1
+            fi
+          done
+          APK_SHA="$(awk 'NR == 1 {print $1}' SHA256SUMS)"
+          AAB_SHA="$(awk 'NR == 2 {print $1}' SHA256SUMS)"
+          test -n "$APK_SHA"
+          test -n "$AAB_SHA"
+          test "$APK_SHA" = "$(sha256sum app-release.apk | awk '{print $1}')"
+          test "$AAB_SHA" = "$(sha256sum app-release.aab | awk '{print $1}')"
+          test "$(jq -r .apkSha256 release-metadata.json)" = "$APK_SHA"
+          test "$(jq -r .aabSha256 release-metadata.json)" = "$AAB_SHA"
+
+      - name: Verify APK signature and manifest
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          test -n "$APKSIGNER"
+          test -x "$AAPT"
+          "$APKSIGNER" verify --verbose app-release.apk
+          BADGING="$("$AAPT" dump badging app-release.apk)"
+          PACKAGE_LINE="$(printf '%s\n' "$BADGING" | grep -m1 '^package:')"
+          printf '%s\n' "$PACKAGE_LINE" | grep -F "name='com.zikr.app'"
+          printf '%s\n' "$PACKAGE_LINE" | grep -F "versionName='${TAG#v}'"
+          printf '%s\n' "$BADGING" | grep -Fx "targetSdkVersion:'36'"
+
+      - name: Verify signed AAB
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          jarsigner -verify app-release.aab
+
+      - name: Verify GitHub Release state before publishing assets
+        id: release_state
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RELEASE_JSON=""
+          RELEASE_BODY=""
+          for attempt in $(seq 1 30); do
+            if RELEASE_BODY="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" 2>/dev/null)"; then
+              RELEASE_JSON="$(jq -c '{id: .id, isDraft: .draft, assets: .assets}' <<< "$RELEASE_BODY")"
+              break
+            fi
+            echo "Waiting for GitHub release ID $RELEASE_ID (attempt $attempt/30)..."
+            sleep 5
+          done
+          if [[ -z "$RELEASE_JSON" ]]; then
+            echo "::error title=GitHub release not found::Could not retrieve draft release ID $RELEASE_ID for $TAG." >&2
+            exit 1
+          fi
+
+          IS_DRAFT="$(jq -r '.isDraft' <<< "$RELEASE_JSON")"
+          if [[ "$IS_DRAFT" == "true" ]]; then
+            echo "upload_allowed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Published releases are immutable. Never mutate them: accept a repeat run
+          # only when the existing public files exactly match the verified build.
+          REQUIRED_ASSETS=(app-release.apk app-release.aab SHA256SUMS release-metadata.json)
+          ASSET_NAMES="$(jq -r '.assets[].name' <<< "$RELEASE_JSON")"
+          MISSING=()
+          for asset in "${REQUIRED_ASSETS[@]}"; do
+            if ! grep -Fxq "$asset" <<< "$ASSET_NAMES"; then
+              MISSING+=("$asset")
+            fi
+          done
+          if (("${#MISSING[@]}" > 0)); then
+            echo "::error title=Published immutable release is missing Android assets::Release $TAG is already published and immutable, and is missing: ${MISSING[*]}. It cannot be repaired in place; create the next semantic Android release and publish it only after the signed APK/AAB are verified." >&2
+            exit 1
+          fi
+
+          EXISTING_DIR="$RUNNER_TEMP/existing-release-assets"
+          mkdir -p "$EXISTING_DIR"
+          for asset in "${REQUIRED_ASSETS[@]}"; do
+            download_url="$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .browser_download_url' <<< "$RELEASE_JSON" | head -n 1)"
+            if [[ -z "$download_url" ]] || ! curl --fail --silent --show-error --location --retry 3 "$download_url" --output "$EXISTING_DIR/$asset"; then
+              echo "::error title=Cannot verify immutable release assets::Unable to download existing asset $asset for $TAG." >&2
+              exit 1
+            fi
+            if [[ ! -s "$EXISTING_DIR/$asset" ]] || ! cmp -s "$asset" "$EXISTING_DIR/$asset"; then
+              echo "::error title=Immutable release asset mismatch::$asset in published release $TAG does not match the verified build. Create the next semantic Android release; do not overwrite a published release." >&2
+              exit 1
+            fi
+          done
+          echo "Published release $TAG already contains the exact verified assets."
+          echo "upload_allowed=false" >> "$GITHUB_OUTPUT"
+
+
+      - name: Upload release assets and publish
+        if: steps.gate.outputs.publish == 'true' && steps.release_state.outputs.upload_allowed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Use GitHub CLI so the upload endpoint is resolved from the Release
+          # upload_url. --clobber is idempotent for retries. The global workflow
+          # concurrency lock prevents another publisher from deleting assets
+          # while this run is uploading them.
+          for asset in app-release.apk app-release.aab SHA256SUMS release-metadata.json; do
+            gh release upload "$TAG" "$asset" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+            echo "Uploaded and confirmed $asset."
+          done
+
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            --field draft=false \
+            --field prerelease=false \
+            --raw-field make_latest=true >/tmp/published-release.json
+          test "$(jq -r '.draft' /tmp/published-release.json)" = "false"
+          echo "Published Android release $TAG."
+
+      - name: Verify published GitHub Release contains the exact signed assets
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RELEASE_BODY="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          RELEASE_JSON="$(jq -c '{isDraft: .draft, assets: .assets}' <<< "$RELEASE_BODY")"
+          if [[ "$(jq -r '.isDraft' <<< "$RELEASE_JSON")" != "false" ]]; then
+            echo "::error title=GitHub Release is still a draft::The Android release was not published after asset verification." >&2
+            exit 1
+          fi
+
+          REQUIRED_ASSETS=(app-release.apk app-release.aab SHA256SUMS release-metadata.json)
+          for asset in "${REQUIRED_ASSETS[@]}"; do
+            size="$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .size' <<< "$RELEASE_JSON" | head -n 1)"
+            if [[ ! "$size" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error title=GitHub Release is missing an asset::$asset is absent or empty on the published GitHub Release." >&2
+              exit 1
+            fi
+          done
+
+          VERIFY_DIR="$RUNNER_TEMP/published-release-assets"
+          mkdir -p "$VERIFY_DIR"
+          for asset in "${REQUIRED_ASSETS[@]}"; do
+            download_url="$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .browser_download_url' <<< "$RELEASE_JSON" | head -n 1)"
+            if [[ -z "$download_url" ]]; then
+              echo "::error title=GitHub Release is missing an asset download URL::$asset has no download URL." >&2
+              exit 1
+            fi
+            curl --fail --silent --show-error --location --retry 3 "$download_url" --output "$VERIFY_DIR/$asset"
+            if [[ ! -s "$VERIFY_DIR/$asset" ]] || ! cmp -s "$asset" "$VERIFY_DIR/$asset"; then
+              echo "::error title=GitHub Release asset verification failed::$asset on GitHub does not match the verified build file." >&2
+              exit 1
+            fi
+          done
+          echo "GitHub Release $TAG contains non-empty APK, AAB, SHA256SUMS, and metadata matching the verified build."

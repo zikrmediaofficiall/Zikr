@@ -1,0 +1,225 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { unlockAudioContext } from '@/lib/audio/spiritual-tones';
+import { showDhikrNotification, isInQuietHours } from '@/features/notifications/services/notifications';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+
+export type DhikrInterval = 15 | 30 | 60 | 120 | 0; // 0 = disabled
+
+export interface DhikrQuietHours {
+  enabled: boolean;
+  from: string; // "HH:MM"
+  to: string; // "HH:MM"
+}
+
+export interface DhikrReminderSettings {
+  enabled: boolean;
+  intervalMinutes: DhikrInterval;
+  quietHours: DhikrQuietHours;
+}
+
+/** Rotating set of authentic adhkar shown in reminders. */
+export const DHIKR_PHRASES: string[] = [
+  'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ',
+  'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ',
+  'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ',
+  'اللَّهُ أَكْبَرُ كَبِيرًا وَالْحَمْدُ لِلَّهِ كَثِيرًا',
+  'أَسْتَغْفِرُ اللَّهَ الْعَظِيمَ وَأَتُوبُ إِلَيْهِ',
+  'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ',
+  'سُبْحَانَ اللَّهِ وَالْحَمْدُ لِلَّهِ وَلَا إِلَهَ إِلَّا اللَّهُ وَاللَّهُ أَكْبَرُ',
+  'حَسْبِيَ اللَّهُ لَا إِلَهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ',
+];
+
+const SETTINGS_KEY = "zikr_dhikr_settings";
+
+const DEFAULT_SETTINGS: DhikrReminderSettings = {
+  enabled: false, // opt-in: user must explicitly enable
+  intervalMinutes: 60,
+  quietHours: { enabled: false, from: '22:00', to: '06:00' },
+};
+
+function isDhikrInterval(value: unknown): value is DhikrInterval {
+  return typeof value === "number" && [0, 15, 30, 60, 120].includes(value);
+}
+
+function isClockTime(value: unknown): value is string {
+  return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function loadSettings(): DhikrReminderSettings {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS;
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return DEFAULT_SETTINGS;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return DEFAULT_SETTINGS;
+    }
+    const quietHours = parsed.quietHours && typeof parsed.quietHours === "object"
+      ? parsed.quietHours
+      : {};
+    return {
+      enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : DEFAULT_SETTINGS.enabled,
+      intervalMinutes: isDhikrInterval(parsed.intervalMinutes)
+        ? parsed.intervalMinutes
+        : DEFAULT_SETTINGS.intervalMinutes,
+      quietHours: {
+        enabled: typeof quietHours.enabled === "boolean"
+          ? quietHours.enabled
+          : DEFAULT_SETTINGS.quietHours.enabled,
+        from: isClockTime(quietHours.from) ? quietHours.from : DEFAULT_SETTINGS.quietHours.from,
+        to: isClockTime(quietHours.to) ? quietHours.to : DEFAULT_SETTINGS.quietHours.to,
+      },
+    };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+function saveSettings(settings: DhikrReminderSettings): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // Storage can be unavailable in private or quota-limited browser contexts.
+  }
+}
+
+function pickDhikr(index: number): string {
+  return DHIKR_PHRASES[index % DHIKR_PHRASES.length];
+}
+
+export interface DhikrReminderReturn {
+  settings: DhikrReminderSettings;
+  setEnabled: (v: boolean) => void;
+  setIntervalMinutes: (v: DhikrInterval) => void;
+  setQuietHours: (v: Partial<DhikrQuietHours>) => void;
+  testReminder: () => void;
+}
+
+async function getAuthenticatedSession() {
+  try {
+    const supabase = createBrowserSupabaseClient();
+    const { data, error } = await supabase.auth.getSession();
+    if (error) return null;
+    return data.session;
+  } catch {
+    return null;
+  }
+}
+
+export function useDhikrReminder(): DhikrReminderReturn {
+  const [settings, setSettings] = useState<DhikrReminderSettings>(DEFAULT_SETTINGS);
+  const rotationRef = useRef(0);
+
+  // Load local settings for every visitor, then reconcile with server preferences
+  // only for authenticated users. Anonymous visitors never call the protected API.
+  useEffect(() => {
+    setSettings(loadSettings());
+    let cancelled = false;
+    void getAuthenticatedSession().then(async session => {
+      if (cancelled || !session?.user) return;
+      try {
+        const response = await fetch('/api/reminders/background', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (cancelled) return;
+        const next: DhikrReminderSettings = {
+          enabled: Boolean(data.dhikr_enabled),
+          intervalMinutes: isDhikrInterval(data.dhikr_interval_minutes)
+            ? data.dhikr_interval_minutes
+            : DEFAULT_SETTINGS.intervalMinutes,
+          quietHours: {
+            enabled: Boolean(data.quiet_hours_start && data.quiet_hours_end),
+            from: isClockTime(data.quiet_hours_start?.slice(0, 5)) ? data.quiet_hours_start.slice(0, 5) : '22:00',
+            to: isClockTime(data.quiet_hours_end?.slice(0, 5)) ? data.quiet_hours_end.slice(0, 5) : '06:00',
+          },
+        };
+        saveSettings(next);
+        setSettings(next);
+      } catch {
+        // Anonymous/offline users keep the local defaults.
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Set up interval whenever settings change
+  useEffect(() => {
+    if (!settings.enabled || settings.intervalMinutes === 0) return;
+
+    const fire = () => {
+      if (
+        settings.quietHours.enabled &&
+        isInQuietHours(settings.quietHours.from, settings.quietHours.to)
+      ) {
+        return; // Respect quiet hours — skip silently
+      }
+      const text = pickDhikr(rotationRef.current);
+      rotationRef.current += 1;
+      showDhikrNotification(text);
+      // Also dispatch via SW for background delivery
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_DHIKR_NOTIFICATION',
+          text,
+        });
+      }
+    };
+
+    const interval = setInterval(fire, settings.intervalMinutes * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [settings]);
+
+  const update = useCallback(
+    (
+      partial:
+        | Partial<DhikrReminderSettings>
+        | ((prev: DhikrReminderSettings) => Partial<DhikrReminderSettings>)
+    ) => {
+      setSettings(prev => {
+        const patch = typeof partial === 'function' ? partial(prev) : partial;
+        const next = { ...prev, ...patch };
+        saveSettings(next);
+        void getAuthenticatedSession().then(session => {
+          if (!session?.user) return;
+          void fetch('/api/reminders/background', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              dhikr_enabled: next.enabled,
+              dhikr_interval_minutes: next.intervalMinutes,
+              quiet_hours_start: next.quietHours.enabled ? next.quietHours.from : null,
+              quiet_hours_end: next.quietHours.enabled ? next.quietHours.to : null,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+            }),
+          }).catch(() => undefined);
+        });
+        return next;
+      });
+    },
+    []
+  );
+
+  const setEnabled = useCallback((v: boolean) => update({ enabled: v }), [update]);
+  const setIntervalMinutes = useCallback(
+    (v: DhikrInterval) => update({ intervalMinutes: v }),
+    [update]
+  );
+  const setQuietHours = useCallback(
+    (v: Partial<DhikrQuietHours>) =>
+      update(prev => ({ quietHours: { ...prev.quietHours, ...v } })),
+    [update]
+  );
+
+  const testReminder = useCallback(() => {
+    unlockAudioContext();
+    showDhikrNotification(pickDhikr(rotationRef.current));
+    rotationRef.current += 1;
+  }, []);
+
+  return { settings, setEnabled, setIntervalMinutes, setQuietHours, testReminder };
+}

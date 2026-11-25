@@ -1,0 +1,24 @@
+export interface DuaCategory {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  slug: string;
+  icon?: string;
+}
+
+export interface Dua {
+  id: string;
+  titleAr: string;
+  titleEn: string;
+  slug: string;
+  textAr: string;
+  textEn?: string;
+  occasionAr?: string;
+  sourceAr?: string;
+  sourceUrl?: string;
+  benefitsAr?: string;
+  categoryId?: string;
+  published: boolean;
+  contentLocale?: "ar" | "en";
+}
+

@@ -1,0 +1,218 @@
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+const requiredFiles = [
+  'src/app/layout.tsx',
+  'src/lib/site.ts',
+  'src/app/robots.ts',
+  'src/app/sitemap.ts',
+  'src/app/sitemap-index.xml/route.ts',
+  'src/app/sitemap-content/[id]/route.ts',
+  'src/app/about/page.tsx',
+  'src/app/contact/page.tsx',
+  'src/app/privacy/page.tsx',
+  'src/app/editorial-policy/page.tsx',
+  'src/app/terms/page.tsx',
+  'public/ads.txt',
+];
+
+const failures = [];
+const warnings = [];
+
+function fail(message) {
+  failures.push(message);
+}
+
+function warn(message) {
+  warnings.push(message);
+}
+
+for (const file of requiredFiles) {
+  if (!existsSync(file)) fail(`Missing required AdSense/SEO asset: ${file}`);
+}
+
+function read(file) {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+function walk(dir) {
+  if (!existsSync(dir)) return [];
+  const result = [];
+  for (const entry of readdirSync(dir)) {
+    const path = join(dir, entry);
+    const info = statSync(path);
+    if (info.isDirectory()) result.push(...walk(path));
+    else if (/\.(tsx?|jsx?|mjs|cjs)$/.test(entry)) result.push(path);
+  }
+  return result;
+}
+
+const appCode = [...walk('src/app'), ...walk('src/components'), ...walk('src/lib'), ...walk('src/features')];
+for (const file of appCode) {
+  const source = read(file);
+  if (/<img\b/i.test(source)) fail(`Raw <img> usage found in application code: ${file}`);
+  if (/@next\/next\/no-img-element/.test(source)) fail(`Image lint suppression found in application code: ${file}`);
+  // Treat hyphenated identifiers such as the Lucide icon key "list-todo"
+  // as one token; they are not TODO placeholders in user-facing source.
+  if (/(?:^|[^a-z0-9_-])(?:lorem ipsum|todo|fixme|coming soon|under construction|example\.com)(?:$|[^a-z0-9_-])/i.test(source)) {
+    fail(`Placeholder/development text found in application code: ${file}`);
+  }
+}
+
+const layout = read('src/app/layout.tsx');
+const site = read('src/lib/site.ts');
+const adsTxt = read('public/ads.txt');
+const nextConfig = read('next.config.ts');
+const analytics = read('src/components/layout/analytics.tsx');
+const adsense = read('src/components/layout/adsense.tsx');
+const webAdvertisingRuntime = read('src/components/layout/web-advertising-runtime.tsx');
+const adsenseSlot = read('src/components/layout/adsense-slot.tsx');
+const articlePage = read('src/app/articles/[slug]/page.tsx');
+const envExample = read('.env.example');
+
+if (!/google-adsense-account/.test(webAdvertisingRuntime)) fail('AdSense publisher meta tag is missing from the web-only advertising runtime.');
+if (
+  layout.includes('google-adsense-account') ||
+  layout.includes('google-consent-mode-default') ||
+  layout.includes('window.adsbygoogle') ||
+  layout.includes('requestNonPersonalizedAds = 1')
+) fail('AdSense publisher metadata and Consent Mode globals must not be emitted in the server-rendered native layout.');
+const runtimePublisher = webAdvertisingRuntime.match(/ca-pub-\d{8,}/)?.[0] ?? null;
+const adsTxtPublisher = adsTxt.match(/google\.com,\s*(pub-\d{8,})\s*,\s*DIRECT\s*,\s*f08c47fec0942fa0/i)?.[1] ?? null;
+if (!adsTxtPublisher) fail('public/ads.txt does not contain a valid Google direct-seller entry.');
+const normalizedAdsTxtPublisher = adsTxtPublisher?.replace(/^pub-/, 'ca-pub-') ?? null;
+if (runtimePublisher && normalizedAdsTxtPublisher && runtimePublisher !== normalizedAdsTxtPublisher) {
+  fail(`Publisher mismatch: runtime=${runtimePublisher}, ads.txt=${adsTxtPublisher}.`);
+}
+if (!adsense.includes('NEXT_PUBLIC_ADSENSE_ENABLED === "true"') || !envExample.includes('NEXT_PUBLIC_ADSENSE_ENABLED=false')) {
+  fail('AdSense must remain explicitly disabled by default until account review and consent settings are confirmed.');
+}
+if (!adsense.includes('NEXT_PUBLIC_ADSENSE_ARTICLE_SLOT') || !adsense.includes('ADSENSE_CONFIGURED')) {
+  fail('AdSense must require a configured publisher ID and explicit manual ad-unit slot.');
+}
+if (!adsenseSlot.includes('data-ad-slot') || !adsenseSlot.includes('requestNonPersonalizedAds = 1')) {
+  fail('The article ad unit must use an explicit slot and request non-personalized ads.');
+}
+if (!adsenseSlot.includes('Capacitor.isNativePlatform()') || !articlePage.includes('<AdSenseSlot')) {
+  fail('AdSense must be limited to web editorial articles and excluded from native app builds.');
+}
+if (
+  !adsenseSlot.includes('import { PRODUCTION_URL } from "@/lib/site";') ||
+  !adsenseSlot.includes("isCanonicalProductionOrigin") ||
+  !adsenseSlot.includes("setIsWebRuntime(!Capacitor.isNativePlatform() && isCanonicalProductionOrigin())")
+) {
+  fail('The AdSense slot markup and queue must be excluded from Preview aliases and non-canonical hosts.');
+}
+if (
+  !webAdvertisingRuntime.includes('import { PRODUCTION_URL } from "@/lib/site";') ||
+  !webAdvertisingRuntime.includes("isCanonicalProductionOrigin") ||
+  !webAdvertisingRuntime.includes("if (!isCanonicalProductionOrigin())") ||
+  !read('src/components/layout/runtime-effects.tsx').includes('import { PRODUCTION_URL } from "@/lib/site";') ||
+  !read('src/components/layout/runtime-effects.tsx').includes("window.location.origin === new URL(PRODUCTION_URL).origin") ||
+  read('src/components/layout/runtime-effects.tsx').includes("window.location.hostname")
+) {
+  fail('Monetization scripts must load only on the canonical production host, never on Vercel Preview aliases.');
+}
+const nativeGuardIndex = webAdvertisingRuntime.indexOf('if (Capacitor.isNativePlatform())');
+const canonicalOriginGuardIndex = webAdvertisingRuntime.indexOf('if (!isCanonicalProductionOrigin())');
+const consentDefaultsIndex = webAdvertisingRuntime.indexOf('installConsentModeDefaults();');
+const adsenseMetaCreateIndex = webAdvertisingRuntime.indexOf('meta.name = "google-adsense-account"');
+if (
+  !webAdvertisingRuntime.includes('requestNonPersonalizedAds = 1') ||
+  !webAdvertisingRuntime.includes('installConsentModeDefaults') ||
+  nativeGuardIndex < 0 ||
+  canonicalOriginGuardIndex < nativeGuardIndex ||
+  consentDefaultsIndex < canonicalOriginGuardIndex ||
+  adsenseMetaCreateIndex < consentDefaultsIndex
+) {
+  fail('Consent Mode and AdSense publisher metadata must be installed only after native/canonical-origin guards, with non-personalized defaults before publisher scripts.');
+}
+
+const robotsSource = read('src/app/robots.ts');
+const sitemapIndexRoute = read('src/app/sitemap-index.xml/route.ts');
+if (!robotsSource.includes('sitemap: `${baseUrl}/sitemap-index.xml`')) {
+  fail('robots.ts must advertise the sitemap index so every generated content shard is discoverable.');
+}
+if (!sitemapIndexRoute.includes('getSitemapShardCount') || !sitemapIndexRoute.includes('/sitemap-content/${id}.xml')) {
+  fail('The advertised sitemap index must enumerate every generated content shard.');
+}
+if (!/alternates:\s*\{\s*canonical:\s*["']\/["']/.test(layout)) warn('Root canonical is not declared in the expected metadata shape.');
+if (/languages\s*:\s*\{[\s\S]*?en\s*:/.test(layout)) fail('English alternate metadata is present although the site is currently Arabic-only.');
+if (/inLanguage:\s*\[\s*["']ar["']\s*,\s*["']en["']\s*\]/.test(layout)) fail('WebSite JSON-LD incorrectly advertises English content.');
+
+if (/googletagmanager\.com/.test(analytics)) {
+  if (!/www\.googletagmanager\.com/.test(nextConfig)) fail('Google Tag Manager domain is not allowed by the production CSP.');
+  if (!/www\.google-analytics\.com/.test(nextConfig)) fail('Google Analytics endpoint is not allowed by the production CSP.');
+}
+
+const runtimeEffects = read("src/components/layout/runtime-effects.tsx");
+if (!runtimeEffects.includes('normalizedPath.startsWith("/articles/")') || !runtimeEffects.includes('ADSENSE_CONFIGURED')) {
+  fail('AdSense script loading must be opt-in and restricted to article detail routes.');
+}
+const noindexPaths = [...site.matchAll(/"\/(?:search|qibla|prayer-times|tasbeeh|memorization|wird|zakat|offline-library|settings|favorites|profile|spiritual-ai|radio|youtube|reciters|tawasheeh)"/g)].length;
+if (noindexPaths < 10) warn('Expected utility/account noindex coverage was not found in lib/site.ts.');
+
+const publicEditorial = [
+  'src/app/about/page.tsx',
+  'src/app/contact/page.tsx',
+  'src/app/privacy/page.tsx',
+  'src/app/editorial-policy/page.tsx',
+  'src/app/terms/page.tsx',
+];
+for (const file of publicEditorial) {
+  if (read(file).trim().length < 600) warn(`Public trust/legal page is unusually short: ${file}`);
+}
+
+// Content depth gate: AdSense rejects sites whose editorial pages are thin, repetitive, or about the product itself.
+const MIN_LONGFORM_WORDS = 500;
+const MIN_LONGFORM_ARTICLES = 16;
+const longform = read('src/features/articles/data/longform-editorial.ts');
+const longformBlocks = longform.split(/longformArticle\(\{/).slice(1);
+if (longformBlocks.length < MIN_LONGFORM_ARTICLES) {
+  fail(`Expected at least ${MIN_LONGFORM_ARTICLES} long-form editorial articles, found ${longformBlocks.length}.`);
+}
+const seenLongformSlugs = new Set();
+for (const block of longformBlocks) {
+  const slug = block.match(/slug:\s*"([^"]+)"/)?.[1] ?? 'unknown';
+  const body = block.match(/content_ar:\s*`([\s\S]*?)`/)?.[1] ?? '';
+  const words = body.trim().split(/\s+/).filter(Boolean).length;
+  const references = (block.match(/url:\s*"https:\/\//g) ?? []).length;
+  if (seenLongformSlugs.has(slug)) fail(`Duplicate long-form article slug: ${slug}`);
+  seenLongformSlugs.add(slug);
+  if (words < MIN_LONGFORM_WORDS) fail(`Long-form article "${slug}" has ${words} words; minimum is ${MIN_LONGFORM_WORDS}.`);
+  if (references < 2) fail(`Long-form article "${slug}" needs at least 2 source references.`);
+  if (/(الواجهة|هذا التطبيق|تعرض المنصة|يعرض الموقع|فريق التطوير)/.test(body)) {
+    fail(`Long-form article "${slug}" talks about the product instead of serving the reader.`);
+  }
+}
+if (/al5sm\.com|5gvci\.com/.test(webAdvertisingRuntime)) {
+  warn('Separate third-party Monetag scripts remain in the web-only advertising runtime; review their ad formats, consent and AdSense policy compatibility in the publisher accounts.');
+}
+
+const productionUrl = site.match(/PRODUCTION_URL\s*=\s*["']([^"']+)["']/)?.[1];
+if (productionUrl && /\.vercel\.app$/i.test(new URL(productionUrl).hostname)) {
+  warn('The canonical origin is a shared vercel.app hostname; a custom-domain decision and attachment remain an owner-level AdSense review blocker.');
+}
+if (longformBlocks.length < 20) {
+  warn(`The internal growth plan calls for 20–30 substantial original editorial pages before reapplication; this check found ${longformBlocks.length} long-form articles.`);
+}
+warn('This source check cannot verify AdSense approval, site review, live ad serving, Funding Choices/CMP configuration, Search Console status, or account-level policy findings. Confirm these in the publisher accounts before reapplying.');
+
+if (!/article:\s*1800/.test(read('src/lib/content-quality.ts'))) {
+  fail('Article indexing threshold in src/lib/content-quality.ts must not be lowered below 1800 characters.');
+}
+
+if (failures.length) {
+  console.error('ADSENSE_READINESS_FAILED');
+  for (const item of failures) console.error(`❌ ${item}`);
+  for (const item of warnings) console.warn(`⚠️ ${item}`);
+  process.exit(1);
+}
+
+console.log('ADSENSE_SOURCE_CHECKS_PASSED (publisher/account readiness is not verified)');
+console.log(`Checked ${requiredFiles.length} required assets and ${appCode.length} application source files.`);
+for (const item of warnings) console.warn(`⚠️ ${item}`);

@@ -1,0 +1,190 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdminApi } from "@/features/admin/services/admin";
+import { requireAdminStepUpApi } from "@/features/admin/services/security";
+import { readBoundedJsonBody } from "@/lib/request/bounded-json-body";
+import { recordAdminAuditEvent } from "@/features/admin/services/audit";
+import { dispatchGitHubWorkflow } from "@/lib/github/dispatch-workflow";
+import { supabaseServerAdminRequest } from "@/lib/supabase/server";
+import { requireSupabaseRows } from "@/lib/supabase/array-response";
+import {
+  asWrittenRecord,
+  isWrittenPostVisibleToSocialManager,
+  parseWrittenGenerationRequest,
+} from "@/features/social/services/written-content";
+
+export const dynamic = "force-dynamic";
+
+type WrittenQueueItem = {
+  id: string;
+  content_id: string | null;
+  content_type: string;
+  automation_key: string | null;
+  title: string;
+  body: string | null;
+  status: string;
+  created_at: string;
+  scheduled_at: string | null;
+  published_at: string | null;
+  error_message: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+function queueCutoff() {
+  const cutoff = new Date(process.env.SOCIAL_PUBLISH_AFTER ?? "2026-11-06T20:00:00Z");
+  if (!Number.isFinite(cutoff.getTime())) throw new Error("Invalid social publishing cutoff.");
+  return encodeURIComponent(cutoff.toISOString());
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+
+export async function GET() {
+  const auth = await requireAdminApi("social.manage");
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const kidsAuth = await requireAdminApi("kids.manage");
+  if (!kidsAuth.ok && kidsAuth.status !== 403) {
+    return NextResponse.json({ error: kidsAuth.error }, { status: kidsAuth.status });
+  }
+  if (kidsAuth.ok && kidsAuth.profile.id !== auth.profile.id) {
+    return NextResponse.json(
+      { error: "Administrator identity changed during Kids authorization." },
+      { status: 403, headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+  const canManageKids = kidsAuth.ok;
+
+  try {
+    const rows = requireSupabaseRows<WrittenQueueItem>(
+      await supabaseServerAdminRequest<unknown>(
+        "/rest/v1/social_publish_queue?content_type=eq.written_post&created_at=gte." +
+          queueCutoff() +
+          "&select=id,content_id,content_type,automation_key,title,body,status,created_at,scheduled_at,published_at,error_message,metadata" +
+          "&order=created_at.desc&limit=" + (canManageKids ? "100" : "500"),
+      ),
+      "Written social queue query",
+    );
+
+    let visibleRows = rows;
+    if (!canManageKids) {
+      const sourceIds = [...new Set(rows.flatMap((row) => {
+        const source = asWrittenRecord(asWrittenRecord(row.metadata).source);
+        return [row.content_id, source.id].filter(
+          (value): value is string => typeof value === "string" && UUID_PATTERN.test(value),
+        );
+      }))];
+      const kidsSourceIds = new Set<string>();
+      if (sourceIds.length > 0) {
+        const kidsSources = requireSupabaseRows<{ id: string }>(
+          await supabaseServerAdminRequest<unknown>(
+            "/rest/v1/kids_content?id=in.(" + sourceIds.map(encodeURIComponent).join(",") + ")&select=id",
+          ),
+          "Written social Kids source visibility query",
+        );
+        for (const source of kidsSources) {
+          if (typeof source.id === "string") kidsSourceIds.add(source.id);
+        }
+      }
+      visibleRows = rows.filter((row) => isWrittenPostVisibleToSocialManager(row, kidsSourceIds));
+    }
+
+    const items = visibleRows.slice(0, 100).map((row) => ({
+      id: row.id,
+      title: row.title,
+      body: row.body,
+      status: row.status,
+      created_at: row.created_at,
+      scheduled_at: row.scheduled_at,
+      published_at: row.published_at,
+      error_message: row.error_message,
+      metadata: row.metadata,
+    }));
+    return NextResponse.json(
+      { items },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  } catch (error) {
+    console.error("[api/admin/social/written] GET:", error);
+    return NextResponse.json(
+      { error: "تعذر تحميل منشورات فيسبوك المكتوبة." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const manageAuth = await requireAdminApi("social.manage");
+  if (!manageAuth.ok) return NextResponse.json({ error: manageAuth.error }, { status: manageAuth.status });
+  const publishAuth = await requireAdminStepUpApi("social.publish", "/admin/social/written-studio");
+  if (!publishAuth.ok) return NextResponse.json({ error: publishAuth.error, nextPath: "nextPath" in publishAuth ? publishAuth.nextPath : undefined }, { status: publishAuth.status, headers: { "Cache-Control": "no-store" } });
+
+  try {
+    const bodyResult = await readBoundedJsonBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        { error: bodyResult.error },
+        { status: bodyResult.status, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    const parsedRequest = parseWrittenGenerationRequest(bodyResult.value);
+    if (!parsedRequest.ok) {
+      const message = parsedRequest.reason === "invalid_category"
+        ? "تصنيف المحتوى غير صالح."
+        : parsedRequest.reason === "invalid_batch_size"
+          ? "عدد المنشورات يجب أن يكون من 1 إلى 3."
+          : "بيانات الطلب غير صالحة.";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    const { category, batchSize: requestedBatchSize } = parsedRequest.value;
+    let allowKids = false;
+    if (category === "auto" || category === "kids") {
+      const kidsAuth = await requireAdminApi("kids.manage");
+      if (category === "kids" && !kidsAuth.ok) {
+        return NextResponse.json({ error: "Kids management permission is required for this category." }, { status: 403 });
+      }
+      if (
+        kidsAuth.ok &&
+        (kidsAuth.profile.id !== manageAuth.profile.id || kidsAuth.profile.id !== publishAuth.profile.id)
+      ) {
+        return NextResponse.json({ error: "Administrator identity changed during Kids authorization." }, { status: 403 });
+      }
+      allowKids = kidsAuth.ok;
+    }
+
+    const dispatch = await dispatchGitHubWorkflow("generate-written-content.yml", {
+      category,
+      batch_size: String(requestedBatchSize),
+      allow_kids: String(allowKids),
+    });
+
+    try {
+      await recordAdminAuditEvent({
+        action: "social.written.generate",
+        permission: "social.publish",
+        resourceType: "social_publish_queue",
+        metadata: {
+          category,
+          batchSize: requestedBatchSize,
+          allowKids,
+          workflowFile: dispatch.workflowFile,
+          repository: dispatch.repository,
+        },
+      });
+    } catch (auditError) {
+      console.warn("[api/admin/social/written] audit event unavailable:", auditError);
+    }
+
+    return NextResponse.json(
+      {
+        ok: true,
+        workflow: dispatch.workflowFile,
+        message: "تم إرسال طلب إنشاء منشورات فيسبوك المكتوبة.",
+      },
+      { status: 202, headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    console.error("[api/admin/social/written] POST:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "تعذر تشغيل مولّد منشورات فيسبوك." },
+      { status: 502, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+}

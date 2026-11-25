@@ -1,0 +1,87 @@
+name: ZIKR Daily Social Insights Sync
+
+on:
+  # Refresh analytics immediately after deployment changes and once per day.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sync-social-insights.yml"
+      - "scripts/jobs/social-publishing.ts"
+      - "scripts/run-background-jobs.ts"
+      - "src/features/social/services/youtube-post-insights.ts"
+      - "src/features/social/services/social-insights-scan-cursor.ts"
+      - "src/features/social/services/facebook-reels-insights.ts"
+      - "src/features/social/integrations/facebook.ts"
+      - "src/features/videos/services/video-automation.ts"
+  schedule:
+    - cron: "13 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zikr-social-insights
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync published-post insights
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
+      BACKGROUND_JOB_TARGET: "insights"
+      SOCIAL_PUBLISH_ENABLED: "false"
+      SOCIAL_SYNC_INSIGHTS: "true"
+      # Analytics-only worker reads published records; it never claims queue rows.
+      FACEBOOK_GRAPH_API_VERSION: ${{ vars.FACEBOOK_GRAPH_API_VERSION || 'v26.0' }}
+
+    steps:
+      - name: Record trigger
+        shell: bash
+        run: |
+          echo "Social insights sync triggered by: ${GITHUB_EVENT_NAME}"
+          echo "Background job target: ${BACKGROUND_JOB_TARGET}"
+          echo "Social publishing policy: ${SOCIAL_PUBLISH_ENABLED}"
+
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prod=false
+
+      - name: Verify social publishing and scheduler contracts
+        run: |
+          pnpm scheduler:check
+          pnpm social:publish:check
+
+      - name: Run isolated social insights sync
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: pnpm background:jobs
+
+      - name: Report completion
+        if: always()
+        shell: bash
+        run: |
+          echo "Social insights sync finished. This workflow does not claim or publish queue rows."
+          echo "Publishing remains disabled in this analytics-only workflow."

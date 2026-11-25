@@ -1,0 +1,175 @@
+#!/usr/bin/env node
+import fs from "node:fs";
+
+const failures = [];
+const read = (path) => fs.readFileSync(path, "utf8");
+
+const migrationPath = "supabase/migrations/20261002073929_phase6_security_hardening_20261002.sql";
+const migration = read(migrationPath);
+
+for (const token of [
+  "REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER",
+  "FROM anon;",
+  "GRANT INSERT ON public.contacts TO anon;",
+  "REVOKE ALL ON public.admin_audit_log FROM anon, authenticated;",
+  "REVOKE ALL ON public.admin_settings FROM anon, authenticated;",
+  "REVOKE ALL ON public.content_revisions FROM anon, authenticated;",
+  "REVOKE ALL ON public.video_automation_runs FROM anon, authenticated;",
+  "REVOKE ALL ON public.youtube_sync_state FROM anon, authenticated;",
+]) {
+  if (!migration.includes(token)) failures.push(`${migrationPath} missing security contract: ${token}`);
+}
+
+const contactMigrationPath = "supabase/migrations/20261015050000_secure_contact_submission.sql";
+const contactMigration = read(contactMigrationPath);
+for (const token of [
+  "REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER",
+  "ON TABLE public.contacts",
+  "FROM PUBLIC, anon, authenticated;",
+  "DROP POLICY IF EXISTS contacts_public_insert ON public.contacts;",
+]) {
+  if (!contactMigration.includes(token)) failures.push(`${contactMigrationPath} missing security contract: ${token}`);
+}
+
+const contactRateLimit = read("src/features/contact/services/rate-limit.ts");
+for (const token of [
+  "consume_admin_rate_limit",
+  "process.env.SUPABASE_SERVICE_ROLE_KEY",
+  'const RATE_LIMIT_BUCKET = "public_contact_submission";',
+  "const RATE_LIMIT_MAX_REQUESTS = 5;",
+  "const RATE_LIMIT_WINDOW_SECONDS = 600;",
+]) {
+  if (!contactRateLimit.includes(token)) failures.push(`contact rate limiter is missing shared enforcement: ${token}`);
+}
+const contactRateLimitIdentity = read("src/features/contact/rate-limit-identity.ts");
+if (!contactRateLimitIdentity.includes("createHmac")) {
+  failures.push("contact rate-limit identity must use keyed hashing rather than a public, reversible IP hash");
+}
+const contactRoute = read("src/app/api/contact/route.ts");
+if (!contactRoute.includes("consumePublicContactRateLimit(")) failures.push("contact route must use the shared rate limiter");
+if (contactRoute.includes("new Map(")) failures.push("contact route must not rely on a per-instance in-memory rate limiter");
+
+const contactService = read("src/features/contact/services/contact.ts");
+if (!contactService.includes("createAdminClient()")) {
+  failures.push("contact submission must use server-only privileged database access after public writes are revoked");
+}
+if (contactService.includes("createClient()")) {
+  failures.push("contact submission must not use the public/session database client to write contacts");
+}
+
+const legacy = read("src/app/api/kids/games/submit-result/route.ts");
+for (const token of [
+  "recordKidsGameResultForUser",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  'Deprecation: "true"',
+  'status: 405',
+]) {
+  if (!legacy.includes(token)) failures.push(`legacy kids route missing hardening token: ${token}`);
+}
+for (const forbidden of [
+  "SUPABASE_SERVICE_ROLE_KEY",
+  ".from('kids_game_results').insert",
+  ".from('kids_game_progress').upsert",
+  ".from('kids_achievements').insert",
+]) {
+  if (legacy.includes(forbidden)) failures.push(`legacy kids route still contains privileged operation: ${forbidden}`);
+}
+if (legacy.includes("// @ts-nocheck")) {
+  failures.push("legacy kids route must not use @ts-nocheck");
+}
+
+const games = read("src/features/kids/services/games.ts");
+if (!games.includes("export async function recordKidsGameResultForUser(")) {
+  failures.push("kids games service is missing the shared authenticated result processor");
+}
+if (!games.includes("validateGameResultPayload(body)")) {
+  failures.push("kids games service must validate result payloads before privileged RPC execution");
+}
+if (!games.includes('kids_record_game_result_internal')) {
+  failures.push("kids games service must use the secure service-role RPC");
+}
+
+const queuePolicyMigrationPath = "supabase/migrations/20261028112016_optimize_admin_queue_alert_rls_initplan.sql";
+const queuePolicyMigration = read(queuePolicyMigrationPath);
+for (const token of [
+  "DROP POLICY IF EXISTS admin_queue_alert_deliveries_admin_read",
+  "WHERE a.user_id = (SELECT auth.uid())",
+  "WHERE p.id = (SELECT auth.uid())",
+  "FOR SELECT",
+  "TO authenticated",
+]) {
+  if (!queuePolicyMigration.includes(token)) {
+    failures.push(`${queuePolicyMigrationPath} missing optimized policy contract: ${token}`);
+  }
+}
+
+
+const credentialsMigrationPath =
+  "supabase/migrations/20261028112823_social_credentials_explicit_deny_policies.sql";
+const credentialsMigration = read(credentialsMigrationPath);
+for (const token of [
+  "REVOKE ALL ON TABLE public.social_platform_credentials",
+  "FROM PUBLIC, anon, authenticated;",
+  "AS RESTRICTIVE",
+  "TO anon",
+  "TO authenticated",
+  "USING (false)",
+  "WITH CHECK (false)",
+  "COMMENT ON TABLE public.social_platform_credentials",
+]) {
+  if (!credentialsMigration.includes(token)) {
+    failures.push(
+      `${credentialsMigrationPath} missing fail-closed security contract: ${token}`,
+    );
+  }
+}
+
+
+const clientNonDmlMigrationPath =
+  "supabase/migrations/20261112103200_revoke_client_non_dml_table_privileges.sql";
+const clientNonDmlMigration = read(clientNonDmlMigrationPath);
+for (const token of [
+  "REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN",
+  "ON ALL TABLES IN SCHEMA public",
+  "FROM PUBLIC, anon, authenticated;",
+  "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public",
+  "ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public",
+  "pg_has_role(current_user, 'supabase_admin', 'MEMBER')",
+]) {
+  if (!clientNonDmlMigration.includes(token)) {
+    failures.push(`${clientNonDmlMigrationPath} missing client non-DML privilege hardening: ${token}`);
+  }
+}
+const defaultFunctionAclMigration = read(
+  "supabase/migrations/20261114020000_revoke_client_default_function_execute.sql",
+);
+for (const roleName of ["supabase_admin", "supabase_storage_admin"]) {
+  if (!defaultFunctionAclMigration.includes(`pg_has_role(current_user, '${roleName}', 'MEMBER')`)) {
+    failures.push(`default function ACL migration must check membership before altering ${roleName} defaults`);
+  }
+}
+if (
+  clientNonDmlMigration.includes("REVOKE ALL") ||
+  clientNonDmlMigration.includes("REVOKE SELECT") ||
+  clientNonDmlMigration.includes("REVOKE INSERT") ||
+  clientNonDmlMigration.includes("REVOKE UPDATE") ||
+  clientNonDmlMigration.includes("REVOKE DELETE") ||
+  clientNonDmlMigration.includes("FROM service_role")
+) {
+  failures.push("client non-DML hardening must preserve RLS-governed DML and service_role privileges");
+}
+if (
+  clientNonDmlMigration.includes("TRUNCATE TABLE") ||
+  clientNonDmlMigration.includes("DELETE FROM") ||
+  clientNonDmlMigration.includes("DROP TABLE") ||
+  clientNonDmlMigration.includes("DISABLE ROW LEVEL SECURITY")
+) {
+  failures.push("client non-DML hardening must not mutate application data or disable RLS");
+}
+
+if (failures.length) {
+  console.error("SECURITY_HARDENING_CHECK_FAILED");
+  for (const failure of failures) console.error("❌ " + failure);
+  process.exit(1);
+}
+console.log("✅ Phase 6 repository security-hardening checks passed");

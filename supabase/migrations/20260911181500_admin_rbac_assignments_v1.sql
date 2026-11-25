@@ -1,0 +1,2 @@
+-- Canonical migration version retained for migration-ledger parity.
+-- Admin RBAC assignments are owned by 20260911150920; this duplicate version is a no-op.

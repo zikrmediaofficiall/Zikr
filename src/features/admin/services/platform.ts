@@ -1,0 +1,449 @@
+import "server-only";
+
+import {
+  assertSupabaseConnection,
+  supabaseServerAdminCount,
+  supabaseServerAdminRequest,
+} from "@/lib/supabase/server";
+import { buildAdminVideoQueueOverview } from "@/features/admin/services/admin-dashboard-visibility";
+import { canSearchAdminVideoRow, getVisibleAdminSearchSourceKeys, resolveKidsVideoCategoryIds, type AdminSearchSourceKey } from "@/features/admin/services/admin-search-visibility";
+import { hasAdminPermission, type AdminPermission, type AdminRole } from "@/features/admin/services/permissions";
+import { readAdminRows } from "@/features/admin/services/safe-read";
+import { getServerEnv } from "@/lib/env";
+
+export type AdminMetric = {
+  key: string;
+  label: string;
+  /** null means the source could not be read; never render it as zero. */
+  value: number | null;
+  tone?: "neutral" | "success" | "warning" | "danger";
+};
+
+export type AdminCountRow = {
+  table: string;
+  label: string;
+  count: number | null;
+  state: "available" | "unavailable";
+};
+
+export type AdminAuditRow = {
+  id: string;
+  action: string;
+  permission: AdminPermission | null;
+  resource_type: string | null;
+  resource_id: string | null;
+  outcome: "success" | "denied" | "failed";
+  request_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  actor_user_id: string | null;
+};
+
+export type AdminGitHubStatus = {
+  context: string;
+  state: string;
+  description: string | null;
+  targetUrl: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminWorkflowRun = {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  createdAt: string;
+  url: string;
+};
+
+export type AdminGitHubHealth = {
+  statusesAvailable: boolean;
+  workflowsAvailable: boolean;
+  overall: string | null;
+  commitSha: string | null;
+  statuses: AdminGitHubStatus[];
+  workflows: AdminWorkflowRun[];
+};
+
+export type AdminHealth = {
+  database: "healthy" | "degraded";
+  tables: Array<{ table: string; count: number | null; state: "healthy" | "empty" | "unavailable" }>;
+  queues: {
+    videoPending: number;
+    videoProcessing: number;
+    videoRetryWait: number;
+    videoFailed: number;
+  };
+  /** false means the queue could not be read and its counts are not real zeros. */
+  queuesAvailable: { video: boolean };
+  github: AdminGitHubHealth;
+  generatedAt: string;
+};
+
+const COUNT_TABLES: Array<{ table: string; label: string }> = [
+  { table: "articles", label: "المقالات" },
+  { table: "stories", label: "القصص" },
+  { table: "content_library", label: "مكتبة المحتوى" },
+  { table: "hadiths", label: "الأحاديث" },
+  { table: "duas", label: "الأدعية" },
+  { table: "prophets", label: "الأنبياء" },
+  { table: "companions", label: "الصحابة" },
+  { table: "scholars", label: "العلماء" },
+  { table: "quran_surahs", label: "السور القرآنية" },
+  { table: "quran_reciters", label: "القراء" },
+  { table: "quran_audio", label: "ملفات التلاوة" },
+  { table: "tawasheeh", label: "التواشيح" },
+  { table: "site_audio_assets", label: "مكتبة صوت الموقع" },
+  { table: "kids_content", label: "محتوى الأطفال" },
+  { table: "kids_games", label: "الألعاب" },
+  { table: "kids_game_levels", label: "مستويات الألعاب" },
+  { table: "videos", label: "الفيديوهات" },
+  { table: "media_assets", label: "أصول الوسائط" },
+  { table: "profiles", label: "المستخدمون" },
+  { table: "video_generation_requests", label: "طلبات الفيديو" },
+  { table: "admin_audit_events", label: "سجلات التدقيق" },
+];
+
+async function safeCount(table: string): Promise<number | null> {
+  try {
+    return await supabaseServerAdminCount(table);
+  } catch {
+    return null;
+  }
+}
+
+export async function getAdminSnapshot() {
+  const counts: AdminCountRow[] = await Promise.all(
+    COUNT_TABLES.map(async ({ table, label }) => {
+      const count = await safeCount(table);
+      return { table, label, count, state: count === null ? "unavailable" : "available" };
+    }),
+  );
+
+  const [auditRes, videoCounts, draftsRes] = await Promise.all([
+    readAdminRows<AdminAuditRow>(
+      "/rest/v1/admin_audit_events?select=id,action,permission,resource_type,resource_id,outcome,request_id,metadata,created_at,actor_user_id&order=created_at.desc&limit=12",
+    ),
+    getExactStatusCounts("video_generation_requests", ["pending", "processing", "retry_wait", "failed"]),
+    readAdminRows<{ review_status: string; published: boolean }>(
+      "/rest/v1/content_library?select=review_status,published&order=updated_at.desc&limit=500",
+    ),
+  ]);
+
+  const audit = auditRes.rows;
+  const contentDrafts = draftsRes.rows;
+  const unavailable = [
+    !auditRes.ok && "سجل التدقيق",
+    !videoCounts.available && "طابور توليد الفيديو",
+    !draftsRes.ok && "مكتبة المحتوى",
+  ].filter(Boolean) as string[];
+
+  const videoStatus = (status: string) => videoCounts.available ? videoCounts.counts[status] : null;
+  const sum = (a: number | null, b: number | null) => (a === null || b === null ? null : a + b);
+  const drafts = draftsRes.ok ? contentDrafts.filter((item) => !item.published || item.review_status !== "approved").length : null;
+  const videoFailed = videoStatus("failed");
+  const auditFailures = auditRes.ok ? audit.filter((row) => row.outcome === "failed").length : null;
+
+  return {
+    counts,
+    unavailable,
+    metrics: [
+      { key: "drafts", label: "مسودات/مراجعة", value: drafts, tone: drafts === null ? "neutral" : drafts > 0 ? "warning" : "success" },
+      { key: "video", label: "توليد الفيديو", value: sum(videoStatus("pending"), videoStatus("processing")), tone: videoFailed ? "danger" : "neutral" },
+      { key: "auditFailures", label: "عمليات إدارية فاشلة", value: auditFailures, tone: auditFailures === null ? "neutral" : auditFailures > 0 ? "danger" : "success" },
+    ] satisfies AdminMetric[],
+    queues: {
+      videoPending: videoStatus("pending"),
+      videoProcessing: videoStatus("processing"),
+      videoFailed,
+    },
+    audit,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+export async function getAdminOverview(role: AdminRole) {
+  const videoCounts = hasAdminPermission(role, "video.manage")
+    ? await getExactStatusCounts("video_generation_requests", ["pending", "processing", "retry_wait", "failed"])
+    : null;
+
+  return buildAdminVideoQueueOverview(
+    role,
+    videoCounts,
+    new Date().toISOString(),
+  );
+}
+
+const GITHUB_WORKFLOW_PATHS = new Set([
+  ".github/workflows/supabase-production-health.yml",
+  ".github/workflows/quality-gate.yml",
+  ".github/workflows/generate-ai-video.yml",
+  ".github/workflows/generate-written-content.yml",
+  ".github/workflows/english-content-sync.yml",
+  ".github/workflows/sync-social-insights.yml",
+  ".github/workflows/audit-video-media.yml",
+  ".github/workflows/refresh-offline-content.yml",
+  ".github/workflows/publish-social.yml",
+  ".github/workflows/storage-retention.yml",
+  ".github/workflows/dispatch-android-release-recovery.yml",
+]);
+
+async function getAdminGitHubHealth(): Promise<AdminGitHubHealth> {
+  const token = getServerEnv().GITHUB_DISPATCH_TOKEN?.trim() || null;
+  const publicHeaders = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+
+  async function fetchPublicGitHub(url: string): Promise<Response> {
+    const request = {
+      cache: "no-store" as RequestCache,
+      signal: AbortSignal.timeout(5000),
+    };
+    const authenticated = await fetch(url, {
+      ...request,
+      headers: token
+        ? { ...publicHeaders, Authorization: `Bearer ${token}` }
+        : publicHeaders,
+    });
+    if (authenticated.status === 401 && token) {
+      console.warn("[admin/health] GitHub rejected the optional dispatch token; retrying public CI status without authentication.");
+      return fetch(url, { ...request, headers: publicHeaders });
+    }
+    return authenticated;
+  }
+
+  const [statusResult, runsResult] = await Promise.allSettled([
+    fetchPublicGitHub("https://api.github.com/repos/zikrmediaofficiall/Zikr/commits/main/status"),
+    fetchPublicGitHub("https://api.github.com/repos/zikrmediaofficiall/Zikr/actions/runs?branch=main&per_page=100"),
+  ]);
+
+  let statusesAvailable = false;
+  let workflowsAvailable = false;
+  let overall: string | null = null;
+  let commitSha: string | null = null;
+  let statuses: AdminGitHubStatus[] = [];
+  let workflows: AdminWorkflowRun[] = [];
+
+  if (statusResult.status === "fulfilled" && statusResult.value.ok) {
+    try {
+      const payload = await statusResult.value.json() as {
+        state?: string;
+        sha?: string;
+        statuses?: Array<{ context?: string; state?: string; description?: string | null; target_url?: string | null; updated_at?: string | null }>;
+      };
+      statusesAvailable = true;
+      overall = payload.state ?? null;
+      commitSha = payload.sha ?? null;
+      statuses = (payload.statuses ?? []).map((item) => ({
+        context: item.context ?? "unknown",
+        state: item.state ?? "unknown",
+        description: item.description ?? null,
+        targetUrl: item.target_url ?? null,
+        updatedAt: item.updated_at ?? null,
+      }));
+    } catch {
+      statusesAvailable = false;
+    }
+  }
+
+  if (runsResult.status === "fulfilled" && runsResult.value.ok) {
+    try {
+      const payload = await runsResult.value.json() as {
+        workflow_runs?: Array<{ path?: string; name?: string; status?: string; conclusion?: string | null; created_at?: string; html_url?: string }>;
+      };
+      workflowsAvailable = true;
+      const workflowRuns = payload.workflow_runs ?? [];
+      const latestRunByWorkflow = new Map<string, (typeof workflowRuns)[number]>();
+      for (const run of workflowRuns) {
+        const path = run.path ?? "";
+        if (GITHUB_WORKFLOW_PATHS.has(path) && !latestRunByWorkflow.has(path)) {
+          latestRunByWorkflow.set(path, run);
+        }
+      }
+      workflows = Array.from(latestRunByWorkflow.values())
+        .sort((a, b) => Date.parse(b.created_at ?? "") - Date.parse(a.created_at ?? ""))
+        .map((run) => ({
+          name: run.name ?? run.path ?? "Workflow",
+          status: run.status ?? "unknown",
+          conclusion: run.conclusion ?? null,
+          createdAt: run.created_at ?? "",
+          url: run.html_url ?? "",
+        }));
+    } catch {
+      workflowsAvailable = false;
+    }
+  }
+
+  return { statusesAvailable, workflowsAvailable, overall, commitSha, statuses, workflows };
+}
+
+async function getExactStatusCounts(
+  table: string,
+  statuses: readonly string[],
+): Promise<{ counts: Record<string, number>; available: boolean }> {
+  const results = await Promise.all(
+    statuses.map(async (status) => {
+      try {
+        return [status, await supabaseServerAdminCount(table, { column: "status", value: status })] as const;
+      } catch {
+        return [status, null] as const;
+      }
+    }),
+  );
+  return {
+    counts: Object.fromEntries(results.map(([status, count]) => [status, count ?? 0])),
+    available: results.every(([, count]) => count !== null),
+  };
+}
+
+export async function getAdminHealth(): Promise<AdminHealth> {
+  const [databaseHealthy, tables, video, github] = await Promise.all([
+    assertSupabaseConnection(),
+    Promise.all(
+      ["admin_audit_events", "admin_settings", "profiles", "content_library", "media_assets", "video_generation_requests"].map(async (table) => {
+        try {
+          const count = await supabaseServerAdminCount(table);
+          return { table, count, state: count === 0 ? "empty" : "healthy" } as const;
+        } catch {
+          return { table, count: null, state: "unavailable" } as const;
+        }
+      }),
+    ),
+    getExactStatusCounts("video_generation_requests", ["pending", "processing", "retry_wait", "failed"]),
+    getAdminGitHubHealth(),
+  ]);
+
+  return {
+    database: databaseHealthy ? "healthy" : "degraded",
+    tables,
+    queues: {
+      videoPending: video.counts.pending,
+      videoProcessing: video.counts.processing,
+      videoRetryWait: video.counts.retry_wait,
+      videoFailed: video.counts.failed,
+    },
+    queuesAvailable: { video: video.available },
+    github,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+export async function getAdminSettings(): Promise<Record<string, unknown>> {
+  // Settings drive editable forms and security toggles, so an unreadable table must surface as an
+  // error instead of silently rendering default values that an admin could then save over real ones.
+  const rows = await supabaseServerAdminRequest<Array<{ key: string; value: unknown }>>(
+    "/rest/v1/admin_settings?select=key,value&order=key.asc",
+    { method: "GET" },
+  );
+  return Object.fromEntries(rows.map((row) => [row.key, row.value]));
+}
+
+export type AdminSearchResult = {
+  type: string;
+  id: string;
+  title: string;
+  slug: string | null;
+  published: boolean;
+  updated_at: string;
+};
+
+async function searchAdminVideoRows(pattern: string, role: AdminRole): Promise<Array<Record<string, unknown>>> {
+  const basePath =
+    "/rest/v1/videos?select=id,title,slug,published,updated_at,metadata,category_id&or=(title.ilike." +
+    pattern +
+    ",description.ilike." +
+    pattern +
+    ")&order=updated_at.desc&limit=10";
+
+  if (hasAdminPermission(role, "kids.manage")) {
+    const rows = await supabaseServerAdminRequest<unknown>(basePath, { method: "GET" });
+    if (!Array.isArray(rows)) throw new Error("Admin video search returned an invalid row set.");
+    return rows as Array<Record<string, unknown>>;
+  }
+
+  // Service-role reads bypass RLS. Resolve the canonical category IDs first and
+  // fail closed if that lookup is unavailable or malformed.
+  const categoryRows = await supabaseServerAdminRequest<unknown>(
+    "/rest/v1/video_categories?select=id,slug",
+    { method: "GET" },
+  );
+  const kidsCategoryIds = resolveKidsVideoCategoryIds(categoryRows);
+  if (kidsCategoryIds === null) {
+    throw new Error("Admin video search could not verify Kids category visibility.");
+  }
+
+  const paths = kidsCategoryIds.length > 0
+    ? [
+        `${basePath}&category_id=not.in.(${kidsCategoryIds.join(",")})`,
+        `${basePath}&category_id=is.null`,
+      ]
+    : [basePath];
+  const rowSets = await Promise.all(
+    paths.map(async (path) => {
+      const rows = await supabaseServerAdminRequest<unknown>(path, { method: "GET" });
+      if (!Array.isArray(rows)) throw new Error("Admin video search returned an invalid row set.");
+      return rows as Array<Record<string, unknown>>;
+    }),
+  );
+  const uniqueRows = new Map<string, Record<string, unknown>>();
+  for (const row of rowSets.flat()) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const id = typeof row.id === "string" ? row.id : "";
+    if (id && !uniqueRows.has(id)) uniqueRows.set(id, row);
+  }
+  return [...uniqueRows.values()]
+    .filter((row) => canSearchAdminVideoRow(row, role, kidsCategoryIds))
+    .slice(0, 10);
+}
+
+export async function searchAdminContent(query: string, role: AdminRole): Promise<{
+  items: AdminSearchResult[];
+  unavailableSources: string[];
+}> {
+  const term = query.trim();
+  if (!term) return { items: [], unavailableSources: [] };
+  const pattern = encodeURIComponent(`%${term}%`);
+  const sourcePaths: Record<AdminSearchSourceKey, readonly [string, string]> = {
+    articles: ["مقال", "/rest/v1/articles?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    stories: ["قصة", "/rest/v1/stories?select=id,title,slug,published,updated_at&or=(title.ilike." + pattern + ",content.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    videos: ["فيديو", "/rest/v1/videos?select=id,title,slug,published,updated_at,metadata,category_id&or=(title.ilike." + pattern + ",description.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    hadiths: ["حديث", "/rest/v1/hadiths?select=id,text_ar,grade_ar,published,updated_at&or=(text_ar.ilike." + pattern + ",grade_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    duas: ["دعاء", "/rest/v1/duas?select=id,title_ar,text_ar,published,updated_at&or=(title_ar.ilike." + pattern + ",text_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+    content_library: ["مكتبة", "/rest/v1/content_library?select=id,title_ar,title_en,slug,published,updated_at&or=(title_ar.ilike." + pattern + ",title_en.ilike." + pattern + ",body_ar.ilike." + pattern + ")&order=updated_at.desc&limit=10"],
+  };
+  const requests = getVisibleAdminSearchSourceKeys(role).map((source) => sourcePaths[source]);
+
+  const results = await Promise.all(
+    requests.map(async ([type, path]) => {
+      try {
+        const rows = type === "فيديو"
+          ? await searchAdminVideoRows(pattern, role)
+          : await supabaseServerAdminRequest<Array<Record<string, unknown>>>(path, { method: "GET" });
+        if (!Array.isArray(rows)) throw new Error("Admin search returned an invalid row set.");
+        const visibleRows = rows;
+        return {
+          type,
+          ok: true,
+          rows: visibleRows.map((row) => ({
+            type,
+            id: String(row.id ?? ""),
+            title: String(row.title ?? row.title_ar ?? row.title_en ?? row.text_ar ?? "بدون عنوان"),
+            slug: typeof row.slug === "string" ? row.slug : null,
+            published: Boolean(row.published),
+            updated_at: String(row.updated_at ?? ""),
+          })),
+        };
+      } catch (error) {
+        console.error("[admin/search] failed to search source:", type, error);
+        return { type, ok: false, rows: [] as AdminSearchResult[] };
+      }
+    }),
+  );
+
+  return {
+    items: results.flatMap((result) => result.rows).sort(
+      (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+    ),
+    unavailableSources: results.filter((result) => !result.ok).map((result) => result.type),
+  };
+}

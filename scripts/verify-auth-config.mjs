@@ -1,0 +1,121 @@
+#!/usr/bin/env node
+
+import { readFileSync, existsSync } from "node:fs";
+
+const failures = [];
+const read = (file) => (existsSync(file) ? readFileSync(file, "utf8") : "");
+
+const config = read("supabase/config.toml");
+const env = read(".env.example");
+const enhanced = read("src/lib/auth-enhanced.ts");
+const callback = read("src/app/auth/callback/route.ts");
+const googleRoute = read("src/features/auth/integrations/google-oauth.ts");
+const proxy = read("src/proxy.ts");
+const authActions = read("src/features/auth/actions.ts");
+const resetPasswordPage = read("src/features/auth/components/reset-password-page.tsx");
+const pwnedPassword = read("src/lib/security/pwned-password.ts");
+const button = read("src/features/auth/components/google-oauth-button.tsx");
+const native = read("src/components/layout/native-google-oauth-handler.tsx");
+
+const production = "https://zikrmediaofficial.vercel.app";
+const supabaseProvider = "https://zqtssvlvmkzeeyqghqfk.supabase.co/auth/v1/callback";
+const nativeCallback = "com.zikr.app://auth/callback";
+
+function requireText(label, source, token) {
+  if (!source.includes(token)) failures.push(label + ": missing " + token);
+}
+
+const expectedRedirects = [
+  nativeCallback,
+  "http://localhost:3000/**",
+  "http://127.0.0.1:3000/**",
+  "http://[::1]:3000/**",
+  production + "/auth/callback",
+];
+
+const authBlockMatch = config.match(/\[auth\]([\s\S]*?)(?=\n\[|$)/);
+const authBlock = authBlockMatch ? authBlockMatch[0] : "";
+const siteUrlMatch = authBlock.match(/^site_url\s*=\s*"([^"]+)"/m);
+const redirectsMatch = authBlock.match(/additional_redirect_urls\s*=\s*\[([\s\S]*?)\n\s*\]/m);
+const configuredRedirects = redirectsMatch
+  ? Array.from(redirectsMatch[1].matchAll(/"([^"]+)"/g), match => match[1])
+  : [];
+
+if (siteUrlMatch?.[1] !== production) {
+  failures.push("supabase/config.toml: site_url is not the locked canonical production URL");
+}
+if (JSON.stringify(configuredRedirects) !== JSON.stringify(expectedRedirects)) {
+  failures.push(
+    "supabase/config.toml: additional_redirect_urls must exactly match the five approved production/native/loopback entries",
+  );
+}
+
+requireText(".env.example", env, "AUTH_CALLBACK_URL=" + production + "/auth/callback");
+requireText("auth-enhanced", enhanced, 'new URL("/auth/callback"');
+const trustedOriginStart = enhanced.indexOf("export function getTrustedAuthOrigin(request: Request): string {");
+const trustedOriginEnd = enhanced.indexOf("\n}", trustedOriginStart);
+const trustedOriginBody = trustedOriginStart >= 0 && trustedOriginEnd > trustedOriginStart
+  ? enhanced.slice(trustedOriginStart, trustedOriginEnd)
+  : "";
+if (!trustedOriginBody.includes("new URL(request.url).origin") || /x-forwarded-(?:host|proto)/.test(trustedOriginBody)) {
+  failures.push("auth-enhanced: OAuth error redirects must derive their origin from the trusted request URL, not forwarded headers");
+}
+
+requireText("browser Google button", button, "provider: \"google\"");
+requireText("browser Google button", button, "redirectTo");
+requireText("native Google handler", native, 'url.pathname === "/callback"');
+requireText("native Google handler", native, 'url.searchParams.get("native") === "1"');
+requireText("browser Google button", button, 'import { sanitizeInternalPath } from "@/lib/safe-redirect";');
+requireText("browser Google button", button, "return sanitizeInternalPath(next)");
+requireText("native Google handler", native, "getSafeInternalPath(parsed.searchParams.get(\"next\"), window.location.origin)");
+requireText("auth-safe-path", read("src/lib/safe-relative-path.ts"), "target.origin !== base.origin");
+requireText("callback route", callback, "exchangeCodeForSession");
+requireText("callback route", callback, "extractNextPath");
+requireText("callback route", callback, "getTrustedAuthOrigin");
+requireText("Google route", googleRoute, "getCanonicalAuthBaseUrl");
+requireText("Google route", googleRoute, 'new URL("/auth/callback", authOrigin)');
+requireText("Google route", googleRoute, 'url.searchParams.set("native", "1")');
+requireText("browser Google button", button, "Browser PKCE verifier cookies are scoped to the current origin");
+requireText("Android Google button", button, 'Capacitor.isPluginAvailable("SocialLogin")');
+requireText("Android Google button", button, "startBrowserGoogleOAuth(");
+requireText("Android Google button", button, "browserFallbackAvailable");
+requireText("Android Google button", button, "NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID");
+if (/host\.endsWith\("\.vercel\.app"\)/.test(button)) {
+  failures.push("browser Google button: untrusted Vercel preview aliases must not bypass the exact Supabase redirect allowlist");
+}
+requireText("Google route", googleRoute, "The PKCE verifier is written to the response origin");
+requireText("proxy", proxy, "getCanonicalAuthBaseUrl");
+
+requireText("password update action", authActions, "export async function updatePasswordAction(formData: FormData)");
+requireText("password update action", authActions, "await supabase.auth.getUser()");
+requireText("password update action", authActions, "await isPwnedPassword(password)");
+requireText("password update action", authActions, "supabase.auth.updateUser({ password })");
+requireText("password reset page", resetPasswordPage, "updatePasswordAction(formData)");
+requireText("HIBP range checker", pwnedPassword, "https://api.pwnedpasswords.com/range/");
+requireText("HIBP range checker", pwnedPassword, "body.split(/\\r?\\n/u)");
+if (resetPasswordPage.includes("createClient from '@/lib/supabase/client'")) {
+  failures.push("password reset page must not bypass server-side password screening");
+}
+
+
+if (config.includes(supabaseProvider)) {
+  failures.push("supabase/config.toml: provider callback must not be placed in the application redirect allowlist as AUTH_CALLBACK_URL");
+}
+
+if (/google\.(?:oauth2|provider).*vercelmedia/i.test(config)) {
+  failures.push("supabase/config.toml: unexpected hard-coded Google provider credential reference");
+}
+
+const nativeDirect = native.includes('url.protocol === "com.zikr.app:"') && native.includes('url.hostname === "auth"');
+if (!nativeDirect) failures.push("native Google handler: exact com.zikr.app://auth/callback validation is incomplete");
+
+const callbackHost = callback.match(/new URL\('\/auth\/login', origin\)/);
+if (!callbackHost) failures.push("callback route: error redirects must stay on trusted auth origin");
+
+if (failures.length) {
+  console.error("AUTH_CONFIG_CHECK_FAILED");
+  for (const failure of failures) console.error("❌ " + failure);
+  process.exit(1);
+}
+
+console.log("✅ Google/Supabase Auth configuration check passed");

@@ -1,0 +1,231 @@
+import "server-only";
+
+import { getArticles, getBundledLongformArticles } from "@/features/articles/services/articles";
+import { searchHadith } from "@/features/hadith/services/hadith";
+import { getDuas } from "@/features/dua/services/dua";
+import { getProphets } from "@/features/prophets/services/prophets";
+import { getPublishedCompanions } from "@/features/companions/services/companions";
+import { getStories } from "@/features/stories/services/stories";
+import { searchLocalQuran } from "@/features/quran/services/quran-server";
+import { searchScholars } from "@/features/scholars/services/scholars";
+import { isSupabaseConfigured, supabaseServerAnonRequest } from "@/lib/supabase/server";
+import { normalizeArabicSearchText } from "@/lib/search/arabic-normalization";
+import { getPublicContentLibrary } from "@/features/content-library/services/content-library";
+import { mapPublicSearchRows, type PublicSearchResult } from "@/features/search/public-search-results";
+
+export type { PublicSearchResult } from "@/features/search/public-search-results";
+
+const MAX_RESULTS_PER_TYPE = 6;
+
+async function legacyGlobalSearch(query: string): Promise<PublicSearchResult[]> {
+  const q = normalizeArabicSearchText(query);
+  if (q.length < 2) return [];
+
+  const [quran, hadith, duas, prophets, companions, stories, articles, scholars, contentLibrary] =
+    await Promise.all([
+      searchLocalQuran(query, "ar"),
+      searchHadith(query),
+      getDuas(undefined, 100),
+      getProphets(),
+      getPublishedCompanions(),
+      getStories(),
+      getArticles(undefined, 100),
+      searchScholars(query),
+      getPublicContentLibrary(1000, "ar"),
+    ]);
+
+  const results: PublicSearchResult[] = [];
+
+  for (const ayah of quran.slice(0, MAX_RESULTS_PER_TYPE)) {
+    if (!ayah.surahNumber) continue;
+    results.push({
+      id: `quran-${ayah.surahNumber}-${ayah.numberInSurah}`,
+      type: "ayah",
+      labelAr: "آية",
+      title: ayah.text.slice(0, 90),
+      subtitle: `القرآن الكريم — سورة ${ayah.surahNumber} — آية ${ayah.numberInSurah}`,
+      href: `/quran/${ayah.surahNumber}/${ayah.numberInSurah}`,
+    });
+  }
+
+  for (const item of hadith.slice(0, MAX_RESULTS_PER_TYPE)) {
+    results.push({
+      id: `hadith-${item.id ?? item.number}`,
+      type: "hadith",
+      labelAr: "حديث",
+      title: item.arab?.slice(0, 90) || `حديث ${item.number}`,
+      subtitle: `حديث رقم ${item.number}`,
+      href: "/hadith",
+    });
+  }
+
+  const contains = (value: string | undefined) =>
+    Boolean(value && normalizeArabicSearchText(value).includes(q));
+
+  for (const item of duas) {
+    if (
+      contains(item.titleAr) ||
+      contains(item.textAr) ||
+      contains(item.occasionAr) ||
+      contains(item.sourceAr) ||
+      contains(item.benefitsAr)
+    ) {
+      results.push({
+        id: item.id,
+        type: "dua",
+        labelAr: "دعاء",
+        title: item.titleAr,
+        subtitle: item.occasionAr || item.sourceAr || "دعاء مأثور من مكتبة ذِكر",
+        href: `/dua/${item.slug}`,
+      });
+      if (results.filter((r) => r.type === "dua").length >= MAX_RESULTS_PER_TYPE) break;
+    }
+  }
+
+  for (const item of prophets) {
+    if (contains(item.nameAr) || contains(item.nameEn) || contains(item.bioAr) || contains(item.birthPlaceAr) || contains(item.deathPlaceAr)) {
+      results.push({
+        id: item.id,
+        type: "prophet",
+        labelAr: "نبي",
+        title: item.nameAr,
+        subtitle: item.nameEn || "قصة نبي",
+        href: `/prophets/${item.slug}`,
+      });
+      if (results.filter((r) => r.type === "prophet").length >= MAX_RESULTS_PER_TYPE) break;
+    }
+  }
+
+  for (const item of companions) {
+    if (contains(item.name_ar) || contains(item.name_en ?? undefined) || contains(item.bio_ar ?? undefined) || contains(item.birth_place_ar ?? undefined) || contains(item.death_place_ar ?? undefined) || contains(item.death_year ?? undefined)) {
+      results.push({
+        id: item.id,
+        type: "companion",
+        labelAr: "صحابي",
+        title: item.name_ar,
+        subtitle: item.title_ar || "من أعلام الصحابة",
+        href: `/companions/${item.slug}`,
+      });
+      if (results.filter((r) => r.type === "companion").length >= MAX_RESULTS_PER_TYPE) break;
+    }
+  }
+
+  for (const item of stories) {
+    if (contains(item.title) || contains(item.summary ?? undefined) || contains(item.content ?? undefined) || contains(item.slug) || contains(item.category)) {
+      results.push({
+        id: item.id,
+        type: "story",
+        labelAr: "قصة",
+        title: item.title,
+        subtitle: item.summary || item.category || "قصة من مكتبة ذِكر",
+        href: `/stories/${item.slug}`,
+      });
+      if (results.filter((r) => r.type === "story").length >= MAX_RESULTS_PER_TYPE) break;
+    }
+  }
+
+  for (const item of articles) {
+    if (contains(item.title) || contains(item.summary ?? undefined) || contains(item.content ?? undefined) || (item.tags ?? []).some(contains)) {
+      results.push({
+        id: item.id,
+        type: "article",
+        labelAr: "مقال",
+        title: item.title,
+        subtitle: item.summary || item.author || "مقال تعليمي من مكتبة ذِكر",
+        href: `/articles/${item.slug}`,
+      });
+      if (results.filter((r) => r.type === "article").length >= MAX_RESULTS_PER_TYPE) break;
+    }
+  }
+
+  for (const item of contentLibrary) {
+    if (
+      contains(item.title_ar) ||
+      contains(item.summary_ar ?? undefined) ||
+      contains(item.body_ar ?? undefined) ||
+      contains(item.category) ||
+      contains(item.content_type) ||
+      (item.tags ?? []).some(contains)
+    ) {
+      results.push({
+        id: `content-${item.id}`,
+        type: "content",
+        labelAr: "مادة",
+        title: item.title_ar,
+        subtitle: item.summary_ar || item.category || item.content_type || "مادة منشورة من مكتبة ذِكر",
+        href: "/content/" + item.slug,
+      });
+      if (results.filter((result) => result.type === "content").length >= MAX_RESULTS_PER_TYPE) break;
+    }
+  }
+
+  for (const item of scholars.slice(0, MAX_RESULTS_PER_TYPE)) {
+    results.push({
+      id: item.id,
+      type: "scholar",
+      labelAr: "عالم",
+      title: item.nameAr,
+      subtitle: item.nameEn,
+      href: `/scholars/${item.slug}`,
+    });
+  }
+
+  return results.slice(0, 40);
+}
+
+
+async function searchIndexedContent(query: string): Promise<PublicSearchResult[] | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  try {
+    const rows = await supabaseServerAnonRequest<unknown[]>(
+      "/rest/v1/rpc/search_public_content",
+      {
+        method: "POST",
+        body: JSON.stringify({ p_query: query, p_limit: 40 }),
+        timeoutMs: 12_000,
+        retries: 0,
+        cache: "no-store",
+      },
+    );
+
+    if (!Array.isArray(rows)) throw new Error("Search RPC returned an unexpected payload.");
+
+    return mapPublicSearchRows(rows);
+  } catch (error) {
+    console.error("[search] Indexed Supabase search failed; using bounded fallback:", error);
+    return null;
+  }
+}
+
+export async function globalSearch(query: string): Promise<PublicSearchResult[]> {
+  const cleanQuery = query.trim();
+  if (cleanQuery.length < 2 || cleanQuery.length > 100) return [];
+
+  const indexedResults = await searchIndexedContent(cleanQuery);
+  if (indexedResults !== null) {
+    const knownHrefs = new Set(indexedResults.map((item) => item.href));
+    const bundledArticles = getBundledLongformArticles("ar")
+      .filter((article) => {
+        const matches = [
+          article.title,
+          article.summary ?? "",
+          article.content ?? "",
+          ...(article.tags ?? []),
+        ].some((value) => normalizeArabicSearchText(value).includes(normalizeArabicSearchText(cleanQuery)));
+        return matches && !knownHrefs.has(`/articles/${article.slug}`);
+      })
+      .slice(0, MAX_RESULTS_PER_TYPE)
+      .map((article): PublicSearchResult => ({
+        id: article.id,
+        type: "article",
+        labelAr: "مقال",
+        title: article.title,
+        subtitle: article.summary || article.author || "مقال تعليمي من مكتبة ذِكر",
+        href: `/articles/${article.slug}`,
+      }));
+    return [...indexedResults.slice(0, 40 - bundledArticles.length), ...bundledArticles].slice(0, 40);
+  }
+
+  return legacyGlobalSearch(cleanQuery);
+}

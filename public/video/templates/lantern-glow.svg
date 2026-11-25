@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+<defs>
+ <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#071C1A"/><stop offset=".48" stop-color="#123C35"/><stop offset="1" stop-color="#061A18"/></linearGradient>
+ <radialGradient id="light"><stop stop-color="#FFE6A1" stop-opacity=".9"/><stop offset=".35" stop-color="#E8AF58" stop-opacity=".24"/><stop offset="1" stop-color="#E8AF58" stop-opacity="0"/></radialGradient>
+ <linearGradient id="metal" x2="1" y2="1"><stop stop-color="#8C5B2C"/><stop offset=".45" stop-color="#F4D28A"/><stop offset="1" stop-color="#9B6B32"/></linearGradient>
+ <pattern id="stars" width="180" height="180" patternUnits="userSpaceOnUse"><circle cx="24" cy="38" r="2" fill="#E9D6A6" opacity=".4"/><circle cx="112" cy="92" r="3" fill="#E9D6A6" opacity=".28"/><path d="M150 18v18m-9-9h18" stroke="#E9D6A6" opacity=".24"/></pattern>
+ <filter id="blur"><feGaussianBlur stdDeviation="48"/></filter>
+</defs>
+<rect width="1080" height="1920" fill="url(#bg)"/><rect width="1080" height="1920" fill="url(#stars)"/>
+<circle cx="540" cy="850" r="440" fill="url(#light)" filter="url(#blur)"/>
+<path d="M90 0v380q0 80 80 130h740q80-50 80-130V0" fill="none" stroke="#D0A56A" stroke-opacity=".18" stroke-width="8"/>
+<g fill="none" stroke="#D8B87B" stroke-opacity=".25" stroke-width="3"><path d="M0 1260Q270 1100 540 1260T1080 1260"/><path d="M0 1340Q270 1180 540 1340T1080 1340"/><path d="M0 1420Q270 1260 540 1420T1080 1420"/></g>
+<g transform="translate(260 360) scale(1.1)">
+ <path d="M0 0h210l-30 60H30Z" fill="url(#metal)"/><path d="M55 60h100l45 65v260l-45 65H55L10 385V125Z" fill="#092722" stroke="url(#metal)" stroke-width="12"/>
+ <path d="M72 80h66l30 55v230l-30 55H72l-30-55V135Z" fill="#F3C979" opacity=".22"/><path d="M105 82v340M44 250h122M52 155l106 185M158 155 52 340" stroke="#E7BF75" stroke-width="7" opacity=".8"/>
+ <path d="M65 450h80l-20 62H85Z" fill="url(#metal)"/><path d="M105-80v80" stroke="#D9B577" stroke-width="8"/><circle cx="105" cy="250" r="190" fill="url(#light)" opacity=".85"/>
+</g>
+<g transform="translate(760 720) scale(.72)">
+ <path d="M0 0h210l-30 60H30Z" fill="url(#metal)"/><path d="M55 60h100l45 65v260l-45 65H55L10 385V125Z" fill="#092722" stroke="url(#metal)" stroke-width="12"/>
+ <path d="M72 80h66l30 55v230l-30 55H72l-30-55V135Z" fill="#F3C979" opacity=".22"/><path d="M105 82v340M44 250h122M52 155l106 185M158 155 52 340" stroke="#E7BF75" stroke-width="7" opacity=".8"/>
+ <path d="M65 450h80l-20 62H85Z" fill="url(#metal)"/><circle cx="105" cy="250" r="190" fill="url(#light)" opacity=".72"/>
+</g>
+<path d="M0 1600Q260 1500 540 1605T1080 1580V1920H0Z" fill="#031310" opacity=".84"/>
+<g fill="none" stroke="#D7B77B" stroke-opacity=".2" stroke-width="3"><path d="M0 1680q270-140 540 0t540 0"/><path d="M0 1770q270-140 540 0t540 0"/></g>
+</svg>

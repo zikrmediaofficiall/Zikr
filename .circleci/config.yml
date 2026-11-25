@@ -1,0 +1,949 @@
+version: 2.1
+
+# ZIKR CI ownership:
+# - GitHub Actions owns PR/main source verification, recurring video generation, social publishing, and controlled Vercel release.
+# - CircleCI owns the application build/documentation artifact, Android release builds, Supabase release gates, and English-content sync.
+# - GitHub Releases is the only persistent store for signed Android release assets.
+# - CircleCI does NOT execute the production video or social worker.
+#
+# IMPORTANT:
+# CircleCI receives runtime values from CircleCI Project/Context environment
+# variables. GitHub Environment secrets are NOT automatically inherited here.
+# Never put secret values in this file.
+parameters:
+  run_circleci_ci:
+    type: boolean
+    default: true
+  run_security_audit:
+    type: boolean
+    default: false
+
+jobs:
+  config-guard:
+    docker:
+      - image: cimg/base:stable
+    resource_class: small
+    environment:
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
+    steps:
+      - checkout
+      - run:
+          name: Verify unconditional fallback workflow
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            test -s .circleci/config.yml
+            grep -Eq '^workflows:[[:space:]]*$' .circleci/config.yml
+            grep -Eq '^  configuration-guard:[[:space:]]*$' .circleci/config.yml
+            echo "CircleCI configuration contains an unconditional fallback workflow."
+  source-verify:
+    docker:
+      - image: cimg/node:22.11.0
+    resource_class: medium
+    environment:
+      NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
+      NEXT_PUBLIC_SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxdHNzdmx2bWt6ZWV5cWdocWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5OTAzNDEsImV4cCI6MjEwOTU2NjM0MX0.jux_q16W3CL3lUFT3P4DvqmnjTYWXTlIF86g2j_AKhw
+      NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID: 224706285284-fubdladk24v49v2lnq4p5jrk5ht1uqk8.apps.googleusercontent.com
+      AUTH_CALLBACK_URL: https://zikrmediaofficial.vercel.app/auth/callback
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
+    steps:
+      - checkout
+      - run:
+          name: Enable pnpm
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            sudo corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+            node --version
+            pnpm --version
+      - run:
+          name: Install dependencies
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm config set fetch-retries 5
+            pnpm config set fetch-timeout 120000
+            pnpm config set fetch-retry-mintimeout 20000
+            pnpm config set fetch-retry-maxtimeout 120000
+            pnpm config set network-concurrency 8
+            pnpm install --frozen-lockfile --prefer-offline --reporter=append-only
+          no_output_timeout: 20m
+      - run:
+          name: Ensure Python 3 for provider safety tests
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            if ! command -v python3 >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y python3
+            fi
+            python3 --version
+      - run:
+          name: Verify installed toolchain
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            test -x node_modules/.bin/tsx || { echo "tsx was not installed correctly" >&2; exit 1; }
+            node -e "import('@supabase/supabase-js').then(() => console.log('Supabase SDK dependency: OK'))"
+      - run:
+          name: Run the canonical verification suite
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm verify:pr
+          no_output_timeout: 20m
+
+  application-build-docs:
+    docker:
+      - image: cimg/node:22.11.0
+    resource_class: medium
+    environment:
+      NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
+      NEXT_PUBLIC_SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxdHNzdmx2bWt6ZWV5cWdocWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5OTAzNDEsImV4cCI6MjEwOTU2NjM0MX0.jux_q16W3CL3lUFT3P4DvqmnjTYWXTlIF86g2j_AKhw
+      AUTH_CALLBACK_URL: https://zikrmediaofficial.vercel.app/auth/callback
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
+    steps:
+      - checkout
+      - run:
+          name: Validate application build environment
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            test -n "${NEXT_PUBLIC_SUPABASE_URL:-}" || { echo "Missing NEXT_PUBLIC_SUPABASE_URL." >&2; exit 1; }
+            test -n "${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}" || { echo "Missing NEXT_PUBLIC_SUPABASE_ANON_KEY." >&2; exit 1; }
+            test -n "${NEXT_PUBLIC_SITE_URL:-}" || { echo "Missing NEXT_PUBLIC_SITE_URL." >&2; exit 1; }
+            test -n "${AUTH_CALLBACK_URL:-}" || { echo "Missing AUTH_CALLBACK_URL." >&2; exit 1; }
+      - run:
+          name: Enable pnpm
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            sudo corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+            node --version
+            pnpm --version
+      - run:
+          name: Install application dependencies
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm config set fetch-retries 5
+            pnpm config set fetch-timeout 120000
+            pnpm config set fetch-retry-mintimeout 20000
+            pnpm config set fetch-retry-maxtimeout 120000
+            pnpm config set network-concurrency 8
+            pnpm install --frozen-lockfile --prefer-offline --reporter=append-only
+          no_output_timeout: 20m
+      - run:
+          name: Produce production web application
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm build
+          no_output_timeout: 25m
+      - run:
+          name: Generate build and release documentation
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm ci:build:report
+            tar -czf "ci-artifacts/zikr-next-build-${CIRCLE_SHA1}.tgz" .next
+            printf '%s\n' "ZIKR production web build artifact: ci-artifacts/zikr-next-build-${CIRCLE_SHA1}.tgz"
+      - store_artifacts:
+          path: ci-artifacts
+          destination: application-build
+
+  supabase-production-gate:
+    docker:
+      - image: cimg/node:22.11.0
+    resource_class: small
+    environment:
+      SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
+      SUPABASE_PUBLIC_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxdHNzdmx2bWt6ZWV5cWdocWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5OTAzNDEsImV4cCI6MjEwOTU2NjM0MX0.jux_q16W3CL3lUFT3P4DvqmnjTYWXTlIF86g2j_AKhw
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
+    steps:
+      - checkout
+      - run:
+          name: Validate production Supabase runtime
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            for name in SUPABASE_URL SUPABASE_PUBLIC_KEY SUPABASE_SERVICE_ROLE_KEY; do
+              if [[ -z "${!name:-}" ]]; then
+                echo "::error::Missing required CircleCI production Supabase variable: $name"
+                exit 1
+              fi
+            done
+            node scripts/verify-supabase-production.mjs
+
+  security-audit:
+    docker:
+      - image: cimg/node:22.11.0
+    resource_class: medium
+    environment:
+      NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
+    steps:
+      - checkout
+      - run:
+          name: Enable pnpm
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            sudo corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+      - run:
+          name: Install dependencies
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm config set fetch-retries 5
+            pnpm config set fetch-timeout 120000
+            pnpm config set fetch-retry-mintimeout 20000
+            pnpm config set fetch-retry-maxtimeout 120000
+            pnpm config set network-concurrency 8
+            pnpm install --frozen-lockfile --prefer-offline --reporter=append-only
+          no_output_timeout: 20m
+      - run:
+          name: Production dependency audit
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm audit --prod --audit-level=high
+      - run:
+          name: Repository hygiene validation
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm hygiene:check
+      - run:
+          name: Authentication configuration validation
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm auth:check
+      - run:
+          name: Canonical URL configuration validation
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm canonical:check
+      - run:
+          name: Migration chain validation
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm supabase:migrations:check
+
+  english-content-sync:
+    docker:
+      - image: cimg/node:22.11.0
+    resource_class: small
+    environment:
+      NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
+      TRANSLATION_BATCH_SIZE: "10"
+      CONTENT_TRANSLATION_BATCH_SIZE: "10"
+      HADITH_TRANSLATION_BATCH_SIZE: "75"
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
+    steps:
+      - checkout
+      - run:
+          name: Enable pnpm
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            sudo corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+      - run:
+          name: Install dependencies
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm install --frozen-lockfile --prefer-offline --reporter=append-only
+          no_output_timeout: 20m
+      - run:
+          name: Validate production content-sync credentials
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            test -n "${SUPABASE_URL:-}" || { echo "Missing SUPABASE_URL."; exit 1; }
+            test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "Missing SUPABASE_SERVICE_ROLE_KEY."; exit 1; }
+            node --input-type=module -e 'const url = new URL(process.env.SUPABASE_URL); if (url.protocol !== "https:" || url.hostname !== "zqtssvlvmkzeeyqghqfk.supabase.co" || url.port || url.username || url.password || url.pathname !== "/" || url.search || url.hash) throw new Error("SUPABASE_URL must point only to the canonical ZIKR production Supabase project.");'
+      - run:
+          name: Run bounded English content sync
+          shell: /bin/bash
+          command: |
+            set -u
+            article_status=0
+            content_status=0
+            hadith_status=0
+            quran_status=0
+
+            if ! command -v timeout >/dev/null 2>&1; then
+              echo "GNU timeout is required to bound both scheduled English sync workers." >&2
+              article_status=127
+              hadith_status=127
+              quran_status=127
+            else
+              # Source-backed Quran and Hadith imports do not depend on Gemini.
+              # Run them first so long article batches cannot delay them.
+              echo "Importing the named English Quran edition from the verified upstream source."
+              timeout --signal=TERM --kill-after=60s 15m pnpm sync:quran:en || quran_status=$?
+
+              echo "Synchronizing at most ${HADITH_TRANSLATION_BATCH_SIZE} Hadith records."
+              timeout --signal=TERM --kill-after=60s 15m pnpm sync:hadith:en || hadith_status=$?
+
+              if [[ -n "${GEMINI_API_KEY:-}" ]]; then
+                echo "Translating at most ${TRANSLATION_BATCH_SIZE} published articles."
+                timeout --signal=TERM --kill-after=60s 40m pnpm translate:articles:en || article_status=$?
+                echo "Translating at most ${CONTENT_TRANSLATION_BATCH_SIZE} records per additional content category."
+                timeout --signal=TERM --kill-after=60s 40m pnpm translate:content:en || content_status=$?
+              else
+                echo "Missing GEMINI_API_KEY; source-backed Quran and Hadith sync continue, but article and additional content translation cannot run." >&2
+                article_status=1
+                content_status=1
+              fi
+            fi
+
+            if (( article_status != 0 || content_status != 0 || quran_status != 0 || hadith_status != 0 )); then
+              echo "English sync incomplete (articles=${article_status}, other-content=${content_status}, Quran=${quran_status}, hadith=${hadith_status})." >&2
+              exit 1
+            fi
+          no_output_timeout: 20m
+
+  android-release-draft:
+    docker:
+      - image: cimg/node:22.11.0
+    resource_class: small
+    environment:
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      GH_TOKEN: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
+    steps:
+      - checkout
+      - run:
+          name: Verify the Admin Release manager tag and unique GitHub draft
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            test "${CIRCLE_BRANCH:-}" = "main"
+            node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              const repository = "zikrmediaofficiall/Zikr";
+              const sourceSha = process.env.CIRCLE_SHA1;
+              const version = JSON.parse(readFileSync("package.json", "utf8")).version;
+              const releaseTag = readFileSync(".release-tag", "utf8").trim();
+              const notes = readFileSync("docs/releases/" + version + ".md", "utf8");
+              if (!/^[0-9a-f]{40}$/.test(sourceSha || "")) throw new Error("CIRCLE_SHA1 is not a full commit SHA.");
+              if (releaseTag !== "v" + version) throw new Error("package.json and .release-tag do not match.");
+              if (!notes.includes("Release tag: `" + releaseTag + "`")) throw new Error("Release notes do not declare the canonical tag.");
+              const api = async (path, method = "GET", body) => {
+                const response = await fetch("https://api.github.com/repos/" + repository + path, {
+                  method,
+                  headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(body ? { "Content-Type": "application/json" } : {}) },
+                  ...(body ? { body: JSON.stringify(body) } : {}),
+                });
+                const raw = await response.text();
+                let data = {};
+                try { data = raw ? JSON.parse(raw) : {}; } catch { throw new Error("Non-JSON response from GitHub for " + path); }
+                if (!response.ok && response.status !== 404) throw new Error("GitHub API " + method + " " + path + " failed (" + response.status + "): " + (data.message || raw.slice(0, 500)));
+                return { status: response.status, data };
+              };
+              const currentMain = await api("/commits/main");
+              if (currentMain.data.sha !== sourceSha) {
+                console.log("main advanced beyond this source commit; newer main pipeline must verify the release.");
+                process.exit(0);
+              }
+              const commitMessage = String(currentMain.data.commit?.message || "").split("\n")[0];
+              const isReleasePreparationCommit = commitMessage.startsWith("release: prepare Android ");
+              const maxAttempts = isReleasePreparationCommit ? 24 : 1;
+
+              // The Admin Release service is the sole owner of tag and draft creation.
+              // CircleCI only verifies the immutable tag and the unique matching release.
+              for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                const releaseList = await api("/releases?per_page=100&page=1");
+                if (releaseList.status !== 200 || !Array.isArray(releaseList.data)) {
+                  throw new Error("Could not inspect GitHub releases before Android release verification.");
+                }
+                const matchingReleases = releaseList.data.filter((item) => item?.tag_name === releaseTag);
+                if (matchingReleases.length > 1) {
+                  const releaseIds = matchingReleases.map((item) => String(item.id || "unknown")).join(", ");
+                  const message = "Multiple GitHub releases exist for " + releaseTag + " (IDs: " + releaseIds + ").";
+                  if (isReleasePreparationCommit) {
+                    throw new Error(message + " Refusing to prepare or publish artifacts against an ambiguous release.");
+                  }
+                  // Existing duplicate draft records must not make ordinary main CI red.
+                  // Keep the release gate green for unrelated source changes, while the
+                  // explicit release-preparation and publisher paths remain fail-closed.
+                  console.log("::warning::" + message + " Android release preparation is blocked until an owner resolves the duplicate drafts.");
+                  process.exit(0);
+                }
+
+                if (matchingReleases.length === 1) {
+                  const existingRelease = matchingReleases[0];
+                  const existingTagRef = await api("/git/ref/tags/" + encodeURIComponent(releaseTag));
+                  if (existingTagRef.status === 404) {
+                    if (isReleasePreparationCommit && attempt < maxAttempts) {
+                      console.log("Waiting for the Admin Release service to finish creating the immutable tag (attempt " + attempt + "/" + maxAttempts + ").");
+                      await new Promise((resolve) => setTimeout(resolve, 5000));
+                      continue;
+                    }
+                    throw new Error("An existing GitHub release has no matching Git tag.");
+                  }
+
+                  let existingTargetSha = existingTagRef.data.object?.sha;
+                  let existingTargetType = existingTagRef.data.object?.type;
+                  if (existingTargetType === "tag") {
+                    const existingTagObject = await api("/git/tags/" + existingTargetSha);
+                    existingTargetSha = existingTagObject.data.object?.sha;
+                    existingTargetType = existingTagObject.data.object?.type;
+                  }
+                  if (existingTargetType !== "commit" || !/^[0-9a-f]{40}$/.test(existingTargetSha || "")) {
+                    throw new Error("Existing release tag does not resolve to a commit; refusing to alter it.");
+                  }
+                  if (isReleasePreparationCommit && existingTargetSha !== sourceSha) {
+                    throw new Error("The Admin Release tag does not point to the exact release-preparation commit; refusing to publish mismatched Android artifacts.");
+                  }
+
+                  console.log("Verified the single " + (existingRelease.draft ? "draft" : "published") + " release " + releaseTag + " against immutable tag commit " + existingTargetSha + ". CircleCI did not create or modify a release.");
+                  process.exit(0);
+                }
+
+                if (!isReleasePreparationCommit) {
+                  console.log("No Android release-preparation commit is being verified. The Admin Release service owns tag and draft creation; CircleCI will not create a release.");
+                  process.exit(0);
+                }
+
+                // GitHub intentionally hides draft Releases from unauthenticated
+                // REST requests. This read-only job has no write-capable token by
+                // design, so an empty public release list is not proof that the
+                // Admin-created draft is missing. Verify the immutable signed tag
+                // here; the authenticated GitHub publisher verifies uniqueness,
+                // draft state, and release identity before it consumes any asset.
+                const privateDraftTagRef = await api("/git/ref/tags/" + encodeURIComponent(releaseTag));
+                if (privateDraftTagRef.status === 404) {
+                  if (attempt < maxAttempts) {
+                    console.log("Waiting for the Admin Release service to create the immutable tag " + releaseTag + " (attempt " + attempt + "/" + maxAttempts + ").");
+                    await new Promise((resolve) => setTimeout(resolve, 5000));
+                    continue;
+                  }
+                  throw new Error("The Admin Release service did not create the immutable tag " + releaseTag + " within the 2-minute verification window.");
+                }
+
+                let privateDraftTagTargetSha = privateDraftTagRef.data.object?.sha;
+                let privateDraftTagTargetType = privateDraftTagRef.data.object?.type;
+                if (privateDraftTagTargetType === "tag") {
+                  const privateDraftTagObject = await api("/git/tags/" + privateDraftTagTargetSha);
+                  if (privateDraftTagObject.status !== 200 ||
+                      privateDraftTagObject.data.verification?.verified !== true ||
+                      privateDraftTagObject.data.verification?.reason !== "valid") {
+                    throw new Error("The private-draft fallback requires a GitHub-verified GPG signature for " + releaseTag + ".");
+                  }
+                  privateDraftTagTargetSha = privateDraftTagObject.data.object?.sha;
+                  privateDraftTagTargetType = privateDraftTagObject.data.object?.type;
+                }
+
+                if (privateDraftTagTargetType !== "commit" || privateDraftTagTargetSha !== sourceSha) {
+                  throw new Error("The immutable Android tag does not resolve to the exact release-preparation commit; refusing to continue.");
+                }
+
+                console.log("Verified the GitHub-verified signed tag " + releaseTag + " -> " + privateDraftTagTargetSha + ". The draft is private and not enumerable without a GitHub token; the authenticated Android publisher must verify exactly one matching draft and draft state before any artifact is accepted.");
+                process.exit(0);
+              }
+
+              throw new Error("The Admin Release service did not create exactly one verified draft for " + releaseTag + " within the 2-minute verification window.");
+            '
+  android-rebuild:
+    docker:
+      - image: cimg/android:2026.08.1-node
+    resource_class: medium
+    environment:
+      NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app
+      NEXT_PUBLIC_SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxdHNzdmx2bWt6ZWV5cWdocWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5OTAzNDEsImV4cCI6MjEwOTU2NjM0MX0.jux_q16W3CL3lUFT3P4DvqmnjTYWXTlIF86g2j_AKhw
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GRADLE_OPTS: >-
+        -Dorg.gradle.daemon=false
+        -Dorg.gradle.workers.max=1
+        -Dorg.gradle.jvmargs=-Xmx2048m
+        -XX:MaxMetaspaceSize=768m
+        -Dfile.encoding=UTF-8
+      GEMINI_API_KEY: ""
+    steps:
+      - checkout
+      - run:
+          name: Validate Android release configuration
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            REQUIRED_VARS=(
+              NEXT_PUBLIC_SUPABASE_URL
+              NEXT_PUBLIC_SUPABASE_ANON_KEY
+              GH_TOKEN
+              ANDROID_KEYSTORE_BASE64
+              ANDROID_KEYSTORE_PASSWORD
+              ANDROID_KEY_ALIAS
+              ANDROID_KEY_PASSWORD
+            )
+            for name in "${REQUIRED_VARS[@]}"; do
+              if [[ -z "${!name:-}" ]]; then
+                echo "Missing required CircleCI Android release variable: ${name}" >&2
+                exit 1
+              fi
+            done
+            if [[ "$NEXT_PUBLIC_SUPABASE_URL" != "https://zqtssvlvmkzeeyqghqfk.supabase.co" ]]; then
+              echo "NEXT_PUBLIC_SUPABASE_URL does not match the canonical ZIKR Supabase project." >&2
+              exit 1
+            fi
+      - run:
+          name: Enable pnpm
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            sudo corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+            node --version
+            pnpm --version
+      - run:
+          name: Select supported Java runtime
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            sudo apt-get update
+            sudo apt-get install -y openjdk-21-jdk
+            export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+            echo "export JAVA_HOME=$JAVA_HOME" >> "$BASH_ENV"
+            echo 'export PATH=$JAVA_HOME/bin:$PATH' >> "$BASH_ENV"
+            java -version
+      - run:
+          name: Install Android SDK packages
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            yes | sdkmanager --licenses >/dev/null || true
+            # Keep Android CLI tools current; avoid legacy analyzer builds with missing JAXB classes.
+            sdkmanager "cmdline-tools;latest" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+            test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+            test -x "$ANDROID_HOME/build-tools/36.0.0/aapt"
+      - run:
+          name: Install dependencies
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm config set fetch-retries 5
+            pnpm config set fetch-timeout 120000
+            pnpm config set fetch-retry-mintimeout 20000
+            pnpm config set fetch-retry-maxtimeout 120000
+            pnpm install --frozen-lockfile --prefer-offline --reporter=append-only
+          no_output_timeout: 20m
+      - run:
+          name: Build web assets and sync Capacitor
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            pnpm build
+            pnpm mobile:prepare
+            pnpm exec cap sync android
+          no_output_timeout: 20m
+      - run:
+          name: Restore and validate release keystore
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            REQUIRED_VARS=(ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD)
+            for name in "${REQUIRED_VARS[@]}"; do
+              if [[ -z "${!name:-}" ]]; then
+                echo "Missing protected CircleCI environment variable: ${name}" >&2
+                exit 1
+              fi
+            done
+            SIGNING_DIR="$CIRCLE_WORKING_DIRECTORY/.circleci-signing"
+            KEYSTORE_PATH="$SIGNING_DIR/zikr-release.keystore"
+            PROPERTIES_PATH="$CIRCLE_WORKING_DIRECTORY/android/keystore.properties"
+            mkdir -p "$SIGNING_DIR"
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            chmod 600 "$KEYSTORE_PATH"
+            test -s "$KEYSTORE_PATH"
+            STORE_TYPE="PKCS12"
+            if keytool -list -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
+              STORE_TYPE="PKCS12"
+            elif keytool -list -storetype JKS -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
+              STORE_TYPE="JKS"
+            else
+              echo "Unable to open the release keystore with PKCS12 or JKS." >&2
+              exit 1
+            fi
+            echo "Detected release keystore type: $STORE_TYPE"
+            printf '%s\n' "storeFile=$KEYSTORE_PATH" "storeType=$STORE_TYPE" "storePassword=$ANDROID_KEYSTORE_PASSWORD" "keyAlias=$ANDROID_KEY_ALIAS" "keyPassword=$ANDROID_KEY_PASSWORD" > "$PROPERTIES_PATH"
+            chmod 600 "$PROPERTIES_PATH"
+      - run:
+          name: Resolve Android release version
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            VERSION_NAME="$(sed -n 's/.*versionName \"\([^\"]*\)\".*/\1/p' android/app/build.gradle | head -1)"
+            if [[ -z "$VERSION_NAME" ]]; then
+              echo "Unable to determine Android versionName" >&2
+              exit 1
+            fi
+            if [[ "${CIRCLE_TAG:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              RELEASE_TAG="$CIRCLE_TAG"
+            elif [[ "${CIRCLE_BRANCH:-}" =~ ^android-release-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+              RELEASE_TAG="v${BASH_REMATCH[1]}"
+            else
+              echo "Unable to determine Android release tag." >&2
+              exit 1
+            fi
+            EXPECTED_VERSION="${RELEASE_TAG#v}"
+            echo "Detected release tag: $RELEASE_TAG"
+            echo "Detected Android versionName: $VERSION_NAME"
+            if [[ "$VERSION_NAME" != "$EXPECTED_VERSION" ]]; then
+              echo "Version mismatch detected." >&2
+              exit 1
+            fi
+            echo "export ANDROID_RELEASE_TAG=$RELEASE_TAG" >> "$BASH_ENV"
+      - run:
+          name: Print Android build diagnostics
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            echo "ANDROID_HOME=${ANDROID_HOME:-<unset>}"
+            echo "JAVA_HOME=${JAVA_HOME:-<unset>}"
+            java -version
+            cd android
+            ./gradlew --version
+      - run:
+          name: Clean Android build
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            cd android
+            ./gradlew clean --no-daemon --max-workers=1 --stacktrace -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8"
+          no_output_timeout: 20m
+      - run:
+          name: Build signed APK and AAB
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            cd android
+            ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon --max-workers=1 --stacktrace --warning-mode all -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8"
+          no_output_timeout: 40m
+      - run:
+          name: Verify APK, AAB, signature and version
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            APK="android/app/build/outputs/apk/release/app-release.apk"
+            AAB="android/app/build/outputs/bundle/release/app-release.aab"
+            test -s "$APK"
+            test -s "$AAB"
+            MAX_GITHUB_RELEASE_ASSET_BYTES=2147483648
+            for artifact in "$APK" "$AAB"; do
+              size_bytes="$(stat -c '%s' "$artifact")"
+              if (( size_bytes > MAX_GITHUB_RELEASE_ASSET_BYTES )); then
+                echo "Artifact exceeds the 2 GiB GitHub Release asset limit: $artifact ($size_bytes bytes)." >&2
+                exit 1
+              fi
+            done
+            APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+            # aapt reads APK manifest metadata without relying on APK Analyzer/JAXB.
+            AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+            test -n "$APKSIGNER"
+            test -x "$AAPT"
+            "$APKSIGNER" verify --verbose "$APK"
+            if ! jarsigner -verify "$AAB" >/tmp/aab-signature-check.txt 2>&1; then
+              cat /tmp/aab-signature-check.txt
+              echo "AAB JAR signature verification failed." >&2
+              exit 1
+            fi
+            cat /tmp/aab-signature-check.txt
+            BADGING="$("$AAPT" dump badging "$APK")"
+            PACKAGE_LINE="$(printf '%s\n' "$BADGING" | grep -m1 '^package:')"
+            printf '%s\n' "$PACKAGE_LINE" | grep -F "name='com.zikr.app'"
+            EXPECTED_VERSION="${ANDROID_RELEASE_TAG#v}"
+            printf '%s\n' "$PACKAGE_LINE" | grep -F "versionName='${EXPECTED_VERSION}'"
+            printf '%s\n' "$BADGING" | grep -Fx "targetSdkVersion:'36'"
+            sha256sum "$APK" "$AAB" > SHA256SUMS
+            cat SHA256SUMS
+      - run:
+          name: Upload verified Android assets to GitHub Draft Release
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            test -n "${GH_TOKEN:-}" || { echo "Missing protected GH_TOKEN for GitHub Release upload." >&2; exit 1; }
+            if ! command -v gh >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y gh
+            fi
+            RELEASE_TAG="$ANDROID_RELEASE_TAG"
+            REPOSITORY="zikrmediaofficiall/Zikr"
+            APK="android/app/build/outputs/apk/release/app-release.apk"
+            AAB="android/app/build/outputs/bundle/release/app-release.aab"
+            SHA_FILE="SHA256SUMS"
+            APK_SHA="$(sha256sum "$APK" | awk '{print $1}')"
+            AAB_SHA="$(sha256sum "$AAB" | awk '{print $1}')"
+            VERSION_NAME="$(sed -n 's/.*versionName \"\([^\"]*\)\".*/\1/p' android/app/build.gradle | head -1)"
+            AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+            test -x "$AAPT"
+            BADGING="$("$AAPT" dump badging "$APK")"
+            PACKAGE_LINE="$(printf '%s\n' "$BADGING" | grep -m1 '^package:')"
+            VERSION_CODE="$(printf '%s\n' "$PACKAGE_LINE" | awk -F"versionCode='" '{print $2}' | cut -d "'" -f1)"
+            EXPECTED_VERSION_CODE="$(awk '/^[[:space:]]*versionCode[[:space:]]+/ {print $2; exit}' android/app/build.gradle)"
+            test -n "$EXPECTED_VERSION_CODE" || { echo "Unable to read Gradle versionCode." >&2; exit 1; }
+            test "$VERSION_CODE" = "$EXPECTED_VERSION_CODE" || {
+              echo "APK versionCode ($VERSION_CODE) does not match Gradle ($EXPECTED_VERSION_CODE)." >&2
+              exit 1
+            }
+
+            cat > release-metadata.json \<<EOF
+            {
+              "tag": "${RELEASE_TAG}",
+              "version": "${VERSION_NAME}",
+              "versionCode": ${VERSION_CODE},
+              "applicationId": "com.zikr.app",
+              "targetSdk": 36,
+              "sourceCommit": "${CIRCLE_SHA1}",
+              "apkSha256": "${APK_SHA}",
+              "aabSha256": "${AAB_SHA}",
+              "apkUrl": "https://github.com/${REPOSITORY}/releases/download/${RELEASE_TAG}/app-release.apk",
+              "aabUrl": "https://github.com/${REPOSITORY}/releases/download/${RELEASE_TAG}/app-release.aab",
+              "sha256Url": "https://github.com/${REPOSITORY}/releases/download/${RELEASE_TAG}/SHA256SUMS"
+            }
+            EOF
+
+            RELEASE_STATE="$(GH_TOKEN="$GH_TOKEN" gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json tagName,isDraft)"
+            test "$(printf '%s' "$RELEASE_STATE" | jq -r '.tagName')" = "$RELEASE_TAG"
+            test "$(printf '%s' "$RELEASE_STATE" | jq -r '.isDraft')" = "true"
+            GH_TOKEN="$GH_TOKEN" gh release upload "$RELEASE_TAG" "$APK" "$AAB" "$SHA_FILE" release-metadata.json \
+              --repo "$REPOSITORY" \
+              --clobber
+            echo "Verified Android assets uploaded to GitHub Draft Release only; GitHub Actions will verify and publish them."
+      - run:
+          name: Remove signing material
+          when: always
+          shell: /bin/bash
+          command: |
+            set +e
+            rm -f "$CIRCLE_WORKING_DIRECTORY/android/keystore.properties"
+            rm -f "$CIRCLE_WORKING_DIRECTORY/.circleci-signing/zikr-release.keystore"
+
+
+  android-release-dispatch:
+    docker:
+      - image: cimg/node:22.11.0
+    resource_class: small
+    environment:
+      SUPABASE_URL: ""
+      SUPABASE_SERVICE_ROLE_KEY: ""
+      GEMINI_API_KEY: ""
+      ANDROID_KEYSTORE_BASE64: ""
+      ANDROID_KEYSTORE_PASSWORD: ""
+      ANDROID_KEY_ALIAS: ""
+      ANDROID_KEY_PASSWORD: ""
+    steps:
+      - run:
+          name: Dispatch guarded Android recovery after the signed build succeeds
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            test -n "${GH_TOKEN:-}" || { echo "Missing GH_TOKEN for guarded Android recovery dispatch." >&2; exit 1; }
+            if [[ "${CIRCLE_BRANCH:-}" =~ ^android-release-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              RECOVERY_REF="$CIRCLE_BRANCH"
+            elif [[ "${CIRCLE_TAG:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              RECOVERY_REF="$CIRCLE_TAG"
+            else
+              echo "No canonical Android release branch/tag is available." >&2
+              exit 1
+            fi
+            curl --fail --silent --show-error --location \
+              --request POST "https://api.github.com/repos/zikrmediaofficiall/Zikr/actions/workflows/dispatch-android-release-recovery.yml/dispatches" \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              --header "Content-Type: application/json" \
+              --data "{\"ref\":\"$RECOVERY_REF\"}"
+            echo "Guarded Android recovery dispatched for $RECOVERY_REF."
+
+workflows:
+  build-and-release:
+    when: << pipeline.parameters.run_circleci_ci >>
+    jobs:
+      - source-verify:
+          filters:
+            branches:
+              only:
+                - main
+                - /^feat\/.*$/
+                - /^audit\/zikr-.*$/
+                - /^fix\/facebook-profile-metrics-refresh-20261110$/
+                - /^feat\/kids-written-social-posts-20261110$/
+                - /^android-release-v[0-9]+\.[0-9]+\.[0-9]+$/
+                - /^feat\/autonomous-video-qa-publishing-20261107$/
+                - /^fix\/video-worker-partial-success-and-kids-validation-20261107$/
+                - /^fix\/worker-audit-run-now-release-docs-20261107$/
+                - /^fix\/quran-tafsir-backfill-release-preflight-20261107$/
+                - /^fix\/quality-gate-full-main-scope-20261107$/
+                - /^codex\/zikr-comprehensive-repair-safety-20261110$/
+                - /^codex\/zikr-video-factory-admin-improvements-20261121$/
+                - /^automation\/offline-content-snapshot$/
+                - /^fix\/offline-snapshot-pr-permission-mainline-20261110$/
+                - /^fix\/android-release-draft-immutable-tag-mainline-5-20261110$/
+                - /^fix\/android-release-draft-single-owner-20261110$/
+                - /^fix\/mobile-ads-native-adsbygoogle-mainline-20261110$/
+                - /^fix\/production-web-release-optional-aasa-20261120$/
+                - /^fix\/android-release-signed-tag-gate-20261121$/
+                - /^fix\/offline-snapshot-git-identity-mainline-2-20261110$/
+                - /^fix\/preserve-quran-audio-cache-mainline-4-20261110$/
+                - /^fix\/search-console-contract-mainline-3-20261110$/
+                - /^fix\/content-integrity-scan-mainline-2-20261110$/
+                - /^fix\/preview-facebook-feed-optional-config-mainline-20261110$/
+                - /^fix\/video-catalog-purge-provenance-recovery-20261110$/
+                - /^fix\/sync-youtube-oauth-supabase-types-20261110$/
+                - /^fix\/sync-admin-supabase-function-types-20261110$/
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+      - application-build-docs:
+          filters:
+            branches:
+              only:
+                - main
+                - /^feat\/.*$/
+                - /^audit\/zikr-.*$/
+                - /^fix\/facebook-profile-metrics-refresh-20261110$/
+                - /^feat\/kids-written-social-posts-20261110$/
+                - /^feat\/autonomous-video-qa-publishing-20261107$/
+                - /^fix\/video-worker-partial-success-and-kids-validation-20261107$/
+                - /^fix\/worker-audit-run-now-release-docs-20261107$/
+                - /^fix\/quran-tafsir-backfill-release-preflight-20261107$/
+                - /^fix\/quality-gate-full-main-scope-20261107$/
+                - /^codex\/zikr-comprehensive-repair-safety-20261110$/
+                - /^codex\/zikr-video-factory-admin-improvements-20261121$/
+                - /^automation\/offline-content-snapshot$/
+                - /^fix\/offline-snapshot-pr-permission-mainline-20261110$/
+                - /^fix\/android-release-draft-immutable-tag-mainline-5-20261110$/
+                - /^fix\/android-release-draft-single-owner-20261110$/
+                - /^fix\/mobile-ads-native-adsbygoogle-mainline-20261110$/
+                - /^fix\/production-web-release-optional-aasa-20261120$/
+                - /^fix\/android-release-signed-tag-gate-20261121$/
+                - /^fix\/offline-snapshot-git-identity-mainline-2-20261110$/
+                - /^fix\/preserve-quran-audio-cache-mainline-4-20261110$/
+                - /^fix\/search-console-contract-mainline-3-20261110$/
+                - /^fix\/content-integrity-scan-mainline-2-20261110$/
+                - /^fix\/preview-facebook-feed-optional-config-mainline-20261110$/
+                - /^fix\/video-catalog-purge-provenance-recovery-20261110$/
+                - /^fix\/sync-youtube-oauth-supabase-types-20261110$/
+                - /^fix\/sync-admin-supabase-function-types-20261110$/
+            tags:
+              ignore: /.*/
+      - android-release-draft:
+          requires:
+            - source-verify
+            - application-build-docs
+          filters:
+            branches:
+              only: main
+            tags:
+              ignore: /.*/
+      # This read-only Supabase gate uses the project-scoped service key;
+      # keep Android signing material limited to signed Android release jobs.
+      - supabase-production-gate:
+          requires:
+            - source-verify
+          filters:
+            branches:
+              only:
+                - /^android-release-v[0-9]+\.[0-9]+\.[0-9]+$/
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+      - android-rebuild:
+          context:
+            - android-signing
+          requires:
+            - source-verify
+            - supabase-production-gate
+          filters:
+            branches:
+              only:
+                - /^android-release-v[0-9]+\.[0-9]+\.[0-9]+$/
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+
+      - android-release-dispatch:
+          context:
+            - android-signing
+          requires:
+            - android-rebuild
+          filters:
+            branches:
+              only:
+                - /^android-release-v[0-9]+\.[0-9]+\.[0-9]+$/
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+
+  manual-security-audit:
+    when: << pipeline.parameters.run_security_audit >>
+    jobs:
+      - security-audit
+
+  scheduled-english-content-sync:
+    triggers:
+      - schedule:
+          cron: "17 4 * * *"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - english-content-sync
+
+  # Always runs regardless of pipeline parameters or branch filters. This prevents
+  # CircleCI from reporting a pipeline with no selected workflows.
+  configuration-guard:
+    jobs:
+      - config-guard

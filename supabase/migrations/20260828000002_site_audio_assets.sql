@@ -1,0 +1,3 @@
+-- Canonical migration version retained for migration-ledger parity.
+-- Site-audio schema, policies, and bucket setup are owned by 20260828000000.
+-- This version is intentionally a no-op to preserve the remote migration version.

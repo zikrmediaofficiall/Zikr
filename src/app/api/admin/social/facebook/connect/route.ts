@@ -1,0 +1,74 @@
+import { createSignedOAuthState } from "@/features/social/services/oauth-state";
+import { NextResponse, type NextRequest } from "next/server";
+import { requireAdminApi } from "@/features/admin/services/admin";
+import { buildCanonicalOAuthStartRedirect } from "@/features/social/services/oauth-canonical-origin";
+import { requireAdminStepUpApi } from "@/features/admin/services/security";
+import { getServerEnv } from "@/lib/env";
+import { FACEBOOK_REQUESTED_PERMISSIONS } from "@/features/social/services/facebook-oauth-policy";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const STATE_COOKIE = "zikr-facebook-oauth-state";
+const CANONICAL_SITE_ORIGIN = "https://zikrmediaofficial.vercel.app";
+const FACEBOOK_REDIRECT_URI = CANONICAL_SITE_ORIGIN + "/api/admin/social/facebook/callback";
+export async function GET(request: NextRequest) {
+  const canonicalRedirect = buildCanonicalOAuthStartRedirect(request.url, CANONICAL_SITE_ORIGIN);
+  if (canonicalRedirect) {
+    const response = NextResponse.redirect(canonicalRedirect, 307);
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+    return response;
+  }
+
+  const auth = await requireAdminApi("social.manage");
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  const publishStepUp = await requireAdminStepUpApi("social.publish", "/admin/social");
+  if (!publishStepUp.ok) {
+    const nextPath = "nextPath" in publishStepUp ? publishStepUp.nextPath : undefined;
+    const destination = nextPath
+      ? new URL(nextPath, CANONICAL_SITE_ORIGIN)
+      : new URL("/admin/social?facebook=step_up_unavailable", CANONICAL_SITE_ORIGIN);
+    return NextResponse.redirect(destination, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  const env = getServerEnv();
+  const appId = env.FACEBOOK_APP_ID?.trim();
+  if (!appId || !env.FACEBOOK_APP_SECRET?.trim()) {
+    return NextResponse.redirect(
+      new URL("/admin/social?facebook=configuration_missing", CANONICAL_SITE_ORIGIN),
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  let state: string;
+  try {
+    state = createSignedOAuthState(auth.profile.id, "facebook");
+  } catch {
+    return NextResponse.redirect(
+      new URL("/admin/social?facebook=configuration_missing", CANONICAL_SITE_ORIGIN),
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  const version = (env.FACEBOOK_GRAPH_API_VERSION || "v26.0").trim();
+  const authorizeUrl = new URL("https://www.facebook.com/" + version + "/dialog/oauth");
+  authorizeUrl.searchParams.set("client_id", appId);
+  authorizeUrl.searchParams.set("redirect_uri", FACEBOOK_REDIRECT_URI);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("scope", FACEBOOK_REQUESTED_PERMISSIONS.join(","));
+  authorizeUrl.searchParams.set("state", state);
+  authorizeUrl.searchParams.set("auth_type", "rerequest");
+
+  const response = NextResponse.redirect(authorizeUrl);
+  response.headers.set("Cache-Control", "no-store");
+  response.cookies.set(STATE_COOKIE, state, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/api/admin/social/facebook/callback",
+    maxAge: 10 * 60,
+  });
+  return response;
+}

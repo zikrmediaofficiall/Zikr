@@ -1,0 +1,94 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { BookmarkButton } from '@/features/quran/components/bookmark-button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Container } from '@/components/ui/container';
+import { getHadithByNumber } from '@/features/hadith/services/hadith';
+import { resolveHadithDisplay } from '@/features/hadith/types/hadith';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft } from 'lucide-react';
+import { ShareButton } from '@/components/ui/share-button';
+import Link from 'next/link';
+import { pageMetadata } from '@/lib/site';
+import { getRequestLocale } from '@/lib/i18n/server';
+import { parsePositiveIntegerRouteSegment } from '@/lib/route-params';
+
+interface HadithDetailPageProps {
+  params: Promise<{ book: string; id: string }>;
+}
+
+export async function generateMetadata({ params }: HadithDetailPageProps): Promise<Metadata> {
+  const { book: bookSlug, id } = await params;
+  const locale = await getRequestLocale();
+  const isEnglish = locale === "en";
+  return pageMetadata({
+    title: isEnglish ? `Hadith ${id}` : `حديث رقم ${id}`,
+    description: isEnglish ? "Read the Prophetic Hadith within its collection on ZIKR." : "قراءة الحديث النبوي الشريف ضمن صفحة الكتاب في منصة ذِكرٌ.",
+    path: `/hadith/${bookSlug}/${id}`,
+    // Keep the individual record available to users but make the collection
+    // (book) page the canonical SEO landing page rather than indexing thousands
+    // of near-identical record URLs.
+    noindex: true,
+  });
+}
+
+export default async function HadithDetail({ params }: HadithDetailPageProps) {
+  const { book: bookSlug, id: hadithNumber } = await params;
+  const num = parsePositiveIntegerRouteSegment(hadithNumber);
+  const locale = await getRequestLocale();
+  const isEnglish = locale === "en";
+
+  if (num === null) return notFound();
+
+  const h = await getHadithByNumber(bookSlug, num, locale);
+
+  if (!h) return notFound();
+  const display = resolveHadithDisplay(h, locale);
+
+  return (
+    <Container className='py-12 max-w-4xl' dir={isEnglish ? "ltr" : "rtl"}>
+      <Link href={`/hadith/${bookSlug}`}>
+        <Button variant="ghost" className="mb-6">
+          <ChevronLeft className="ml-2 h-4 w-4" />
+          {isEnglish ? "Back to collection" : "العودة للكتاب"}
+        </Button>
+      </Link>
+
+      <Card className="shadow-lg">
+        <CardHeader className="border-b bg-muted/30">
+          <CardTitle className='text-2xl text-brand-gold text-center'>{isEnglish ? `Hadith ${h.number}` : `حديث رقم ${h.number}`}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="space-y-8">
+            <p className={`text-3xl leading-relaxed ${display.contentLocale === "en" ? "text-left" : "text-right"} font-arabic`} dir={display.contentLocale === "en" ? "ltr" : "rtl"}>
+              {display.text}
+            </p>
+            {display.usedArabicFallback && (
+              <p role="note" className="text-sm leading-6 text-amber-700 dark:text-amber-300">
+                English translation unavailable — showing the original Arabic text.
+              </p>
+            )}
+
+            <div className='flex items-center justify-between pt-6 border-t'>
+              <div className="flex gap-4">
+                <BookmarkButton keyRef={`hadith:${bookSlug}:${h.number}`} itemType="hadith" />
+                <ShareButton
+                  title={isEnglish ? `Hadith ${h.number}` : `حديث رقم ${h.number}`}
+                  text={display.text}
+                  label={isEnglish ? "Share" : "مشاركة"}
+                  sharedLabel={isEnglish ? "Share sheet opened." : "تم فتح خيارات المشاركة."}
+                  copiedLabel={isEnglish ? "Hadith text and link copied." : "تم نسخ الحديث والرابط."}
+                  errorLabel={isEnglish ? "Could not share or copy the link." : "تعذرت مشاركة الحديث أو نسخ الرابط."}
+                />
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                {isEnglish ? "Collection: " : "المصدر: "}{bookSlug}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </Container>
+  );
+}

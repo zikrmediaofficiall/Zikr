@@ -1,0 +1,630 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+
+const read = (file) => {
+  assert.ok(existsSync(file), "Missing CI/CD source file: " + file);
+  return readFileSync(file, "utf8");
+};
+
+const quality = read(".github/workflows/quality-gate.yml");
+const video = read(".github/workflows/generate-ai-video.yml");
+const social = read(".github/workflows/publish-social.yml");
+const english = read(".github/workflows/english-content-sync.yml");
+const release = read(".github/workflows/release-finalization.yml");
+const productionSmoke = read("scripts/verify-production-smoke.mjs");
+const aasaRoute = read("src/app/.well-known/apple-app-site-association/route.ts");
+const assetLinksRoute = read("src/app/.well-known/assetlinks.json/route.ts");
+const supabaseTokenPreflight = release.indexOf("Verify Supabase Edge Function deployment credential before production changes");
+const migrationPush = release.indexOf("supabase db push --db-url");
+const edgeFunctionDeploy = release.indexOf("supabase functions deploy prayer-notification-worker --project-ref");
+const schemaReconcile = release.indexOf("Verify production schema after migration");
+const webDeploy = release.indexOf("Deploy prebuilt artifact to production");
+assert.ok(
+  release.includes("SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}") &&
+    release.includes("supabase projects list") &&
+    supabaseTokenPreflight >= 0 &&
+    supabaseTokenPreflight < migrationPush,
+  "Controlled production release must verify the Supabase CLI token and canonical project access before any production database mutation",
+);
+assert.ok(
+  schemaReconcile >= 0 &&
+    edgeFunctionDeploy > schemaReconcile &&
+    webDeploy > edgeFunctionDeploy,
+  "Controlled release must deploy the source-controlled prayer Edge Function only after the database migrations/schema reconciliation and before Vercel production deployment",
+);
+const vercelPull = release.indexOf("Pull production Vercel configuration");
+const aasaPreflight = release.indexOf("Verify Apple App Site Association configuration before production build");
+const productionBuild = release.indexOf("Build production artifact");
+assert.ok(
+  release.includes("IOS_ASSOCIATED_DOMAIN_APP_ID") &&
+    vercelPull >= 0 &&
+    aasaPreflight > vercelPull &&
+    aasaPreflight < productionBuild &&
+    aasaPreflight < migrationPush,
+  "Controlled release must validate the iOS App ID from the pulled Vercel production environment before build or production database changes",
+);
+assert.ok(
+  productionSmoke.includes("/.well-known/apple-app-site-association") &&
+    productionSmoke.includes("/.well-known/assetlinks.json") &&
+    productionSmoke.includes("sha256_cert_fingerprints") &&
+    productionSmoke.includes("com.zikr.app"),
+  "Production smoke must verify iOS Universal Links and Android App Links association documents",
+);
+const isForceStaticRoute = (source) =>
+  /export\s+const\s+dynamic\s*=\s*(['"])force-static\1;/.test(source);
+assert.ok(
+  aasaRoute.includes("IOS_ASSOCIATED_DOMAIN_APP_ID") &&
+    isForceStaticRoute(aasaRoute) &&
+    assetLinksRoute.includes("ANDROID_APP_LINKS_SHA256") &&
+    isForceStaticRoute(assetLinksRoute),
+  "App association endpoints must use the documented build-time iOS App ID and Android signing fingerprint",
+);
+const prayerWorkerSource = read("supabase/functions/prayer-notification-worker/index.ts");
+assert.ok(
+  prayerWorkerSource.includes("./pagination.ts") &&
+    prayerWorkerSource.includes("./eligibility.ts") &&
+    prayerWorkerSource.includes("./time-zone.ts"),
+  "Prayer Edge Function release must package its audited pagination, eligibility, and timezone modules",
+);
+const smoke = read(".github/workflows/release-vercel.yml");
+const androidPublish = read(".github/workflows/publish-android-release-assets.yml");
+const insightsWorkflow = read(".github/workflows/sync-social-insights.yml");
+const backgroundRunner = read("scripts/run-background-jobs.ts");
+const socialWorker = read("scripts/jobs/social-publishing.ts");
+assert.ok(!androidPublish.includes("branches:\n      - main"), "Android asset publishing must not trigger directly from main");
+assert.ok(androidPublish.includes("workflow_dispatch:"), "Android asset publishing must retain explicit manual recovery");
+assert.ok(androidPublish.includes("inputs.retry"), "Android manual recovery must require an explicit retry input");
+assert.ok(androidPublish.includes("github.ref_type == 'tag'"), "Android publishing must support release tags");
+assert.ok(
+  androidPublish.includes("github.event_name == 'workflow_dispatch'") &&
+    androidPublish.includes("inputs.retry == true") &&
+    androidPublish.includes("startsWith(github.ref_name, 'android-release-v')"),
+  "Android recovery branches must require an explicit workflow_dispatch retry",
+);
+assert.ok(
+  androidPublish.includes("TAG_TARGET_SHA") &&
+    androidPublish.includes("ci/circleci: source-verify") &&
+    androidPublish.includes("ci/circleci: supabase-production-gate") &&
+    androidPublish.includes("ci/circleci: android-rebuild") &&
+    androidPublish.includes("ci/circleci: application-build-docs") &&
+    androidPublish.includes("ci/circleci: config-guard") &&
+    androidPublish.includes("ci/circleci: android-release-draft") &&
+    androidPublish.includes("ci/circleci: android-release-dispatch") &&
+    androidPublish.includes("ZIKR / Quality Gate") &&
+    androidPublish.includes("source_commit:") &&
+    androidPublish.includes("contents/${release_path}?ref=${TAG_TARGET_SHA}") && androidPublish.includes("cmp -s") &&
+    androidPublish.includes("RELEASE_SOURCE_SHA=$TAG_TARGET_SHA") &&
+    androidPublish.includes("github.actor == 'github-actions[bot]'") &&
+    androidPublish.includes('GITHUB_ACTOR}" == "github-actions[bot]"') &&
+    !androidPublish.includes("github.event_name != 'workflow_dispatch'"),
+  "Every Android publish/retry path must verify the exact tag source commit and all CI gates",
+);
+
+const circle = read(".circleci/config.yml");
+const androidDraftJob = circle.split("  android-release-draft:")[1]?.split("\n  android-rebuild:")[0] ?? "";
+assert.ok(androidDraftJob.includes('"/releases?per_page=100&page=1"'), "CircleCI Android release gate must inspect draft releases through the collection endpoint");
+assert.ok(androidDraftJob.includes("matchingReleases.length > 1"), "CircleCI Android release gate must reject duplicate release records");
+assert.ok(androidDraftJob.includes("GitHub intentionally hides draft Releases from unauthenticated"), "CircleCI read-only draft verification must account for private GitHub draft visibility");
+assert.ok(androidDraftJob.includes("verification?.verified !== true") && androidDraftJob.includes('verification?.reason !== "valid"'), "the unauthenticated fallback must still require a GitHub-verified signed tag");
+assert.ok(androidDraftJob.includes("privateDraftTagTargetSha !== sourceSha"), "the private-draft fallback must bind the signed tag to the exact release-preparation commit");
+
+assert.ok(androidDraftJob.includes("if (isReleasePreparationCommit)") && androidDraftJob.includes("process.exit(0)"), "CircleCI must fail closed for a new release but avoid breaking ordinary main CI for legacy duplicate drafts.");
+assert.ok(!androidDraftJob.includes('api("/releases", "POST"') && !androidDraftJob.includes('api("/git/tags", "POST"'), "CircleCI must verify, not create, Admin Release manager artifacts");
+const sourceVerifyJob = circle.slice(circle.indexOf("  source-verify:"), circle.indexOf("  application-build-docs:"));
+const supabaseGateJob =
+  circle.match(/^  supabase-production-gate:\n([\s\S]*?)(?=^  [a-z0-9_-]+:\n|^workflows:\n)/m)?.[1] ?? "";
+const supabaseGateWorkflow = circle.split("      - supabase-production-gate:")[1]?.split("\n      - android-rebuild:")[0] ?? "";
+assert.ok(
+  supabaseGateJob.includes("SUPABASE_SERVICE_ROLE_KEY"),
+  "Supabase production verification must validate its database credential",
+);
+assert.doesNotMatch(
+  supabaseGateJob,
+  /^\s*(?:ANDROID_KEYSTORE_BASE64|ANDROID_KEYSTORE_PASSWORD|ANDROID_KEY_ALIAS|ANDROID_KEY_PASSWORD):\s*(?!"")\S.*$/m,
+  "Supabase production verification must not receive non-empty Android signing material",
+);
+for (const secretName of [
+  "ANDROID_KEYSTORE_BASE64",
+  "ANDROID_KEYSTORE_PASSWORD",
+  "ANDROID_KEY_ALIAS",
+  "ANDROID_KEY_PASSWORD",
+]) {
+  assert.ok(
+    supabaseGateJob.includes(secretName + ': ""'),
+    "Supabase production verification must shadow inherited Android signing secrets with an empty value: " + secretName,
+  );
+}
+assert.ok(
+  !supabaseGateWorkflow.includes("android-signing"),
+  "the Supabase production gate must not inherit the Android signing context",
+);
+const androidRebuildWorkflow = circle.split("      - android-rebuild:")[1]?.split("\n      - android-release-dispatch:")[0] ?? "";
+assert.ok(
+  androidRebuildWorkflow.includes("android-signing"),
+  "the signed Android rebuild must retain its dedicated signing context",
+);
+const circleJobLines = circle.split(/\r?\n/);
+const androidRebuildStart = circleJobLines.findIndex((line) => line === "  android-rebuild:");
+const androidRebuildEnd = circleJobLines.findIndex((line, index) =>
+  index > androidRebuildStart && (line === "workflows:" || /^  [a-z0-9_-]+:$/.test(line)),
+);
+const androidRebuildJob = androidRebuildStart >= 0
+  ? circleJobLines.slice(androidRebuildStart + 1, androidRebuildEnd >= 0 ? androidRebuildEnd : circleJobLines.length).join("\n")
+  : "";
+for (const secretName of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
+  assert.ok(
+    androidRebuildJob.includes(secretName + ': ""'),
+    "the signed Android rebuild must shadow project-level Supabase credentials: " + secretName,
+  );
+}
+const androidRebuildSupabaseCredentialLines = androidRebuildJob
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => /^(?:SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY):/.test(line));
+assert.deepEqual(
+  androidRebuildSupabaseCredentialLines.sort(),
+  ['SUPABASE_SERVICE_ROLE_KEY: ""', 'SUPABASE_URL: ""'],
+  "the signed Android rebuild must not receive non-empty Supabase service credentials",
+);
+for (const contract of [
+  "NEXT_PUBLIC_SITE_URL: https://zikrmediaofficial.vercel.app",
+  "NEXT_PUBLIC_SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY:",
+  "NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID:",
+  "AUTH_CALLBACK_URL: https://zikrmediaofficial.vercel.app/auth/callback",
+]) {
+  assert.ok(sourceVerifyJob.includes(contract), "CircleCI source-verify must receive the canonical non-secret verification environment: " + contract);
+}
+const ownership = read("docs/AUTOMATION_OWNERSHIP_2026-10-08.md");
+const supabaseConfig = read("supabase/config.toml");
+const articleTranslation = read("scripts/translate-published-articles-en.ts");
+const hadithTranslation = read("scripts/sync-hadith-english.ts");
+const androidRecovery = read(".github/workflows/dispatch-android-release-recovery.yml");
+assert.ok(androidRecovery.includes("workflow_dispatch:"), "Android recovery must be explicitly dispatched by the successful CircleCI release pipeline");
+assert.ok(
+  !androidRecovery.includes("\n  status:") &&
+    androidRecovery.includes('branches:\n      - "android-release-dispatch-v*"') &&
+    androidRecovery.includes("github.actor == 'zikrmediaofficiall'") &&
+    androidRecovery.includes("isPushRecoveryTrigger"),
+  "Android recovery must not subscribe to every repository status and may use only the owner-restricted canonical release-dispatch push fallback",
+);
+assert.ok(androidRecovery.includes("github.event_name == 'workflow_dispatch'"), "Android recovery must accept only an explicit workflow dispatch");
+assert.ok(circle.includes("android-release-dispatch:"), "CircleCI must dispatch Android recovery only after android-rebuild succeeds");
+assert.ok(circle.includes("api.github.com/repos/zikrmediaofficiall/Zikr/actions/workflows/dispatch-android-release-recovery.yml/dispatches"), "CircleCI must invoke the guarded Android recovery workflow");
+
+
+const workflowDir = ".github/workflows";
+const workflowFiles = readdirSync(workflowDir)
+  .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
+  .sort();
+
+const workflowNames = workflowFiles.map((file) => {
+  const content = read(`${workflowDir}/${file}`);
+  const match = content.match(/^name:\s*(.+)$/m);
+  assert.ok(match, `Workflow name missing: ${file}`);
+  return { file, name: match[1].trim().replace(/^['"]|['"]$/g, ""), content };
+});
+
+const seenWorkflowNames = new Set();
+for (const item of workflowNames) {
+  assert.ok(!seenWorkflowNames.has(item.name), `Duplicate GitHub workflow name: ${item.file}`);
+  seenWorkflowNames.add(item.name);
+}
+
+assert.ok(video.includes('cron: "17 3,9,15,21 * * *"'), "GitHub must own the recurring video generation schedule");
+assert.ok(social.includes('cron: "7,22,37,52 * * * *"') && social.includes("github.event_name == 'schedule'") && !social.includes("\n  push:") && social.includes("workflow_run:"), "social publisher must retry the bounded queue every 15 minutes on main, while preserving the immediate post-generation trigger and avoiding push triggers");
+assert.ok(circle.includes('cron: "17 4 * * *"'), "CircleCI must retain the recurring English content schedule");
+assert.ok(!circle.includes('cron: "17 3,9,15,21 * * *"'), "CircleCI must not own the video generation schedule");
+assert.ok(
+  circle.includes("cat > release-metadata.json " + String.fromCharCode(92) + "<<EOF"),
+  "Literal heredocs in CircleCI commands must escape the config parameter marker.",
+);
+assert.ok(!circle.includes("<<<"), "CircleCI shell commands must not contain unescaped here-string markers.");
+const englishCredentialCheck = circle.slice(
+  circle.indexOf("name: Validate production content-sync credentials"),
+  circle.indexOf("name: Run bounded English content sync"),
+);
+const englishSyncCommand = circle.slice(
+  circle.indexOf("name: Run bounded English content sync"),
+  circle.indexOf("android-rebuild:"),
+);
+assert.ok(
+  !englishCredentialCheck.includes("GEMINI_API_KEY") &&
+    englishSyncCommand.includes('if [[ -n "${GEMINI_API_KEY:-}" ]]') &&
+    englishSyncCommand.includes("pnpm translate:articles:en || article_status=$?") &&
+    englishSyncCommand.includes("pnpm sync:hadith:en || hadith_status=$?") &&
+    englishSyncCommand.includes("pnpm sync:quran:en || quran_status=$?") &&
+    englishSyncCommand.includes("English sync incomplete"),
+  "Daily English sync must attempt Hadith even when article translation lacks Gemini or fails.",
+);
+assert.ok(
+  articleTranslation.includes("title_en.eq.") &&
+    articleTranslation.includes("summary_en.eq.") &&
+    articleTranslation.includes("content_en.eq.") &&
+    articleTranslation.includes("if (!article.title_en?.trim())") &&
+    articleTranslation.includes("if (!article.summary_en?.trim())") &&
+    articleTranslation.includes("if (!article.content_en?.trim())") &&
+    articleTranslation.includes("or(${field}.is.null,${field}.eq.)") &&
+    articleTranslation.includes("and=(${emptyFieldFilters})") &&
+    articleTranslation.includes("updated_at=eq.${encodeURIComponent(article.updated_at)}"),
+  "English article sync must preserve concurrent human translations and compare the exact source row version.",
+);
+assert.ok(
+  articleTranslation.includes("on_conflict=content_type,content_id,target_locale,source_hash") &&
+    articleTranslation.includes("status=eq.processing&updated_at=eq.${encodeURIComponent(claim.updatedAt)}") &&
+    articleTranslation.includes("TRANSLATION_QUEUE_LEASE_MS = 60 * 60_000"),
+  "English article sync must use a unique, leased queue claim and compare-and-set terminal writes.",
+);
+assert.ok(
+  articleTranslation.includes("Number.isInteger(value)") &&
+    hadithTranslation.includes("Number.isInteger(value)"),
+  "English sync batch inputs must be validated before building Supabase requests.",
+);
+
+assert.ok(quality.includes('name: "ZIKR / Quality Gate"'), "Canonical GitHub quality check name is incorrect");
+assert.ok(
+  quality.includes("QUALITY_GATE_FULL_SCOPE: ${{") &&
+    quality.includes("github.event_name == 'workflow_dispatch'") &&
+    quality.includes("github.event_name == 'push' && github.ref == 'refs/heads/main'") &&
+    quality.includes("startsWith(github.head_ref, 'codex/zikr-comprehensive-repair-')") &&
+    quality.includes("startsWith(github.head_ref, 'codex/zikr-final-cleanup-')") &&
+    quality.includes("startsWith(github.head_ref, 'audit/zikr-')") &&
+    quality.includes('if [[ "${QUALITY_GATE_FULL_SCOPE}" == "true" ]]') &&
+    quality.includes("pnpm verify") &&
+    quality.includes("pnpm verify:pr"),
+  "GitHub Quality Gate must derive the full verification scope from the GitHub event/ref context and run full verification on main, manual dispatch, and comprehensive repair PRs",
+);
+assert.ok(quality.includes("timeout-minutes: 30"), "Full main-branch verification must have an explicit bounded timeout");
+assert.ok(quality.includes("QUALITY_GATE=PASSED_FULL"), "The main-branch gate must report full verification scope");
+assert.ok(!quality.includes("ci/circleci: ci-check"), "GitHub quality gate must not impersonate CircleCI");
+
+assert.ok(video.includes("workflow_dispatch:"), "Video worker must retain manual recovery");
+assert.ok(!video.includes("\n  push:"), "Production video worker must not run on source pushes");
+assert.ok(video.includes("environment: production"), "Video worker must use protected production environment");
+assert.ok(video.includes("github.ref == 'refs/heads/main'"), "Video worker must be main-only");
+
+assert.ok(social.includes('BACKGROUND_JOB_TARGET: "social"'), "Social publisher must target the social queue only");
+assert.ok(social.includes('SOCIAL_PUBLISH_ENABLED: "true"'), "Social publisher must be explicitly enabled behind the protected production environment");
+assert.ok(social.includes('SOCIAL_SYNC_INSIGHTS: "false"'), "Social publisher must not run expensive insights sync on every delivery");
+assert.ok(social.includes("SOCIAL_PUBLISH_AFTER: \"2026-11-06T20:00:00Z\""), "Social publisher must isolate new queue rows from the historical backlog");
+assert.ok(social.includes("youtube.upload") && social.includes("SOCIAL_PUBLISH_FACEBOOK_ENABLED") && social.includes("SOCIAL_PUBLISH_YOUTUBE_ENABLED"), "Social preflight must validate provider readiness before delivery");
+assert.ok(social.includes("environment: production"), "Social publisher must use protected production environment");
+assert.ok(!social.includes("if: false"), "Social publishing must not retain the retired kill switch");
+const socialEnvironment = social.slice(social.indexOf("    env:"), social.indexOf("    steps:"));
+assert.ok(!socialEnvironment.includes("YOUTUBE_REFRESH_TOKEN"), "Stored OAuth refresh tokens must never be injected into GitHub Actions");
+assert.ok(social.includes("workflow_dispatch:"), "Social publisher must retain explicit manual recovery");
+assert.ok(
+  insightsWorkflow.includes('BACKGROUND_JOB_TARGET: "insights"') &&
+    insightsWorkflow.includes('SOCIAL_PUBLISH_ENABLED: "false"') &&
+    insightsWorkflow.includes('SOCIAL_SYNC_INSIGHTS: "true"') &&
+    insightsWorkflow.includes("run: pnpm background:jobs") &&
+    !insightsWorkflow.includes("FACEBOOK_PUBLISHING_REQUESTED") &&
+    !insightsWorkflow.includes("YOUTUBE_PUBLISHING_REQUESTED") &&
+    !insightsWorkflow.includes("YOUTUBE_CLIENT_SECRET") &&
+    !insightsWorkflow.includes("ADMIN_QUEUE_ALERT_WEBHOOK_URL") &&
+    !insightsWorkflow.includes("RESEND_API_KEY") &&
+    !insightsWorkflow.includes("pages_manage_posts") &&
+    !insightsWorkflow.includes("youtube.upload"),
+  "Daily insights workflow must use the isolated insights target, disable publishing, and receive no unused publishing-only credentials or upload scopes",
+);
+const backgroundJobOutcome = read("src/features/videos/services/background-job-outcome.ts");
+assert.ok(
+  backgroundRunner.includes('const videos = target === "all" || target === "videos"') &&
+    backgroundRunner.includes("const shouldPublishScheduledContent = shouldRunScheduledContentPublishing({") &&
+    backgroundRunner.includes("videoDryRun: VIDEO_DRY_RUN") &&
+    backgroundRunner.includes("const sitePublishing = shouldPublishScheduledContent") &&
+    backgroundJobOutcome.includes('return !input.videoDryRun && (input.target === "videos" || input.target === "all")') &&
+    backgroundRunner.includes('const social = target === "all" || target === "social"') &&
+    backgroundRunner.includes('const insights = target === "insights" ? await syncSocialInsights() : null'),
+  "The insights target must not invoke video generation, dry-run site-content publishing, or social queue processing",
+);
+const insightsService = socialWorker.slice(
+  socialWorker.indexOf("export async function syncSocialInsights()"),
+  socialWorker.indexOf("export async function processSocialPublishQueue"),
+);
+assert.ok(
+  insightsService.includes("syncFacebookReelsInsights") &&
+    insightsService.includes("syncYoutubePublishedPostInsights") &&
+    !insightsService.includes("claimPendingSocialPublishItems") &&
+    !insightsService.includes("processSocialPublishItem"),
+  "The analytics-only service must update published-post insights without claiming or publishing queue rows",
+);
+const englishCredentialStart = english.indexOf("name: Validate Supabase credentials before installing dependencies");
+const englishCredentialEnd = english.indexOf("- uses: pnpm/action-setup", englishCredentialStart);
+const englishCredentialBlock = english.slice(englishCredentialStart, englishCredentialEnd);
+const englishWorkerStart = english.indexOf("name: Run one bounded article batch and one bounded Hadith batch");
+const englishWorker = english.slice(englishWorkerStart);
+const englishQuranSyncPosition = englishWorker.indexOf("pnpm sync:quran:en");
+const englishHadithSyncPosition = englishWorker.indexOf("pnpm sync:hadith:en");
+const englishGeminiBranchPosition = englishWorker.indexOf('if [[ -n "${GEMINI_API_KEY:-}" ]]');
+const englishArticlePosition = englishWorker.indexOf("pnpm translate:articles:en");
+const englishContentPosition = englishWorker.indexOf("pnpm translate:content:en");
+assert.ok(
+  english.includes('cron: "15 7 * * *"') &&
+    english.includes("environment: production") &&
+    english.includes("SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}") &&
+    english.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}") &&
+    englishCredentialStart >= 0 && englishCredentialEnd > englishCredentialStart &&
+    !englishCredentialBlock.includes('test -n "${GEMINI_API_KEY:-}"') &&
+    english.includes('workflows: ["ZIKR Finalization Controlled Release"]') &&
+    english.includes("types: [completed]") &&
+    english.includes("github.event.workflow_run.conclusion == 'success'") &&
+    english.includes("github.event.workflow_run.head_branch == 'main'") &&
+    !english.split(/\r?\n/).some((line) => line.trim() === "push:") &&
+    englishQuranSyncPosition >= 0 && englishHadithSyncPosition > englishQuranSyncPosition &&
+    englishGeminiBranchPosition > englishHadithSyncPosition &&
+    englishArticlePosition > englishGeminiBranchPosition &&
+    englishContentPosition > englishGeminiBranchPosition,
+  "GitHub English sync must wait for successful controlled production release, then run Quran/Hadith before optional Gemini batches",
+);
+assert.ok(english.includes("environment: production"), "English sync must use protected production environment");
+assert.ok(english.includes("github.ref == 'refs/heads/main'"), "English sync must be main-only");
+
+assert.ok(release.includes("github.ref == 'refs/heads/main'"), "Controlled Vercel release must be main-only");
+const baselineSchemaIndex = release.indexOf("Verify production data and baseline schema against parent commit");
+const vercelPullIndex = release.indexOf("Pull production Vercel configuration");
+const artifactBuildIndex = release.indexOf("Build production artifact");
+const preMigrationShaIndex = release.indexOf("Recheck approved main SHA immediately before production database changes");
+const migrationApplyIndex = release.indexOf("Apply pending production migrations before deployment");
+const schemaVerifyIndex = release.indexOf("Verify production schema after migration");
+const deploymentIndex = release.indexOf("Deploy prebuilt artifact to production");
+const productionSmokeIndex = release.indexOf("Production smoke test after schema migration and deployment");
+assert.ok(
+  baselineSchemaIndex >= 0 &&
+    vercelPullIndex > baselineSchemaIndex &&
+    artifactBuildIndex > vercelPullIndex &&
+    preMigrationShaIndex > artifactBuildIndex &&
+    migrationApplyIndex > preMigrationShaIndex &&
+    schemaVerifyIndex > migrationApplyIndex &&
+    deploymentIndex > schemaVerifyIndex &&
+    productionSmokeIndex > deploymentIndex,
+  "Controlled release must verify the parent schema and build the production artifact before database mutations, recheck main, then apply/verify migrations before deployment and smoke testing",
+);
+assert.ok(
+  !release.includes("Smoke test deployed app before schema migration") &&
+    !release.includes("Post-migration production smoke test") &&
+    !release.includes("Apply pending production migrations after deployment"),
+  "Controlled release must not retain the retired deploy-first migration sequence",
+);
+assert.ok(release.includes("pnpm release:contract:check"), "Controlled release must use the canonical release contract check");
+assert.ok(release.includes("pnpm production:smoke"), "Controlled release must use the canonical production smoke script");
+assert.ok(!release.includes("--token"), "Controlled Vercel release must not pass credentials through CLI arguments");
+assert.ok(release.includes("environment:\n      name: production"), "Controlled release must use the protected production environment");
+assert.ok(release.includes("workflow_dispatch:"), "Production release must remain manually triggerable");
+assert.ok(release.includes("cancel-in-progress: false"), "An active production release must never be cancelled between deploy and schema migration");
+assert.ok(release.includes("checks: read") && release.includes("statuses: read"), "Production release must have read-only permission to verify CI gates");
+assert.ok(
+  release.includes("ci/circleci: config-guard") &&
+    release.includes("ci/circleci: source-verify") &&
+    release.includes("ci/circleci: application-build-docs") &&
+    release.includes("ci/circleci: android-release-draft") &&
+    release.includes("ZIKR / Quality Gate"),
+  "Production release must verify the exact commit's required CircleCI contexts and GitHub Quality Gate",
+);
+assert.ok(
+  release.includes("git rev-parse origin/main") &&
+    release.includes("Verify the approved main commit and required CI gates") &&
+    release.includes("Recheck approved main SHA immediately before production deployment"),
+  "Production release must reject stale queued commits and recheck main before deploying",
+);
+assert.ok(!release.includes("\n  push:"), "Production release must not be enqueued on ordinary source pushes");
+assert.ok(release.includes("github.event_name == 'workflow_dispatch' && inputs.confirmation == 'RELEASE'"), "Manual production deployment must retain explicit RELEASE confirmation");
+assert.ok(release.includes("Missing Vercel deployment credential"), "Controlled release must fail before build when VERCEL_TOKEN is missing");
+assert.ok(release.includes("python3 scripts/verify-supabase-db-url.py"), "Controlled release must validate the effective Supabase URL user before connecting");
+const reconciliationWorkflow = read(".github/workflows/reconcile-supabase-migration-history.yml");
+assert.ok(reconciliationWorkflow.includes("python3 scripts/verify-supabase-db-url.py"), "Migration-history reconciliation must validate the effective Supabase URL user before connecting");
+assert.ok(reconciliationWorkflow.includes("PGSSLMODE: require"), "Migration-history reconciliation must require TLS for PostgreSQL connections");
+const dbUrlValidator = read("scripts/verify-supabase-db-url.py");
+assert.ok(
+  dbUrlValidator.includes('effective_user not in {"postgres", f"postgres.{expected_ref}"}') &&
+    dbUrlValidator.includes('effective_user != f"postgres.{expected_ref}"') &&
+    dbUrlValidator.includes("ssl_mode is None") &&
+    dbUrlValidator.includes('not in {"require", "verify-ca", "verify-full"}'),
+  "Supabase connection validation must allow only the expected postgres roles and require TLS, thereby rejecting the retired role and weak TLS settings",
+);
+assert.ok(release.indexOf("Fail fast on missing or unsafe production credentials") < release.indexOf("Install dependencies"), "Production credential checks must run before dependency installation");
+assert.ok(!release.includes("\n  push:"), "The release workflow must not enqueue guarded skipped jobs on ordinary pushes");
+assert.ok(release.includes("bash scripts/reconcile-supabase-migration-history.sh"), "Production release must audit and reconcile Supabase migration history against the checked schema baseline and again after applying pending SQL");
+const reconciliation = read("scripts/reconcile-supabase-migration-history.sh");
+assert.ok(reconciliation.includes("SUPABASE_DB_URL") && reconciliation.includes("EXPECTED_PROJECT_REF"), "Migration reconciliation must require and verify an explicit production project target");
+assert.ok(reconciliation.indexOf("supabase db diff") >= 0 && reconciliation.indexOf("supabase db diff") < reconciliation.indexOf("supabase migration repair"), "Migration history must not be repaired before schema-diff verification");
+assert.ok(reconciliation.includes("--use-pg-delta") && reconciliation.includes("--strict-coverage"), "Migration reconciliation must use strict schema diff coverage rather than the legacy diff engine");
+assert.ok(reconciliation.includes("consumes role:zikr_seed_loader") && reconciliation.includes("--use-migra") && reconciliation.includes("role_exists"), "Legacy migra fallback must be limited to the retired-role dependency and require the role to be absent on the live target");
+assert.ok(reconciliation.includes("env -u PGSSLMODE supabase db diff"), "Schema diff must not leak the remote TLS requirement into the local shadow database");
+assert.ok(reconciliation.includes("SCHEMA DRIFT DETECTED") && reconciliation.includes("public.quran_ayahs"), "Migration repair must fail closed on schema drift and check canonical Quran data");
+assert.ok(reconciliation.includes("SUPABASE_MIGRATION_HISTORY_RECONCILED"), "Migration reconciliation must verify the final local/remote version count");
+const tafsirRestore = read("scripts/restore-quran-tafsir.sh");
+const tafsirVerifier = read("scripts/verify-quran-tafsir-backfill.mjs");
+assert.ok(tafsirRestore.includes("--single-transaction"), "Quran tafsir source chunks must be restored atomically");
+assert.ok(tafsirRestore.includes("التفسير الميسر") && tafsirRestore.includes("6236"), "Quran tafsir restore must target only the verified 6,236-row Muyassar corpus");
+assert.ok(release.includes("TAFSIR_EXPECTED_COUNT=0,6236"), "Baseline release verification must accept an absent or complete corpus, not partial data");
+assert.ok(release.includes("bash scripts/restore-quran-tafsir.sh"), "Production release must restore the canonical source-verified tafsir corpus after migrations");
+assert.ok(release.indexOf("bash scripts/restore-quran-tafsir.sh") > release.indexOf("supabase db push") && release.indexOf("bash scripts/restore-quran-tafsir.sh") < release.indexOf('TAFSIR_EXPECTED_COUNT: "6236"'), "Tafsir restore must run after migration push and before strict production verification");
+assert.ok(reconciliationWorkflow.includes('TAFSIR_EXPECTED_COUNT: "0,6236"'), "History-only reconciliation must allow only the current absent or complete tafsir state");
+assert.ok(tafsirVerifier.includes("6236") && tafsirVerifier.includes("114"), "CI must verify all 6,236 source rows across 114 Quran surahs");
+
+assert.ok(smoke.includes("name: ZIKR Production Smoke Verification"), "Manual production smoke workflow name is incorrect");
+assert.ok(smoke.includes("node scripts/verify-production-smoke.mjs"), "Manual smoke workflow must use the canonical production smoke script");
+assert.ok(smoke.includes("workflow_dispatch:"), "Live production smoke must remain manually available");
+assert.ok(!smoke.includes("\n  push:"), "Live production smoke must not be enqueued on ordinary source pushes");
+assert.ok(smoke.includes("github.event_name == 'workflow_dispatch' && inputs.confirmation == 'RELEASE'"), "Manual live production smoke must retain explicit confirmation");
+assert.ok(!smoke.includes("vercel deploy"), "The read-only smoke workflow must never deploy");
+
+assert.ok(androidPublish.includes("github.ref_type == 'tag'"), "Android publishing must support release tags");
+assert.ok(androidPublish.includes("docs/finalization/RELEASE_RETRY.flag"), "Android publishing must require explicit release state for non-tag recovery");
+
+assert.ok(!circle.includes("main-source-verification:"), "CircleCI must not duplicate main source verification");
+assert.ok(!circle.includes("android-release-on-build-tag:"), "CircleCI must not retain the redundant Android build-tag workflow");
+const androidReleaseManager = read("src/features/releases/services/github-release-manager.ts");
+const androidSigningPreflight = read(".github/workflows/android-release-signing-preflight.yml");
+const androidTagSigning = read(".github/workflows/sign-android-release-tag.yml");
+assert.ok(androidReleaseManager.includes("getAndroidReleaseSigningPreflightStatus"), "Admin Android release manager must check protected GPG signing readiness");
+assert.ok(androidReleaseManager.includes("dispatchPreparedAndroidReleaseTagSigning"), "Admin Android release manager must dispatch signing for the exact prepared release commit");
+assert.ok(androidReleaseManager.includes("sign-android-release-tag.yml"), "Admin Android release manager must hand tag creation to the protected signing workflow");
+assert.ok(androidReleaseManager.includes("createAtomicMainCommit"), "Admin Android release metadata must be committed atomically to main");
+assert.ok(!androidReleaseManager.includes('"/git/tags"') && !androidReleaseManager.includes('"/git/refs"'), "Admin Android release manager must never create an unsigned tag through the REST API");
+assert.ok(
+  androidSigningPreflight.includes("android-release-signing") &&
+    androidTagSigning.includes("android-release-signing"),
+  "Android signing readiness and tag signing must target the protected GitHub Environment",
+);
+assert.ok(androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_PRIVATE_KEY") && androidSigningPreflight.includes("ANDROID_RELEASE_TAG_GPG_FINGERPRINT"), "Android signing preflight must validate owner-managed key material and fingerprint");
+assert.ok(androidTagSigning.includes("git tag -s -u") && androidTagSigning.includes("git verify-tag --raw"), "Protected Android signer must create and locally verify a GPG-signed annotated tag");
+assert.ok(androidTagSigning.includes("NF >= 12 ? $NF : $3"), "Protected Android signer must extract the primary GPG fingerprint safely from VALIDSIG output");
+assert.ok(androidTagSigning.includes(".verification.verified") && androidTagSigning.includes("reason"), "Protected Android signer must require GitHub's cryptographic signature verification");
+assert.ok(androidTagSigning.includes("Create the draft release only after GitHub tag verification"), "Android Draft Release must be created only after GitHub verifies the tag");
+assert.ok(androidPublish.includes("GitHub cryptographic tag signature and exact commit target"), "Android asset publisher must independently verify the signed tag before upload");
+assert.ok(!androidReleaseManager.includes("buildTag"), "Admin Android release manager must not create a redundant -build tag");
+assert.ok(circle.includes("  source-verify:"), "CircleCI source verification job name must be explicit");
+assert.ok(circle.includes("  application-build-docs:"), "CircleCI must own the application build/documentation artifact job");
+assert.ok(circle.includes("NEXT_PUBLIC_SUPABASE_ANON_KEY:"), "CircleCI application builds must receive the canonical public Supabase key");
+assert.ok(circle.includes("pnpm ci:build:report"), "CircleCI must use the canonical application build report command");
+const pkg = JSON.parse(read("package.json"));
+assert.ok(pkg.scripts["ci:build:report"], "package.json must register the canonical application build report command");
+assert.ok(!circle.includes("  background-jobs:"), "CircleCI must not own the production video/social worker");
+assert.ok(ownership.includes("GitHub Actions is the only production scheduler"), "automation ownership map must declare single video/social scheduler ownership");
+assert.ok(ownership.includes("CircleCI must never execute `scripts/run-background-jobs.ts`"), "automation ownership map must prohibit CircleCI video/social execution");
+for (const fn of ["health", "spiritual-ai", "prayer-notification-worker", "source-verified-content-agent"]) {
+  assert.ok(supabaseConfig.includes(`[functions.${fn}]`), `Supabase config must declare active Edge Function: ${fn}`);
+}
+assert.ok(!supabaseConfig.includes("[functions.sync-youtube-facebook]"), "retired social sync Edge Function must not be reintroduced");
+
+for (const file of [
+  ".github/workflows/generate-ai-video.yml",
+  ".github/workflows/publish-social.yml",
+  ".github/workflows/english-content-sync.yml",
+  ".github/workflows/release-finalization.yml",
+]) {
+  const content = read(file);
+  assert.ok(
+    content.includes("environment: production") || content.includes("environment:\n      name: production"),
+    file + " must bind the production environment",
+  );
+}
+
+
+assert.ok(!quality.includes("paths-ignore:"), "Markdown/content-only changes must not bypass the canonical quality gate");
+
+for (const route of [
+  "/",
+  "/about",
+  "/contact",
+  "/editorial-policy",
+  "/faq",
+  "/privacy",
+  "/terms",
+  "/quran",
+  "/hadith",
+  "/adhkar",
+  "/dua",
+  "/duas",
+  "/stories",
+  "/prophets",
+  "/companions",
+  "/scholars",
+  "/battles",
+  "/conquests",
+  "/articles",
+  "/videos",
+  "/audio",
+  "/radio",
+  "/reciters",
+  "/poetry",
+  "/memorization",
+  "/kids",
+  "/prayer-times",
+  "/qibla",
+  "/spiritual-ai",
+  "/tafsir",
+  "/tasbeeh",
+  "/tawasheeh",
+  "/wird",
+  "/zakat",
+  "/youtube",
+  "/search",
+  "/sections",
+  "/knowledge",
+  "/library",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/sitemap-index.xml",
+]) {
+  assert.ok(
+    productionSmoke.includes(`"${route}"`),
+    `Production smoke must cover ${route}`,
+  );
+}
+
+const duaPage = read("src/app/dua/page.tsx");
+assert.ok(duaPage.includes('{isEnglish ? "Islamic Duas" : "الأدعية الإسلامية"}'), "Dua hero heading must respect the selected language");
+const articlesPage = read("src/app/articles/page.tsx");
+assert.ok(articlesPage.includes('{isEnglish ? "Islamic Articles" : "المقالات الإسلامية"}'), "Articles hero heading must respect the selected language");
+assert.ok(productionSmoke.includes("sort((left, right) => right.length - left.length)"), "Production smoke must select substantive content over a streamed loading fallback");
+assert.ok(productionSmoke.includes("return extractText(withoutNonContent);"), "Production smoke must account for streamed content emitted outside the first main block");
+assert.ok(
+  productionSmoke.includes("const renderedMainTexts = mainTexts.filter((text) => text.length >= 35 && !isLoadingShell(text));") &&
+    productionSmoke.includes("if (renderedMainTexts.length)"),
+  "Production smoke must ignore short/loading main fallbacks and use full document text when no substantive main content is rendered",
+);
+assert.ok(productionSmoke.includes("expectedMain: /نتعلم|الأطفال|الاطفال/i"), "Kids smoke check must accept the actual localized page title");
+const backfillSafetyWorkflow = read(".github/workflows/backfill-legacy-video-qa.yml");
+assert.ok(
+  backfillSafetyWorkflow.includes("inputs.confirmation == 'APPLY_QA_BACKFILL'") &&
+    !backfillSafetyWorkflow.includes("[apply-legacy-kids-qa]") &&
+    !backfillSafetyWorkflow.includes("github.event.head_commit.message"),
+  "Production legacy QA backfill must require manual typed confirmation and never use a commit-message apply trigger",
+);
+const storageSafetyWorkflow = read(".github/workflows/storage-retention.yml");
+assert.ok(
+  storageSafetyWorkflow.includes("if: github.ref == 'refs/heads/main'") &&
+    storageSafetyWorkflow.includes("ref: main"),
+  "Storage retention must run only from canonical main and check out that exact branch before reading production credentials",
+);
+assert.ok(
+  storageSafetyWorkflow.includes("inputs.confirmation == 'DELETE_STAGING_COPIES_AFTER_REFERENCE_FREEZE'") &&
+    storageSafetyWorkflow.includes("inputs.reference_writes_paused == true") &&
+    storageSafetyWorkflow.includes("github.event_name == 'workflow_dispatch' && inputs.apply == true") &&
+    !storageSafetyWorkflow.includes("github.event_name == 'schedule' ||"),
+  "Scheduled storage retention must remain dry-run and deletion must require typed manual confirmation",
+);
+const offlineSafetyWorkflow = read(".github/workflows/refresh-offline-content.yml");
+assert.ok(
+  offlineSafetyWorkflow.includes("if: github.ref == 'refs/heads/main'") &&
+  offlineSafetyWorkflow.includes("pull-requests: write") &&
+    offlineSafetyWorkflow.includes("automation/offline-content-snapshot") &&
+    offlineSafetyWorkflow.includes("gh pr create") &&
+    offlineSafetyWorkflow.includes("gh workflow run quality-gate.yml") &&
+    !offlineSafetyWorkflow.includes("git push origin HEAD:main"),
+  "Offline snapshot automation must publish through a reviewable PR, never directly to main",
+);
+const circleSafetyBranches = read(".circleci/config.yml");
+assert.ok(
+  circleSafetyBranches.includes("comprehensive-repair-safety-20261110") &&
+    circleSafetyBranches.includes("offline-content-snapshot"),
+  "CircleCI source and application build gates must cover the safety remediation and generated offline snapshot branches",
+);
+
+const circleWorkflow = circleSafetyBranches.split("\nworkflows:\n")[1] ?? "";
+const circleSourceFilter =
+  circleWorkflow.split("      - source-verify:")[1]?.split("      - application-build-docs:")[0] ?? "";
+const circleBuildFilter =
+  circleWorkflow.split("      - application-build-docs:")[1]?.split("\n      - ")[0] ?? "";
+const auditBranchPattern = String.raw`- /^audit\/zikr-.*$/`;
+assert.ok(
+  circleSourceFilter.includes(auditBranchPattern) &&
+    circleBuildFilter.includes(auditBranchPattern),
+  "CircleCI source verification and application build must cover cumulative audit repair branches",
+);
+const featureBranchPattern = String.raw`- /^feat\/.*$/`;
+assert.ok(
+  circleSourceFilter.includes(featureBranchPattern) &&
+    circleBuildFilter.includes(featureBranchPattern),
+  "CircleCI source verification and application build must run for feature branches",
+);
+assert.ok(
+  release.includes("version: v3.2.0") && !release.includes("version: latest"),
+  "Controlled release must use a pinned Supabase CLI version",
+);
+
+console.log("✅ CI/CD architecture checks passed");

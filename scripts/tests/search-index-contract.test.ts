@@ -1,0 +1,72 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { isPublicSearchResultType } from "../../src/features/search/services/search-contract";
+import { mapPublicSearchRows } from "../../src/features/search/public-search-results";
+
+const migration = readFileSync(
+  "supabase/migrations/20261030043335_arabic_full_text_search_v2.sql",
+  "utf8",
+);
+const migration2 = readFileSync("supabase/migrations/20261030044153_arabic_search_surahs_and_content_library.sql", "utf8");
+const migration3 = readFileSync("supabase/migrations/20261030090000_article_tags_and_english_search.sql", "utf8");
+const search = readFileSync("src/features/search/services/search.ts", "utf8");
+const navigation = readFileSync("src/components/layout/mobile-nav.tsx", "utf8");
+
+for (const table of [
+  "articles", "hadiths", "duas", "quran_ayahs",
+  "prophets", "companions", "scholars", "stories",
+]) {
+  assert.ok(
+    new RegExp(`alter\\s+table\\s+public\\.${table}`, "i").test(migration) &&
+      migration.includes(table + "_searchable_normalized_idx"),
+    "Arabic normalized search column and GIN index must exist for " + table,
+  );
+}
+
+assert.ok(migration.includes("private.normalize_arabic_search_text"));
+assert.ok(migration3.includes("SECURITY INVOKER"));
+assert.ok(migration3.includes("st.user_id IS NULL"));
+assert.ok(migration3.includes("st.is_approved IS TRUE"));
+assert.match(migration3, /revoke all on function public\.search_public_content/i);
+assert.match(migration3, /grant execute on function public\.search_public_content\(text, integer\) to anon, authenticated/i);
+
+assert.ok(search.includes("/rest/v1/rpc/search_public_content"));
+assert.ok(search.includes("searchIndexedContent"));
+assert.ok(search.includes("if (indexedResults !== null) {"));
+assert.ok(search.includes("getBundledLongformArticles"));
+assert.ok(search.includes('getPublicContentLibrary(1000, "ar")'));
+assert.ok(search.includes('type: "content"'));
+assert.ok(search.includes("mapPublicSearchRows(rows)"));
+assert.equal(isPublicSearchResultType("content"), true, "approved content-library search results must be retained");
+assert.equal(isPublicSearchResultType("ayah"), true, "Quran ayah results from the current search implementation must remain supported");
+assert.equal(isPublicSearchResultType("admin"), false, "unknown result types must be rejected");
+const searchResults = readFileSync("src/features/search/public-search-results.ts", "utf8");
+assert.ok(searchResults.includes("isPublicSearchResultType(type)"));
+assert.deepEqual(
+  mapPublicSearchRows([
+    { id: "ok", type: "content", label_ar: "مادة", title: "مادة منشورة", subtitle: "مكتبة ذِكر", href: "/content/item" },
+    { id: "bad-type", type: "admin", label_ar: "خاص", title: "خاص", subtitle: "", href: "/admin" },
+    { id: "external", type: "content", label_ar: "مادة", title: "رابط", subtitle: "", href: "//example.com" },
+    { id: "absolute", type: "article", label_ar: "مقال", title: "رابط", subtitle: "", href: "https://external.test" },
+  ]),
+  [{ id: "ok", type: "content", labelAr: "مادة", title: "مادة منشورة", subtitle: "مكتبة ذِكر", href: "/content/item" }],
+);
+const searchRoute = readFileSync("src/app/api/search/route.ts", "utf8");
+const cachedResponse = searchRoute.slice(searchRoute.indexOf("if (cached &&"), searchRoute.indexOf("if (cached)"));
+const uncachedResponse = searchRoute.slice(searchRoute.indexOf("const results = await globalSearch"), searchRoute.indexOf("} catch (error)"));
+assert.match(searchRoute, /const SEARCH_CACHE_HEADERS = \{[\s\S]*?["']Cache-Control["']\s*:\s*["']public, max-age=60, stale-while-revalidate=300["']/);
+assert.match(cachedResponse, /headers: SEARCH_CACHE_HEADERS/, "cache-hit responses must retain the public cache policy");
+assert.match(uncachedResponse, /headers: SEARCH_CACHE_HEADERS/, "cache-miss responses must use the same public cache policy");
+assert.ok(migration2.includes("quran_surahs_searchable_normalized_idx"));
+assert.ok(migration2.includes("content_library_searchable_normalized_idx"));
+assert.ok(migration3.includes("searchable_tags_normalized"));
+assert.ok(migration3.includes("articles_tags_searchable_normalized_idx"));
+assert.ok(migration3.includes("a.searchable_tags_normalized @@ q.query"));
+assert.ok(migration3.includes("content_en"));
+assert.ok(navigation.includes("mobile-platform-menu-search"));
+assert.ok(navigation.includes('aria-controls="mobile-navigation-dialog"'));
+assert.ok(navigation.includes('event.key !== "Tab"'));
+assert.ok(navigation.includes('window.matchMedia("(min-width: 1024px)")'));
+assert.ok(navigation.includes("h-[100dvh]"));
+
+console.log("Arabic indexed search contract passed: 8 source tables, two additional indexed catalogs, tag/English article search, RPC permissions, longform preservation, and mobile menu accessibility/search.");

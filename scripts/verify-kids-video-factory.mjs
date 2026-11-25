@@ -1,0 +1,203 @@
+#!/usr/bin/env node
+import { existsSync, readFileSync } from "node:fs";
+
+const failures = [];
+const read = (path) => {
+  if (!existsSync(path)) { failures.push("missing required Kids Video Factory file: " + path); return ""; }
+  return readFileSync(path, "utf8");
+};
+
+const factory = read("src/features/videos/data/kids-story-factory.ts");
+for (const token of ["buildKidsSeriesEpisode", "validateGeneratedKidsEpisode", "free_deterministic_story_factory", "learningObjective", "seasonNumber", "episodeNumber"]) {
+  if (!factory.includes(token)) failures.push("kids story factory missing contract: " + token);
+}
+for (const id of ["salim-nour", "garden-friends", "little-inventors", "little-good-steps"]) {
+  if (!factory.includes('id: "' + id + '"')) failures.push("missing original kids series: " + id);
+}
+
+const worker = read("scripts/jobs/template-video-automation.ts");
+for (const token of ["buildKidsSeriesEpisode", "validateGeneratedKidsEpisode", "validateCanonicalKidsEpisodeSnapshot", 'category: "other"', 'audience: "kids"', 'contentFormat: "series_episode"', 'voiceProfile: "kids_friendly"', "assertKidsStoryContract"]) {
+  if (!worker.includes(token)) failures.push("video worker missing kids/free mode contract: " + token);
+}
+const videoDistribution = read("src/features/videos/services/video-content-distribution.ts");
+if (!worker.includes("resolveAutomatedVideoMode(day * 3 + slot)") ||
+    !videoDistribution.includes("0, 2, 0, 1, 2, 5, 3, 0, 2, 1, 6, 0, 5, 4") ||
+    (videoDistribution.match(/\b5\b/g) ?? []).length < 2) {
+  failures.push("weighted 14-video rotation must retain recurring Kids episodes without requiring the legacy slot % 7 order");
+}
+const outcomePolicy = read("src/features/videos/services/background-job-outcome.ts");
+if (!outcomePolicy.includes("videoFailed > 0 && videoSucceeded > 0") ||
+    !outcomePolicy.includes("socialFailed > 0") ||
+    !outcomePolicy.includes("sitePublishingFailed")) {
+  failures.push("a partial video batch must retain failed-item audit data without suppressing successful downstream social publishing");
+}
+const backgroundRunner = read("scripts/run-background-jobs.ts");
+if (!backgroundRunner.includes("evaluateBackgroundJobOutcome") ||
+    !backgroundRunner.includes("allowing the dependent social publisher to run")) {
+  failures.push("background runner must allow downstream social publishing after a partially successful video batch");
+}
+if (!worker.includes("KIDS_SERIES_START_DAY_INDEX")) failures.push("kids series schedule must have a stable launch reference");
+if (!worker.includes("Math.ceil((dailyTarget * scheduleWindow) / 4)")) failures.push("daily target must be spread across four six-hour workflow windows");
+for (const field of ["seriesId:", "seriesTitle:", "seasonNumber:", "episodeNumber:", "learningObjective:", "factorySequence:"]) {
+  if (!worker.includes(field)) failures.push("internal video catalog must retain kids series metadata: " + field);
+}
+
+const router = read("src/features/videos/providers/provider-router.ts");
+if (!router.includes('!["hf_ltx_fast", "hf_wan", "template"].includes(name)')) failures.push("free-only mode must reject potentially billable/custom providers");
+if (!router.includes("templateAttempted")) failures.push("local FFmpeg fallback must remain available");
+
+const config = read("src/features/videos/providers/types.ts");
+if (!config.includes("freeOnly: bool(env.VIDEO_FREE_ONLY, true)")) failures.push("free-only must be the default provider policy");
+if (!config.includes("isVideoAiPlanningEnabled") ||
+    !config.includes("!config.freeOnly && config.aiEnabled") ||
+    !config.includes("env.GEMINI_API_KEY?.trim()")) {
+  failures.push("Gemini editorial planning must require the explicit AI switch, non-free mode, and a non-empty server key");
+}
+if (!worker.includes("return isVideoAiPlanningEnabled();")) {
+  failures.push("video worker must use the shared Gemini planning opt-in policy");
+}
+
+const curated = read("src/features/videos/data/curated-content.ts");
+if (!curated.includes("CURATED_KIDS_STORY_SOURCES") || !curated.includes("KIDS_SERIES_EPISODES_PER_SEASON")) failures.push("admin must expose the canonical first-season catalogue");
+if (!curated.includes("factorySequence: index + 1")) failures.push("curated content must preserve canonical factory sequence");
+if (!curated.includes("generationMode: episode.generationMode")) failures.push("curated content must expose its deterministic generation mode");
+
+const sourceTypes = read("src/features/videos/services/video-sources.ts");
+for (const token of ['audience?: "general" | "kids"', "seriesId?: string", "seasonNumber?: number", "episodeNumber?: number", "generationMode?: string", "factorySequence?: number"]) {
+  if (!sourceTypes.includes(token)) failures.push("video source metadata missing: " + token);
+}
+
+const route = read("src/app/api/admin/videos/create/route.ts");
+if (!route.includes('source.audience === "kids" ? { voiceProfile: "kids_friendly", contentFormat: "series_episode" }')) failures.push("manual series requests must inherit kids voice and episode format");
+if (!route.includes("source.factorySequence")) failures.push("manual series requests must retain the canonical factory sequence");
+
+const page = read("src/app/admin/video/studio/curated/page.tsx");
+if (!page.includes("سلاسل قصص الأطفال") || !page.includes("CURATED_KIDS_STORY_SOURCES")) {
+  failures.push("canonical curated video studio page must expose serial children's stories");
+}
+
+const workflow = read(".github/workflows/generate-ai-video.yml");
+for (const token of ['VIDEO_FREE_ONLY: "true"', 'VIDEO_PROVIDER_ORDER: "hf_ltx_fast,hf_wan,template"', 'FREE_VIDEO_PROVIDER_ENABLED: "false"', "pnpm kids:video:check"]) {
+  if (!workflow.includes(token)) failures.push("production workflow missing free/QC setting: " + token);
+}
+if (workflow.includes("GEMINI_API_KEY:")) failures.push("free-only workflow must not inject a Gemini credential");
+for (const name of ["kids-garden","kids-nature","kids-neighborhood","kids-workshop","kids-space","kids-ocean","kids-forest","kids-playground","kids-classroom","kids-adventure","kids-jungle","kids-robotics","kids-animals","kids-weather"]) {
+  const path = "public/video/templates/" + name + ".svg";
+  if (!read(path).includes("<svg")) failures.push("missing SVG background: " + path);
+  if (!workflow.includes(path)) failures.push("workflow must rasterize-check SVG background: " + path);
+}
+
+const pkg = JSON.parse(read("package.json"));
+if (!pkg.scripts["kids:video:check"]?.includes("scripts/tests/kids-video-series.test.ts")) failures.push("kids:video:check must run the episode test");
+if (!pkg.scripts["kids:video:check"]?.includes("scripts/verify-kids-video-factory.mjs")) failures.push("kids:video:check must run integration validation");
+if (!pkg.scripts.test?.includes("kids-video-series.test.ts")) failures.push("standard tests must include Kids Video Factory");
+if (!pkg.scripts["verify:pr"]?.includes("pnpm kids:video:check")) failures.push("PR verification must include Kids Video Factory");
+if (!pkg.scripts.verify?.includes("pnpm kids:video:check")) failures.push("full verification must include Kids Video Factory");
+
+const kidsHome = read("src/app/kids/page.tsx");
+for (const token of [
+  'fetch("/api/kids/videos"',
+  "generatedKidsItems.map",
+  "kids-generated-stories-heading",
+  "kids-social-posts-heading",
+  "socialPublication.status",
+]) {
+  if (!kidsHome.includes(token)) failures.push("Kids home must display approved generated stories, videos, and social posts: " + token);
+}
+
+const kidsVideoService = read("src/features/videos/services/videos.ts");
+const kidsVideoSocialDetailService = read("src/features/social/services/kids-video-social-detail.ts");
+for (const token of [
+  "resolveKidsVideoSocialPublicationForDetail",
+  "export async function getKidsGeneratedVideoBySlug",
+]) {
+  if (!kidsVideoService.includes(token)) failures.push("Kids detail service must use the queue-backed publication resolver: " + token);
+}
+for (const token of [
+  "loadKidsSocialQueueRows([requestIdState.id], request)",
+  'reason: "invalid_request_id"',
+  'reason: "queue_read_failed"',
+  'status: "verified"',
+]) {
+  if (!kidsVideoSocialDetailService.includes(token)) failures.push("Kids detail publication resolver must distinguish verified and unavailable queue states: " + token);
+}
+
+const kidsFeedRoute = read("src/app/api/kids/videos/route.ts");
+for (const token of [
+  "classifyKidsVideoGenerationRequestId",
+  'requestIdState.kind !== "valid"',
+  "getKidsGeneratedVideos(60)",
+  "storyText:",
+  "socialCaption:",
+  "socialPublication:",
+  "resolveKidsVideoSocialPublication",
+  "socialQueueReadSucceeded",
+  "Promise.allSettled",
+]) {
+  if (!kidsFeedRoute.includes(token)) failures.push("Kids feed API must expose safe QA-approved video/story/social metadata: " + token);
+}
+if (
+  kidsVideoSocialDetailService.includes("storedSocialPublication") ||
+  kidsVideoSocialDetailService.includes("resolveKidsVideoSocialPublication([], stored, true, true)")
+) {
+  failures.push("Kids detail publication must fail closed rather than fall back to stale catalog metadata without a valid request ID");
+}
+if (kidsFeedRoute.includes("status=in.(published,partial)")) {
+  failures.push("Kids feed must inspect every queue state so pending/failed supplemental rows cannot hide or resurrect stale social publication metadata");
+}
+const kidsSocialVisibility = read("src/features/social/services/kids-video-social-visibility.ts");
+for (const token of [
+  'const SOCIAL_PLATFORMS = new Set(["youtube", "facebook", "facebook_reels"])',
+  "getConfirmedPublicKidsVideoSocialPlatforms",
+  "isPublicKidsVideoSocialQueueRow",
+  "classifyKidsVideoGenerationRequestId",
+  "allowStoredFallback = true",
+]) {
+  if (!kidsSocialVisibility.includes(token)) failures.push("Kids feed social visibility must enforce the confirmed platform allowlist: " + token);
+}
+
+const kidsWorker = read("scripts/jobs/template-video-automation.ts");
+const videoApproval = read("src/features/videos/services/video-publish-approval.ts");
+for (const token of [
+  "storyText: kidsStoryText",
+  "socialCaption: kidsSocialCaption",
+  'audience: content.audience === "kids" ? "kids" : "general"',
+  "kidsContentQaStatus: isKidsVideo ? content.kidsVideoQaStatus : null",
+  'content.kidsVideoQaStatus === "passed"',
+  'request.content.kidsVideoQaStatus === "passed"',
+]) {
+  if (!kidsWorker.includes(token)) failures.push("Kids generation must persist story/social copy with an explicit Kids QA audience: " + token);
+}
+if (
+  !kidsWorker.includes("const kidsVideoQaStatus = isKidsVideo") ||
+  !kidsWorker.includes("hasCompleteKidsVideoSeriesMetadata(request.content)") ||
+  !kidsWorker.includes("REQUIRED_VIDEO_APPROVAL_CHECKS.every((key) => qaChecks[key] === true)") ||
+  !kidsWorker.includes("createAutomatedVideoQaApproval") ||
+  !videoApproval.includes("!hasCompleteVideoApprovalChecklist(input.checks)") ||
+  !videoApproval.includes('normalizeVideoAudience(input.snapshot.audience) === "kids"') ||
+  !videoApproval.includes('kidsVideoQaStatus: "passed"') ||
+  !videoApproval.includes('normalizeVideoMarker(snapshot.kidsVideoQaStatus) !== "passed"')
+) {
+  failures.push("Kids videos must persist the reviewed kidsVideoQaStatus only after the complete automated QA checklist passes");
+}
+
+const socialWorker = read("src/features/social/services/social-publishing.ts");
+if (!socialWorker.includes("syncKidsSocialPublicationToCatalog") ||
+    !socialWorker.includes("syncKidsSocialPublicationToCatalog(publishedItem, publishMetadata)") ||
+    !socialWorker.includes("syncKidsSocialPublicationToCatalog(publishedItem, previousMetadata)") ||
+    !socialWorker.includes("published_at: publishedAt")) {
+  failures.push("confirmed social-platform deliveries must sync back to the Kids catalog");
+}
+const kidsVideoDetail = read("src/app/kids/videos/[slug]/page.tsx");
+if (!kidsVideoDetail.includes("الحكاية كاملة") || !kidsVideoDetail.includes("منشور السوشيال ميديا") || !kidsVideoDetail.includes("socialPublication") || !kidsVideoDetail.includes("تعذر التحقق من حالة النشر")) {
+  failures.push("Kids video detail must display the full story and its generated social post");
+}
+
+const docs = read("docs/kids-video-series-free-factory.md");
+if (!docs.includes("VIDEO_FREE_ONLY=true") || !docs.includes("Quran videos continue to require human recitation audio")) failures.push("documentation must state free-provider boundaries and Quran audio safety");
+if (failures.length) {
+  console.error("KIDS_VIDEO_FACTORY_CHECK_FAILED");
+  for (const failure of failures) console.error("❌ " + failure);
+  process.exit(1);
+}
+console.log("✅ Kids Video Factory integration contracts passed.");

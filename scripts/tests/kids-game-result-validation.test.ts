@@ -1,0 +1,197 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { validateGameResultPayload } from "../../src/lib/games/validation";
+import {
+  getGameDefinition,
+  isRegisteredGameId,
+  parseGameContentMetadata,
+} from "../../src/lib/games/registry";
+
+const valid = {
+  gameId: "zikr-runner",
+  score: 1200,
+  collectibles: 4,
+  distance: 250,
+  difficulty: "normal",
+  level: 3,
+  combo: 2,
+  timeSeconds: 45,
+  completed: true,
+  clientSubmissionId: "submission-123",
+  metadata: {
+    source: "kids-world",
+    runtime: "runner",
+    mistakes: 0,
+    accuracy: 100,
+    dailyMissionCompleted: true,
+  },
+};
+
+const accepted = validateGameResultPayload(valid);
+assert.ok(accepted, "a bounded registered game result must validate");
+assert.deepEqual(accepted.metadata, valid.metadata);
+assert.equal(accepted.gameId, "zikr-runner");
+assert.equal(accepted.difficulty, "normal");
+
+for (const inheritedKey of ["toString", "constructor", "__proto__"]) {
+  assert.equal(
+    isRegisteredGameId(inheritedKey),
+    false,
+    `inherited object key ${inheritedKey} must not be accepted as a registered game ID`,
+  );
+  assert.equal(
+    getGameDefinition(inheritedKey),
+    null,
+    `game definition lookup must reject inherited object key ${inheritedKey}`,
+  );
+  assert.equal(
+    parseGameContentMetadata({ gameId: inheritedKey }),
+    null,
+    `game content metadata must reject inherited object key ${inheritedKey}`,
+  );
+  assert.equal(
+    validateGameResultPayload({ ...valid, gameId: inheritedKey }),
+    null,
+    `game result validation must reject inherited object key ${inheritedKey}`,
+  );
+}
+
+assert.equal(
+  validateGameResultPayload({ ...valid, metadata: { admin: true } }),
+  null,
+  "unknown metadata keys must be rejected"
+);
+assert.equal(
+  validateGameResultPayload({ ...valid, metadata: { source: "x".repeat(513) } }),
+  null,
+  "oversized metadata strings must be rejected"
+);
+assert.equal(
+  validateGameResultPayload({ ...valid, metadata: { source: "x".repeat(5000) } }),
+  null,
+  "oversized metadata payloads must be rejected"
+);
+assert.equal(
+  validateGameResultPayload({ ...valid, metadata: { source: { nested: { too: { deep: { value: true } } } } } }),
+  null,
+  "excessively nested metadata must be rejected"
+);
+assert.equal(
+  validateGameResultPayload({ ...valid, score: 100001 }),
+  null,
+  "scores above the registered game limit must be rejected"
+);
+assert.equal(
+  validateGameResultPayload({ ...valid, collectibles: -1 }),
+  null,
+  "negative counters must be rejected"
+);
+assert.equal(
+  validateGameResultPayload({ ...valid, clientSubmissionId: "short" }),
+  null,
+  "invalid idempotency keys must be rejected"
+);
+assert.equal(
+  validateGameResultPayload({ ...valid, clientSubmissionId: undefined }),
+  null,
+  "missing idempotency keys must be rejected rather than replaced with a fresh server-generated ID"
+);
+
+const legacyRoute = readFileSync(
+  "src/app/api/kids/games/submit-result/route.ts",
+  "utf8",
+);
+assert.match(
+  legacyRoute,
+  /clientSubmissionId:\s*legacyBody\.clientSubmissionId\s*\?\?\s*request\.headers\.get\(["']idempotency-key["']\)/,
+  "the deprecated endpoint must accept only a stable client body/header idempotency key",
+);
+assert.doesNotMatch(
+  legacyRoute,
+  /randomUUID|legacy_\$\{/,
+  "the deprecated endpoint must never mint a new key for a retry",
+);
+assert.match(
+  legacyRoute,
+  /status:\s*result\.success\s*\?\s*200\s*:\s*result\.status/,
+  "missing or malformed idempotency keys must preserve the service HTTP 400 response",
+);
+
+const gameService = readFileSync(
+  "src/features/kids/services/games.ts",
+  "utf8",
+);
+const duplicateGuard = gameService.indexOf("if (row.duplicate)");
+const duplicateLookup = gameService.indexOf('.from("kids_game_results")', duplicateGuard);
+assert.ok(duplicateGuard >= 0, "duplicate RPC responses must be handled explicitly");
+assert.ok(
+  duplicateLookup > duplicateGuard,
+  "duplicate retries must load the persisted result instead of echoing the retry payload",
+);
+for (const token of [
+  '.eq("id", row.result_id)',
+  '.eq("user_id", userId)',
+  "gameId: storedResult.game_id",
+  "score: storedResult.score",
+  "collectibles: storedResult.collectibles",
+  "distance: storedResult.distance",
+  "difficulty: storedResult.difficulty",
+  "result: persistedResult",
+]) {
+  assert.ok(gameService.includes(token), `duplicate response is missing canonical persisted field: ${token}`);
+}
+
+const migration = readFileSync(
+  "supabase/migrations/20261101090000_harden_kids_game_result_insert_contract.sql",
+  "utf8"
+);
+assert.ok(migration.includes("kids_game_results_validate_insert"));
+assert.ok(migration.includes("NEW.collectibles IS NULL"));
+assert.ok(migration.includes("NEW.difficulty IS NULL"));
+assert.ok(migration.includes("NEW.created_at := COALESCE"));
+assert.ok(migration.includes("TO service_role"));
+assert.ok(migration.includes("pg_advisory_xact_lock"));
+assert.ok(migration.includes("kids_game_results_user_created_at_idx"));
+assert.ok(migration.includes("interval '1 minute'"));
+assert.ok(migration.includes("SELECT count(*) FROM jsonb_object_keys(NEW.metadata)"));
+assert.ok(migration.includes("'level', 'combo', 'completed'"), "database metadata validation must allow server-generated result fields");
+assert.ok(migration.includes("'letter-lab'"));
+const idempotencyMigration = readFileSync(
+  "supabase/migrations/20261116180000_serialize_kids_game_result_idempotency.sql",
+  "utf8"
+);
+const internalRpcStart = idempotencyMigration.indexOf(
+  "CREATE OR REPLACE FUNCTION public.kids_record_game_result_internal("
+);
+const internalRpcEnd = idempotencyMigration.indexOf(
+  "REVOKE ALL ON FUNCTION public.kids_record_game_result_internal",
+  internalRpcStart
+);
+assert.ok(
+  internalRpcStart >= 0 && internalRpcEnd > internalRpcStart,
+  "the additive idempotency migration must replace the internal result RPC"
+);
+const internalRpc = idempotencyMigration.slice(internalRpcStart, internalRpcEnd);
+const idempotencyLockIndex = internalRpc.indexOf("pg_advisory_xact_lock(");
+const idempotencyUserKeyIndex = internalRpc.indexOf("hashtext(p_user_id::text)", idempotencyLockIndex);
+const idempotencySubmissionKeyIndex = internalRpc.indexOf("hashtext(p_client_submission_id)", idempotencyUserKeyIndex);
+const duplicateLookupIndex = internalRpc.indexOf("SELECT * INTO v_result");
+assert.ok(
+  idempotencyLockIndex >= 0 &&
+    idempotencyUserKeyIndex > idempotencyLockIndex &&
+    idempotencySubmissionKeyIndex > idempotencyUserKeyIndex &&
+    duplicateLookupIndex > idempotencySubmissionKeyIndex,
+  "the RPC must serialize a user/submission key before its duplicate lookup"
+);
+assert.ok(
+  idempotencyMigration.includes("REVOKE ALL ON FUNCTION public.kids_record_game_result_internal(") &&
+    idempotencyMigration.includes("FROM public, anon, authenticated"),
+  "the replacement RPC must remain unavailable to application roles"
+);
+assert.ok(
+  idempotencyMigration.includes("GRANT EXECUTE ON FUNCTION public.kids_record_game_result_internal(") &&
+    idempotencyMigration.includes("TO service_role"),
+  "the replacement RPC must remain service-role-only"
+);
+
+console.log("Kids game result validation passed: bounded metadata, registered score limits, stable idempotency, and database insert guard.");
