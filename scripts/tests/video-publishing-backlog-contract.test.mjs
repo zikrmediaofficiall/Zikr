@@ -8,6 +8,10 @@ assert.ok(rebalanceAt >= 0 && claimAt > rebalanceAt, "Backlog must be scheduled 
 assert.ok(worker.includes("content_type=like.*_video"));
 assert.ok(worker.includes("status=in.(queued,partial,processing,published)"));
 assert.ok(worker.includes("scheduled_at: nextScheduledAt"));
+assert.ok(worker.includes("metadata&order=created_at.asc,id.asc&limit=1000"), "Backlog balancing must inspect per-platform publication results.");
+assert.ok(worker.includes("function completedVideoPublishPlatforms"), "Confirmed remote IDs must be converted into completed target platforms.");
+assert.ok(worker.includes("completed_platforms: completedVideoPublishPlatforms(row.metadata)"), "Existing queue rows must preserve per-platform completion state.");
+assert.ok(worker.includes("targetPlatforms: (row.target_platforms ?? []).filter((platform) => !(row.completed_platforms ?? []).includes(platform))"), "Rescheduling must only allocate capacity for targets that still need delivery.");
 assert.ok(worker.includes('Prefer: "return=representation"'));
 assert.ok(worker.includes("backlogScheduleBlocked: true"), "Worker must fail closed when backlog scheduling fails.");
 const generationWorker = readFileSync(new URL("../jobs/template-video-automation.ts", import.meta.url), "utf8");
