@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { requireAdminPermission } from "@/features/admin/services/admin";
+import { requireAdminPermission, requireAnyAdminPermission } from "@/features/admin/services/admin";
 import { requireAdminStepUp } from "@/features/admin/services/security";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
 import { runPostCommitAudit } from "@/features/admin/services/post-commit-audit";
@@ -93,7 +93,7 @@ export async function saveVideoAutomationSettingAction(formData: FormData) {
 }
 
 export async function restoreAdminSettingVersionAction(formData: FormData) {
-  await requireAdminPermission("admin.access");
+  await requireAnyAdminPermission(["settings.manage", "system.manage"]);
   const versionId = formValue(formData, "versionId");
   const version = await getAdminSettingVersionById(versionId);
   if (!version) throw new Error("نسخة الإعداد غير موجودة أو غير صالحة.");

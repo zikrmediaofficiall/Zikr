@@ -1,0 +1,255 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { getPublishedKidsRoutes, isValidOfflineDatasetCount } from './lib/offline-kids-route-safety.mjs';
+
+const manifestPath = 'public/offline-content/v1/manifest.json';
+const routeSnapshotPath = 'public/offline-content/v2/routes.json';
+const offlinePackPath = 'src/lib/offline-pack.ts';
+const serviceWorkerPath = 'public/sw.js';
+const offlineLibraryPath = 'src/app/offline-library/page.tsx';
+const offlineLibraryClientPath = 'src/app/offline-library/offline-library-client.tsx';
+const guardPath = 'src/components/layout/offline-navigation-guard.tsx';
+const exporterPath = 'scripts/export-offline-content.mjs';
+const previousSnapshotPath = 'scripts/lib/offline-previous-snapshot.mjs';
+const offlineWorkflowPath = '.github/workflows/refresh-offline-content.yml';
+const offlineDbPath = 'src/lib/offline-db.ts';
+const offlineAudioPath = 'src/features/quran/services/offline-audio.ts';
+
+const read = file => (existsSync(file) ? readFileSync(file, 'utf8') : '');
+const failures = [];
+
+function isPageRoute(route) {
+  if (typeof route !== 'string' || !route.startsWith('/') || route.startsWith('//')) return false;
+  const pathname = route.replace(/\/+$/, '') || '/';
+  if (['/manifest.webmanifest', '/sw.js', '/robots.txt', '/sitemap.xml', '/sitemap-index.xml'].includes(pathname)) return false;
+  return !/\.(?:json|js|css|xml|txt|map|svg|png|jpe?g|gif|webp|ico|woff2?|mp3|wav|mp4|webm)$/i.test(pathname);
+}
+
+for (const file of [
+  manifestPath,
+  routeSnapshotPath,
+  offlinePackPath,
+  serviceWorkerPath,
+  offlineLibraryPath,
+  offlineLibraryClientPath,
+  guardPath,
+  exporterPath,
+  offlineDbPath,
+  offlineAudioPath,
+]) {
+  if (!existsSync(file)) failures.push(`Missing ${file}`);
+}
+
+try {
+  const manifest = JSON.parse(read(manifestPath));
+  if (!manifest.version) failures.push('Offline manifest has no version');
+  if (!manifest.generatedAt) failures.push('Offline manifest has no generatedAt');
+  if (!manifest.datasets || typeof manifest.datasets !== 'object') failures.push('Offline manifest has no datasets');
+  if (!Array.isArray(manifest.routes) || manifest.routes.length < 20) failures.push('Offline manifest route inventory is unexpectedly small');
+
+  for (const [name, definition] of Object.entries(manifest.datasets ?? {})) {
+    if (!definition?.path || !isValidOfflineDatasetCount(name, definition.count)) {
+      failures.push(`Invalid dataset metadata: ${name}`);
+      continue;
+    }
+    if (!definition.path.startsWith('/offline-content/')) {
+      failures.push(`Dataset path outside offline-content: ${name}`);
+      continue;
+    }
+    const file = `public/${definition.path.replace(/^\//, '')}`;
+    if (!existsSync(file)) {
+      failures.push(`Missing dataset file: ${file}`);
+    } else {
+      try {
+        const rows = JSON.parse(read(file));
+        if (!Array.isArray(rows)) failures.push(`Dataset must be a JSON array: ${file}`);
+        else if (rows.length !== definition.count) failures.push(`Dataset count mismatch: ${name} manifest=${definition.count} file=${rows.length}`);
+        else if (name === 'kids') {
+          if (rows.some(row => row?.published !== true || row?.is_active !== true)) {
+            failures.push('Offline Kids dataset must contain only published and active rows');
+          }
+          const supportedKidsTypes = new Set([
+            'story',
+            'prayer',
+            'wudu',
+            'quiz',
+            'game',
+            'puzzle',
+            'coloring',
+            'matching',
+            'video',
+            'memorize',
+          ]);
+          if (rows.some(row => {
+            const type = typeof row?.type === 'string' ? row.type : row?.content_type;
+            return typeof type !== 'string' || !supportedKidsTypes.has(type);
+          })) {
+            failures.push('Offline Kids dataset contains an unsupported content type');
+          }
+          if (rows.some(row => {
+            const type = typeof row?.type === 'string' ? row.type : row?.content_type;
+            return type === 'story' && row?.metadata?.age_appropriate !== true;
+          })) {
+            failures.push('Offline Kids dataset must not contain stories without explicit age-appropriate approval');
+          }
+          const expectedKidsRoutes = getPublishedKidsRoutes(rows);
+          const actualKidsRoutes = (manifest.routes ?? [])
+            .filter(route => typeof route === 'string' && route.startsWith('/kids/'))
+            .sort();
+          if (JSON.stringify(actualKidsRoutes) !== JSON.stringify(expectedKidsRoutes)) {
+            failures.push('Offline Kids detail routes must exactly match the currently exported, age-approved Kids dataset');
+          }
+        }
+      } catch (error) {
+        failures.push(`Dataset JSON is invalid: ${file}: ${error instanceof Error ? error.message : 'unknown error'}`);
+      }
+    }
+  }
+
+  const sensitivePrefixes = ['/api', '/auth', '/admin', '/profile', '/favorites', '/settings', '/account', '/dashboard'];
+  for (const route of manifest.routes ?? []) {
+    if (typeof route !== 'string' || !route.startsWith('/') || route.startsWith('//')) {
+      failures.push(`Invalid offline route: ${String(route)}`);
+      continue;
+    }
+    if (sensitivePrefixes.some(prefix => route === prefix || route.startsWith(`${prefix}/`))) {
+      failures.push(`Sensitive route must not be in offline manifest: ${route}`);
+    }
+    if (!isPageRoute(route)) failures.push(`Non-page asset must not be in offline manifest route inventory: ${route}`);
+    if (route !== '/' && /\/$/.test(route)) failures.push(`Offline manifest route must not have trailing slash: ${route}`);
+  }
+} catch (error) {
+  failures.push(`Offline manifest JSON is invalid: ${error instanceof Error ? error.message : 'unknown error'}`);
+}
+
+try {
+  const routeSnapshot = JSON.parse(read(routeSnapshotPath));
+  if (!Array.isArray(routeSnapshot) || routeSnapshot.length < 100) {
+    failures.push('Offline v2 public route inventory is unexpectedly small');
+  }
+  const seen = new Set();
+  const sensitivePrefixes = ['/api', '/auth', '/admin', '/profile', '/favorites', '/settings', '/account', '/dashboard'];
+  for (const route of routeSnapshot) {
+    if (typeof route !== 'string' || !route.startsWith('/') || route.startsWith('//')) {
+      failures.push(`Invalid v2 offline route: ${String(route)}`);
+      continue;
+    }
+    if (seen.has(route)) failures.push(`Duplicate v2 offline route: ${route}`);
+    seen.add(route);
+    if (sensitivePrefixes.some(prefix => route === prefix || route.startsWith(`${prefix}/`))) {
+      failures.push(`Sensitive route must not be in v2 offline inventory: ${route}`);
+    }
+    if (!isPageRoute(route)) failures.push(`Non-page asset must not be in v2 offline inventory: ${route}`);
+    if (route !== '/' && /\/$/.test(route)) failures.push(`v2 offline route must not have trailing slash: ${route}`);
+  }
+} catch (error) {
+  failures.push(`Offline v2 route inventory JSON is invalid: ${error instanceof Error ? error.message : 'unknown error'}`);
+}
+
+const offlinePack = read(offlinePackPath);
+const offlineDb = read(offlineDbPath);
+const offlineAudio = read(offlineAudioPath);
+const exporter = read(exporterPath);
+const previousSnapshot = read(previousSnapshotPath);
+const offlineWorkflow = read(offlineWorkflowPath);
+// Vercel intentionally excludes .github from deployment uploads; validate this workflow in repository CI when present.
+if (existsSync(offlineWorkflowPath) &&
+    (!offlineWorkflow.includes('push:') || !offlineWorkflow.includes('branches: [main]') ||
+      !offlineWorkflow.includes('"scripts/export-offline-content.mjs"') ||
+      !offlineWorkflow.includes('"scripts/lib/offline-previous-snapshot.mjs"') ||
+      !offlineWorkflow.includes('pull-requests: write') ||
+      !offlineWorkflow.includes('automation/offline-content-snapshot') ||
+      !offlineWorkflow.includes('gh pr create') ||
+      !offlineWorkflow.includes('secrets.GH_TOKEN || github.token') ||
+      !offlineWorkflow.includes('if gh pr create') ||
+      !offlineWorkflow.includes('::error::GitHub Actions token cannot create pull requests') ||
+       !offlineWorkflow.includes('exit 1') ||
+      !offlineWorkflow.includes('gh workflow run quality-gate.yml') ||
+      !offlineWorkflow.includes("if: github.ref == 'refs/heads/main'") ||
+      offlineWorkflow.includes('git push origin HEAD:main'))) {
+  failures.push('Offline snapshot refresh must publish through a reviewable PR and dispatch the full Quality Gate; it must never push generated content directly to main');
+}
+try { execFileSync(process.execPath, ['--check', exporterPath], { stdio: 'pipe' }); }
+catch (error) { failures.push(`Offline exporter syntax check failed: ${error instanceof Error ? error.message : 'unknown error'}`); }
+for (const dataset of ['surahs','ayahs','tafsir','hadith_books','hadith','prophets','prophet_sections','battles','battle_events','conquests','conquest_events','articles','duas','kids','companions','stories','article_categories','companion_stories','scholars','tawasheeh','quran_reciters','quran_audio','kids_games','kids_game_levels','dua_categories']) {
+  if (!exporter.includes(`['${dataset}',`)) failures.push(`Offline exporter missing dataset: ${dataset}`);
+}
+if (!exporter.includes('SUPABASE_SERVICE_ROLE_KEY') || !exporter.includes('assertCanonicalSupabaseProjectUrl(rawSupabaseUrl)') || !exporter.includes('NEXT_PUBLIC_SUPABASE_ANON_KEY') || !exporter.includes("params.set('limit'") || !exporter.includes('const minimumRecords = {') || !exporter.includes('select=id,slug,title,content,mood,category,created_at,updated_at,published,metadata,summary,is_approved')) failures.push('Offline exporter must use the canonical Supabase project, paginated reads, minimum safety floors, and explicit public story fields');
+if (!exporter.includes('previous-validated-snapshot') || !exporter.includes('staleDatasets') || !exporter.includes('previousRows.length !== previousDefinition.count')) failures.push('Offline exporter must preserve only an integrity-checked prior tafsir corpus when the live curated table is empty, and label it stale');
+if (!exporter.includes('loadPreviousOfflineSnapshot') || !previousSnapshot.includes('export async function loadPreviousOfflineSnapshot') || !previousSnapshot.includes('error.code === "ENOENT"')) failures.push('Offline exporter must distinguish a missing first-export snapshot from corrupt or unreadable prior state and fail closed');
+if (!exporter.includes("if (previousPath !== '/offline-content/v1/tafsir.json' ||")) failures.push('Offline Tafsir fallback must reject non-canonical snapshot paths before reading the previous file');
+if (!offlineDb.includes('DB_VERSION = 6')) failures.push('IndexedDB schema must be version 6');
+if (!offlineDb.includes('replaceAllMany(datasets: Record<string, unknown[]>')) failures.push('IndexedDB atomic full-pack replacement method is missing');
+for (const token of [
+  'offline_manifest',
+  'offline_completion_v1',
+  'verifyCompletedDatasets',
+  'requestOfflineRouteCache',
+  'cacheRoutes?: boolean',
+  'offline-content-version-v7',
+  'OFFLINE_CACHE_NAME',
+  'isCacheableOfflinePageRoute',
+  'zikr-v15',
+  'offlineDb.replaceAllMany(pendingDatasets)',
+  'verifyCompletedRoutes(completion.cachedRoutes)',
+  'routesComplete',
+  'fullyComplete',
+  'additionalRoutes',
+  'stories: "stories"',
+  'scholars: "scholars"',
+  'article_categories: "articleCategories"',
+  'quran_audio: "quranAudio"',
+  'kids_game_levels: "kidsGameLevels"',
+  'dua_categories: "duaCategories"',
+  'scholars/ahmad-ibn-hanbal',
+  'videos/importance-of-prayer',
+]) {
+  if (!offlinePack.includes(token)) failures.push(`Offline pack missing ${token}`);
+}
+
+const serviceWorker = read(serviceWorkerPath);
+for (const token of [
+  'CACHE_NAME = "zikr-v15"',
+  'credentials: "omit"',
+  'APP_SHELL_CACHE_PATTERN = /^zikr-v\\d+$/',
+  'APP_SHELL_CACHE_PATTERN.test(cacheName)',
+  'OFFLINE_CONTENT_PREFIX',
+  '"/settings"',
+  'CACHE_OFFLINE_ROUTES',
+  'cacheOfflineRoutes',
+  'cacheReferencedStaticAssets',
+]) {
+  if (!serviceWorker.includes(token)) failures.push(`Service worker missing ${token}`);
+}
+const htmlHandlerStart = serviceWorker.indexOf('if (request.headers.get("accept")?.includes("text/html"))');
+if (htmlHandlerStart !== -1) {
+  const htmlHandlerEnd = serviceWorker.indexOf("\n  event.respondWith(", htmlHandlerStart + 10);
+  const htmlHandler = serviceWorker.slice(htmlHandlerStart, htmlHandlerEnd === -1 ? serviceWorker.length : htmlHandlerEnd);
+  if (htmlHandler.includes('cache.put(request, response.clone())')) failures.push('Service worker must not cache generic HTML responses');
+}
+const coreMatch = serviceWorker.match(/const CORE_INSTALL_ASSETS = \[([\s\S]*?)\];/);
+if (coreMatch && coreMatch[1].includes('"/"')) failures.push('Service worker must not pre-cache the root HTML route');
+if (serviceWorker.includes('const CACHE_NAME = "zikr-v10"')) failures.push('Legacy service worker cache version zikr-v10 must not remain');
+if (!offlinePack.includes('const OFFLINE_CACHE_NAME = "zikr-v15"')) failures.push('Offline pack cache name must match Service Worker cache zikr-v15');
+const quranAudioCacheName = offlineAudio.match(/const CACHE_NAME = ["']([^"']+)["']/)?.[1] ?? "";
+if (quranAudioCacheName !== "zikr-quran-audio-v1") failures.push("Quran audio downloads must use their dedicated persistent cache");
+if (/^zikr-v\d+$/.test(quranAudioCacheName)) failures.push("Quran audio cache must never match the app-shell cache cleanup pattern");
+
+const offlineLibrary = read(offlineLibraryPath);
+const offlineLibraryClient = read(offlineLibraryClientPath);
+if (!offlineLibrary.includes('OfflineLibraryClient')) failures.push('Offline Library page does not render client component');
+for (const token of ['cacheRoutes: true', 'additionalRoutes: routes', 'result.fullyComplete', 'تحديث وتجهيز المكتبة كاملة', 'SUPPLEMENTAL_ROUTE_URL']) {
+  if (!offlineLibraryClient.includes(token)) failures.push(`Offline Library client missing ${token}`);
+}
+
+const guard = read(guardPath);
+for (const token of ['navigator.onLine', 'stopImmediatePropagation', 'window.location.assign']) {
+  if (!guard.includes(token)) failures.push(`Offline navigation guard missing ${token}`);
+}
+
+if (failures.length) {
+  for (const failure of failures) console.error(`❌ ${failure}`);
+  process.exit(1);
+}
+
+console.log('✅ Offline datasets match manifest counts; export source, atomic IndexedDB replacement, public routes, and Service Worker v15 completion checks passed.');

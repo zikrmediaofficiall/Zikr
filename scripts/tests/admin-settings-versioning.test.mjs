@@ -11,6 +11,7 @@ const settingsPage = read("src/app/admin/settings/page.tsx");
 const automationPage = read("src/app/admin/automation/page.tsx");
 const supabaseTypes = read("src/lib/types/supabase.ts");
 
+const editableKeys = [...registry.matchAll(/\{\n    editable: true,\n    key: "([^"]+)",/g)].map((match) => match[1]);
 const expectedEditableKeys = [
   "require_mfa_for_destructive",
   "maintenance_mode",
@@ -42,7 +43,7 @@ for (const internalKey of [
 
 assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.admin_setting_versions/);
 assert.match(migration, /ENABLE ROW LEVEL SECURITY/);
-assert.match(migration, /admin_setting_versions_client_deny[\\s\\S]*?USING \\(false\\)[\\s\\S]*?WITH CHECK \\(false\\)/);
+assert.match(migration, /admin_setting_versions_client_deny[\s\S]*?USING \(false\)[\s\S]*?WITH CHECK \(false\)/);
 assert.match(migration, /REVOKE ALL ON public\.admin_setting_versions FROM PUBLIC, anon, authenticated/);
 assert.match(migration, /GRANT ALL ON public\.admin_setting_versions TO service_role/);
 assert.match(migration, /BEFORE UPDATE OR DELETE ON public\.admin_setting_versions/);
@@ -65,6 +66,8 @@ assert.ok(!versionService.includes("SUPABASE_SERVICE_ROLE_KEY"), "service creden
 
 assert.ok(actions.includes("saveAdminSettingVersion({ key, value, actorUserId: profile.id })"));
 assert.ok(actions.includes("restoreAdminSettingVersion({ versionId, actorUserId: profile.id })"));
+assert.ok(actions.includes('await requireAnyAdminPermission(["settings.manage", "system.manage"]);'), "setting history lookup must require an authorized admin domain before reading version metadata");
+assert.ok(!actions.includes('await requireAdminPermission("admin.access");'), "generic admin access alone must not expose setting version history");
 assert.ok(actions.includes("requireAdminStepUp(definition.permission"), "restoring settings must honor the owner permission and MFA policy");
 assert.ok(actions.includes('action: "admin.settings.restore"'));
 assert.ok(actions.includes("recordAdminAuditEventSafely"));
