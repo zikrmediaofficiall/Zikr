@@ -307,14 +307,14 @@
           "task_order": 1,
           "title": "توحيد حالة الوحدات",
           "description": "توحيد نموذج الحالة والتوافر والاعتماديات وتاريخ الفحص.",
-          "initial_state": "in_progress"
+          "initial_state": "completed"
         },
         {
           "task_key": "OMNIS-P01-03",
           "task_order": 2,
           "title": "ربط سجل التدقيق",
           "description": "تسجيل كل تغيير إداري وربطه بالمستخدم والمورد والنتيجة.",
-          "initial_state": "pending"
+          "initial_state": "in_progress"
         }
       ]
     },
@@ -751,6 +751,34 @@
       "evidence": {
         "selected_by": "earliest non-completed task after OMNIS-P01-01",
         "scope": "unified module status, availability, ownership and dependency contracts"
+      }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-006",
+      "task_key": "OMNIS-P01-02",
+      "state": "completed",
+      "commit_sha": "48764a26acdbe9b6dd1163e449773d870104a192",
+      "recorded_at": "2026-11-25T05:37:04.104Z",
+      "evidence": {
+        "github_quality_gate": "success (run 45554292310)",
+        "postgres_integration_checks": 32,
+        "circleci_config_guard": "success",
+        "circleci_source_verify": "success",
+        "circleci_application_build_docs": "success",
+        "android_debug": "success (run 45554292284)",
+        "vercel_preview": "READY (dpl_2st4PMVRHpGsxTxnVwPWSwP9PT5D)",
+        "next_build": "compiled; TypeScript passed; 190 static pages generated",
+        "authenticated_browser_e2e": "pending"
+      }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-007",
+      "task_key": "OMNIS-P01-03",
+      "state": "in_progress",
+      "recorded_at": "2026-11-25T05:37:04.104Z",
+      "evidence": {
+        "selected_by": "earliest non-completed task after OMNIS-P01-02",
+        "scope": "audit control-plane authorization decisions and state-changing operations with safe metadata; preserve append-only admin_audit_events"
       }
     }
   ]
