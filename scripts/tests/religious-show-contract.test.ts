@@ -8,6 +8,14 @@ import { getVideoVoiceProfile } from "../../src/features/videos/services/voice-p
 const templates = new Set(readdirSync("public/video/templates").filter((name) => name.endsWith(".svg")).map((name) => name.replace(/\.svg$/, "")));
 
 // --- Host identity: one fixed Egyptian male voice, with formal voices reserved for quoted text.
+const adminVideoCreateSource = readFileSync("src/app/api/admin/videos/create/route.ts", "utf8");
+const adminStudioSource = readFileSync("src/features/admin/video-studio/components/advanced-video-generators.tsx", "utf8");
+const videoWorkerSource = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
+assert.ok(adminStudioSource.includes('<option value="quran">آية من المصحف المعتمد</option>'), "Hady must support selecting a Quran ayah as an editorial source");
+assert.ok(adminStudioSource.includes("loadQuranSource()") && adminStudioSource.includes("surahId") && adminStudioSource.includes("ayahNumber"), "Hady Quran source selection must load the exact surah and ayah");
+assert.ok(adminStudioSource.includes("HADY_SHOW.signature.openingAr") && adminStudioSource.includes("HADY_SHOW.signature.closingAr"), "the fixed Hady greeting and farewell must be inserted before validation");
+assert.ok(adminVideoCreateSource.includes('submittedContent.sourceCategory === "quran"') && adminVideoCreateSource.includes('sourceCategory === "quran" ? "quran" as const'), "the admin API must preserve Quran provenance on the episode source reference");
+assert.ok(videoWorkerSource.includes('reference.category as "quran" | "hadith" | "story"') && videoWorkerSource.includes('!["quran", "hadith", "story"].includes(String(reference.category))'), "the render worker must re-resolve Quran, Hadith and story sources before rendering");
 const hostVoice = getVideoVoiceProfile(HADY_SHOW.host.hostVoiceProfile);
 assert.equal(hostVoice.id, "egyptian_male_story");
 assert.equal(hostVoice.voice, "ar-EG-ShakirNeural");
