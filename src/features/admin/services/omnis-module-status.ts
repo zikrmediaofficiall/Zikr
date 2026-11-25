@@ -46,10 +46,6 @@ function githubWorkflowState(
   return workflows.every((item) => item.conclusion === "success") ? "healthy" : "unknown";
 }
 
-function emptyObservations(errorSummary: string): OmnisDependencyObservation[] {
-  return [];
-}
-
 export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusSnapshot> {
   const checkedAt = new Date().toISOString();
   let available = true;
@@ -62,10 +58,14 @@ export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusS
     observations = [
       {
         dependencyId: "supabase-database",
-        state: health.database === "healthy" ? "healthy" : "degraded",
-        source: "Supabase server-side connection probe",
+        state: health.database === "healthy" && health.tables.every((table) => table.state !== "unavailable")
+          ? "healthy"
+          : "degraded",
+        source: "Supabase server-side connection and table probes",
         summary: health.database === "healthy"
-          ? "اتصال قاعدة البيانات نجح في فحص الخادم."
+          ? health.tables.some((table) => table.state === "unavailable")
+            ? "الاتصال بقاعدة البيانات يعمل لكن فحص جدول أو أكثر غير متاح."
+            : "اتصال قاعدة البيانات وجداول المراقبة نجحا في فحص الخادم."
           : "فحص اتصال قاعدة البيانات أرجع حالة متدهورة.",
         checkedAt: timestamp,
         latencyMs: null,
