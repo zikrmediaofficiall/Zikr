@@ -107,7 +107,7 @@ if (
   || !incidentLifecycle.includes("applyOmnisIncidentLifecycle")
   || !incidentLifecycle.includes("canResolveOmnisIncident")
   || !incidentLifecycle.includes('dependency.freshness === "fresh"')
-  || !moduleStatusService.includes("admin_audit_events")
+  || !incidentLifecycle.includes("/rest/v1/admin_audit_events")
   || !moduleStatusService.includes("buildOmnisIncidentHistoryQuery")
   || !incidentLifecycle.includes("action=in.(admin.omnis.incident.acknowledged,admin.omnis.incident.resolved)")
   || !incidentLifecycle.includes("order=created_at.desc,id.desc")
