@@ -64,9 +64,9 @@ export function resolveYouTubeVideoDisclosure(input: YouTubeVideoDisclosureInput
     : "";
   const provider = contentProvider || storedProvider;
 
-  // Upload privacy and public-library availability do not determine whether
-  // a video is child-directed. Keep canonical Kids intent markers authoritative;
-  // a template renderer is not evidence of a general audience by itself.
+  // Upload privacy and Kids-section suitability are independent of platform audience.
+  // Explicit child-directed declarations always win; otherwise the canonical
+  // platformAudience/publicDistributionAudience fields control the disclosure.
   return {
     selfDeclaredMadeForKids: audience === "kids",
     containsSyntheticMedia: provider !== "template",
