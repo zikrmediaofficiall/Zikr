@@ -29,7 +29,12 @@ assert.match(service, /classifyYoutubeOAuthTokenError/);
 assert.match(service, /classifyYoutubeAnalyticsApiError/);
 assert.match(service, /getYoutubeAnalyticsStatusPresentation/);
 assert.match(service, /status: YoutubeAnalyticsStatus/);
-assert.doesNotMatch(service, /reportNumber\(summary, row, "(?:views|estimatedMinutesWatched|subscribersGained|subscribersLost|likes|comments|shares)"\) \\?\\? 0/);
+for (const metric of ["views", "estimatedMinutesWatched", "subscribersGained", "subscribersLost", "likes", "comments", "shares"]) {
+  assert.ok(
+    !service.includes(`reportNumber(summary, row, "${metric}") ?? 0`),
+    "missing YouTube Analytics report metrics must remain unavailable instead of being rendered as zero",
+  );
+}
 assert.match(metricsHelper, /"api_disabled"/);
 assert.match(metricsHelper, /"quota_exceeded"/);
 assert.match(metricsHelper, /"permission_denied"/);
