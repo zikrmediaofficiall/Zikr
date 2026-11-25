@@ -934,7 +934,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
     ),
   ]);
   const todaysRows = [...new Map(
-    [...(dailyRows ?? []), ...(promotionalRows ?? [])].map((row) => [row.id, row]),
+    [...(dailyRows ?? []), ...(promotionalRows ?? [])].map((row) => [row.id, row] as const),
   ).values()];
   if ((dailyRows ?? []).length >= 1000 || (promotionalRows ?? []).length >= 1000 || todaysRows.length >= 1000) {
     throw new Error(
