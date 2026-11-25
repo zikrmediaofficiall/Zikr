@@ -30,6 +30,9 @@ assert.ok(page.includes('href="/admin/notifications"'));
 assert.ok(page.includes("لا يوجد تشغيل حديث مسجل على main"));
 assert.ok(page.includes("تعذر قراءة سجل GitHub Actions"));
 assert.ok(page.includes("لا يتم اعتباره نجاحًا"));
+assert.ok(page.includes("checkPushReadiness()"));
+assert.ok(page.includes("get_push_vapid_public_key"));
+assert.ok(page.includes("لا يعتبر ذلك نجاحًا"));
 assert.doesNotMatch(page, /ANDROID_KEYSTORE_PASSWORD|ANDROID_KEYSTORE_BASE64|GPG_PRIVATE_KEY/);
 
 console.log("Android release readiness display and workflow inventory contracts passed.");

@@ -10,6 +10,7 @@ import {
 } from "@/features/releases/services/github-android-release";
 import { getAdminHealth } from "@/features/admin/services/platform";
 import { siteConfig } from "@/lib/site";
+import { createAdminClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 type Release = GitHubRelease;
 
@@ -107,6 +108,24 @@ async function checkAndroidAssetLinks(): Promise<AssetLinksStatus> {
   }
 }
 
+type PushReadiness = { tone: "success" | "failure" | "unknown"; label: string; detail: string };
+
+/** Reports only whether a Web Push application-server key exists. The key and the private half are never shown. */
+async function checkPushReadiness(): Promise<PushReadiness> {
+  if (!isSupabaseConfigured()) {
+    return { tone: "unknown", label: "تعذر فحص الإشعارات", detail: "اتصال قاعدة البيانات غير مهيأ في هذه البيئة؛ لا يعتبر ذلك نجاحًا." };
+  }
+  try {
+    const { data, error } = await createAdminClient().rpc("get_push_vapid_public_key");
+    if (error) throw error;
+    return typeof data === "string" && data.length > 0
+      ? { tone: "success", label: "مفتاح إشعارات الويب جاهز", detail: "يوجد مفتاح خادم للتطبيق؛ هذا لا يثبت وصول إشعار فعلي إلى جهاز." }
+      : { tone: "failure", label: "مفتاح الإشعارات غير مهيأ بعد", detail: "لم يُنشأ مفتاح VAPID بعد؛ سيُنشأ عند أول تشغيل آمن للمجدول." };
+  } catch {
+    return { tone: "unknown", label: "تعذر فحص الإشعارات", detail: "فشل قراءة حالة المفتاح؛ لا يعتبر ذلك نجاحًا." };
+  }
+}
+
 async function getReleases(): Promise<{ rows: Release[]; ok: boolean }> {
   try {
     const rows = await getStableAndroidReleases();
@@ -119,7 +138,7 @@ async function getReleases(): Promise<{ rows: Release[]; ok: boolean }> {
 }
 export default async function AndroidReleaseAdminPage() {
   await requireAdminPermission("android.manage");
-  const [releasesResult, settingResult, healthResult, assetLinksStatus] = await Promise.all([
+  const [releasesResult, settingResult, healthResult, assetLinksStatus, pushReadiness] = await Promise.all([
     getReleases(),
     readAdminRows<{ value: SiteSettingValue }>(
       "/rest/v1/site_settings?select=value&key=eq.android_release&limit=1",
@@ -129,6 +148,7 @@ export default async function AndroidReleaseAdminPage() {
       return null;
     }),
     checkAndroidAssetLinks(),
+    checkPushReadiness(),
   ]);
   const releases = releasesResult.rows;
   const settingAvailable = settingResult.ok;
@@ -212,6 +232,13 @@ export default async function AndroidReleaseAdminPage() {
             <p className="text-[11px] leading-5 text-brand-cream/45">{assetLinksStatus.detail}</p>
             <p className="text-[10px] text-brand-cream/30">{new Date(assetLinksStatus.checkedAt).toLocaleString("ar-EG-u-nu-latn")}</p>
             <a href={new URL("/.well-known/assetlinks.json", siteConfig.url).toString()} target="_blank" rel="noreferrer" className="text-xs text-brand-gold underline">فتح ملف Digital Asset Links</a>
+          </article>
+          <article className="space-y-2 rounded-xl border border-brand-gold/10 bg-black/15 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-brand-cream/80">إشعارات الويب والتطبيق</h3>
+              <span className={`rounded-full border px-2 py-1 text-[10px] ${pushReadiness.tone === "success" ? "border-emerald-400/20 text-emerald-200" : pushReadiness.tone === "failure" ? "border-red-400/20 text-red-200" : "border-amber-400/20 text-amber-200"}`}>{pushReadiness.label}</span>
+            </div>
+            <p className="text-[11px] leading-5 text-brand-cream/45">{pushReadiness.detail}</p>
           </article>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-gold/10 pt-3">
