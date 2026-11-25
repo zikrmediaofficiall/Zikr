@@ -82,6 +82,9 @@
       "path": "/admin/notifications"
     },
     {
+      "path": "/admin/omnis"
+    },
+    {
       "path": "/admin/prophets"
     },
     {
