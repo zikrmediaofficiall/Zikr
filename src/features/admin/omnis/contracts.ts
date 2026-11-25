@@ -56,7 +56,8 @@ export type ControlPlaneReadResult<T> =
   | { ok: false; data: null; source: string; generatedAt: string; error: string };
 
 const RESOURCE_TOKEN = /^[a-zA-Z0-9][a-zA-Z0-9:._/-]{0,127}$/;
-const IDEMPOTENCY_TOKEN = /^[a-zA-Z0-9][a-zA-Z0-9:._-]{7,127}$/;\nconst REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const IDEMPOTENCY_TOKEN = /^[a-zA-Z0-9][a-zA-Z0-9:._-]{7,127}$/;
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function isValidControlPlaneRequest(
   value: unknown,
@@ -70,5 +71,7 @@ export function isValidControlPlaneRequest(
       (typeof request.resourceId !== "string" || !RESOURCE_TOKEN.test(request.resourceId))) return false;
   if (request.idempotencyKey !== undefined &&
       (typeof request.idempotencyKey !== "string" || !IDEMPOTENCY_TOKEN.test(request.idempotencyKey))) return false;
+  if (request.requestId !== undefined &&
+      (typeof request.requestId !== "string" || !REQUEST_ID.test(request.requestId))) return false;
   return true;
 }
