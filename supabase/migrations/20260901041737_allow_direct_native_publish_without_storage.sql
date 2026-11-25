@@ -1,2 +1,0 @@
--- Reconciliation marker for production migration 20260901041737.
--- Direct native publish behavior is represented by current application/service code.

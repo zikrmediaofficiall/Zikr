@@ -1,2 +1,0 @@
--- Reconciliation marker for production migration 20260901055136.
--- Equivalent hardening is represented by the current tracked migrations.

@@ -7,6 +7,8 @@ import { requireAdminPermission } from "@/features/admin/services/admin";
 import { supabaseServerAdminCount, supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { saveVideoAutomationSettingAction, requestVideoAutomationRunAction } from "@/app/admin/system-actions";
 import { ADMIN_SETTING_REGISTRY, type EditableAdminSettingDefinition } from "@/features/admin/config/settings-registry";
+import { getAdminSettingVersionHistory } from "@/features/admin/services/setting-versions";
+import { AdminSettingVersionHistoryPanel } from "@/features/admin/components/admin-setting-version-history";
 
 export const metadata: Metadata = { title: "الأتمتة والمهام | الأدمن" };
 
@@ -60,9 +62,12 @@ export default async function AdminAutomationPage() {
     })),
   );
 
-  const settingsRes = await readRows<{ key: string; value: unknown }>(
-    "/rest/v1/admin_settings?key=in.(video_automation_enabled,video_automation_auto_publish,video_automation_batch_size,video_automation_ai_enabled,video_automation_daily_target,video_automation_ai_attempts_per_run,video_automation_video_seconds,video_automation_run_now)&select=key,value",
-  );
+  const [settingsRes, versionHistory] = await Promise.all([
+    readRows<{ key: string; value: unknown }>(
+      "/rest/v1/admin_settings?key=in.(video_automation_enabled,video_automation_auto_publish,video_automation_batch_size,video_automation_ai_enabled,video_automation_daily_target,video_automation_ai_attempts_per_run,video_automation_video_seconds,video_automation_run_now)&select=key,value",
+    ),
+    getAdminSettingVersionHistory(VIDEO_SETTINGS.map((setting) => setting.key)),
+  ]);
   const settings = Object.fromEntries(settingsRes.rows.map((row) => [row.key, row.value]));
   const latestRes = await readRows<VideoAutomationRun>(
     "/rest/v1/video_automation_runs?select=finished_at,created_count,processed_count,completed_count,failed_count,error_summary&order=finished_at.desc&limit=1",
@@ -188,6 +193,11 @@ export default async function AdminAutomationPage() {
             );
           })}
         </div>
+
+        <AdminSettingVersionHistoryPanel
+          history={versionHistory}
+          emptyLabel="لا توجد نسخ محفوظة لإعدادات الفيديو بعد."
+        />
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-sky-500/15 bg-sky-500/5 p-4 text-sm leading-7 text-sky-100/75">

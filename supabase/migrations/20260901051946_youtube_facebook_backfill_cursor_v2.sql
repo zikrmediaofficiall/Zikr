@@ -1,2 +1,0 @@
--- Reconciliation marker for production migration 20260901051946.
--- Backfill cursor v2 behavior is represented by the current tracked sync code.

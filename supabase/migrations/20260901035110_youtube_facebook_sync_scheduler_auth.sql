@@ -1,3 +1,0 @@
--- Reconciliation marker for production migration 20260901035110.
--- Scheduler/auth behavior is already represented by the current tracked sync
--- configuration; this marker preserves migration-history parity.

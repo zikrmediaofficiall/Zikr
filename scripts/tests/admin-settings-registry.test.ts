@@ -30,6 +30,15 @@ for (const item of editable) {
   assert.ok(item.dependencies.length > 0, `${item.key} must declare dependencies`);
   assert.equal(item.storage, "public.admin_settings");
   assert.ok(item.revalidatePaths.length > 0, `${item.key} must declare cache paths`);
+  assert.ok(["always", "policy", "none"].includes(item.stepUpPolicy), `${item.key} must declare an explicit step-up policy`);
+  if (item.valueType === "boolean") {
+    assert.equal(typeof item.runtimeFallback, "boolean", `${item.key} must use a boolean fallback`);
+    assert.ok(["documented-fallback", "fail-closed"].includes(item.missingValuePolicy));
+  } else {
+    assert.equal(item.valueType, "integer");
+    assert.ok(Number.isSafeInteger(item.minimum) && Number.isSafeInteger(item.maximum));
+    assert.ok(item.runtimeFallback >= item.minimum && item.runtimeFallback <= item.maximum);
+  }
   if (item.valueType === "integer") {
     assert.ok(Number.isSafeInteger(item.runtimeFallback));
     assert.ok(Number.isSafeInteger(item.formFallback));

@@ -7,6 +7,8 @@ import { getAdminSettings } from "@/features/admin/services/platform";
 import { saveAdminSettingAction } from "@/app/admin/system-actions";
 import { resolveDestructiveMfaRequirement } from "@/features/admin/services/security-policy";
 import { ADMIN_SETTING_REGISTRY, getIntegerAdminSettingDefinition, type BooleanAdminSettingDefinition } from "@/features/admin/config/settings-registry";
+import { getAdminSettingVersionHistory } from "@/features/admin/services/setting-versions";
+import { AdminSettingVersionHistoryPanel } from "@/features/admin/components/admin-setting-version-history";
 
 export const metadata: Metadata = { title: "إعدادات الإدارة | الأدمن" };
 
@@ -26,7 +28,14 @@ const SEARCH_RESULT_LIMIT = requireSearchResultLimitDefinition();
 
 export default async function AdminSettingsPage() {
   await requireAdminPermission("settings.manage");
-  const values = await getAdminSettings();
+  const [values, versionHistory] = await Promise.all([
+    getAdminSettings(),
+    getAdminSettingVersionHistory(
+      ADMIN_SETTING_REGISTRY
+        .filter((setting) => setting.editable && setting.category !== "video")
+        .map((setting) => setting.key),
+    ),
+  ]);
 
   return (
     <Container className="space-y-8 py-10 text-right" dir="rtl">
@@ -83,6 +92,11 @@ export default async function AdminSettingsPage() {
         />
         <button type="submit" className="mt-4 rounded-xl border border-brand-gold/25 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">حفظ حد البحث</button>
       </form>
+
+      <AdminSettingVersionHistoryPanel
+        history={versionHistory}
+        emptyLabel="لا توجد نسخ محفوظة لهذه الإعدادات بعد."
+      />
 
       <section className="rounded-2xl border border-sky-400/15 bg-sky-400/5 p-5 text-sm leading-7 text-brand-cream/60">
         إعدادات الأتمتة الخاصة بالفيديو لها مركز مستقل في <a href="/admin/automation" className="text-brand-gold hover:underline">الأتمتة والتشغيل</a> حتى لا تختلط إعدادات الحسابات والأمن مع تشغيل مصنع الفيديو.

@@ -1,3 +1,0 @@
--- Canonical migration version retained for migration-ledger parity.
--- The seed body is identical to 20260814220001 and is intentionally a no-op here.
--- The earlier migration owns the data insertion so fresh replay cannot duplicate work.

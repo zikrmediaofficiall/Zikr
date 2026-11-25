@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_setting_versions: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          id: string
+          operation: string
+          setting_key: string
+          source_version_id: string | null
+          value: Json
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          operation: string
+          setting_key: string
+          source_version_id?: string | null
+          value: Json
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          operation?: string
+          setting_key?: string
+          source_version_id?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_setting_versions_source_version_id_fkey"
+            columns: ["source_version_id"]
+            isOneToOne: false
+            referencedRelation: "admin_setting_versions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       admin_audit_events: {
         Row: {
           action: string
@@ -4639,6 +4677,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      restore_admin_setting_version: {
+        Args: { p_actor_user_id: string; p_version_id: string }
+        Returns: Json
+      }
+      save_admin_setting_version: {
+        Args: { p_actor_user_id: string; p_setting_key: string; p_value: Json }
+        Returns: string
+      }
+
       consume_admin_rate_limit: {
         Args: {
           p_actor: string

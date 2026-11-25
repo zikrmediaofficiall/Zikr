@@ -11,6 +11,7 @@ import { dispatchGitHubWorkflow } from "@/lib/github/dispatch-workflow";
 import { buildRunNowRequestValueFilter } from "@/features/videos/services/background-job-outcome";
 import { isVideoAutomationEnabled, isVideoPurgeLockResponseActive } from "@/features/videos/services/background-job-settings";
 import { getEditableAdminSettingDefinition, validateAdminSettingValue } from "@/features/admin/config/settings-registry";
+import { getAdminSettingVersionById, restoreAdminSettingVersion, saveAdminSettingVersion } from "@/features/admin/services/setting-versions";
 
 function formValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -43,11 +44,7 @@ export async function saveAdminSettingAction(formData: FormData) {
   if (!validation.ok) throw new Error(validation.error);
   const value = validation.value;
 
-  await supabaseServerAdminRequest("/rest/v1/admin_settings?on_conflict=key", {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-    body: JSON.stringify({ key, value, updated_by: profile.id, updated_at: new Date().toISOString() }),
-  });
+  await saveAdminSettingVersion({ key, value, actorUserId: profile.id });
 
   await recordAdminAuditEventSafely({
     action: "admin.settings.update",
@@ -82,16 +79,7 @@ export async function saveVideoAutomationSettingAction(formData: FormData) {
   if (!validation.ok) throw new Error(validation.error);
   const value = validation.value;
 
-  await supabaseServerAdminRequest("/rest/v1/admin_settings?on_conflict=key", {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-    body: JSON.stringify({
-      key,
-      value,
-      updated_by: profile.id,
-      updated_at: new Date().toISOString(),
-    }),
-  });
+  await saveAdminSettingVersion({ key, value, actorUserId: profile.id });
 
   await recordAdminAuditEventSafely({
     action: "admin.video_automation.setting_update",
@@ -102,6 +90,34 @@ export async function saveVideoAutomationSettingAction(formData: FormData) {
   });
 
   for (const path of definition.revalidatePaths) revalidatePath(path);
+}
+
+export async function restoreAdminSettingVersionAction(formData: FormData) {
+  const versionId = formValue(formData, "versionId");
+  const version = await getAdminSettingVersionById(versionId);
+  if (!version) throw new Error("نسخة الإعداد غير موجودة أو غير صالحة.");
+
+  const definition = getEditableAdminSettingDefinition(version.setting_key);
+  if (!definition) throw new Error("لا يمكن استعادة هذا النوع من الإعدادات من سجل النسخ.");
+
+  const settingsPath = definition.category === "video" ? "/admin/automation" : "/admin/settings";
+  const profile = definition.stepUpPolicy === "always" || definition.category === "video"
+    ? await requireAdminStepUp(definition.permission, settingsPath, true)
+    : definition.stepUpPolicy === "policy"
+      ? await requireAdminStepUp(definition.permission, settingsPath)
+      : await requireAdminPermission(definition.permission);
+
+  const restored = await restoreAdminSettingVersion({ versionId, actorUserId: profile.id });
+  await recordAdminAuditEventSafely({
+    action: "admin.settings.restore",
+    permission: definition.permission,
+    resourceType: "admin_settings",
+    resourceId: definition.key,
+    metadata: { restoredVersionId: version.id, newVersionId: restored.id, operation: "rollback" },
+  });
+
+  for (const path of definition.revalidatePaths) revalidatePath(path);
+  revalidatePath(settingsPath);
 }
 
 export async function requestVideoAutomationRunAction() {

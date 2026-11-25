@@ -1,3 +1,0 @@
--- Historical migration version retained for Supabase migration history reconciliation.
--- No-op: superseded by the canonical migration chain.
--- Version-specific marker: 20250705000001.
