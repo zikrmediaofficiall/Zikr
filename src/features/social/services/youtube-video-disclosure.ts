@@ -42,7 +42,12 @@ export function resolveYouTubeVideoDisclosure(input: YouTubeVideoDisclosureInput
     normalizeVideoAudience(queueMetadata.platformAudience, false) ??
     normalizeVideoAudience(content.publicDistributionAudience, false) ??
     normalizeVideoAudience(queueMetadata.publicDistributionAudience, false);
-  const audience = content.childDirected === true || queueMetadata.childDirected === true
+  const isExplicitlyChildDirected =
+    content.childDirected === true || queueMetadata.childDirected === true;
+  // A validated general-distribution marker suppresses inferred Kids suitability,
+  // but it must never override an explicit child-directed declaration.
+  const generalDistribution = !isExplicitlyChildDirected && explicitPlatformAudience === "general";
+  const audience = isExplicitlyChildDirected
     ? "kids"
     : explicitPlatformAudience ?? (
         normalizeVideoAudience(content.audience, false) === "kids" ||
@@ -68,7 +73,7 @@ export function resolveYouTubeVideoDisclosure(input: YouTubeVideoDisclosureInput
   // Explicit child-directed declarations always win; otherwise the canonical
   // platformAudience/publicDistributionAudience fields control the disclosure.
   return {
-    selfDeclaredMadeForKids: audience === "kids",
+    selfDeclaredMadeForKids: audience === "kids" && !generalDistribution,
     containsSyntheticMedia: provider !== "template",
   };
 }
