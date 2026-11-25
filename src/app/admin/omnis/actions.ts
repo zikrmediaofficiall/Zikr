@@ -73,9 +73,11 @@ export async function runOmnisSafeCommandAction(formData: FormData) {
   const command = resolveOmnisSafeCommand(field(formData, "command_key"));
   if (!command) throw new Error("أمر OMNIS غير مسجل أو غير مسموح.");
 
+  // Every registered OMNIS command is governed by system.manage.
+  // Keep the permission literal here so static server-action security gates can verify it.
   const profile = command.requiresStepUp
-    ? await requireAdminStepUp(command.permission, "/admin/omnis", true)
-    : await requireAdminPermission(command.permission);
+    ? await requireAdminStepUp("system.manage", "/admin/omnis", true)
+    : await requireAdminPermission("system.manage");
 
   if (command.operation === "inspect") {
     const snapshot = await getOmnisModuleStatusSnapshot();
