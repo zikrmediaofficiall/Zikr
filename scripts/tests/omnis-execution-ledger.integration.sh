@@ -34,9 +34,9 @@ fi
 
 psql=(docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$DB_NAME")
 "${psql[@]}" -f /workspace/scripts/tests/omnis-execution-ledger.integration-setup.sql
-"${psql[@]}" -f /workspace/supabase/migrations/20261125060000_zikr_omnis_execution_ledger.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261125045720_zikr_omnis_execution_ledger.sql
 # A second replay proves schema creation and task seeding are idempotent.
-"${psql[@]}" -f /workspace/supabase/migrations/20261125060000_zikr_omnis_execution_ledger.sql
+"${psql[@]}" -f /workspace/supabase/migrations/20261125045720_zikr_omnis_execution_ledger.sql
 "${psql[@]}" -f /workspace/scripts/tests/omnis-execution-ledger.integration.sql
 
 echo "OMNIS execution-ledger PostgreSQL 17 integration passed."
