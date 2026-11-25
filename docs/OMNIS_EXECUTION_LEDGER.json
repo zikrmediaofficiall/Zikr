@@ -314,7 +314,7 @@
           "task_order": 2,
           "title": "ربط سجل التدقيق",
           "description": "تسجيل كل تغيير إداري وربطه بالمستخدم والمورد والنتيجة.",
-          "initial_state": "in_progress"
+          "initial_state": "completed"
         }
       ]
     },
@@ -328,7 +328,7 @@
           "task_order": 0,
           "title": "جرد إعدادات المشروع",
           "description": "حصر إعدادات الموقع والتطبيق والمحتوى والذكاء الاصطناعي والنشر والبنية.",
-          "initial_state": "pending"
+          "initial_state": "in_progress"
         },
         {
           "task_key": "OMNIS-P02-02",
@@ -779,6 +779,34 @@
       "evidence": {
         "selected_by": "earliest non-completed task after OMNIS-P01-02",
         "scope": "audit control-plane authorization decisions and state-changing operations with safe metadata; preserve append-only admin_audit_events"
+      }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-008",
+      "task_key": "OMNIS-P01-03",
+      "state": "completed",
+      "commit_sha": "7313962125c9c750a9de063d6f90b5f6325cb253",
+      "recorded_at": "2026-11-25T05:57:38.723Z",
+      "evidence": {
+        "github_quality_gate": "success (run 45556424984; verify:pr passed)",
+        "audit_contract_test": "passed (OMNIS audit metadata and authorization audit contracts passed)",
+        "postgres_checks": 32,
+        "circleci_config_guard": "success",
+        "circleci_source_verify": "success",
+        "circleci_application_build_docs": "success",
+        "android_debug": "success (run 45556424952)",
+        "vercel_preview": "READY (dpl_83PZRdGrEeFAqo4hAWjR8WzENz4m)",
+        "runtime_errors": "none reported for /admin/omnis in selected one-hour window",
+        "authenticated_browser_e2e": "pending"
+      }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-009",
+      "task_key": "OMNIS-P02-01",
+      "state": "in_progress",
+      "recorded_at": "2026-11-25T05:57:38.723Z",
+      "evidence": {
+        "scope": "inventory config keys, sources, owners, environments and dependency categories only; never retrieve, copy or write secret values"
       }
     }
   ]
