@@ -382,8 +382,10 @@ if (!/async\s+function\s+queueSocialItems\s*\(/.test(worker) ||
     !leaseWrappedSocialEnqueue ||
     !worker.includes('status: "queued"') ||
     !worker.includes("automation_key: queueAutomationKey") ||
-    !worker.includes("buildQueuePayload(targets, socialKey)")) {
-  failures.push("new generated videos may create only idempotent queued social candidates");
+    !worker.includes("reserveScheduledAt") ||
+    !worker.includes("scheduled_at: scheduledAt") ||
+    !worker.includes("buildQueuePayload(targets, socialKey, scheduledAt)")) {
+  failures.push("new generated videos may create only idempotent queued social candidates with a reserved Cairo publishing slot");
 }
 const processingSocialQueueBranch = worker.match(
   /if\s*\(\s*existing\.status\s*===\s*["']processing["']\s*\)\s*\{([\s\S]*?)\n\s*\}/,

@@ -749,7 +749,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
 
   // Daily quota: keys are unique per UTC day (kind:day:counter) so every run can create new
   // videos, and the DAILY_VIDEO_TARGET is spread evenly across the day instead of bursting.
-  // Urgent admin "Run Now" requests bypass the pacing and use the requested batch size.
+  // Urgent admin "Run Now" may bypass time-of-day pacing, but never the daily quota.
   const todaysRows = await supabaseServerAdminRequest<Array<{ id: string; status: string; automation_key: string | null }>>(
     `/rest/v1/video_generation_requests?automation_key=like.*:${day}:*&select=id,status,automation_key&limit=1000`,
   );
