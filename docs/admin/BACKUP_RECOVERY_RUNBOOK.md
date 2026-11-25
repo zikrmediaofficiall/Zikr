@@ -20,8 +20,8 @@ Scope: what the repository can restore on its own, and what must be confirmed in
 
 ## 3. Data recovery (database)
 
-- The project runs on the Supabase Free plan (see `docs/SUPABASE_FREE_MIGRATION_FINAL_2026-09-29.md`). CONFIRM in the Supabase dashboard whether any automatic backup or point-in-time recovery exists on the current plan. Assume NO managed backup until confirmed.
-- Until confirmed, take a manual logical dump before any risky migration: `pg_dump` with `SUPABASE_DB_URL` (non-pooling), stored outside the repo and outside the same Supabase project.
+- The project runs on the Supabase Free plan (see `docs/SUPABASE_FREE_MIGRATION_FINAL_2026-09-29.md`). Checked read-only through the Supabase Management API on 2026-11-25: point-in-time recovery is disabled and the managed backup list is empty. There is NO managed backup. Re-CONFIRM after any plan change.
+- Take a manual logical dump before any risky migration: `pg_dump` with `SUPABASE_DB_URL` (non-pooling), stored outside the repo and outside the same Supabase project.
 - User-generated tables (profiles, favorites, kids progress, audit log) are not reproducible from git. They are the data at risk.
 
 ## 4. Restore drill (run quarterly, record the date here)

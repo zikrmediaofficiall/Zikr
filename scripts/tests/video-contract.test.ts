@@ -91,10 +91,8 @@ for (const [sourceName, source] of [
     `${sourceName} must never inject website advertising into external platform metadata`,
   );
 }
-const smartLinkPromo = readFileSync("src/components/smartlink-promo.tsx", "utf8");
 const footer = readFileSync("src/components/layout/footer.tsx", "utf8");
-assert.ok(smartLinkPromo.includes("MONETAG_SMARTLINK_URL"));
-assert.ok(footer.includes("MONETAG_SMARTLINK_URL"));
+assert.ok(!footer.includes("MONETAG_SMARTLINK_URL"), "SmartLink was removed from the footer");
 
 const videoOpsGuide = readFileSync("docs/GITHUB_AI_VIDEO.md", "utf8");
 const envExample = readFileSync(".env.example", "utf8");

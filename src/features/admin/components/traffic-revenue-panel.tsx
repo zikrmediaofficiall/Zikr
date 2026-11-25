@@ -265,7 +265,7 @@ export async function TrafficRevenuePanel({
               <div>
                 <p className="font-semibold text-brand-cream">Monetag</p>
                 <p className="mt-1 text-xs leading-5 text-brand-cream/45">
-                  وسم التحقق ورابط SmartLink موجودان في الكود. مزامنة مرات الظهور والأرباح غير متصلة.
+                  وسم التحقق فقط موجود في الكود (تمت إزالة رابط SmartLink). مزامنة مرات الظهور والأرباح غير متصلة.
                 </p>
                 <a
                   href="https://publishers.monetag.com"

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const read = path => readFileSync(path, "utf8");
 const failures = [];
@@ -12,7 +12,6 @@ const advertisingRuntime = read(
   "src/components/layout/web-advertising-runtime.tsx",
 );
 const footer = read("src/components/layout/footer.tsx");
-const smartLinkPromo = read("src/components/smartlink-promo.tsx");
 const serviceWorkerRegister = read(
   "src/components/layout/service-worker-register.tsx",
 );
@@ -48,13 +47,12 @@ for (const host of ["al5sm.com", "5gvci.com", "uplcm.com"]) {
   );
 }
 requireCondition(
-  footer.includes("showSmartLink && isWebRuntime"),
-  "The shared footer SmartLink placement must render only on the website.",
+  !existsSync("src/components/smartlink-promo.tsx") && !existsSync("src/lib/smartlink.ts"),
+  "The Monetag SmartLink placement was removed and must not return.",
 );
 requireCondition(
-  smartLinkPromo.includes("Capacitor.isNativePlatform()") &&
-    smartLinkPromo.includes("if (!isWebRuntime) return null"),
-  "Standalone SmartLink promotional sections must stay hidden in native shells.",
+  !footer.includes("SMARTLINK") && !footer.includes("showSmartLink"),
+  "The shared footer must not render a SmartLink.",
 );
 requireCondition(
   serviceWorkerRegister.includes("getServiceWorkerScriptUrl") &&

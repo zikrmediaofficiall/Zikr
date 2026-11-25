@@ -59,7 +59,7 @@ The internal website video catalog and `content_publish_queue` remain independen
 
 Monetag SmartLink placement is limited to approved general-audience website placements: the homepage promotional section, the dedicated About/Articles placements, and eligible general-public footer routes. The public video hub and individual video-detail routes do not render a SmartLink component; the shared footer is suppressed there. It is not shown in children's sections or sacred-text/worship-tool interfaces.
 
-Monetag links are not appended to YouTube or Facebook descriptions/captions; provider captions use the approved social metadata contract. See `docs/MONETAG_SMARTLINK_PLACEMENT.md` for website placement and verification details.
+Monetag links are not appended to YouTube or Facebook descriptions/captions; provider captions use the approved social metadata contract. The website SmartLink placement was removed.
 
 ## Admin Run Now
 

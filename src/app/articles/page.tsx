@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/site";
-import { SmartLinkPromo } from "@/components/smartlink-promo";
 import { Container } from "@/components/ui/container";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -129,8 +128,6 @@ export default async function ArticlesPage() {
           {isEnglish ? "Editorial and source standards" : "معايير التحرير والمصادر"}
         </Link>
       </Card>
-
-      <SmartLinkPromo compact />
 
     </Container>
   );

@@ -38,6 +38,21 @@ export async function setSourceVerifiedAction(formData: FormData) {
     body: JSON.stringify({ verified, updated_at: new Date().toISOString() }),
   });
 
+  // Content must always rest on a verified source: withdrawing verification takes
+  // everything published from this source offline (kept as drafts for re-review).
+  let withdrawn = 0;
+  if (!verified) {
+    const rows = await supabaseServerAdminRequest<Array<{ id: string }>>(
+      `/rest/v1/content_library?source_id=eq.${encodeURIComponent(id)}&published=eq.true`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ published: false, updated_at: new Date().toISOString() }),
+      },
+    );
+    withdrawn = rows?.length ?? 0;
+  }
+
   await runPostCommitAudit(
     () =>
       recordAdminAuditEvent({
@@ -45,8 +60,13 @@ export async function setSourceVerifiedAction(formData: FormData) {
         permission: "sources.manage",
         resourceType: "content_sources",
         resourceId: id,
+        metadata: verified ? undefined : { withdrawnContentCount: withdrawn },
       }),
     (error) => console.error("[admin/sources] audit event failed after committed mutation:", error),
   );
   revalidatePath("/admin/sources");
+  if (!verified) {
+    revalidatePath("/admin/editorial");
+    revalidatePath("/admin/library");
+  }
 }

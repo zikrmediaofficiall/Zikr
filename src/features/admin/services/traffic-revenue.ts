@@ -224,7 +224,7 @@ export type TrafficRevenueSnapshot = {
     ga4MeasurementConfigured: boolean;
     ga4ReportingConnected: boolean;
     monetagVerificationMetaPresent: true;
-    monetagSmartLinkConfigured: true;
+    monetagSmartLinkConfigured: false;
     monetagReportingConnected: false;
     youtubeAnalyticsConfigured: boolean;
     youtubeAnalyticsConnected: boolean;
@@ -486,7 +486,7 @@ export async function getTrafficRevenueSnapshot(): Promise<TrafficRevenueSnapsho
       ga4MeasurementConfigured: Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID),
       ga4ReportingConnected: ga4Analytics.status === "connected",
       monetagVerificationMetaPresent: true,
-      monetagSmartLinkConfigured: true,
+      monetagSmartLinkConfigured: false,
       monetagReportingConnected: false,
       youtubeAnalyticsConfigured: hasYoutubeAnalyticsCredentials,
       youtubeAnalyticsConnected: youtubeAnalytics.status === "connected",

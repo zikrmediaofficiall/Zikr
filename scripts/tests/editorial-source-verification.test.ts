@@ -15,4 +15,6 @@ const actions = readFileSync("src/app/admin/sources/actions.ts", "utf8");
 assert.ok(actions.includes('requireAdminStepUp("sources.manage"'), "step-up required");
 assert.ok(actions.includes("sourceVerificationProblem(source)"));
 assert.ok(actions.includes("runPostCommitAudit("));
+assert.ok(/content_library\?source_id=eq\.[^`]*&published=eq\.true/.test(actions), "unverify must withdraw published content from that source");
+assert.ok(actions.includes("published: false") && actions.includes("withdrawnContentCount"), "withdrawal must be audited");
 console.log("Source verification contracts passed.");
