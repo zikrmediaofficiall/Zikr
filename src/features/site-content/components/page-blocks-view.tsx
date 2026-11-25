@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { PageBlock } from "../pages/page-blocks";
 
@@ -28,9 +29,8 @@ export function PageBlocksView({ blocks }: { blocks: PageBlock[] }) {
               </ul>
             );
           case "image":
-            // Cloudinary only (validated). A plain img avoids adding image domains to the Next config.
-            // eslint-disable-next-line @next/next/no-img-element
-            return <img key={index} src={block.src} alt={block.alt} loading="lazy" className="w-full rounded-2xl" />;
+            // Cloudinary only (validated). Unoptimized so no image domains are added to the Next config.
+            return <Image key={index} src={block.src} alt={block.alt} width={1200} height={675} unoptimized className="h-auto w-full rounded-2xl" />;
           case "cta":
             return block.href.startsWith("/")
               ? <Link key={index} href={block.href} className="inline-block rounded-xl bg-brand-gold px-5 py-2.5 font-semibold text-black">{block.label}</Link>
