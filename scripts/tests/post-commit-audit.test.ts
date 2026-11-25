@@ -97,7 +97,7 @@ const postCommitActions = [
   ["src/app/admin/knowledge/actions.ts", 4],
   ["src/app/admin/release/actions.ts", 3],
   ["src/app/admin/seo/actions.ts", 1],
-  ["src/app/admin/system-actions.ts", 8],
+  ["src/app/admin/system-actions.ts", 9],
 ] as const;
 for (const [path, expectedCalls] of postCommitActions) {
   const source = readFileSync(path, "utf8");
@@ -107,6 +107,16 @@ for (const [path, expectedCalls] of postCommitActions) {
   assert.equal(source.includes("await recordAdminAuditEvent({"), false, `${path} must not leave an unguarded post-commit audit write`);
 }
 
+
+const systemActionsForRestore = readFileSync("src/app/admin/system-actions.ts", "utf8");
+const restoreActionStart = systemActionsForRestore.indexOf("export async function restoreAdminSettingVersionAction");
+const restoreActionEnd = systemActionsForRestore.indexOf("\nexport async function ", restoreActionStart + 1);
+const restoreSettingAction = systemActionsForRestore.slice(restoreActionStart, restoreActionEnd < 0 ? undefined : restoreActionEnd);
+assert.ok(
+  restoreSettingAction.includes('action: "admin.settings.restore"') &&
+    restoreSettingAction.includes("recordAdminAuditEventSafely("),
+  "settings rollback must be recorded through the best-effort post-commit audit wrapper",
+);
 
 const adminPagesVerifier = readFileSync("scripts/verify-admin-pages.mjs", "utf8");
 assert.ok(adminPagesVerifier.includes("'recordAdminAuditEventSafely({'"), "admin page verifier must accept best-effort post-commit audit wrappers");
