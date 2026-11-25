@@ -142,5 +142,16 @@ assert.match(schedulerSource, /promoSlot\.toISOString\(\)/);
 assert.match(schedulerSource, /contentText\(request\) === promoConcept\?\.narration/);
 assert.match(schedulerSource, /content\.ctaUrl === `\$\{siteUrl\(\)\}\$\{promoConcept\?\.ctaPath\}`/);
 assert.doesNotMatch(schedulerSource, /selectDailyPromotionalVideoSlots|PROMO_VIDEO_DAILY_TARGET/);
+const promoSeederStart = schedulerSource.indexOf("async function seedWeeklyPromotionalVideoRequests");
+const promoSeederEnd = schedulerSource.indexOf("export async function seedAutomatedVideoRequests", promoSeederStart);
+const promoSeederSource = schedulerSource.slice(promoSeederStart, promoSeederEnd);
+assert.ok(promoSeederStart >= 0 && promoSeederEnd > promoSeederStart);
+assert.ok(promoSeederSource.includes("target === 0 || dailyCapacity <= 0"));
+assert.ok(promoSeederSource.includes("created >= dailyCapacity || await isVideoGenerationPaused()"));
+assert.ok(schedulerSource.includes("const promoDailyCapacity = Math.max(0, Math.min(batchSize, dailyTarget - dailyQuota.reservedCount))"));
+assert.ok(schedulerSource.includes("seedWeeklyPromotionalVideoRequests(now, promoDailyCapacity)"));
+assert.ok(schedulerSource.includes("const alreadySeededToday = dailyQuota.reservedCount + promoCreated"));
+assert.ok(schedulerSource.includes("const remainingRunBatch = Math.max(0, batchSize - promoCreated)"));
+assert.ok(schedulerSource.includes("Math.min(3, remainingRunBatch, remainingDailyQuota"), "promo generation and standard generation must share both the daily cap and per-run batch");
 
 console.log("Weekly Cairo promo scheduling, UTC queue propagation, and source-locked Prophet-story review gates passed.");
