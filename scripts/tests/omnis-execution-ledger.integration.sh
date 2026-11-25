@@ -19,7 +19,10 @@ docker run --detach \
 
 ready=0
 for attempt in $(seq 1 40); do
-  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -d "$DB_NAME" >/dev/null 2>&1; then
+  # pg_isready can report that the server accepts connections while the
+  # POSTGRES_DB initialization is still creating the requested database.
+  # Require a real query against the exact test database before proceeding.
+  if docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$DB_NAME" -c "SELECT 1" >/dev/null 2>&1; then
     ready=1
     break
   fi
