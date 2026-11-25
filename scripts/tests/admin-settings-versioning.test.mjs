@@ -77,7 +77,7 @@ assert.ok(settingsPage.includes("AdminSettingVersionHistoryPanel"));
 assert.ok(automationPage.includes("getAdminSettingVersionHistory"));
 assert.ok(automationPage.includes("AdminSettingVersionHistoryPanel"));
 assert.ok(versionPanel.includes("restoreAdminSettingVersionAction"));
-assert.ok(versionPanel.includes("نسخة جديدة مرتبطة بالنسخة المستعادة"));
+assert.ok(versionPanel.includes("إصدارًا جديدًا مرتبطًا بالنسخة المستعادة"));
 
 assert.ok(supabaseTypes.includes("admin_setting_versions:"));
 assert.ok(supabaseTypes.includes("restore_admin_setting_version:"));
