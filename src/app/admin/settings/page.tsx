@@ -14,10 +14,15 @@ const BOOLEAN_SETTINGS = ADMIN_SETTING_REGISTRY.filter(
   (setting): setting is BooleanAdminSettingDefinition =>
     setting.editable && setting.category !== "video" && setting.valueType === "boolean",
 );
-const SEARCH_RESULT_LIMIT = getIntegerAdminSettingDefinition("search_result_limit");
-if (!SEARCH_RESULT_LIMIT) {
-  throw new Error("The search_result_limit registry definition is missing or invalid.");
+function requireSearchResultLimitDefinition() {
+  const definition = getIntegerAdminSettingDefinition("search_result_limit");
+  if (!definition) {
+    throw new Error("The search_result_limit registry definition is missing or invalid.");
+  }
+  return definition;
 }
+
+const SEARCH_RESULT_LIMIT = requireSearchResultLimitDefinition();
 
 export default async function AdminSettingsPage() {
   await requireAdminPermission("settings.manage");
