@@ -27,6 +27,8 @@ export type IntegerAdminSettingDefinition = EditableSettingBase & {
   minimum: number;
   maximum: number;
   runtimeFallback: number;
+  /** Initial value shown in the admin form when no persisted value exists. */
+  formFallback: number;
   missingValuePolicy: "documented-fallback";
 };
 
@@ -118,6 +120,7 @@ export const ADMIN_SETTING_REGISTRY = [
     minimum: 10,
     maximum: 100,
     runtimeFallback: 25,
+    formFallback: 40,
     missingValuePolicy: "documented-fallback",
     revalidatePaths: ["/admin/settings"],
   },
@@ -165,6 +168,7 @@ export const ADMIN_SETTING_REGISTRY = [
     minimum: 1,
     maximum: 10,
     runtimeFallback: 3,
+    formFallback: 10,
     missingValuePolicy: "documented-fallback",
     revalidatePaths: ["/admin/automation", "/admin/health"],
   },
@@ -197,6 +201,7 @@ export const ADMIN_SETTING_REGISTRY = [
     minimum: 1,
     maximum: 24,
     runtimeFallback: 3,
+    formFallback: 20,
     missingValuePolicy: "documented-fallback",
     revalidatePaths: ["/admin/automation", "/admin/health"],
   },
@@ -214,6 +219,7 @@ export const ADMIN_SETTING_REGISTRY = [
     minimum: 0,
     maximum: 4,
     runtimeFallback: 4,
+    formFallback: 4,
     missingValuePolicy: "documented-fallback",
     revalidatePaths: ["/admin/automation", "/admin/health"],
   },
@@ -231,6 +237,7 @@ export const ADMIN_SETTING_REGISTRY = [
     minimum: 10,
     maximum: 45,
     runtimeFallback: 25,
+    formFallback: 25,
     missingValuePolicy: "documented-fallback",
     revalidatePaths: ["/admin/automation", "/admin/health"],
   },
