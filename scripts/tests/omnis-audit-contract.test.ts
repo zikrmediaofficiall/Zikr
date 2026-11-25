@@ -61,5 +61,7 @@ assert.match(controlPlaneSource, /outcome: "denied"/);
 assert.match(controlPlaneSource, /outcome: "success"/);
 assert.match(controlPlaneSource, /authorized_not_executed/);
 assert.doesNotMatch(controlPlaneSource, /payload:\s*request\.payload/, "raw command payloads must never be written to audit metadata");
+assert.match(controlPlaneSource, /targetResourceFingerprint: auditResourceFingerprint/);
+assert.doesNotMatch(controlPlaneSource, /targetResourceId:\s*input\.requestedResourceId/, "raw resource identifiers must never be stored in audit metadata");
 
 console.log("OMNIS audit metadata and authorization audit contracts passed.");
