@@ -1,0 +1,686 @@
+{
+  "schema_version": 1,
+  "plan_id": "zikr-omnis-unified-platform-operating-system",
+  "title": "ZIKR OMNIS — Unified Platform Operating System",
+  "branch": "feat/zikr-omnis-control-plane-20261125",
+  "base_commit": "4282a74576d316f60e495f8f178279cab21c34fc",
+  "source_of_truth": {
+    "scope": "docs/OMNIS_EXECUTION_PLAN.md and this manifest",
+    "execution_state": "Supabase public.admin_omnis_execution_ledger",
+    "immutable_history": "Supabase public.admin_omnis_execution_events",
+    "rule": "Never recreate or repeat a task_key. Resume by selecting the earliest non-completed task in phase_order/task_order order."
+  },
+  "deduplication": {
+    "primary_key": "task_key",
+    "insert_policy": "ON CONFLICT (task_key) DO NOTHING",
+    "transition_policy": "Row-locking RPC; same-state updates are no-ops; every actual transition appends one event.",
+    "completion_requirement": [
+      "40-character commit SHA",
+      "non-empty test summary"
+    ]
+  },
+  "centers": [
+    {
+      "id": "global-command",
+      "title": "القيادة والتحكم الشامل",
+      "subtitle": "Executive Command",
+      "path": "/admin/omnis",
+      "status": "active",
+      "description": "الحالة التشغيلية والطوابير والتنبيهات والأوامر الآمنة."
+    },
+    {
+      "id": "project-explorer",
+      "title": "مستكشف المشروع",
+      "subtitle": "Project Explorer",
+      "path": null,
+      "status": "planned",
+      "description": "فهرسة كل صفحة ومكون وخدمة وجدول وواجهة وربط الاعتماديات."
+    },
+    {
+      "id": "universal-control",
+      "title": "التحكم الموحد",
+      "subtitle": "Universal Control",
+      "path": "/admin/omnis",
+      "status": "partial",
+      "description": "أوامر موحدة حسب صلاحية المورد ونوع العملية."
+    },
+    {
+      "id": "configuration-studio",
+      "title": "استوديو الإعدادات",
+      "subtitle": "Configuration Studio",
+      "path": "/admin/settings",
+      "status": "partial",
+      "description": "سجل إعدادات typed مع مالك ونطاق وتحقق وتاريخ نسخ."
+    },
+    {
+      "id": "website-experience",
+      "title": "استوديو تجربة الموقع",
+      "subtitle": "Website Experience",
+      "path": "/admin/sections",
+      "status": "partial",
+      "description": "إدارة الأقسام والصفحات والقوائم والثيمات والمعاينة."
+    },
+    {
+      "id": "component-builder",
+      "title": "منشئ الصفحات والمكونات",
+      "subtitle": "Page & Component Builder",
+      "path": null,
+      "status": "planned",
+      "description": "إنشاء مكونات وصفحات من قوالب قابلة لإعادة الاستخدام."
+    },
+    {
+      "id": "mobile-application",
+      "title": "مركز التطبيق",
+      "subtitle": "Mobile Application",
+      "path": "/admin/android",
+      "status": "partial",
+      "description": "إعدادات Android والإصدارات والتوقيع والروابط والإشعارات."
+    },
+    {
+      "id": "journey-analytics",
+      "title": "تحليل رحلة المستخدم",
+      "subtitle": "Journey Analytics",
+      "path": "/admin/analytics",
+      "status": "partial",
+      "description": "تتبع أحداث الاستخدام ومسارات التصفح بمقاييس خصوصية."
+    },
+    {
+      "id": "content-os",
+      "title": "نظام المحتوى",
+      "subtitle": "Universal Content OS",
+      "path": "/admin/content",
+      "status": "active",
+      "description": "إدارة المحتوى والمكتبة والتحرير والتصنيفات والجدولة."
+    },
+    {
+      "id": "knowledge-verification",
+      "title": "التحقق المعرفي",
+      "subtitle": "Knowledge Verification",
+      "path": "/admin/knowledge",
+      "status": "partial",
+      "description": "توثيق المصادر والتحقق والمراجعات العلمية."
+    },
+    {
+      "id": "ai-model-center",
+      "title": "مركز نماذج الذكاء الاصطناعي",
+      "subtitle": "AI Model Center",
+      "path": null,
+      "status": "planned",
+      "description": "توجيه النماذج والمزودين والبدائل والميزانية والحدود."
+    },
+    {
+      "id": "video-production",
+      "title": "مصنع الإنتاج المرئي",
+      "subtitle": "Video Production OS",
+      "path": "/admin/video",
+      "status": "active",
+      "description": "الطلبات والاستوديو والسكريبت والأصوات والقوالب والجودة."
+    },
+    {
+      "id": "media-assets",
+      "title": "إدارة الأصول",
+      "subtitle": "Media & Assets",
+      "path": "/admin/memory",
+      "status": "active",
+      "description": "مكتبة الوسائط والمراجع والاحتفاظ والتخزين."
+    },
+    {
+      "id": "audio-voice",
+      "title": "الصوت والراديو",
+      "subtitle": "Audio & Voice",
+      "path": "/admin/audio",
+      "status": "active",
+      "description": "التلاوات والأذان وTTS وصوت الموقع."
+    },
+    {
+      "id": "omnichannel-publishing",
+      "title": "النشر متعدد القنوات",
+      "subtitle": "Omnichannel Publishing",
+      "path": "/admin/social",
+      "status": "active",
+      "description": "الحسابات والجدولة والطوابير والمزامنة والتحليلات الاجتماعية."
+    },
+    {
+      "id": "growth-campaigns",
+      "title": "محرك النمو والحملات",
+      "subtitle": "Growth & Campaigns",
+      "path": "/admin/analytics",
+      "status": "partial",
+      "description": "قياس الحملات ومصادر الزيارات وأهداف النمو."
+    },
+    {
+      "id": "audience-intelligence",
+      "title": "ذكاء الجمهور",
+      "subtitle": "Audience Intelligence",
+      "path": "/admin/analytics",
+      "status": "partial",
+      "description": "تحليلات مجمعة للجمهور والأجهزة واللغة والاحتفاظ."
+    },
+    {
+      "id": "seo-search",
+      "title": "محرك SEO والبحث",
+      "subtitle": "SEO & Search",
+      "path": "/admin/seo",
+      "status": "active",
+      "description": "SEO والفهرسة والبيانات المنظمة والبحث الداخلي."
+    },
+    {
+      "id": "business-intelligence",
+      "title": "ذكاء الأعمال والتحليلات",
+      "subtitle": "Business Intelligence",
+      "path": "/admin/analytics",
+      "status": "active",
+      "description": "لوحات تحليلات قابلة للتخصيص موثقة المصدر."
+    },
+    {
+      "id": "monetization",
+      "title": "إدارة الإيرادات",
+      "subtitle": "Revenue & Monetization",
+      "path": "/admin/analytics",
+      "status": "partial",
+      "description": "AdSense والإيرادات الفعلية والتقديرية ومواضع الإعلانات."
+    },
+    {
+      "id": "identity-access",
+      "title": "الهوية والصلاحيات",
+      "subtitle": "Identity & Access",
+      "path": "/admin/users",
+      "status": "active",
+      "description": "المستخدمون والأدوار والجلسات والصلاحيات."
+    },
+    {
+      "id": "community",
+      "title": "المجتمع والإشراف",
+      "subtitle": "Community & Moderation",
+      "path": null,
+      "status": "planned",
+      "description": "التعليقات والبلاغات والمقترحات والإشراف."
+    },
+    {
+      "id": "notifications",
+      "title": "الإشعارات والرسائل",
+      "subtitle": "Notifications",
+      "path": "/admin/notifications",
+      "status": "active",
+      "description": "قنوات الإشعار والقوالب والجداول وحدود الإرسال."
+    },
+    {
+      "id": "kids-learning",
+      "title": "منظومة تعلم الأطفال",
+      "subtitle": "Kids Learning",
+      "path": "/admin/kids",
+      "status": "active",
+      "description": "محتوى الأطفال والألعاب والمستويات والأمان."
+    },
+    {
+      "id": "cloud-infrastructure",
+      "title": "البنية السحابية",
+      "subtitle": "Cloud Infrastructure",
+      "path": "/admin/health",
+      "status": "partial",
+      "description": "Vercel وSupabase وGitHub وCI وصحة الخدمات."
+    },
+    {
+      "id": "database-studio",
+      "title": "استوديو قاعدة البيانات",
+      "subtitle": "Database Studio",
+      "path": "/admin/health",
+      "status": "partial",
+      "description": "جرد الجداول وRLS والترحيلات والفهارس وصحة البيانات."
+    },
+    {
+      "id": "api-integrations",
+      "title": "استوديو التكاملات وAPI",
+      "subtitle": "API & Integrations",
+      "path": "/admin/health",
+      "status": "partial",
+      "description": "التكاملات وواجهات API والـ webhooks ومعدلات الفشل."
+    },
+    {
+      "id": "software-development",
+      "title": "مركز التطوير البرمجي",
+      "subtitle": "Software Development",
+      "path": "/admin/release",
+      "status": "partial",
+      "description": "الفروع والـ commits وPRs والاختبارات ومراجعات الكود."
+    },
+    {
+      "id": "release-deployment",
+      "title": "الإصدارات والنشر التقني",
+      "subtitle": "Release & Deployment",
+      "path": "/admin/release",
+      "status": "active",
+      "description": "Preview وProduction والإصدارات والتراجع."
+    },
+    {
+      "id": "security-recovery",
+      "title": "الأمن والنسخ والتعافي",
+      "subtitle": "Security & Recovery",
+      "path": "/admin/security",
+      "status": "partial",
+      "description": "الأمان وMFA وسجل التدقيق والنسخ والاستعادة."
+    }
+  ],
+  "phases": [
+    {
+      "phase_key": "P00",
+      "phase_order": 0,
+      "title": "الجرد والحوكمة وسجل التنفيذ",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P00-01",
+          "task_order": 0,
+          "title": "تثبيت خط أساس المشروع",
+          "description": "جرد GitHub وSupabase وVercel ومسارات الإدارة والصلاحيات والتكاملات الحالية.",
+          "initial_state": "completed"
+        },
+        {
+          "task_key": "OMNIS-P00-02",
+          "task_order": 1,
+          "title": "إنشاء سجل تنفيذ مانع للتكرار",
+          "description": "تأسيس سجل موحد للمراحل والمهام والأحداث مع مفاتيح ثابتة وانتقالات حالات آمنة.",
+          "initial_state": "in_progress"
+        },
+        {
+          "task_key": "OMNIS-P00-03",
+          "task_order": 2,
+          "title": "اعتماد عقد الحوكمة والملكية",
+          "description": "تحديد مالك كل وحدة ومصدر الحقيقة وصلاحيات كل عملية وبوابات قبولها.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P01",
+      "phase_order": 1,
+      "title": "طبقة التحكم المركزية Control Plane",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P01-01",
+          "task_order": 0,
+          "title": "توحيد واجهات الخدمات",
+          "description": "تعريف عقود قراءة وكتابة وتنفيذ موحدة مع صلاحيات خادمية.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P01-02",
+          "task_order": 1,
+          "title": "توحيد حالة الوحدات",
+          "description": "توحيد نموذج الحالة والتوافر والاعتماديات وتاريخ الفحص.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P01-03",
+          "task_order": 2,
+          "title": "ربط سجل التدقيق",
+          "description": "تسجيل كل تغيير إداري وربطه بالمستخدم والمورد والنتيجة.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P02",
+      "phase_order": 2,
+      "title": "سجل الإعدادات المركزي Configuration Registry",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P02-01",
+          "task_order": 0,
+          "title": "جرد إعدادات المشروع",
+          "description": "حصر إعدادات الموقع والتطبيق والمحتوى والذكاء الاصطناعي والنشر والبنية.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P02-02",
+          "task_order": 1,
+          "title": "تعريف أنواع الإعدادات والتحقق",
+          "description": "بناء Registry typed للقيم الافتراضية والنطاق والمالك والاعتماديات والتحقق.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P02-03",
+          "task_order": 2,
+          "title": "إدارة النسخ والتطبيق والتراجع",
+          "description": "تسجيل نسخ الإعدادات وتطبيقها عبر الخدمة المالكة مع معاينة واستعادة.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P03",
+      "phase_order": 3,
+      "title": "مركز القيادة والتحكم Global Command Center",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P03-01",
+          "task_order": 0,
+          "title": "لوحة الحالة التشغيلية",
+          "description": "عرض صحة الخدمات والطوابير والتكاملات والنشر بحالات موثقة المصدر.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P03-02",
+          "task_order": 1,
+          "title": "التنبيهات والحوادث",
+          "description": "توحيد درجات الخطورة والتنبيهات والحوادث ومسؤول المعالجة.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P03-03",
+          "task_order": 2,
+          "title": "الأوامر السريعة الآمنة",
+          "description": "إتاحة أوامر تشغيل وإيقاف وفحص مع تحقق صلاحية واعتماد وسجل.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P04",
+      "phase_order": 4,
+      "title": "مستكشف المشروع وخريطة الاعتماديات",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P04-01",
+          "task_order": 0,
+          "title": "فهرسة موارد المشروع",
+          "description": "فهرسة الصفحات والمكونات والخدمات والجداول وواجهات API والـ workflows.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P04-02",
+          "task_order": 1,
+          "title": "خريطة الاعتماديات",
+          "description": "ربط الموارد وإظهار التأثير المتسلسل لأي تغيير.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P04-03",
+          "task_order": 2,
+          "title": "تحليل التأثير قبل التعديل",
+          "description": "منع التغييرات غير محددة النطاق وإظهار الموارد والاختبارات المتأثرة.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P05",
+      "phase_order": 5,
+      "title": "استوديو الموقع والتطبيق",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P05-01",
+          "task_order": 0,
+          "title": "إدارة تجربة الموقع",
+          "description": "إدارة الصفحات والأقسام والقوائم والثيمات والظهور والمعاينة.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P05-02",
+          "task_order": 1,
+          "title": "منشئ الصفحات والمكونات",
+          "description": "إنشاء مكونات وصفحات قابلة لإعادة الاستخدام مع نسخ ومعاينة واختبارات.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P05-03",
+          "task_order": 2,
+          "title": "إدارة تطبيق Android",
+          "description": "إدارة الإعدادات والإصدارات والتوقيع والروابط والإشعارات وفحوص الجاهزية.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P06",
+      "phase_order": 6,
+      "title": "نظام المحتوى والمعرفة الإسلامية",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P06-01",
+          "task_order": 0,
+          "title": "توحيد إدارة المحتوى",
+          "description": "إدارة أنواع المحتوى والتصنيفات والمصادر والترجمات والنسخ والجدولة.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P06-02",
+          "task_order": 1,
+          "title": "التحقق والتوثيق",
+          "description": "قواعد تحقق مرجعية للنصوص القرآنية والأحاديث والمصادر والمراجعات.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P06-03",
+          "task_order": 2,
+          "title": "حوكمة التحرير والنشر",
+          "description": "مراحل مراجعة واعتماد ونشر وتراجع مع سجل تاريخي.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P07",
+      "phase_order": 7,
+      "title": "مركز الذكاء الاصطناعي والإنتاج",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P07-01",
+          "task_order": 0,
+          "title": "إدارة النماذج والمزودين",
+          "description": "إدارة المزود والنموذج والتوجيه والبدائل والحدود والميزانيات.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P07-02",
+          "task_order": 1,
+          "title": "مصنع الفيديو والصوت",
+          "description": "توحيد السكريبت والمشاهد والأصوات والرندر والقوالب والوسائط.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P07-03",
+          "task_order": 2,
+          "title": "بوابة الجودة والأصول",
+          "description": "تطبيق اختبارات المحتوى والوسائط والتصنيف والحقوق قبل التسليم للنشر.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P08",
+      "phase_order": 8,
+      "title": "النشر متعدد القنوات",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P08-01",
+          "task_order": 0,
+          "title": "توحيد الحسابات والقنوات",
+          "description": "إدارة OAuth والصلاحيات وحالة الاتصال لكل حساب ومنصة.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P08-02",
+          "task_order": 1,
+          "title": "إدارة الجدولة والطوابير",
+          "description": "جدولة مستقلة لكل قناة مع منع التكرار وإعادة المحاولة والعزل.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P08-03",
+          "task_order": 2,
+          "title": "التتبع والتحقق بعد النشر",
+          "description": "تسجيل معرف المنشور ورابطه ونتيجة التسليم ومؤشرات المزامنة.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P09",
+      "phase_order": 9,
+      "title": "التحليلات والنمو والإيرادات",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P09-01",
+          "task_order": 0,
+          "title": "طبقة بيانات التحليلات",
+          "description": "توحيد المقاييس والمصادر والفترات واكتمال البيانات وتاريخ تحديثها.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P09-02",
+          "task_order": 1,
+          "title": "تحليلات الجمهور والمحتوى",
+          "description": "تقارير الموقع والتطبيق والمحتوى والمنصات والجمهور بصورة تحترم الخصوصية.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P09-03",
+          "task_order": 2,
+          "title": "النمو والربح وSEO",
+          "description": "لوحات الحملات والإيرادات الفعلية والتقديرية والظهور والفهرسة.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P10",
+      "phase_order": 10,
+      "title": "محرك الأتمتة الشامل",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P10-01",
+          "task_order": 0,
+          "title": "مصمم تدفقات العمل",
+          "description": "بناء Triggers وConditions وActions وVerification من واجهة مرئية.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P10-02",
+          "task_order": 1,
+          "title": "موثوقية التنفيذ",
+          "description": "تطبيق Idempotency وRetries وTimeouts وRate Limits وDead Letter.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P10-03",
+          "task_order": 2,
+          "title": "اعتمادات وإيقاف واستعادة",
+          "description": "تطبيق Dry Run وموافقة بشرية وKill Switch ومسارات تعافٍ.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P11",
+      "phase_order": 11,
+      "title": "البنية التحتية والتطوير وDevOps",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P11-01",
+          "task_order": 0,
+          "title": "مركز الخدمات السحابية",
+          "description": "مراقبة Vercel وSupabase وGitHub وCI والتخزين والتكاملات.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P11-02",
+          "task_order": 1,
+          "title": "استوديو قاعدة البيانات وAPI",
+          "description": "جرد الجداول والترحيلات وRLS والفهارس والواجهات والـ webhooks.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P11-03",
+          "task_order": 2,
+          "title": "مركز تطوير الكود",
+          "description": "إدارة الفروع والـ commits وPRs والمراجعات والاختبارات والاعتماديات.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P12",
+      "phase_order": 12,
+      "title": "الأمن والحوكمة والاستمرارية",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P12-01",
+          "task_order": 0,
+          "title": "صلاحيات دقيقة وفصل الواجبات",
+          "description": "تطبيق RBAC/ABAC حسب الدور والمورد والعملية والبيئة والنطاق.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P12-02",
+          "task_order": 1,
+          "title": "مراقبة الأمان والأسرار",
+          "description": "فحص الأسرار والثغرات والجلسات وMFA وسجلات التدقيق دون كشف الأسرار.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P12-03",
+          "task_order": 2,
+          "title": "النسخ الاحتياطي والتعافي",
+          "description": "سياسات نسخ واستعادة مجربة وخطط حوادث وتراجع.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P13",
+      "phase_order": 13,
+      "title": "مساعد OMNIS الذكي",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P13-01",
+          "task_order": 0,
+          "title": "تأسيس وكلاء متخصصين",
+          "description": "تحديد وكلاء النظام والكود والبيانات والأمان والمحتوى والإنتاج والنمو.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P13-02",
+          "task_order": 1,
+          "title": "ربط الأدوات وسياق الموارد",
+          "description": "تقييد مصادر البيانات والأدوات والصلاحيات والميزانية لكل وكيل.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P13-03",
+          "task_order": 2,
+          "title": "تنسيق التحليل والإصلاح",
+          "description": "تعاون الوكلاء في تشخيص المشكلات وإعداد تغييرات قابلة للمراجعة.",
+          "initial_state": "pending"
+        }
+      ]
+    },
+    {
+      "phase_key": "P14",
+      "phase_order": 14,
+      "title": "التحقق الشامل والتدرج للإنتاج",
+      "tasks": [
+        {
+          "task_key": "OMNIS-P14-01",
+          "task_order": 0,
+          "title": "اختبارات العقود والتكامل",
+          "description": "اختبارات Unit وIntegration وE2E وRLS والصلاحيات وسيناريوهات الفشل.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P14-02",
+          "task_order": 1,
+          "title": "اختبار التحمل والاستعادة",
+          "description": "قياس الأداء والطوابير والتعافي والتراجع وحماية البيانات.",
+          "initial_state": "pending"
+        },
+        {
+          "task_key": "OMNIS-P14-03",
+          "task_order": 2,
+          "title": "إطلاق تدريجي وإغلاق موثق",
+          "description": "Preview ثم Staging ثم إنتاج بعد موافقات بوابات الإصدار وإغلاق الفجوات.",
+          "initial_state": "pending"
+        }
+      ]
+    }
+  ]
+}

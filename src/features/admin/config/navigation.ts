@@ -28,6 +28,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
     icon: "activity",
     items: [
       { href: "/admin", label: "لوحة التحكم", permission: "dashboard.view", icon: "layout-dashboard" },
+      { href: "/admin/omnis", label: "ZIKR OMNIS — القيادة والتحكم", permission: "dashboard.view", icon: "layout-dashboard" },
       { href: "/admin/queues", label: "مركز الطوابير", permission: "dashboard.view", icon: "list-checks" },
       { href: "/admin/automation", label: "التشغيل الآلي", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/health", label: "صحة النظام", permission: "system.manage", icon: "heart-pulse" },
