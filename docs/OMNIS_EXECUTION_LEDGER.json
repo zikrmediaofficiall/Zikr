@@ -300,7 +300,7 @@
           "task_order": 0,
           "title": "توحيد واجهات الخدمات",
           "description": "تعريف عقود قراءة وكتابة وتنفيذ موحدة مع صلاحيات خادمية.",
-          "initial_state": "pending"
+          "initial_state": "in_progress"
         },
         {
           "task_key": "OMNIS-P01-02",
@@ -710,6 +710,17 @@
         "module_ownership": "registry",
         "quality_gate": "success",
         "preview": "READY"
+      }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-003",
+      "task_key": "OMNIS-P01-01",
+      "state": "in_progress",
+      "recorded_at": "2026-11-25T05:17:17Z",
+      "evidence": {
+        "next_task_selection": "earliest non-completed task after P00",
+        "scope": "typed server-side control-plane contracts",
+        "status": "implementation started"
       }
     }
   ]
