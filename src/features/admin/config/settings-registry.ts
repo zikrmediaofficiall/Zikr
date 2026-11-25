@@ -62,7 +62,7 @@ export type AdminSettingDefinition =
  * Internal worker cursors, locks, operation snapshots and specialized JSON
  * settings are listed separately and are never writable through generic forms.
  */
-export const ADMIN_SETTING_REGISTRY = [
+export const ADMIN_SETTING_REGISTRY: readonly AdminSettingDefinition[] = [
   {
     editable: true,
     key: "require_mfa_for_destructive",
@@ -326,7 +326,7 @@ export const ADMIN_SETTING_REGISTRY = [
     valueType: "specialized-config",
     reason: "تستخدم مسار تحقق مخصصًا لحقول متعددة؛ يمنع قبول JSON عام أو تعديلها من نموذج مفتاح/قيمة.",
   },
-] as const satisfies readonly AdminSettingDefinition[];
+];
 
 export function getAdminSettingDefinition(key: string): AdminSettingDefinition | undefined {
   return ADMIN_SETTING_REGISTRY.find((definition) => definition.key === key);
@@ -337,6 +337,13 @@ export function getEditableAdminSettingDefinition(
 ): EditableAdminSettingDefinition | undefined {
   const definition = getAdminSettingDefinition(key);
   return definition?.editable ? definition : undefined;
+}
+
+export function getIntegerAdminSettingDefinition(
+  key: string,
+): IntegerAdminSettingDefinition | undefined {
+  const definition = getEditableAdminSettingDefinition(key);
+  return definition?.valueType === "integer" ? definition : undefined;
 }
 
 export type AdminSettingValidationResult =
