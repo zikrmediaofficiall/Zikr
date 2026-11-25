@@ -73,10 +73,6 @@ assert.equal(
   "2026-11-26T03:37:00.000Z",
   "Three off-slot manual videos must still exhaust the per-platform daily quota.",
 );
-const offSlot = (scheduled_at: string) => ({
-  ...occupied(scheduled_at),
-  target_platforms: ["youtube", "facebook_reels"],
-});
 assert.equal(canReserveVideoPublishAt({
   now,
   scheduledAt: "2026-11-25T15:00:00.000Z",
