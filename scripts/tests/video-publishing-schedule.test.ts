@@ -96,4 +96,41 @@ assert.equal(canReserveVideoPublishAt({
   targetPlatforms: ["youtube"],
 }), false, "a past campaign slot must never become an immediate post");
 assert.equal(resolveNextVideoPublishAt({ now, rows: [], targetPlatforms: ["tiktok"] }), null);
+const partialYoutubeSuccess = {
+  ...occupied("2026-11-24T12:22:00.000Z"),
+  status: "partial",
+  published_at: "2026-11-25T02:55:00.000Z",
+  completed_platforms: ["youtube"],
+};
+assert.equal(
+  resolveNextVideoPublishAt({
+    now,
+    rows: [partialYoutubeSuccess],
+    targetPlatforms: ["facebook_reels"],
+  }),
+  "2026-11-25T03:37:00.000Z",
+  "A confirmed YouTube result must not occupy the Facebook Reels slot for a partially delivered queue item.",
+);
+assert.equal(
+  resolveNextVideoPublishAt({
+    now,
+    rows: [partialYoutubeSuccess],
+    targetPlatforms: ["youtube"],
+  }),
+  "2026-11-25T12:22:00.000Z",
+  "A completed YouTube result must still consume YouTube's daily quota at its confirmed publish time.",
+);
+assert.equal(canReserveVideoPublishAt({
+  now,
+  scheduledAt: "2026-11-25T03:37:00.000Z",
+  rows: [partialYoutubeSuccess],
+  targetPlatforms: ["facebook_reels"],
+}), true, "Reels may use an open slot while YouTube's result is already confirmed");
+assert.equal(canReserveVideoPublishAt({
+  now,
+  scheduledAt: "2026-11-25T03:37:00.000Z",
+  rows: [partialYoutubeSuccess],
+  targetPlatforms: ["youtube"],
+}), false, "a confirmed YouTube result must retain its per-platform slot reservation");
+
 console.log("Cairo video publishing schedule tests passed.");
