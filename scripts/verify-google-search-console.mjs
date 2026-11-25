@@ -4,7 +4,7 @@ const failures = [];
 const layout = readFileSync('src/app/layout.tsx', 'utf8');
 const webAdvertisingRuntime = readFileSync('src/components/layout/web-advertising-runtime.tsx', 'utf8');
 const deferredAnalytics = readFileSync('src/components/layout/deferred-analytics.tsx', 'utf8');
-const nextConfig = readFileSync('next.config.ts', 'utf8');
+const nextConfig = readFileSync('next.config.ts', 'utf8') + readFileSync('src/lib/csp.ts', 'utf8');
 const approvedGaId = 'G-W30Z9JW0VF';
 const approvedGtmId = 'GTM-PVQCFKCB';
 const analytics = webAdvertisingRuntime.indexOf('id="google-analytics-src"');

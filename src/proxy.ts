@@ -3,6 +3,7 @@ import { createMiddlewareClient } from "@/lib/supabase/middleware";
 import { copyResponseCookies } from "@/lib/supabase/copy-response-cookies";
 import { getCanonicalAuthBaseUrl } from "@/lib/auth-enhanced";
 import { PRODUCTION_URL } from "@/lib/site";
+import { buildContentSecurityPolicy, createNonce } from "@/lib/csp";
 
 const PROTECTED_PREFIXES = ["/profile", "/favorites", "/admin", "/wird", "/memorization"];
 
@@ -27,10 +28,20 @@ function redirectToLogin(request: NextRequest, response: NextResponse) {
   return copyResponseCookies(response, NextResponse.redirect(loginUrl));
 }
 
+function withCsp(headers: Headers, nonce: string) {
+  const csp = buildContentSecurityPolicy(nonce);
+  headers.set("x-nonce", nonce);
+  headers.set("content-security-policy", csp);
+  return csp;
+}
+
 function nextWithPathHeader(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.set("x-zikr-pathname", request.nextUrl.pathname);
-  return NextResponse.next({ request: { headers } });
+  const csp = withCsp(headers, createNonce());
+  const response = NextResponse.next({ request: { headers } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
 }
 
 export async function proxy(request: NextRequest) {
@@ -70,7 +81,9 @@ export async function proxy(request: NextRequest) {
   // any Set-Cookie headers Supabase writes are preserved on this response.
   const headers = new Headers(request.headers);
   headers.set("x-zikr-pathname", pathname);
+  const csp = withCsp(headers, createNonce());
   const response = NextResponse.next({ request: { headers } });
+  response.headers.set("Content-Security-Policy", csp);
   const { supabase, configured } = createMiddlewareClient(request, response);
 
   if (!configured || !supabase) {

@@ -170,7 +170,7 @@ const audioLibrary = readFileSync("src/components/audio/audio-library.tsx", "utf
 if (!audioLibrary.includes('preload="metadata"')) failures.push("audio library must load metadata so duration can be discovered");
 if (!audioLibrary.includes("failedAssets[asset.id]")) failures.push("audio library must visibly report failed media sources");
 
-const nextConfig = readFileSync("next.config.ts", "utf8");
+const nextConfig = readFileSync("next.config.ts", "utf8") + readFileSync("src/lib/csp.ts", "utf8");
 if (!nextConfig.includes("media-src") || !nextConfig.includes("https://res.cloudinary.com")) {
   failures.push("Content Security Policy must allow the official Cloudinary host for curated audio/media");
 }
