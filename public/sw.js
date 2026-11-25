@@ -1,27 +1,11 @@
-// Keep the website's Monetag service-worker integration out of the native
-// Capacitor worker. The app registers this same file with ?native=1 so its
-// offline cache and notification handlers remain available without ad code.
+// The app registers this same file with ?native=1 so its offline cache and
+// notification handlers remain available without ad code.
 const serviceWorkerLocation = new URL(self.location.href);
 const isNativeCapacitorWorker =
   serviceWorkerLocation.searchParams.get("native") === "1";
-const isCanonicalMonetagWorker =
+const isCanonicalWebWorker =
   !isNativeCapacitorWorker &&
-  serviceWorkerLocation.searchParams.get("monetag") === "1" &&
   serviceWorkerLocation.origin === "https://zikrmediaofficial.vercel.app";
-
-if (isCanonicalMonetagWorker) {
-  self.options = {
-    "domain": "5gvci.com",
-    "zoneId": 12171818
-  };
-  self.lary = "";
-  try {
-    importScripts('https://5gvci.com/act/files/service-worker.min.js?r=sw');
-  } catch (error) {
-    // Third-party advertising must never prevent the core offline worker from installing.
-    console.warn("[SW] Monetag service-worker integration unavailable:", error);
-  }
-}
 
 // The helper rejects stale "today" responses when Cache Storage is used offline.
 importScripts("/sw-prayer-times-cache.js");
@@ -47,7 +31,7 @@ const PUBLIC_CONTENT_API_PREFIXES = [
 ];
 
 async function purgeDisabledAdvertisingMarkup() {
-  if (isCanonicalMonetagWorker) return;
+  if (isCanonicalWebWorker) return;
 
   const cache = await caches.open(CACHE_NAME);
   const requests = await cache.keys();

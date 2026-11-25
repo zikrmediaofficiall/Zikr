@@ -5,9 +5,6 @@ import Script from "next/script";
 import { Capacitor } from "@capacitor/core";
 import { PRODUCTION_URL } from "@/lib/site";
 
-const MONETAG_VERIFICATION = "8dc00be3e026b336f3aa64f60373941e";
-const MONETAG_PRIMARY_ZONE = "12171820";
-const MONETAG_SECONDARY_ZONE = "12171818";
 const GOOGLE_TAG_MANAGER_ID =
   process.env.NEXT_PUBLIC_GTM_ID || "GTM-PVQCFKCB";
 const GOOGLE_ANALYTICS_ID =
@@ -112,14 +109,6 @@ export function WebAdvertisingRuntime() {
     installConsentModeDefaults();
     setCanonicalWebRuntime(true);
 
-    const monetagMeta = document.querySelector('meta[name="monetag"]');
-    if (!monetagMeta) {
-      const meta = document.createElement("meta");
-      meta.name = "monetag";
-      meta.content = MONETAG_VERIFICATION;
-      document.head.appendChild(meta);
-    }
-
     const adsenseMeta = document.querySelector(
       'meta[name="google-adsense-account"]',
     );
@@ -129,21 +118,6 @@ export function WebAdvertisingRuntime() {
       meta.content = GOOGLE_ADSENSE_CLIENT;
       document.head.appendChild(meta);
     }
-
-    if (!document.getElementById("zikr-monetag-primary")) {
-      const primary = document.createElement("script");
-      primary.id = "zikr-monetag-primary";
-      primary.dataset.zone = MONETAG_PRIMARY_ZONE;
-      primary.src = "https://al5sm.com/tag.min.js";
-      primary.async = true;
-      document.head.appendChild(primary);
-    }
-
-    appendScript(
-      "zikr-monetag-secondary",
-      `https://5gvci.com/act/files/tag.min.js?z=${MONETAG_SECONDARY_ZONE}`,
-      { cfasync: false },
-    );
 
     appendScript(
       "google-funding-choices",

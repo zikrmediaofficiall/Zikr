@@ -274,12 +274,10 @@ requireText('src/components/layout/service-worker-register.tsx', [
 ]);
 requireText('src/lib/ads/runtime-policy.ts', [
   '"/sw.js?native=1"',
-  '"/sw.js?monetag=1"',
   '"/sw.js"',
 ]);
 requireText('public/sw.js', [
   'searchParams.get("native") === "1"',
-  'searchParams.get("monetag") === "1"',
   'serviceWorkerLocation.origin === "https://zikrmediaofficial.vercel.app"',
 ]);
 requireText('src/app/layout.tsx', ['OfflineNavigationGuard']);

@@ -22,7 +22,7 @@ assert.equal(
     origin: productionOrigin,
     productionUrl: PRODUCTION_URL,
   }),
-  "/sw.js?monetag=1",
+  "/sw.js",
 );
 assert.equal(
   getServiceWorkerScriptUrl({
@@ -70,7 +70,7 @@ assert.equal(
 
 const worker = readFileSync("public/sw.js", "utf8");
 assert.ok(worker.includes('searchParams.get("native") === "1"'));
-assert.ok(worker.includes('searchParams.get("monetag") === "1"'));
+assert.ok(!worker.includes("monetag=1") && !worker.includes("importScripts('https://5gvci.com"));
 assert.ok(
   worker.includes('serviceWorkerLocation.origin === "https://zikrmediaofficial.vercel.app"'),
   "the worker must enforce the exact canonical HTTPS origin, including its port",
@@ -79,16 +79,7 @@ assert.ok(
   !worker.includes('serviceWorkerLocation.hostname.toLowerCase() === "zikrmediaofficial.vercel.app"'),
   "hostname-only checks must not re-enable advertising on alternate origins",
 );
-const guardIndex = worker.indexOf("if (isCanonicalMonetagWorker)");
-const importIndex = worker.indexOf(
-  "importScripts('https://5gvci.com/act/files/service-worker.min.js?r=sw')",
-);
-const importTryIndex = worker.lastIndexOf("try {", importIndex);
-const importCatchIndex = worker.indexOf("} catch", importIndex);
-assert.ok(guardIndex >= 0 && guardIndex < importIndex);
-assert.ok(importTryIndex >= 0 && importTryIndex < importIndex);
-assert.ok(importCatchIndex > importIndex);
-assert.ok(worker.includes("if (isCanonicalMonetagWorker) return;"));
+assert.ok(worker.includes("if (isCanonicalWebWorker) return;"));
 assert.ok(worker.includes("await purgeDisabledAdvertisingMarkup()"));
 
 const register = readFileSync("src/components/layout/service-worker-register.tsx", "utf8");
@@ -156,14 +147,13 @@ assert.ok(
 const nativeGuardIndex = webAdsRuntime.indexOf("if (Capacitor.isNativePlatform())");
 const canonicalGuardIndex = webAdsRuntime.indexOf("if (!isCanonicalProductionOrigin())");
 const consentDefaultIndex = webAdsRuntime.indexOf("installConsentModeDefaults();");
-const monetagInjectionIndex = webAdsRuntime.indexOf("document.head.appendChild(primary)");
+assert.ok(!webAdsRuntime.includes("tag.min.js"), "third-party Monetag tags must not be injected");
 const fundingChoicesIndex = webAdsRuntime.indexOf('"google-funding-choices"');
 const tagManagerIndex = webAdsRuntime.indexOf('"google-tag-manager"');
 assert.ok(
   nativeGuardIndex >= 0 &&
     canonicalGuardIndex > nativeGuardIndex &&
     consentDefaultIndex > canonicalGuardIndex &&
-    consentDefaultIndex < monetagInjectionIndex &&
     consentDefaultIndex < fundingChoicesIndex &&
     consentDefaultIndex < tagManagerIndex,
   "Consent Mode defaults must be installed only after native and canonical-origin guards, before any web ad/analytics tags",

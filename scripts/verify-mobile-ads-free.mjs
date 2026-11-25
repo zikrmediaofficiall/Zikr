@@ -61,25 +61,15 @@ requireCondition(
     serviceWorkerRegister.includes("PRODUCTION_URL") &&
     serviceWorkerRegister.includes("window.location.origin") &&
     runtimePolicy.includes('return "/sw.js?native=1"') &&
-    runtimePolicy.includes('return "/sw.js?monetag=1"') &&
     runtimePolicy.includes('return "/sw.js"') &&
-    runtimePolicy.includes("currentUrl.origin === productionUrl.origin"),
+    !runtimePolicy.includes("monetag"),
   "Native, canonical production, and preview workers must use distinct script URLs.",
 );
-const monetagImportIndex = serviceWorker.indexOf(
-  "importScripts('https://5gvci.com/act/files/service-worker.min.js?r=sw')",
-);
-const monetagImportTryIndex = serviceWorker.lastIndexOf("try {", monetagImportIndex);
-const monetagImportCatchIndex = serviceWorker.indexOf("} catch", monetagImportIndex);
 requireCondition(
   serviceWorker.includes('searchParams.get("native") === "1"') &&
-    serviceWorker.includes('searchParams.get("monetag") === "1"') &&
     serviceWorker.includes('serviceWorkerLocation.origin === "https://zikrmediaofficial.vercel.app"') &&
-    serviceWorker.includes("if (isCanonicalMonetagWorker)") &&
-    monetagImportTryIndex >= 0 &&
-    monetagImportTryIndex < monetagImportIndex &&
-    monetagImportCatchIndex > monetagImportIndex,
-  "Monetag service-worker import must be canonical-production-only and non-fatal when the third party is unavailable.",
+    !serviceWorker.includes("importScripts('https://5gvci.com"),
+  "The service worker must not import third-party Monetag code.",
 );
 requireCondition(
   serviceWorker.includes("async function purgeDisabledAdvertisingMarkup()") &&
