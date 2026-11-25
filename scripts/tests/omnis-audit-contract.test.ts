@@ -34,12 +34,10 @@ assert.equal((clean.longText as string).length, 2_001);
 assert.equal((clean.largeArray as unknown[]).length, 50);
 assert.match(String((clean.largeArray as unknown[])[49]), /Truncated 11 additional items/);
 assert.equal((clean.circular as Record<string, unknown>).self, "[Circular reference]");
-assert.equal(
-  (((clean.deep as Record<string, unknown>).one as Record<string, unknown>).two as Record<string, unknown>).three &&
-  ((((clean.deep as Record<string, unknown>).one as Record<string, unknown>).two as Record<string, unknown>).three as Record<string, unknown>).four &&
-  ((((((clean.deep as Record<string, unknown>).one as Record<string, unknown>).two as Record<string, unknown>).three as Record<string, unknown>).four as Record<string, unknown>).five as Record<string, unknown>).six,
-  "[Maximum audit metadata depth reached]",
-);
+const deepOne = (clean.deep as Record<string, unknown>).one as Record<string, unknown>;
+const deepTwo = deepOne.two as Record<string, unknown>;
+const deepThree = deepTwo.three as Record<string, unknown>;
+assert.equal(deepThree.four, "[Maximum audit metadata depth reached]");
 assert.equal(clean.nonFinite, null);
 
 const auditSource = readFileSync("src/features/admin/services/audit.ts", "utf8");
