@@ -43,7 +43,10 @@ assert(
 );
 assert(
   queue.includes("const dailyQuota = calculateDailyVideoQuotaState(todaysRows);") &&
-    queue.includes("const todaysRows = [...new Map(") &&
+    queue.includes("resolveZonedDailyVideoQuotaWindow(now, quotaTimeZone)") &&
+    queue.includes("created_at=gte.${quotaDayStartIso}&created_at=lt.${quotaNextDayStartIso}") &&
+    queue.includes("startsWith(\"layl-weekly:\")") &&
+    queue.includes("const quotaInventoryRows = [...new Map(") &&
     queue.includes("automation_key=like.promo-*") &&
     queue.includes("created_at=gte.") &&
     queue.includes("if ((dailyRows ?? []).length >= 1000"),
