@@ -23,7 +23,7 @@ export type YoutubeAnalyticsSnapshot = {
   likes: number | null;
   comments: number | null;
   shares: number | null;
-  trafficSources: Array<{ source: string; views: number; watchMinutes: number }> | null;
+  trafficSources: Array<{ source: string; views: number | null; watchMinutes: number | null }> | null;
   capturedAt: string | null;
 };
 
