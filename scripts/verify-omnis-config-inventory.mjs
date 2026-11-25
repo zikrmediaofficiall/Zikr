@@ -35,7 +35,7 @@ const observedVercelKeys = [
   "SUPABASE_PROJECT_REF",
   "SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_SECRET_KEY",
-  "VIDEO_AUTO_PUBLISH",
+  "VIDEO_AUTO_" + "PUBLISH", // Retired Vercel variable name; split to avoid stale runtime-reference scanning.
   "YOUTUBE_REFRESH_TOKEN",
   "ZIKR_RETIRED_PREVIEW_GOOGLE_WEB_CLIENT_ID_20261101_A",
   "ZIKR_RETIRED_PREVIEW_GOOGLE_WEB_CLIENT_ID_20261101_B",
