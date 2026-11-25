@@ -85,13 +85,30 @@ class SameOriginRedirectHandler(HTTPRedirectHandler):
         return super().redirect_request(request, file_pointer, code, message, headers, new_url)
 
 
+VIDEO_FILE_EXTENSIONS = {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi"}
+
+
+def _is_video_file_reference(candidate, mime_type=None):
+    if not isinstance(candidate, str) or not candidate.strip():
+        return False
+    if isinstance(mime_type, str) and mime_type.lower().split(";", 1)[0].strip().startswith("video/"):
+        return True
+    value = candidate.strip()
+    try:
+        parsed = urlsplit(value)
+        path = parsed.path if parsed.scheme else value.split("?", 1)[0].split("#", 1)[0]
+        return Path(path).suffix.lower() in VIDEO_FILE_EXTENSIONS
+    except (TypeError, ValueError):
+        return False
+
+
 def extract_file_value(value, depth=0):
-    """Find a video file URL/path inside current and legacy Gradio result shapes."""
+    """Find an actual video file reference in nested Gradio FileData/Video responses."""
     if depth > 8 or value is None:
         return None
     if isinstance(value, str):
         candidate = value.strip()
-        return candidate or None
+        return candidate if _is_video_file_reference(candidate) else None
     if isinstance(value, (list, tuple)):
         for item in value:
             candidate = extract_file_value(item, depth + 1)
@@ -99,14 +116,30 @@ def extract_file_value(value, depth=0):
                 return candidate
         return None
     if isinstance(value, dict):
-        for key in ("url", "path", "file", "name", "video", "data", "output", "result"):
-            if key not in value:
-                continue
+        mime_type = value.get("mime_type") or value.get("mimeType")
+        # Explicit file fields are preferred. MIME metadata can identify signed or
+        # extension-less Gradio file URLs, but is not inherited by arbitrary text.
+        for key in ("url", "path", "file", "name"):
+            candidate_value = value.get(key)
+            if isinstance(candidate_value, str) and _is_video_file_reference(candidate_value, mime_type):
+                return candidate_value.strip()
+            candidate = extract_file_value(candidate_value, depth + 1)
+            if candidate:
+                return candidate
+        for key in ("video", "data", "output", "result"):
             candidate = extract_file_value(value.get(key), depth + 1)
             if candidate:
                 return candidate
         return None
-    for key in ("url", "path", "file", "name", "video", "data", "output", "result"):
+    mime_type = getattr(value, "mime_type", None) or getattr(value, "mimeType", None)
+    for key in ("url", "path", "file", "name"):
+        candidate_value = getattr(value, key, None)
+        if isinstance(candidate_value, str) and _is_video_file_reference(candidate_value, mime_type):
+            return candidate_value.strip()
+        candidate = extract_file_value(candidate_value, depth + 1)
+        if candidate:
+            return candidate
+    for key in ("video", "data", "output", "result"):
         candidate = extract_file_value(getattr(value, key, None), depth + 1)
         if candidate:
             return candidate
