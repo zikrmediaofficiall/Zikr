@@ -67,6 +67,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS admin_setting_versions_one_baseline_idx
   WHERE operation = 'baseline';
 
 ALTER TABLE public.admin_setting_versions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS admin_setting_versions_client_deny ON public.admin_setting_versions;
+CREATE POLICY admin_setting_versions_client_deny
+  ON public.admin_setting_versions
+  FOR ALL TO anon, authenticated
+  USING (false)
+  WITH CHECK (false);
 REVOKE ALL ON public.admin_setting_versions FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.admin_setting_versions TO service_role;
 

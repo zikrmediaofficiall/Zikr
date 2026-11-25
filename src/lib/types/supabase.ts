@@ -51,7 +51,7 @@ export type Database = {
             referencedColumns: ["id"]
           }
         ]
-      }
+      },
       admin_audit_events: {
         Row: {
           action: string

@@ -11,12 +11,6 @@ const settingsPage = read("src/app/admin/settings/page.tsx");
 const automationPage = read("src/app/admin/automation/page.tsx");
 const supabaseTypes = read("src/lib/types/supabase.ts");
 
-const settingKeys = [...registry.matchAll(/key: "([^"]+)"/g)].map((match) => match[1]);
-const editableKeys = settingKeys.filter((key) => {
-  const escaped = key.replace(/[.*+?^\x24{}()|[\]\\]/g, "\\$&");
-  const entry = registry.match(new RegExp(`editable: true,[\\s\\S]*?key: "${escaped}"[\\s\\S]*?\\n  },`));
-  return Boolean(entry);
-});
 const expectedEditableKeys = [
   "require_mfa_for_destructive",
   "maintenance_mode",
@@ -48,6 +42,7 @@ for (const internalKey of [
 
 assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.admin_setting_versions/);
 assert.match(migration, /ENABLE ROW LEVEL SECURITY/);
+assert.match(migration, /admin_setting_versions_client_deny[\\s\\S]*?USING \\(false\\)[\\s\\S]*?WITH CHECK \\(false\\)/);
 assert.match(migration, /REVOKE ALL ON public\.admin_setting_versions FROM PUBLIC, anon, authenticated/);
 assert.match(migration, /GRANT ALL ON public\.admin_setting_versions TO service_role/);
 assert.match(migration, /BEFORE UPDATE OR DELETE ON public\.admin_setting_versions/);

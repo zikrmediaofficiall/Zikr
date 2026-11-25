@@ -93,6 +93,7 @@ export async function saveVideoAutomationSettingAction(formData: FormData) {
 }
 
 export async function restoreAdminSettingVersionAction(formData: FormData) {
+  await requireAdminPermission("admin.access");
   const versionId = formValue(formData, "versionId");
   const version = await getAdminSettingVersionById(versionId);
   if (!version) throw new Error("نسخة الإعداد غير موجودة أو غير صالحة.");
