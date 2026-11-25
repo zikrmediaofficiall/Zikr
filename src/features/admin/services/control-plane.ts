@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { getCurrentProfile } from "@/features/admin/services/admin";
 import { recordAdminAuditEvent } from "@/features/admin/services/audit";
 import { hasAdminPermission, type AdminRole } from "@/features/admin/services/permissions";
@@ -129,6 +131,10 @@ function auditSafeToken(value: unknown): string | null {
   return typeof value === "string" && RESOURCE_ID.test(value) ? value : null;
 }
 
+function auditResourceFingerprint(value: string | null): string | null {
+  return value ? createHash("sha256").update(value).digest("hex") : null;
+}
+
 /**
  * Audits an interactive authorization decision, never the passive health probes
  * or the request payload. A failed audit write fails closed: no authorization
@@ -163,7 +169,7 @@ async function auditControlPlaneDecision(input: {
       risk: command?.risk ?? null,
       resourceScope: input.requestedScope,
       targetResourceType: input.requestedResourceType,
-      targetResourceId: input.requestedResourceId,
+      targetResourceFingerprint: auditResourceFingerprint(input.requestedResourceId),
       mutates: command?.mutates ?? null,
       stepUpRequired: command?.requiresStepUp ?? null,
       adapter: command?.adapter ?? null,
