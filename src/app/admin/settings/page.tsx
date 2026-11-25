@@ -6,7 +6,7 @@ import { requireAdminPermission } from "@/features/admin/services/admin";
 import { getAdminSettings } from "@/features/admin/services/platform";
 import { saveAdminSettingAction } from "@/app/admin/system-actions";
 import { resolveDestructiveMfaRequirement } from "@/features/admin/services/security-policy";
-import { ADMIN_SETTING_REGISTRY, getEditableAdminSettingDefinition, type BooleanAdminSettingDefinition } from "@/features/admin/config/settings-registry";
+import { ADMIN_SETTING_REGISTRY, getIntegerAdminSettingDefinition, type BooleanAdminSettingDefinition } from "@/features/admin/config/settings-registry";
 
 export const metadata: Metadata = { title: "إعدادات الإدارة | الأدمن" };
 
@@ -14,8 +14,8 @@ const BOOLEAN_SETTINGS = ADMIN_SETTING_REGISTRY.filter(
   (setting): setting is BooleanAdminSettingDefinition =>
     setting.editable && setting.category !== "video" && setting.valueType === "boolean",
 );
-const SEARCH_RESULT_LIMIT = getEditableAdminSettingDefinition("search_result_limit");
-if (!SEARCH_RESULT_LIMIT || SEARCH_RESULT_LIMIT.valueType !== "integer") {
+const SEARCH_RESULT_LIMIT = getIntegerAdminSettingDefinition("search_result_limit");
+if (!SEARCH_RESULT_LIMIT) {
   throw new Error("The search_result_limit registry definition is missing or invalid.");
 }
 
