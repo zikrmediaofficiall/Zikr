@@ -12,7 +12,7 @@ const systemActions = read("src/app/admin/system-actions.ts");
 const adminSettingsPage = read("src/app/admin/settings/page.tsx");
 const automationPage = read("src/app/admin/automation/page.tsx");
 
-assert.match(systemActions, /validateAdminSettingValue\\(key, rawValue\\)/, "server actions must validate through the registry");
+assert.ok(systemActions.includes("validateAdminSettingValue(key, rawValue)"), "server actions must validate through the registry");
 assert.match(adminSettingsPage, /ADMIN_SETTING_REGISTRY/, "the admin settings form must render from the registry");
 assert.match(automationPage, /ADMIN_SETTING_REGISTRY/, "the video automation form must render from the registry");
 assert.ok(!systemActions.includes("const allowedSettings = new Set"), "legacy hand-maintained setting allow-lists must be removed");
