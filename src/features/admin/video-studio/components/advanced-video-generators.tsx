@@ -213,7 +213,9 @@ const HADY_PARTS = [
 
 function HadyGenerator() {
   const [theme, setTheme] = useState<string>(SEASON_ONE[0]?.theme ?? "patience");
-  const [sourceCategory, setSourceCategory] = useState<"hadith" | "story">("hadith");
+  const [sourceCategory, setSourceCategory] = useState<"quran" | "hadith" | "story">("quran");
+  const [surahId, setSurahId] = useState("21");
+  const [ayahNumber, setAyahNumber] = useState("83");
   const [sources, setSources] = useState<SourceOption[]>([]);
   const [sourceId, setSourceId] = useState("");
   const [loadingSources, setLoadingSources] = useState(false);
@@ -223,7 +225,11 @@ function HadyGenerator() {
   const [status, setStatus] = useState(blankStatus);
   useEffect(() => {
     const controller = new AbortController();
-    setLoadingSources(true); setSourceId("");
+    setLoadingSources(true); setSourceId(""); setSources([]);
+    if (sourceCategory === "quran") {
+      setLoadingSources(false);
+      return () => controller.abort();
+    }
     void fetch("/api/admin/video-generation/sources?category=" + sourceCategory, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
@@ -236,16 +242,46 @@ function HadyGenerator() {
   }, [sourceCategory]);
   const selectedSource = sources.find((entry) => entry.id === sourceId);
   const ready = reviewed && Boolean(selectedSource) && title.trim().length >= 3 && HADY_PARTS.every((part) => parts[part.id]?.trim());
+
+  async function loadQuranSource() {
+    const surah = Number(surahId);
+    const ayah = Number(ayahNumber);
+    if (!Number.isInteger(surah) || surah < 1 || surah > 114 || !Number.isInteger(ayah) || ayah < 1 || ayah > 286) {
+      setStatus({ loading: false, error: "أدخل رقم سورة من 1 إلى 114 ورقم آية صحيحًا.", message: "" });
+      return;
+    }
+    setLoadingSources(true);
+    setStatus(blankStatus);
+    try {
+      const query = new URLSearchParams({ category: "quran", surahId: String(surah), ayahNumber: String(ayah) });
+      const response = await fetch("/api/admin/video-generation/sources?" + query.toString(), { cache: "no-store" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.source) throw new Error(body.error || "تعذر تحميل الآية من المصحف المعتمد.");
+      setSources([body.source as SourceOption]);
+      setSourceId(String(body.source.id));
+    } catch (error) {
+      setStatus({ loading: false, error: error instanceof Error ? error.message : "تعذر تحميل الآية.", message: "" });
+    } finally {
+      setLoadingSources(false);
+    }
+  }
   async function create() {
     if (!selectedSource) return;
-    const narration = HADY_PARTS.map((part) => parts[part.id] ?? "").join("\n\n");
+    const normalizedParts = { ...parts };
+    if (!normalizedParts.hook.trim().startsWith(HADY_SHOW.signature.openingAr)) {
+      normalizedParts.hook = HADY_SHOW.signature.openingAr + " " + normalizedParts.hook.trim();
+    }
+    if (!normalizedParts.closing.trim().endsWith(HADY_SHOW.signature.closingAr)) {
+      normalizedParts.closing = normalizedParts.closing.trim() + " " + HADY_SHOW.signature.closingAr;
+    }
+    const narration = HADY_PARTS.map((part) => normalizedParts[part.id] ?? "").join("\n\n");
     await submitRequest({
       title, description: "حلقة من برنامج " + HADY_SHOW.titleAr + " — نص مصري ومصدر منشور موثق.",
       category: "other", narration,
       content: {
         renderer: "template", workflow: "hady-program", humanReviewed: reviewed,
         theme, week: SEASON_ONE.find((item) => item.theme === theme)?.week ?? 1,
-        sourceCategory, sourceId, segments: HADY_PARTS.map((part) => ({ id: part.id, text: parts[part.id] ?? "" })),
+        sourceCategory, sourceId, segments: HADY_PARTS.map((part) => ({ id: part.id, text: normalizedParts[part.id] ?? "" })),
         videoFormat: "vertical", resolution: "1080x1920", language: "ar",
       },
     }, setStatus);
@@ -263,19 +299,29 @@ function HadyGenerator() {
         <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={180} className={inputClass}/>
       </label>
       <label className="block text-sm text-brand-cream/70">نوع المصدر
-        <select value={sourceCategory} onChange={(event) => setSourceCategory(event.target.value as "hadith" | "story")} className={inputClass}>
-          <option value="hadith">حديث منشور</option><option value="story">قصة أو سيرة منشورة</option>
+        <select value={sourceCategory} onChange={(event) => setSourceCategory(event.target.value as "quran" | "hadith" | "story")} className={inputClass}>
+          <option value="quran">آية من المصحف المعتمد</option><option value="hadith">حديث منشور</option><option value="story">قصة أو سيرة منشورة</option>
         </select>
       </label>
       <label className="block text-sm text-brand-cream/70">المصدر
-        <select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={loadingSources || !sources.length} className={inputClass}>
+        {sourceCategory === "quran" ? <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
+          <input aria-label="رقم السورة" type="number" min="1" max="114" value={surahId} onChange={(event) => setSurahId(event.target.value)} className={inputClass + " mt-0"} />
+          <input aria-label="رقم الآية" type="number" min="1" max="286" value={ayahNumber} onChange={(event) => setAyahNumber(event.target.value)} className={inputClass + " mt-0"} />
+          <Button type="button" variant="outline" onClick={() => void loadQuranSource()} disabled={loadingSources}>{loadingSources ? "..." : "تحميل الآية"}</Button>
+        </div> : <select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={loadingSources || !sources.length} className={inputClass}>
           <option value="">{loadingSources ? "جارٍ تحميل المصادر…" : "اختر مصدرًا منشورًا"}</option>
           {sources.map((entry) => <option key={entry.id} value={entry.id}>{entry.title} — {entry.sourceLabel}</option>)}
-        </select>
+        </select>}
       </label>
     </div>
+    {selectedSource && <div className="rounded-lg border border-brand-gold/15 bg-black/15 p-3 text-sm text-brand-cream/70">
+      <p className="font-semibold text-brand-gold">{selectedSource.title}</p>
+      <p className="mt-2 leading-7">{selectedSource.text}</p>
+      <a href={selectedSource.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-brand-gold underline">فتح المصدر الأصلي</a>
+    </div>}
     {HADY_PARTS.map((part) => <label key={part.id} className="block text-sm text-brand-cream/70">{part.title}
       <textarea rows={3} maxLength={2500} value={parts[part.id] ?? ""} onChange={(event) => setParts((current) => ({ ...current, [part.id]: event.target.value }))} className={inputClass + " leading-7"} placeholder="اكتب الجزء باللهجة المصرية. النصوص الدينية تُنقل حرفيًا من المصدر ولا يعاد تأليفها."/>
+      <span className="mt-1 block text-xs text-brand-cream/45">{part.id === "hook" ? "تُضاف تحية هادي الثابتة تلقائيًا في البداية." : part.id === "closing" ? "تُضاف خاتمة هادي الثابتة تلقائيًا في النهاية." : "راجع عدد الكلمات وفق الحد الموضح أعلى الجزء."}</span>
     </label>)}
     <label className="flex items-start gap-2 text-sm text-brand-cream/70">
       <input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)}/>
