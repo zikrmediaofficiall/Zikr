@@ -281,7 +281,6 @@ function trafficSourceLabel(source: string): string {
 async function fetchYoutubeAnalyticsSnapshot(): Promise<YoutubeAnalyticsSnapshot> {
   const clientId = process.env.YOUTUBE_CLIENT_ID?.trim();
   const clientSecret = process.env.YOUTUBE_CLIENT_SECRET?.trim();
-  const credential = await inspectStoredYouTubeAnalyticsCredential();
   const unavailable = (status: YoutubeAnalyticsStatus): YoutubeAnalyticsSnapshot => ({
     status,
     message: getYoutubeAnalyticsStatusPresentation(status).description,
@@ -290,7 +289,8 @@ async function fetchYoutubeAnalyticsSnapshot(): Promise<YoutubeAnalyticsSnapshot
     subscribersLost: null, likes: null, comments: null, shares: null, trafficSources: null, capturedAt: null,
   });
   if (!clientId || !clientSecret) return unavailable("not_configured");
-  if (credential.status === "permission_missing") return unavailable("permission_denied");
+  const credential = await inspectStoredYouTubeAnalyticsCredential();
+  if (credential.status === "permission_missing") return unavailable("scope_missing");
   if (credential.status === "unavailable") return unavailable("unavailable");
   if (credential.status !== "ready" || !credential.refreshToken) return unavailable("not_configured");
   const refreshToken = credential.refreshToken;
