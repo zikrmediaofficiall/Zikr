@@ -79,6 +79,7 @@ SET search_path = ''
 AS $function$
 DECLARE
   v_task public.admin_omnis_execution_ledger%ROWTYPE;
+  v_previous_state text;
   v_sha text := lower(trim(COALESCE(p_commit_sha, '')));
   v_summary text := trim(COALESCE(p_tests_summary, ''));
   v_note text := NULLIF(trim(COALESCE(p_note, '')), '');
@@ -104,6 +105,7 @@ BEGIN
   IF v_task.state = p_next_state THEN
     RETURN to_jsonb(v_task);
   END IF;
+  v_previous_state := v_task.state;
 
   IF p_next_state = 'completed' THEN
     IF v_sha !~ '^[0-9a-f]{40}$' THEN
@@ -120,8 +122,8 @@ BEGIN
 
   UPDATE public.admin_omnis_execution_ledger
   SET state = p_next_state,
-      commit_sha = CASE WHEN p_next_state = 'completed' THEN v_sha ELSE commit_sha END,
-      tests_summary = CASE WHEN p_next_state = 'completed' THEN v_summary ELSE tests_summary END,
+      commit_sha = CASE WHEN p_next_state = 'completed' THEN v_sha ELSE NULL END,
+      tests_summary = CASE WHEN p_next_state = 'completed' THEN v_summary ELSE NULL END,
       last_note = COALESCE(v_note, last_note),
       started_at = CASE WHEN p_next_state = 'in_progress' THEN COALESCE(started_at, now()) ELSE started_at END,
       completed_at = CASE WHEN p_next_state = 'completed' THEN now() ELSE NULL END,
@@ -130,7 +132,7 @@ BEGIN
       evidence = CASE
         WHEN p_next_state = 'completed'
           THEN evidence || jsonb_build_object('completionCommit', v_sha, 'verificationSummary', v_summary)
-        ELSE evidence
+        ELSE evidence - 'completionCommit' - 'verificationSummary'
       END
   WHERE task_key = p_task_key
   RETURNING * INTO v_task;
@@ -139,7 +141,7 @@ BEGIN
     task_key, event_type, previous_state, next_state, note, commit_sha, tests_summary, actor_user_id
   )
   VALUES (
-    p_task_key, 'state_changed', (SELECT state FROM public.admin_omnis_execution_ledger WHERE task_key = p_task_key AND false),
+    p_task_key, 'state_changed', v_previous_state,
     p_next_state, v_note, CASE WHEN p_next_state = 'completed' THEN v_sha ELSE NULL END,
     CASE WHEN p_next_state = 'completed' THEN v_summary ELSE NULL END, p_actor_id
   );
