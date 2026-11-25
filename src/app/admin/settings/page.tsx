@@ -72,7 +72,7 @@ export default async function AdminSettingsPage() {
           defaultValue={
             typeof values.search_result_limit === "number" && Number.isSafeInteger(values.search_result_limit)
               ? values.search_result_limit
-              : SEARCH_RESULT_LIMIT.runtimeFallback
+              : SEARCH_RESULT_LIMIT.formFallback
           }
           className="mt-4 w-full rounded-xl border border-brand-gold/15 bg-black/20 px-3 py-2 text-sm text-brand-cream outline-none focus:border-brand-gold/40"
         />
