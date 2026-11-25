@@ -279,7 +279,7 @@
           "task_order": 1,
           "title": "إنشاء سجل تنفيذ مانع للتكرار",
           "description": "تأسيس سجل موحد للمراحل والمهام والأحداث مع مفاتيح ثابتة وانتقالات حالات آمنة.",
-          "initial_state": "in_progress"
+          "initial_state": "completed"
         },
         {
           "task_key": "OMNIS-P00-03",
@@ -681,6 +681,23 @@
           "initial_state": "pending"
         }
       ]
+    }
+  ],
+  "execution_log": [
+    {
+      "event_id": "OMNIS-EXEC-20261125-001",
+      "task_key": "OMNIS-P00-02",
+      "state": "completed",
+      "commit_sha": "ef7220321065c84d2e0cc535d77704f1ae9f5483",
+      "recorded_at": "2026-11-25T05:16:22Z",
+      "evidence": {
+        "github_quality_gate": "success",
+        "supabase_migration": "20261125045720_zikr_omnis_execution_ledger applied",
+        "supabase_tasks": 45,
+        "supabase_initial_events": 45,
+        "vercel_preview": "READY",
+        "production": "not deployed; protected release gate preserved"
+      }
     }
   ]
 }
