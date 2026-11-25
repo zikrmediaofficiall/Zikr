@@ -30,7 +30,7 @@ assert.equal(resolveYouTubeVideoDisclosure({
   provider: "template",
   queueMetadata: { audience: "kids", publicDistributionAudience: "general", publicPath: "/kids/videos/story" },
   contentType: "other_video",
-}).selfDeclaredMadeForKids, false, "internally generated stories can be Kids-suitable without being declared Made for Kids on YouTube");
+}).selfDeclaredMadeForKids, true, "public availability and template rendering must not override an explicit child-directed audience");
 
 assert.equal(resolveYouTubeVideoDisclosure({
   content: { audience: "general", renderer: "template" },
