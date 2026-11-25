@@ -10,6 +10,8 @@ const dailyVideoQuotaStatuses = new Set<string>(DAILY_VIDEO_QUOTA_STATUSES);
 export type DailyVideoQuotaRow = {
   status?: unknown;
   automation_key?: unknown;
+  updated_at?: unknown;
+  content?: unknown;
 };
 
 /**
@@ -81,6 +83,36 @@ function firstInstantOfLocalDate(localDate: string, timeZone: string, formatter:
     throw new Error("The requested local video quota date does not exist in this time zone.");
   }
   return new Date(high);
+}
+
+/** Layl is long-form editorial programming and does not consume the short-video quota. */
+export function isShortVideoQuotaRow(row: Pick<DailyVideoQuotaRow, "automation_key">): boolean {
+  return !(typeof row.automation_key === "string" && row.automation_key.startsWith("layl-weekly:"));
+}
+
+/**
+ * Test whether a completed video belongs to a Cairo-local production day.
+ * New rows use the immutable generationCompletedAt marker; older completed rows
+ * fall back to updated_at conservatively until their marker can be backfilled.
+ */
+export function isVideoCompletedWithinZonedDay(
+  row: DailyVideoQuotaRow,
+  window: Pick<ZonedDailyVideoQuotaWindow, "startIso" | "nextStartIso">,
+): boolean {
+  if (row.status !== "completed" || !isShortVideoQuotaRow(row)) return false;
+  const content = row.content && typeof row.content === "object" && !Array.isArray(row.content)
+    ? row.content as Record<string, unknown>
+    : null;
+  const completedAt = typeof content?.generationCompletedAt === "string"
+    ? content.generationCompletedAt
+    : typeof row.updated_at === "string"
+      ? row.updated_at
+      : null;
+  if (!completedAt) return false;
+  const timestamp = Date.parse(completedAt);
+  const start = Date.parse(window.startIso);
+  const next = Date.parse(window.nextStartIso);
+  return Number.isFinite(timestamp) && timestamp >= start && timestamp < next;
 }
 
 /** Resolve one complete local calendar day to UTC bounds for daily video quotas. */
