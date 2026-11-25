@@ -127,7 +127,7 @@ if (!videoGenerator.includes("async function queueSocialItems") ||
   failures.push("only new renders and their explicit pending handoff marker may create social queue items; historical completed requests must not be reconciled");
 }
 if (!videoPublishApproval.includes("export function hasCompleteKidsVideoSeriesMetadata") ||
-    !videoPublishApproval.includes('normalizeVideoMarker(content.contentFormat) === "series_episode"') ||
+    !videoPublishApproval.includes('normalizeVideoMarker(content.contentFormat) !== "series_episode"') ||
     !videoGenerator.includes("hasCompleteKidsVideoSeriesMetadata(request.content)") ||
     !videoGenerator.includes("hasCompleteKidsVideoSeriesMetadata(content)") ||
     !videoPublishApproval.includes('normalizeVideoAudience(content.audience, false) !== "kids"') ||
