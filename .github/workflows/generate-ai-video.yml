@@ -166,16 +166,30 @@ jobs:
             --output "$RUNNER_TEMP/zikr-arabic-tts-smoke.mp3"
           test -s "$RUNNER_TEMP/zikr-arabic-tts-smoke.mp3"
           test "$(stat -c '%s' "$RUNNER_TEMP/zikr-arabic-tts-smoke.mp3")" -ge 1024
-          # Layl is pinned to the Egyptian male neural voice; verify that exact voice
-          # before processing any queued episode instead of allowing a generic fallback.
-          "$GITHUB_WORKSPACE/.automation-venv/bin/python" scripts/generate-arabic-voice.py \
-            --text "أهلاً بيكم في دقيقتين مع ليل من منصة ذكر." \
-            --voice "ar-EG-ShakirNeural" \
-            --rate="-7%" \
-            --pitch="0Hz" \
-            --output "$RUNNER_TEMP/zikr-layl-egyptian-tts-smoke.mp3"
-          test -s "$RUNNER_TEMP/zikr-layl-egyptian-tts-smoke.mp3"
-          test "$(stat -c '%s' "$RUNNER_TEMP/zikr-layl-egyptian-tts-smoke.mp3")" -ge 1024
+          # Layl is pinned to the Egyptian male neural voice. Microsoft's Edge endpoint sometimes rejects
+          # a second connection from a hosted runner, which used to abort the whole worker (no video was
+          # produced from 2026-11-24 onward). Retry a few times; if the Egyptian voice is still
+          # unavailable, warn and continue so the other video types are not blocked. Layl episodes keep
+          # their pinned voice (no generic fallback) and simply fail on their own if it stays unavailable.
+          layl_ok=false
+          for attempt in 1 2 3 4; do
+            if "$GITHUB_WORKSPACE/.automation-venv/bin/python" scripts/generate-arabic-voice.py \
+              --text "أهلاً بيكم في دقيقتين مع ليل من منصة ذكر." \
+              --voice "ar-EG-ShakirNeural" \
+              --rate="-7%" \
+              --pitch="0Hz" \
+              --output "$RUNNER_TEMP/zikr-layl-egyptian-tts-smoke.mp3" \
+              && test -s "$RUNNER_TEMP/zikr-layl-egyptian-tts-smoke.mp3" \
+              && test "$(stat -c '%s' "$RUNNER_TEMP/zikr-layl-egyptian-tts-smoke.mp3")" -ge 1024; then
+              layl_ok=true
+              break
+            fi
+            echo "Egyptian voice smoke attempt $attempt failed; retrying in $((attempt * 8))s"
+            sleep $((attempt * 8))
+          done
+          if [ "$layl_ok" != "true" ]; then
+            echo "::warning::Egyptian Arabic neural voice (ar-EG-ShakirNeural) is unavailable from this runner. Continuing: Layl episodes will not synthesize until it recovers; other videos are unaffected."
+          fi
           ffmpeg -version | head -n 1
 
       - name: Gemini audio evaluation smoke test
