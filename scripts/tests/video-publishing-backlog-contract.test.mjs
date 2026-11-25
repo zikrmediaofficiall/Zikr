@@ -9,6 +9,7 @@ assert.ok(worker.includes("content_type=like.*_video"));
 assert.ok(worker.includes("status=in.(queued,partial,processing,published)"));
 assert.ok(worker.includes("scheduled_at: nextScheduledAt"));
 assert.ok(worker.includes("metadata&order=created_at.asc,id.asc&limit=1000"), "Backlog balancing must inspect per-platform publication results.");
+assert.ok(worker.includes("if ((rows ?? []).length >= 1000)"), "Backlog balancing must fail closed when the slot inventory may be truncated.");
 assert.ok(worker.includes("function completedVideoPublishPlatforms"), "Confirmed remote IDs must be converted into completed target platforms.");
 assert.ok(worker.includes("completed_platforms: completedVideoPublishPlatforms(row.metadata)"), "Existing queue rows must preserve per-platform completion state.");
 assert.ok(worker.includes("targetPlatforms: (row.target_platforms ?? []).filter((platform) => !(row.completed_platforms ?? []).includes(platform))"), "Rescheduling must only allocate capacity for targets that still need delivery.");
