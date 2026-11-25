@@ -107,7 +107,7 @@ export function buildOmnisIncidents(input: {
     .map((incident) => ({
       ...incident,
       affectedModules: incident.affectedModules
-        .sort((a, b) => (MODULE_LABELS[a] ?? a).localeCompare(MODULE_LABELS[b] ?? b, "ar")),
+        .sort((a, b) => a.localeCompare(b)),
     }))
     .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]
       || (Date.parse(b.checkedAt ?? "") || 0) - (Date.parse(a.checkedAt ?? "") || 0));
