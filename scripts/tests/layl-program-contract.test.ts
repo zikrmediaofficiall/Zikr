@@ -82,8 +82,8 @@ assert.ok(worker.includes('return { videoId, published: false, queued: false }')
 assert.ok(worker.includes("overlay=0:0:format=auto"), "the renderer must composite Layl over the topic-specific local scene");
 assert.ok(worker.includes("content.visualBackground"), "the renderer must select the background from the active episode's topic");
 
-assert.ok(worker.includes('if (!isTemplatePreview && !isLaylProgram) aiPlan = await generateAiVideoPlan(request, signal);'), "Layl must not call Gemini for its fixed editorial script or planning");
-assert.ok(worker.includes('      !isLaylProgram &&\n      !boundTemplate &&\n      engineConfig().aiEnabled &&'), "Layl must bypass external AI video providers and remain on the local branded renderer");
+assert.ok(worker.includes('if (!isTemplatePreview && !isLaylProgram && !isHadyProgram && !isProphetStoryRequest) aiPlan = await generateAiVideoPlan(request, signal);'), "fixed Layl and Hady scripts and source-locked Prophet stories must not call Gemini for script planning");
+assert.ok(worker.includes('      !isLaylProgram &&\n      !isHadyProgram &&\n      !isProphetStoryRequest &&\n      !boundTemplate &&\n      engineConfig().aiEnabled &&'), "Layl and Hady use branded local renderers and Prophet scenes remain source-locked, without external AI scene generation");
 
 const voice = readFileSync("scripts/generate-arabic-voice.py", "utf8");
 assert.ok(voice.includes('voice.strip().lower().startswith("ar-eg-")'), "Egyptian neural voice requests must not silently fall back to generic Arabic");
@@ -92,8 +92,8 @@ const generationWorkflow = readFileSync(".github/workflows/generate-ai-video.yml
 assert.ok(generationWorkflow.includes('--voice "ar-EG-ShakirNeural"'), "the production worker must smoke-test the exact Egyptian male Layl voice before queue work");
 assert.ok(generationWorkflow.includes('--rate="-7%"'), "the Egyptian voice smoke test must use Layl's pinned narration rate");
 assert.ok(generationWorkflow.includes('--pitch="0Hz"'), "the Egyptian voice smoke test must use Layl's pinned pitch");
-assert.ok(worker.includes("const ttsVoice = (isLaylProgram ? narrationProfile.voice"), "Layl must ignore a global non-Egyptian voice override");
-assert.ok(worker.includes("const ttsRate = isLaylProgram ? narrationProfile.rate"), "Layl must use its own speech rate instead of a global override");
+assert.ok(worker.includes("const ttsVoice = (isLaylProgram || isHadyProgram ? narrationProfile.voice"), "Layl and Hady must ignore global non-Egyptian voice overrides");
+assert.ok(worker.includes("const ttsRate = isLaylProgram || isHadyProgram ? narrationProfile.rate"), "Layl and Hady must use their pinned narration rate instead of a global override");
 assert.ok(worker.includes('"--voice", ttsVoice'), "the generated narration must use the pinned Egyptian voice ID");
 assert.ok(worker.includes("async function seedWeeklyLaylEpisodeRequest(now: Date)"), "the existing production worker must own weekly Layl scheduling");
 assert.ok(worker.includes('const automationKey = "layl-weekly:season-1:" + week'), "weekly generation must use one canonical ISO-week idempotency key");
@@ -105,7 +105,7 @@ assert.ok(worker.includes("const isVerifiedLaylEditorial = category === \"other\
 assert.ok(worker.includes("episode.referenceLabel === sourceLabel"), "Layl source labels must match the canonical season references");
 assert.ok(worker.includes("episode.referenceUrl === sourceUrl"), "Layl source URLs must match the canonical season references");
 assert.ok(worker.includes("!isLaylProgram || voiceProfile === LAYL_VOICE_PROFILE"), "the audio QA gate must require the Egyptian male profile for Layl");
-assert.ok(worker.includes("const maximumReviewedDuration = isLaylProgram ? 120 : 60"), "the QA duration exception must be limited to verified Layl episodes");
+assert.ok(worker.includes("const maximumReviewedDuration = isLaylProgram ? 120 : isVerifiedHadyEditorial ? 135 : 60"), "the QA duration exception must be limited to verified Layl and Hady episodes");
 
 const mascot = readFileSync("public/video/templates/layl.svg", "utf8");
 const character = readFileSync("public/video/templates/layl-character.svg", "utf8");
