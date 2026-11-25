@@ -1,6 +1,9 @@
 import "server-only";
 
 import { resolveGeminiModelRoute } from "./model-routing";
+import { applyBudgets, createBudgetTracker, parseBudgetConfig } from "./provider-budget";
+
+const budgetTracker = createBudgetTracker();
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory, type GenerationConfig } from '@google/generative-ai';
 import { getServerEnv } from '@/lib/env';
 
@@ -38,10 +41,12 @@ function getNextApiKey(): string | null {
 }
 
 function getDirectModels(): string[] {
-  return resolveGeminiModelRoute({
+  const route = resolveGeminiModelRoute({
     primary: getServerEnv().GEMINI_MODEL,
     fallbacks: process.env.GEMINI_FALLBACK_MODELS,
   });
+  // Optional AI_PROVIDER_BUDGETS; no config means no limit.
+  return applyBudgets(route, parseBudgetConfig(process.env.AI_PROVIDER_BUDGETS), budgetTracker);
 }
 
 const BLOCK_ONLY_HIGH = 'BLOCK_ONLY_HIGH' as unknown as HarmBlockThreshold;
@@ -104,6 +109,7 @@ async function callDirectSdk(
           });
           const result = await model.generateContent(prompt);
           const text = result.response.text().trim();
+          budgetTracker.record(modelId, Math.ceil(text.length / 4));
           if (text) return text;
         } catch (err: unknown) {
           if (isTransientGeminiError(err)) {

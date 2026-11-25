@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import { applyBudgets, createBudgetTracker, parseBudgetConfig } from "../../src/features/spiritual-ai/services/provider-budget";
+
+assert.deepEqual(parseBudgetConfig(undefined), {});
+assert.deepEqual(parseBudgetConfig("not json"), {});
+assert.deepEqual(parseBudgetConfig("[1]"), {});
+const config = parseBudgetConfig('{"A":{"dailyRequests":2},"b":{"dailyOutputTokens":100},"c":{"dailyRequests":-1}}');
+assert.equal(config.a.dailyRequests, 2);
+assert.equal(config.c.dailyRequests, undefined);
+let day = new Date("2026-11-25T10:00:00Z");
+const tracker = createBudgetTracker(() => day);
+assert.deepEqual(applyBudgets(["a", "b", "x"], config, tracker), ["a", "b", "x"]);
+tracker.record("a"); tracker.record("a", 5);
+tracker.record("b", 100);
+assert.deepEqual(applyBudgets(["a", "b", "x"], config, tracker), ["x"], "spent models are skipped, unbudgeted models stay");
+assert.deepEqual(applyBudgets(["a", "b"], config, tracker), [], "all exhausted yields an empty route");
+day = new Date("2026-11-26T00:00:01Z");
+assert.deepEqual(applyBudgets(["a", "b"], config, tracker), ["a", "b"], "budgets reset on the next UTC day");
+assert.deepEqual(applyBudgets(["a"], {}, tracker), ["a"]);
+console.log("provider-budget tests passed");
