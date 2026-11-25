@@ -30,6 +30,7 @@ export default async function AdminOmnisPage() {
     getOmnisModuleStatusSnapshot(),
   ]);
   const moduleStatusById = new Map(moduleStatusSnapshot.modules.map((item) => [item.moduleId, item]));
+  const globalOperationalDependencies = moduleStatusById.get("global-command")?.dependencies ?? [];
   const canManage = hasAdminPermission(profile.role, "system.manage");
   const completed = snapshot.items.filter((item) => item.state === "completed").length;
   const inProgress = snapshot.items.filter((item) => item.state === "in_progress").length;
@@ -52,6 +53,43 @@ export default async function AdminOmnisPage() {
         </p>
         <p className="text-xs text-brand-cream/35" dir="ltr">Branch: feat/zikr-omnis-control-plane-20261125</p>
       </header>
+
+      <section className="space-y-4 rounded-2xl border border-brand-gold/10 bg-black/15 p-5 md:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-brand-gold">الحالة التشغيلية الموحدة</h2>
+            <p className="mt-1 text-xs leading-6 text-brand-cream/45">فحوص مباشرة من Supabase وGitHub والطوابير وحالة Vercel المنشورة في Commit Status؛ كل نتيجة تعرض مصدرها ووقت فحصها.</p>
+          </div>
+          <p className="text-[11px] text-brand-cream/30" dir="ltr">Last probe: {new Date(moduleStatusSnapshot.checkedAt).toLocaleString("en-GB")}</p>
+        </div>
+        {!moduleStatusSnapshot.available ? (
+          <div role="alert" className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-6 text-amber-100/80">
+            {moduleStatusSnapshot.error ?? "تعذر جمع الحالة التشغيلية؛ تُعرض المصادر غير المقاسة كغير معروفة."}
+          </div>
+        ) : null}
+        {globalOperationalDependencies.length === 0 ? (
+          <p role="status" className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs text-amber-100/80">لم تُرجع خريطة الاعتماديات مصادر تشغيلية لمركز القيادة.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {globalOperationalDependencies.map((dependency) => (
+              <article key={dependency.dependencyId} className="min-w-0 space-y-2 rounded-xl border border-brand-gold/10 bg-black/15 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h3 className="text-xs font-semibold leading-5 text-brand-cream/80">{dependency.label}</h3>
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${OMNIS_OPERATIONAL_STATE_STYLES[dependency.state]}`}>
+                    {OMNIS_OPERATIONAL_STATE_LABELS[dependency.state]}
+                  </span>
+                </div>
+                <p className="min-h-12 text-[11px] leading-5 text-brand-cream/50">{dependency.summary}</p>
+                <p className="break-words text-[10px] leading-4 text-brand-gold/55">{dependency.source ?? "المصدر غير متاح"}</p>
+                <div className="flex items-center justify-between gap-2 border-t border-brand-gold/10 pt-2 text-[10px] text-brand-cream/30">
+                  <span>{dependency.freshness === "fresh" ? "فحص حديث" : dependency.freshness === "stale" ? "الفحص قديم" : "لم يتم الفحص"}</span>
+                  <span dir="ltr">{dependency.checkedAt ? new Date(dependency.checkedAt).toLocaleTimeString("en-GB") : "—"}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-2xl border border-brand-gold/10 bg-black/15 p-5">

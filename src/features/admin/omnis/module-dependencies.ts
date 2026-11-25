@@ -22,7 +22,7 @@ export const OMNIS_DEPENDENCY_DEFINITIONS: readonly OmnisDependencyDefinition[] 
  * provider adapter is implemented; the graph does not imply service health.
  */
 export const OMNIS_MODULE_DEPENDENCIES: readonly OmnisModuleDependency[] = [
-  { moduleId: "global-command", dependencyIds: ["supabase-database", "github-status", "github-workflows"] },
+  { moduleId: "global-command", dependencyIds: ["supabase-database", "github-status", "github-workflows", "video-generation-queue", "vercel-deployment"] },
   { moduleId: "project-explorer", dependencyIds: ["github-status"] },
   { moduleId: "universal-control", dependencyIds: ["supabase-database"] },
   { moduleId: "configuration-studio", dependencyIds: ["supabase-database"] },

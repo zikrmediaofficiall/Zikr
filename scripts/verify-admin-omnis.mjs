@@ -11,6 +11,8 @@ const migration = read("supabase/migrations/20261125045720_zikr_omnis_execution_
 const navigation = read("src/features/admin/config/navigation.ts");
 const page = read("src/app/admin/omnis/page.tsx");
 const actions = read("src/app/admin/omnis/actions.ts");
+const moduleDependencies = read("src/features/admin/omnis/module-dependencies.ts");
+const moduleStatusService = read("src/features/admin/services/omnis-module-status.ts");
 
 const centerIds = [...centers.matchAll(/id: "([^"]+)"/g)].map((m) => m[1]);
 if (centerIds.length !== 30) failures.push("OMNIS must define exactly 30 control centers");
@@ -43,9 +45,21 @@ if (!actions.includes("requireAdminStepUp") || !actions.includes("transition_adm
   failures.push("state changes must require step-up authorization and the row-locked RPC");
 }
 if (!actions.includes("recordAdminAuditEvent")) failures.push("state changes must write an admin audit event");
+if (!moduleDependencies.includes('moduleId: "global-command", dependencyIds: ["supabase-database", "github-status", "github-workflows", "video-generation-queue", "vercel-deployment"]')) {
+  failures.push("Global command center must include database, GitHub, video queue and Vercel dependencies");
+}
+if (!moduleStatusService.includes('dependencyId: "vercel-deployment"') || !moduleStatusService.includes('/vercel/i.test(item.context)')) {
+  failures.push("Global command center must derive Vercel state from Vercel-labelled GitHub commit status contexts");
+}
+if (!moduleStatusService.includes('health.queues.videoRetryWait > 0') || !moduleStatusService.includes('health.queues.videoPending') || !moduleStatusService.includes('health.queues.videoProcessing') || !moduleStatusService.includes('health.queues.videoFailed')) {
+  failures.push("Global command center must report all exact video queue states and surface retry/failure attention");
+}
+if (!page.includes('globalOperationalDependencies.map') || !page.includes('dependency.freshness') || !page.includes('dependency.source') || !page.includes('moduleStatusSnapshot.error')) {
+  failures.push("OMNIS command center must show source-backed operational cards, freshness and probe errors");
+}
 
 if (failures.length) {
   console.error("OMNIS verification failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
-console.log("OMNIS verification passed: 30 centers, 15 phases, 45 unique tasks, idempotent ledger, RLS, audited state transitions.");
+console.log("OMNIS verification passed: 30 centers, 15 phases, 45 unique tasks, RLS, audited transitions and source-backed global operations status.");

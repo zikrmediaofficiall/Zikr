@@ -33,6 +33,36 @@ function githubCommitState(state: string | null): OmnisOperationalState {
   }
 }
 
+function vercelDeploymentState(
+  statusesAvailable: boolean,
+  statuses: Awaited<ReturnType<typeof getAdminHealth>>["github"]["statuses"],
+): { state: OmnisOperationalState; source: string; summary: string } {
+  const vercelStatuses = statuses.filter((item) => /vercel/i.test(item.context));
+  if (!statusesAvailable || vercelStatuses.length === 0) {
+    return {
+      state: "unknown",
+      source: "GitHub Commit Status API (Vercel context)",
+      summary: "لا توجد حالة Vercel موثقة في آخر فحص؛ لا يتم استنتاج نجاح النشر من حالة GitHub العامة.",
+    };
+  }
+
+  const states = vercelStatuses.map((item) => item.state.toLowerCase());
+  const state = states.some((item) => ["failure", "error", "pending"].includes(item))
+    ? "degraded"
+    : states.every((item) => item === "success")
+      ? "healthy"
+      : "unknown";
+  const details = vercelStatuses
+    .map((item) => `${item.context}: ${item.state}${item.updatedAt ? ` (آخر تحديث ${item.updatedAt})` : ""}`)
+    .join("؛ ");
+
+  return {
+    state,
+    source: `GitHub Commit Status API → ${vercelStatuses.map((item) => item.context).join(", ")}`,
+    summary: `حالات Vercel المرتبطة بآخر Commit على main: ${details}.`,
+  };
+}
+
 function githubWorkflowState(
   workflows: Awaited<ReturnType<typeof getAdminHealth>>["github"]["workflows"],
 ): OmnisOperationalState {
@@ -97,14 +127,20 @@ export async function getOmnisModuleStatusSnapshot(): Promise<OmnisModuleStatusS
       {
         dependencyId: "video-generation-queue",
         state: health.queuesAvailable.video
-          ? health.queues.videoFailed > 0
+          ? health.queues.videoFailed > 0 || health.queues.videoRetryWait > 0
             ? "degraded"
             : "healthy"
           : "unknown",
-        source: "Supabase video_generation_requests",
+        source: "Supabase video_generation_requests (exact status counts)",
         summary: health.queuesAvailable.video
-          ? `الطابور مقروء؛ طلبات فاشلة: ${health.queues.videoFailed}.`
+          ? `الطابور مقروء؛ انتظار: ${health.queues.videoPending}، قيد التنفيذ: ${health.queues.videoProcessing}، إعادة المحاولة: ${health.queues.videoRetryWait}، فشل: ${health.queues.videoFailed}.`
           : "تعذر التحقق من قراءة طابور الفيديو؛ لا يتم تحويل الفشل إلى صفر.",
+        checkedAt: timestamp,
+        latencyMs: null,
+      },
+      {
+        dependencyId: "vercel-deployment",
+        ...vercelDeploymentState(health.github.statusesAvailable, health.github.statuses),
         checkedAt: timestamp,
         latencyMs: null,
       },

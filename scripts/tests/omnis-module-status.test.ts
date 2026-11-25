@@ -17,6 +17,41 @@ test("module dependency graph covers all 30 registered OMNIS centers exactly onc
   assert.deepEqual([...moduleIds].sort(), OMNIS_CENTERS.map((item) => item.id).sort());
 });
 
+test("global command center monitors all five operational sources", () => {
+  const globalCommand = OMNIS_MODULE_DEPENDENCIES.find((item) => item.moduleId === "global-command");
+  assert.deepEqual(globalCommand?.dependencyIds, [
+    "supabase-database",
+    "github-status",
+    "github-workflows",
+    "video-generation-queue",
+    "vercel-deployment",
+  ]);
+});
+
+test("the global command remains unknown when a required Vercel probe is missing", () => {
+  const dependencies = OMNIS_MODULE_DEPENDENCIES.find((item) => item.moduleId === "global-command");
+  assert.ok(dependencies);
+  const observations: OmnisDependencyObservation[] = dependencies.dependencyIds
+    .filter((dependencyId) => dependencyId !== "vercel-deployment")
+    .map((dependencyId) => ({
+      dependencyId,
+      state: "healthy",
+      source: "test probe",
+      summary: "available",
+      checkedAt: "2026-11-25T05:29:30.000Z",
+      latencyMs: 1,
+    }));
+  const [status] = buildOmnisModuleStatuses({
+    moduleIds: ["global-command"],
+    definitions: OMNIS_DEPENDENCY_DEFINITIONS,
+    relations: OMNIS_MODULE_DEPENDENCIES,
+    observations,
+    now,
+  });
+  assert.equal(status?.state, "unknown");
+  assert.equal(status?.unknownDependencies, 1);
+});
+
 test("all dependency edges resolve to a declared dependency", () => {
   const known = new Set(OMNIS_DEPENDENCY_DEFINITIONS.map((item) => item.id));
   for (const relation of OMNIS_MODULE_DEPENDENCIES) {
