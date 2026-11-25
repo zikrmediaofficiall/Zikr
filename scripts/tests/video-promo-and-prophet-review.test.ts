@@ -111,8 +111,8 @@ const promoQuotaInventory = schedulerSource.slice(
   schedulerSource.indexOf("const [dailyRows, promotionalRows]"),
   schedulerSource.indexOf("const dailyQuota = calculateDailyVideoQuotaState"),
 );
-assert.match(promoQuotaInventory, /automation_key=like\\.promo-\\*/);
-assert.match(promoQuotaInventory, /created_at=gte\\./);
+assert.ok(promoQuotaInventory.includes("automation_key=like.promo-*"));
+assert.ok(promoQuotaInventory.includes("created_at=gte."));
 assert.match(promoQuotaInventory, /new Map/);
 assert.match(promoQuotaInventory, /Weekly Layl episodes are excluded/);
 assert.match(schedulerSource, /promo-weekly:\$\{publishSlot\.localDate\}:\$\{publishSlot\.slot\}:\$\{concept\.key\}/);
