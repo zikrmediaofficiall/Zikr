@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import { Container } from "@/components/ui/container";
 import { readAdminRows } from "@/features/admin/services/safe-read";
 import { requireAdminPermission } from "@/features/admin/services/admin";
-import { changeEditorialReviewStatusAction, publishApprovedContentAction } from "../editorial-actions";
+import { changeEditorialReviewStatusAction, publishApprovedContentAction, unpublishContentAction } from "../editorial-actions";
+import { canTransitionReview } from "@/features/editorial/review-transitions";
 
 export const metadata: Metadata = { title: "سير العمل التحريري | الأدمن" };
 
@@ -110,7 +111,7 @@ export default async function AdminEditorialPage({
                   <td className="px-4 py-3 text-xs text-brand-cream/40">{new Date(row.updated_at).toLocaleString("ar-EG-u-nu-latn")}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      {STATUS.map((next) => (
+                      {STATUS.filter((next) => canTransitionReview(row.review_status, next)).map((next) => (
                         <form key={next} action={changeEditorialReviewStatusAction}>
                           <input type="hidden" name="id" value={row.id} />
                           <input type="hidden" name="updatedAt" value={row.updated_at} />
@@ -118,6 +119,13 @@ export default async function AdminEditorialPage({
                           <button type="submit" className="rounded-lg border border-brand-gold/10 px-2.5 py-1.5 text-xs text-brand-gold/80 hover:bg-brand-gold/10">{label[next]}</button>
                         </form>
                       ))}
+                      {row.published && (
+                        <form action={unpublishContentAction}>
+                          <input type="hidden" name="id" value={row.id} />
+                          <input type="hidden" name="updatedAt" value={row.updated_at} />
+                          <button type="submit" className="rounded-lg border border-amber-400/20 bg-amber-500/5 px-2.5 py-1.5 text-xs text-amber-200">إلغاء النشر</button>
+                        </form>
+                      )}
                       {row.review_status === "approved" && !row.published && (
                         <form action={publishApprovedContentAction}>
                           <input type="hidden" name="id" value={row.id} />

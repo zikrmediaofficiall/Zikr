@@ -8,7 +8,7 @@ import { recordAdminAuditEvent } from "@/features/admin/services/audit";
 import { runPostCommitAudit } from "@/features/admin/services/post-commit-audit";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 
-const REVIEW_STATES = new Set(["draft", "editorial_review", "scholarly_review", "approved", "rejected"]);
+import { canTransitionReview, isReviewState } from "@/features/editorial/review-transitions";
 
 function target(formData: FormData) {
   const id = String(formData.get("id") ?? "").trim();
@@ -71,7 +71,7 @@ export async function changeEditorialReviewStatusAction(formData: FormData) {
   await enforceEditorialRateLimit(admin, "editorial.review", 30, 60);
   const { id, updatedAt } = target(formData);
   const status = String(formData.get("status") ?? "").trim();
-  if (!REVIEW_STATES.has(status)) editorialError("حالة مراجعة غير صالحة.");
+  if (!isReviewState(status)) editorialError("حالة مراجعة غير صالحة.");
 
   const current = await supabaseServerAdminRequest<Array<{ id: string; updated_at: string; review_status: string }>>(
     `/rest/v1/content_library?select=id,updated_at,review_status&id=eq.${encodeURIComponent(id)}&limit=1`,
@@ -79,6 +79,9 @@ export async function changeEditorialReviewStatusAction(formData: FormData) {
   );
   if (!current[0]) editorialError("المحتوى غير موجود.");
   if (updatedAt && current[0].updated_at !== updatedAt) editorialError("تم تعديل المحتوى. حدّث الصفحة ثم أعد المحاولة.");
+  if (!canTransitionReview(current[0].review_status, status)) {
+    editorialError("هذا الانتقال غير مسموح. يجب أن يمر المحتوى بالمراجعة التحريرية ثم العلمية قبل الاعتماد.");
+  }
 
   const expectedUpdatedAt = updatedAt || current[0].updated_at;
   const now = new Date().toISOString();
@@ -141,6 +144,43 @@ export async function publishApprovedContentAction(formData: FormData) {
 
   await recordAdminAuditEventSafely({
     action: "editorial.publish",
+    permission: "content.publish",
+    resourceType: "content_library",
+    resourceId: id,
+  });
+  revalidatePath("/admin/editorial");
+  revalidatePath("/admin/library");
+}
+
+/** Rollback: takes published content offline without deleting it. Review status is kept, so it can be republished. */
+export async function unpublishContentAction(formData: FormData) {
+  const admin = await requireAdminStepUp("content.publish", "/admin/editorial");
+  await enforceEditorialRateLimit(admin, "editorial.unpublish", 10, 60);
+  const { id, updatedAt } = target(formData);
+  const current = await supabaseServerAdminRequest<Array<{ id: string; updated_at: string; published: boolean }>>(
+    `/rest/v1/content_library?select=id,updated_at,published&id=eq.${encodeURIComponent(id)}&limit=1`,
+    { method: "GET" },
+  );
+  if (!current[0]) editorialError("المحتوى غير موجود.");
+  if (!current[0].published) editorialError("المحتوى غير منشور بالفعل.");
+  if (updatedAt && current[0].updated_at !== updatedAt) editorialError("تم تعديل المحتوى. حدّث الصفحة ثم أعد المحاولة.");
+
+  let unpublished = false;
+  try {
+    unpublished = await updateEditorialContentAtVersion(id, updatedAt || current[0].updated_at, {
+      published: false,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[admin/editorial] unpublish failed", error);
+    editorialError("تعذر إلغاء النشر. أعد المحاولة.");
+  }
+  if (!unpublished) {
+    editorialError("تم تعديل المحتوى بواسطة مستخدم آخر. حدّث الصفحة ثم أعد المحاولة.");
+  }
+
+  await recordAdminAuditEventSafely({
+    action: "editorial.unpublish",
     permission: "content.publish",
     resourceType: "content_library",
     resourceId: id,
