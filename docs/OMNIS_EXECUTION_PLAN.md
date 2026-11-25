@@ -80,7 +80,7 @@ The registry in `src/features/admin/omnis/registry.ts` is the machine-readable s
 
 - [x] `OMNIS-P01-01` — **توحيد واجهات الخدمات:** تعريف عقود قراءة وكتابة وتنفيذ موحدة مع صلاحيات خادمية.
 - [x] `OMNIS-P01-02` — **توحيد حالة الوحدات:** توحيد نموذج الحالة والتوافر والاعتماديات وتاريخ الفحص.
-- [ ] `OMNIS-P01-03` — **ربط سجل التدقيق:** تسجيل كل تغيير إداري وربطه بالمستخدم والمورد والنتيجة.
+- [x] `OMNIS-P01-03` — **ربط سجل التدقيق:** تسجيل كل تغيير إداري وربطه بالمستخدم والمورد والنتيجة.
 
 ### P02 — سجل الإعدادات المركزي Configuration Registry
 
@@ -190,3 +190,6 @@ The overall project can only be marked complete after all 45 items are completed
 - 2026-11-25: Established OMNIS plan scope, stable task keys, baseline audit, and execution-ledger design on `feat/zikr-omnis-control-plane-20261125`.
 - 2026-11-25: Completed `OMNIS-P01-02` on `48764a26acdbe9b6dd1163e449773d870104a192` after GitHub Quality Gate, all 32 PostgreSQL 17 checks, CircleCI, Android Debug, and Vercel Preview passed; authenticated browser E2E remains pending.
 - 2026-11-25: Started `OMNIS-P01-03` to connect control-plane decisions and transitions to the canonical immutable admin audit stream.
+
+- 2026-11-25: Completed `OMNIS-P01-03` on `7313962125c9c750a9de063d6f90b5f6325cb253` after GitHub Quality Gate, all 32 PostgreSQL checks, three CircleCI jobs, Android Debug and Vercel Preview passed. Authenticated browser E2E remains pending.
+- 2026-11-25: Started `OMNIS-P02-01` for a non-secret configuration inventory: keys, sources, owners, environments and dependencies only.
