@@ -1,3 +1,4 @@
+import { isIndexableDuaDepth } from "@/lib/content-quality";
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cache } from 'react';
@@ -39,7 +40,7 @@ export async function generateMetadata({
     title: isEnglish ? (dua?.titleEn ?? 'Dua not found') : (dua?.titleAr ?? 'الدعاء غير موجود'),
     description: isEnglish ? dua?.textEn?.trim().slice(0, 160) || 'A supplication in ZIKR.' : dua?.textAr?.trim().slice(0, 160) || 'دعاء مأثور في منصة ذِكرٌ.',
     path: `/dua/${slug}`,
-    noindex: !hasPublicDuaContent(dua),
+    noindex: !hasPublicDuaContent(dua) || !isIndexableDuaDepth([dua?.textAr, dua?.occasionAr, dua?.benefitsAr]),
   });
 }
 

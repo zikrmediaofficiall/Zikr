@@ -11,7 +11,7 @@ import { surahs as fallbackSurahs } from "@/features/quran/data/fallback";
 import { supabaseServerAnonRequest } from "@/lib/supabase/server";
 import { appRoutes, isNoindexPath, siteConfig } from "@/lib/site";
 import { filterIndexableSitemapRoutes, getSitemapShard, getSitemapShardCountForEntryCount } from "@/lib/seo/sitemap-shards";
-import { PUBLIC_CONTENT_THRESHOLDS } from "@/lib/content-quality";
+import { isIndexableDuaDepth, PUBLIC_CONTENT_THRESHOLDS } from "@/lib/content-quality";
 import type { Surah } from "@/features/quran/types/quran";
 import type { Scholar } from "@/features/scholars/types/scholars";
 import type { HadithBook } from "@/features/hadith/types/hadith";
@@ -82,7 +82,7 @@ export async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
         .filter(article => (article.content?.trim().length ?? 0) >= MIN_INDEXABLE_EDITORIAL_CHARS)
         .map(article => route(`/articles/${article.slug}`, { lastModified: now, changeFrequency: "weekly", priority: 0.7 })),
       ...prophets.map((prophet: Prophet) => route(`/prophets/${prophet.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
-      ...duas.filter((dua: Dua) => (dua.textAr?.trim().length ?? 0) >= 80).map((dua: Dua) => route(`/dua/${dua.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
+      ...duas.filter((dua: Dua) => isIndexableDuaDepth([dua.textAr, dua.occasionAr, dua.benefitsAr])).map((dua: Dua) => route(`/dua/${dua.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
       ...battles.map((battle: SlugRow) => route(`/battles/${battle.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
       ...companions.map((companion: SlugRow) => route(`/companions/${companion.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
       ...conquests.map((conquest: SlugRow) => route(`/conquests/${conquest.slug}`, { lastModified: now, changeFrequency: "monthly", priority: 0.7 })),
