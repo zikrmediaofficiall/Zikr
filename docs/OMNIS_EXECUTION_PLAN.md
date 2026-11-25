@@ -85,8 +85,8 @@ The registry in `src/features/admin/omnis/registry.ts` is the machine-readable s
 ### P02 — سجل الإعدادات المركزي Configuration Registry
 
 - [x] `OMNIS-P02-01` — **جرد إعدادات المشروع:** حصر إعدادات الموقع والتطبيق والمحتوى والذكاء الاصطناعي والنشر والبنية.
-- [ ] `OMNIS-P02-02` — **تعريف أنواع الإعدادات والتحقق:** بناء Registry typed للقيم الافتراضية والنطاق والمالك والاعتماديات والتحقق.
-- [ ] `OMNIS-P02-03` — **إدارة النسخ والتطبيق والتراجع:** تسجيل نسخ الإعدادات وتطبيقها عبر الخدمة المالكة مع معاينة واستعادة.
+- [x] `OMNIS-P02-02` — **تعريف أنواع الإعدادات والتحقق:** بناء Registry typed للقيم الافتراضية والنطاق والمالك والاعتماديات والتحقق.
+- [x] `OMNIS-P02-03` — **إدارة النسخ والتطبيق والتراجع:** تسجيل نسخ الإعدادات وتطبيقها عبر الخدمة المالكة مع معاينة واستعادة.
 
 ### P03 — مركز القيادة والتحكم Global Command Center
 
@@ -195,3 +195,5 @@ The overall project can only be marked complete after all 45 items are completed
 - 2026-11-25: Started `OMNIS-P02-01` for a non-secret configuration inventory: keys, sources, owners, environments and dependencies only.
 
 - 2026-11-25: `OMNIS-P02-01` inventory and canonical Quality Gate passed on `d0a297ea0459df8af40edbee2dfbbf8fe8e38489` (125 environment-variable names; 32 PostgreSQL checks; CircleCI and Android Debug passed). The exact-commit Vercel Preview `dpl_7fE7YXPHdVzeLRkTjYSpF7jY16uV` is still building; the task remains in progress until it is READY and the admin route smoke test can be completed.
+
+- 2026-11-25: Completed P02 configuration governance and version control on code commit `1779b9618db0ffe17e3f4d3f1e222d19427a1c67`. Evidence: typed registry tests for 11 editable settings and six internal-only settings; atomic versioned save/restore RPCs with append-only history; 11 initial baselines; service-role-only writes with RLS and client-role denial; transactional save/restore and range-check smoke test; OMNIS 30-center/15-phase/45-task verifier; control-plane and configuration-inventory contracts; GitHub Quality Gate passed (tests, integrity, security, lint, TypeScript and architecture); CircleCI source-verify, application-build-docs and config-guard passed; Android Debug APK passed; exact-commit Vercel Preview `dpl_8Jfu2EqGWMxTrKWsPqajVcWtfJfV` reached READY and public/admin-route smoke checks passed. Admin-authenticated browser E2E was not available in this verification session; admin routes were verified to redirect unauthenticated requests to login.

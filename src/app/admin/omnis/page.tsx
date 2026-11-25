@@ -6,7 +6,7 @@ import { Container } from "@/components/ui/container";
 import { requireAdminPermission } from "@/features/admin/services/admin";
 import { hasAdminPermission } from "@/features/admin/services/permissions";
 import { OMNIS_CENTERS, OMNIS_CENTER_STATUS_LABELS } from "@/features/admin/omnis/registry";
-import { OMNIS_EXECUTION_PHASES, OMNIS_TASK_STATE_LABELS, OMNIS_TASK_STATE_STYLES, type OmnisTaskState } from "@/features/admin/omnis/plan";
+import { OMNIS_EXECUTION_PHASES, OMNIS_TASK_STATE_LABELS, OMNIS_TASK_STATE_STYLES } from "@/features/admin/omnis/plan";
 import { getOmnisExecutionSnapshot } from "@/features/admin/services/omnis";
 import { getOmnisModuleStatusSnapshot } from "@/features/admin/services/omnis-module-status";
 import {
