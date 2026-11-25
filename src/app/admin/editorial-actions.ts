@@ -8,6 +8,7 @@ import { recordAdminAuditEvent } from "@/features/admin/services/audit";
 import { runPostCommitAudit } from "@/features/admin/services/post-commit-audit";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 
+import { publishSourceProblem } from "@/features/editorial/publish-gate";
 import { canTransitionReview, isReviewState } from "@/features/editorial/review-transitions";
 
 function target(formData: FormData) {
@@ -124,6 +125,12 @@ export async function publishApprovedContentAction(formData: FormData) {
   if (current[0].review_status !== "approved") editorialError("لا يمكن نشر محتوى قبل اعتماده.");
   if (!current[0].source_id) editorialError("لا يمكن نشر المحتوى قبل ربط مصدر موثوق به.");
   if (updatedAt && current[0].updated_at !== updatedAt) editorialError("تم تعديل المحتوى. حدّث الصفحة ثم أعد المحاولة.");
+  const sources = await supabaseServerAdminRequest<Array<{ verified: boolean | null; url: string | null }>>(
+    `/rest/v1/content_sources?select=verified,url&id=eq.${encodeURIComponent(String(current[0].source_id))}&limit=1`,
+    { method: "GET" },
+  );
+  const sourceProblem = publishSourceProblem(sources[0]);
+  if (sourceProblem) editorialError(sourceProblem);
 
   const expectedUpdatedAt = updatedAt || current[0].updated_at;
   const now = new Date().toISOString();
