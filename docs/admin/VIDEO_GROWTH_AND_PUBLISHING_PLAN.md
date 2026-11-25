@@ -1,7 +1,7 @@
 # ZIKR — Video Growth & Publishing Plan
 
-Prepared: 25 November 2026  
-Operating timezone: Africa/Cairo  
+Prepared: 25 November 2026
+Operating timezone: Africa/Cairo
 Scope: automated short-form video, YouTube Shorts, Facebook Reels and Facebook Page feed.
 
 ## Production baseline
