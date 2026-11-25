@@ -396,22 +396,25 @@ assert.match(runner, /skipped \+= waveSkipped/);
 assert.match(runner, /skipped: summary\.skipped/);
 
 assert.ok(
-  worker.includes("automation_key=like.*:${day}:*&select=id,status,automation_key&limit=1000"),
-  "normal daily video requests must remain in the quota inventory",
+  worker.includes("resolveZonedDailyVideoQuotaWindow(now, quotaTimeZone)") &&
+    worker.includes("created_at=gte.${quotaDayStartIso}&created_at=lt.${quotaNextDayStartIso}"),
+  "daily video requests must be counted over the complete Cairo local-day window",
 );
 assert.ok(
   worker.includes("automation_key=like.promo-*&created_at=gte."),
   "promotional short videos created today must also be included in the quota inventory",
 );
 const dailyQuotaInventoryPosition = worker.indexOf("const [dailyRows, promotionalRows]");
-const dailyQuotaMergePosition = worker.indexOf("const todaysRows = [...new Map(");
+const dailyQuotaMergePosition = worker.indexOf("const quotaInventoryRows = [...new Map(");
 const dailyQuotaCapPosition = worker.indexOf("if ((dailyRows ?? []).length >= 1000");
+const dailyQuotaFilterPosition = worker.indexOf("const todaysRows = quotaInventoryRows.filter(");
 const dailyQuotaUsePosition = worker.indexOf("const dailyQuota = calculateDailyVideoQuotaState(todaysRows)");
 assert.ok(
   dailyQuotaInventoryPosition >= 0 &&
     dailyQuotaMergePosition > dailyQuotaInventoryPosition &&
     dailyQuotaCapPosition > dailyQuotaMergePosition &&
-    dailyQuotaUsePosition > dailyQuotaCapPosition,
+    dailyQuotaFilterPosition > dailyQuotaCapPosition &&
+    dailyQuotaUsePosition > dailyQuotaFilterPosition,
   "daily quota seeding must load both inventories, deduplicate them, and fail closed before counting or allocating slots from a truncated 1,000-row history",
 );
 assert.ok(
