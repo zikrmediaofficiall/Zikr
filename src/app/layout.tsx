@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
+import { adsenseAccountMeta } from "@/lib/ads/adsense-meta";
 import { serializeJsonLd } from "@/lib/json-ld";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/site-shell";
@@ -30,6 +32,8 @@ export const viewport: Viewport = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const { locale, htmlLocale } = await getRequestLocaleContext();
+  const reqHeaders = await headers();
+  const adsenseOther = adsenseAccountMeta({ host: reqHeaders.get("x-forwarded-host") ?? reqHeaders.get("host"), userAgent: reqHeaders.get("user-agent"), canonicalUrl: siteConfig.url });
   const isEnglish = locale === "en";
   const [seo, social] = await Promise.all([
     getSiteSetting("seo"),
@@ -66,6 +70,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: new URL(siteConfig.url),
+    // Server-rendered publisher meta for the Google crawler (canonical host, not the app WebView).
+    other: adsenseOther,
     verification: {
       google: [
         "wq9nowZwnBPIzL-Er-1I1Va4CMv-RQ4QqtEsIbdO8fs",
