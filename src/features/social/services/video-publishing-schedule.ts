@@ -13,6 +13,7 @@ export type VideoPublishScheduleRow = {
   id?: string;
   status: string;
   target_platforms: string[] | null;
+  completed_platforms?: string[];
   scheduled_at: string | null;
   published_at: string | null;
   created_at: string | null;
@@ -72,13 +73,19 @@ function nearestSlotIndex(value: Date): number | null {
   return nearestDistance <= SLOT_MATCH_TOLERANCE_MS ? nearestIndex : null;
 }
 
-function rowReservationTime(row: VideoPublishScheduleRow): Date | null {
-  const candidate = row.status === "published"
+function rowReservationTime(row: VideoPublishScheduleRow, platformCompleted: boolean): Date | null {
+  const candidate = platformCompleted || row.status === "published"
     ? row.published_at ?? row.scheduled_at ?? row.created_at
     : row.scheduled_at ?? row.published_at ?? row.created_at;
   if (!candidate) return null;
   const parsed = new Date(candidate);
   return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function completedPlatformsForRow(row: VideoPublishScheduleRow): Set<string> {
+  return new Set(row.status === "published"
+    ? row.target_platforms ?? []
+    : row.completed_platforms ?? []);
 }
 
 export function resolveNextVideoPublishAt(input: {
@@ -97,12 +104,16 @@ export function resolveNextVideoPublishAt(input: {
   const dailyPlatformCounts = new Map<string, number>();
   for (const row of input.rows) {
     if (!["queued", "partial", "processing", "published"].includes(row.status)) continue;
-    const at = rowReservationTime(row);
-    if (!at) continue;
-    const dayKey = cairoDateKey(at);
-    const slotIndex = nearestSlotIndex(at);
+    const completedPlatforms = completedPlatformsForRow(row);
     for (const platform of row.target_platforms ?? []) {
       if (!VALID_TARGETS.has(platform)) continue;
+      // A partial delivery consumes its completed platform's quota at the
+      // confirmed publish time, but only its remaining targets reserve the
+      // retry/scheduled slot. This avoids throttling YouTube while Reels waits.
+      const at = rowReservationTime(row, completedPlatforms.has(platform));
+      if (!at) continue;
+      const dayKey = cairoDateKey(at);
+      const slotIndex = nearestSlotIndex(at);
       const dailyKey = platform + ":" + dayKey;
       dailyPlatformCounts.set(dailyKey, (dailyPlatformCounts.get(dailyKey) ?? 0) + 1);
       if (slotIndex !== null) reservedSlots.add(platform + ":" + dayKey + ":" + slotIndex);
@@ -158,12 +169,13 @@ export function canReserveVideoPublishAt(input: {
   const occupiedPlatforms = new Set<string>();
   for (const row of input.rows) {
     if (!["queued", "partial", "processing", "published"].includes(row.status)) continue;
-    const at = rowReservationTime(row);
-    if (!at || cairoDateKey(at) !== dayKey) continue;
-    const sameWindow = Math.abs(at.getTime() - scheduled.getTime()) < SLOT_MATCH_TOLERANCE_MS;
-    const slotIndex = nearestSlotIndex(at);
+    const completedPlatforms = completedPlatformsForRow(row);
     for (const platform of row.target_platforms ?? []) {
       if (!VALID_TARGETS.has(platform)) continue;
+      const at = rowReservationTime(row, completedPlatforms.has(platform));
+      if (!at || cairoDateKey(at) !== dayKey) continue;
+      const sameWindow = Math.abs(at.getTime() - scheduled.getTime()) < SLOT_MATCH_TOLERANCE_MS;
+      const slotIndex = nearestSlotIndex(at);
       dailyCounts.set(platform, (dailyCounts.get(platform) ?? 0) + 1);
       if (sameWindow || (candidateSlot !== null && slotIndex === candidateSlot)) occupiedPlatforms.add(platform);
     }
