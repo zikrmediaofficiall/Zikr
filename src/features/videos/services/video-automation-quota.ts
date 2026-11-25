@@ -48,6 +48,7 @@ export type ZonedDailyVideoQuotaWindow = {
   startIso: string;
   nextStartIso: string;
   timeZone: string;
+  localHour: number;
 };
 
 function datePartsForZone(date: Date, formatter: Intl.DateTimeFormat) {
@@ -98,6 +99,15 @@ export function resolveZonedDailyVideoQuotaWindow(
   if (!parts.year || !parts.month || !parts.day) {
     throw new Error("Could not resolve the current local date for the daily video quota.");
   }
+  const clockParts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const localHour = Number(clockParts.find((part) => part.type === "hour")?.value);
+  if (!Number.isInteger(localHour) || localHour < 0 || localHour > 23) {
+    throw new Error("Could not resolve the current local hour for the daily video quota.");
+  }
   const localDate = `${parts.year}-${parts.month}-${parts.day}`;
   const start = firstInstantOfLocalDate(localDate, timeZone, formatter);
   const nextCalendarDate = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) + 1));
@@ -116,5 +126,6 @@ export function resolveZonedDailyVideoQuotaWindow(
     startIso: start.toISOString(),
     nextStartIso: nextStart.toISOString(),
     timeZone,
+    localHour,
   };
 }
