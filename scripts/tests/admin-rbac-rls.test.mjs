@@ -569,15 +569,40 @@ const saveVideoAutomationAction = systemActions.match(
 const runVideoAutomationAction = systemActions.match(
   /export async function requestVideoAutomationRunAction[\s\S]*?(?=\nexport async function |$)/,
 )?.[0] ?? "";
-for (const [name, action] of [
-  ["video automation settings", saveVideoAutomationAction],
-  ["video automation run-now", runVideoAutomationAction],
+const videoSettingsStepUpPosition = saveVideoAutomationAction.indexOf(
+  'requireAdminStepUp(definition.permission, "/admin/automation", true)',
+);
+const videoSettingsMutationPosition = saveVideoAutomationAction.indexOf("supabaseServerAdminRequest(");
+assert.ok(
+  videoSettingsStepUpPosition >= 0 && videoSettingsMutationPosition > videoSettingsStepUpPosition,
+  "video automation settings must complete mandatory MFA step-up before any database mutation",
+);
+assert.doesNotMatch(
+  saveVideoAutomationAction,
+  /requireAdminPermission\("system\.manage"\)/,
+  "video automation settings must not bypass the destructive-action MFA policy",
+);
+for (const key of [
+  "video_automation_enabled",
+  "video_automation_ai_enabled",
+  "video_automation_auto_publish",
+  "video_automation_batch_size",
+  "video_automation_daily_target",
+  "video_automation_ai_attempts_per_run",
+  "video_automation_video_seconds",
 ]) {
-  const stepUpPosition = action.indexOf('requireAdminStepUp("system.manage", "/admin/automation")');
-  const firstMutationPosition = action.indexOf("supabaseServerAdminRequest(");
-  assert.ok(stepUpPosition >= 0 && firstMutationPosition > stepUpPosition, name + " must complete configured MFA step-up before any database mutation");
-  assert.doesNotMatch(action, /requireAdminPermission\("system\.manage"\)/, name + " must not bypass the destructive-action MFA policy");
+  const start = adminSettingsRegistry.indexOf(`key: "${key}"`);
+  const end = adminSettingsRegistry.indexOf("revalidatePaths:", start);
+  assert.ok(start >= 0 && end > start, key + " must exist in the settings registry");
+  assert.ok(
+    adminSettingsRegistry.slice(start, end).includes('stepUpPolicy: "always"'),
+    key + " must require mandatory step-up",
+  );
 }
+const runStepUpPosition = runVideoAutomationAction.indexOf('requireAdminStepUp("system.manage", "/admin/automation")');
+const runMutationPosition = runVideoAutomationAction.indexOf("supabaseServerAdminRequest(");
+assert.ok(runStepUpPosition >= 0 && runMutationPosition > runStepUpPosition, "video automation run-now must complete configured MFA step-up before any database mutation");
+assert.doesNotMatch(runVideoAutomationAction, /requireAdminPermission\("system\.manage"\)/, "video automation run-now must not bypass the destructive-action MFA policy");
 assert.ok(
   runVideoAutomationAction.indexOf("requireAdminStepUp(") < runVideoAutomationAction.indexOf('dispatchGitHubWorkflow("generate-ai-video.yml"'),
   "run-now must step up before dispatching generation that may auto-publish",
