@@ -96,13 +96,14 @@ function PrayerTimesPanel({ locale }: { locale: Locale }) {
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [savedLocation, setSavedLocation] = useState<SavedPrayerLocation | null>(null);
   const [cityInput, setCityInput] = useState('');
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
   const [ready, setReady] = useState(false);
   const isEnglish = locale === 'en';
 
   useEffect(() => {
+    setNow(new Date());
     const id = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(id);
   }, []);
@@ -227,7 +228,7 @@ function PrayerTimesPanel({ locale }: { locale: Locale }) {
     void loadCity(city);
   };
 
-  const prayerState = prayerTimes
+  const prayerState = prayerTimes && now
     ? getPrayerState(prayerTimes, now, savedLocation?.timezone)
     : { active: null as MainPrayerKey | null, next: 'Fajr' as MainPrayerKey };
 

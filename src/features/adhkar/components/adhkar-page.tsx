@@ -213,6 +213,16 @@ export function AdhkarPage() {
               key={idx} 
               className={`p-6 space-y-4 transition-all cursor-pointer ${isCompleted ? 'opacity-60 bg-green-900/20' : 'hover:border-brand-gold/50'}`}
               onClick={() => handleCount(idx, dhikr.count)}
+              role="button"
+              tabIndex={0}
+              aria-label={`عدّ الذكر ${idx + 1}: ${current} من ${dhikr.count}`}
+              onKeyDown={e => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleCount(idx, dhikr.count);
+                }
+              }}
             >
               <p className="text-xl font-arabic leading-relaxed text-brand-cream text-center" dir="rtl">
                 {dhikr.text}

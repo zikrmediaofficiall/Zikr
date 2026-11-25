@@ -189,7 +189,7 @@ for (const block of longformBlocks) {
     fail(`Long-form article "${slug}" talks about the product instead of serving the reader.`);
   }
 }
-if (/al5sm\.com|5gvci\.com/.test(webAdvertisingRuntime)) {
+if (/tag\.min\.js/.test(webAdvertisingRuntime)) {
   warn('Separate third-party Monetag scripts remain in the web-only advertising runtime; review their ad formats, consent and AdSense policy compatibility in the publisher accounts.');
 }
 

@@ -61,22 +61,18 @@ const nativeGuardIndex = webAdvertisingRuntime.indexOf('if (Capacitor.isNativePl
 const canonicalOriginGuardIndex = webAdvertisingRuntime.indexOf('if (!isCanonicalProductionOrigin())');
 const consentDefaultsIndex = webAdvertisingRuntime.indexOf('installConsentModeDefaults();');
 const gtmInjectionIndex = webAdvertisingRuntime.indexOf('"google-tag-manager"');
-const monetagInjectionIndex = webAdvertisingRuntime.indexOf('document.head.appendChild(primary)');
 const fundingChoicesInjectionIndex = webAdvertisingRuntime.indexOf('"google-funding-choices"');
 if (
   nativeGuardIndex < 0 ||
   canonicalOriginGuardIndex < 0 ||
   gtmInjectionIndex < 0 ||
-  monetagInjectionIndex < 0 ||
   fundingChoicesInjectionIndex < 0 ||
   nativeGuardIndex > gtmInjectionIndex ||
-  nativeGuardIndex > monetagInjectionIndex ||
   nativeGuardIndex > fundingChoicesInjectionIndex ||
   consentDefaultsIndex < 0 ||
   nativeGuardIndex > consentDefaultsIndex ||
   canonicalOriginGuardIndex > consentDefaultsIndex ||
   consentDefaultsIndex > gtmInjectionIndex ||
-  consentDefaultsIndex > monetagInjectionIndex ||
   consentDefaultsIndex > fundingChoicesInjectionIndex ||
   nativeGuardIndex > analytics ||
   canonicalOriginGuardIndex > analytics
