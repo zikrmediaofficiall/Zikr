@@ -29,7 +29,10 @@ for (const token of [
   "defaultOgImage",
   "metadata->>audience.eq.general",
   "isGeneralAudienceVideoMetadata(row.metadata)",
-  "renderableRows.slice(0, safeLimit)",
+  "const generalVideos: Video[] = renderableRows.map",
+  "getKidsGeneratedVideos(safeLimit)",
+  "const publicVideos = [...combined.values()]",
+  "publicVideos.length > 0",
 ]) {
   if (!service.includes(token)) failures.push(`video service missing QA contract: ${token}`);
 }
@@ -44,7 +47,16 @@ for (const token of [
 }
 if (service.includes("metadata.content_ref")) failures.push("generic content_ref must not be treated as a playable video URL");
 if (!service.includes("Math.min(100, safeLimit * 2)")) failures.push("video query must over-fetch enough rows to fill the public renderable limit");
-if (!service.includes("renderableRows.slice(0, safeLimit)")) failures.push("video service must cap after renderability filtering");
+if (!service.includes("publicVideos.length > 0 ? publicVideos : fallback.slice(0, safeLimit)")) {
+  failures.push("general video listing must merge validated Kids-suitable stories into the public feed and cap the merged result");
+}
+if (!service.includes("getKidsGeneratedVideoBySlug(slug)")) {
+  failures.push("Kids-suitable videos must also resolve through the public /videos detail route");
+}
+const youtubeDisclosure = read("src/features/social/services/youtube-video-disclosure.ts");
+for (const token of ["const generalDistribution =", "content.publicDistributionAudience", "selfDeclaredMadeForKids: audience === \"kids\" && !generalDistribution"]) {
+  if (!youtubeDisclosure.includes(token)) failures.push("YouTube audience disclosure must separate general distribution from Kids-suitability: " + token);
+}
 
 const detail = read("src/app/videos/[slug]/page.tsx");
 if (!detail.includes("images: video.thumbnailUrl")) failures.push("video detail metadata must expose the resolved thumbnail");
