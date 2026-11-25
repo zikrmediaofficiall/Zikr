@@ -13,4 +13,4 @@ const envExample = readFileSync(".env.example", "utf8");
 assert.match(envExample, /^# Visibility for automatic YouTube uploads: public, unlisted, or private \(default: public\)\.$/m, "environment documentation must state the public runtime default");
 assert.match(envExample, /^YOUTUBE_UPLOAD_PRIVACY=public$/m, "environment template must explicitly select public uploads");
 
-console.log("YouTube upload privacy passed: public visibility requires an explicit valid configuration.");
+console.log("YouTube upload privacy passed: approved uploads default to public visibility.");
