@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import { extractQuotes, isQuoteVerificationEnabled, normalizeArabicForMatch, quoteInCorpusWindow, quoteProbeWords, quoteVerificationProblem } from "../../src/features/editorial/quote-verification";
+
+const ayah2 = "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ";
+const text = "قال تعالى ﴿الحمد لله رب العالمين﴾ وقال النبي «إنما الأعمال بالنيات» والله أعلم ﴿كلمة﴾";
+const quotes = extractQuotes(text);
+assert.equal(quotes.length, 2, "single-word spans are ignored");
+assert.equal(quotes[0].kind, "quran");
+assert.equal(quotes[1].kind, "hadith");
+assert.equal(normalizeArabicForMatch("إِنَّمَا ٱلأَعْمَالُ"), normalizeArabicForMatch("انما الاعمال"));
+assert.deepEqual(quoteProbeWords(quotes[0]), ["لله", "رب"]);
+assert.equal(quoteInCorpusWindow(quotes[0], [ayah2]), true, "standard spelling matches Uthmani spelling");
+assert.equal(quoteInCorpusWindow({ ...quotes[0], normalized: normalizeArabicForMatch("الحمد لله رب") }, [ayah2]), true);
+assert.equal(quoteInCorpusWindow({ ...quotes[0], normalized: normalizeArabicForMatch("الحمد لله رب الناس") }, [ayah2]), false, "altered word is rejected");
+assert.equal(quoteVerificationProblem([], 0), null);
+assert.match(quoteVerificationProblem([{ quote: quotes[1], verified: false }], 2) ?? "", /حديثي/);
+assert.match(quoteVerificationProblem([], 99) ?? "", /كبير/);
+assert.equal(isQuoteVerificationEnabled({}), false);
+assert.equal(isQuoteVerificationEnabled({ SOURCE_TEXT_CHECK_ENABLED: "true" }), true);
+console.log("quote-verification tests passed");

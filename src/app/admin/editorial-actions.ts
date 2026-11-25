@@ -10,6 +10,8 @@ import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 
 import { publishSourceProblem } from "@/features/editorial/publish-gate";
 import { isSeparationOfDutiesEnforced, separationOfDutiesProblem } from "@/features/editorial/separation-of-duties";
+import { isQuoteVerificationEnabled } from "@/features/editorial/quote-verification";
+import { checkContentQuotes } from "@/features/editorial/quote-verification-service";
 import { canTransitionReview, isReviewState } from "@/features/editorial/review-transitions";
 
 function target(formData: FormData) {
@@ -125,8 +127,8 @@ export async function publishApprovedContentAction(formData: FormData) {
   const admin = await requireAdminStepUp("content.publish", "/admin/editorial");
   await enforceEditorialRateLimit(admin, "editorial.publish", 10, 60);
   const { id, updatedAt } = target(formData);
-  const current = await supabaseServerAdminRequest<Array<{ id: string; updated_at: string; review_status: string; published: boolean; source_id: string | null }>>(
-    `/rest/v1/content_library?select=id,updated_at,review_status,published,source_id&id=eq.${encodeURIComponent(id)}&limit=1`,
+  const current = await supabaseServerAdminRequest<Array<{ id: string; updated_at: string; review_status: string; published: boolean; source_id: string | null; body_ar?: string | null }>>(
+    `/rest/v1/content_library?select=id,updated_at,review_status,published,source_id,body_ar&id=eq.${encodeURIComponent(id)}&limit=1`,
     { method: "GET" },
   );
   if (!current[0]) editorialError("المحتوى غير موجود.");
@@ -139,6 +141,18 @@ export async function publishApprovedContentAction(formData: FormData) {
   );
   const sourceProblem = publishSourceProblem(sources[0]);
   if (sourceProblem) editorialError(sourceProblem);
+
+  // Flagged (SOURCE_TEXT_CHECK_ENABLED): quoted Quran and hadith spans must match the canonical corpus.
+  if (isQuoteVerificationEnabled()) {
+    let quoteProblem: string | null;
+    try {
+      quoteProblem = await checkContentQuotes(String(current[0].body_ar ?? ""));
+    } catch (error) {
+      console.error("[admin/editorial] quote verification unavailable", error);
+      quoteProblem = "تعذر التحقق من الاقتباسات الآن. أعد المحاولة بعد قليل.";
+    }
+    if (quoteProblem) editorialError(quoteProblem);
+  }
 
   const expectedUpdatedAt = updatedAt || current[0].updated_at;
   const now = new Date().toISOString();

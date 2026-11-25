@@ -99,3 +99,59 @@ export function analyzeOmnisResourceImpact(value: unknown, graph?: OmnisImportGr
     explanation,
   };
 }
+
+export type OmnisChangeScopeEntry = {
+  path: string;
+  scope: "scoped" | "exempt" | "unscoped";
+  affectedModules: string[];
+  relatedTests: string[];
+  needsTestReview: boolean;
+};
+export type OmnisChangeScope = {
+  entries: OmnisChangeScopeEntry[];
+  unscoped: string[];
+  needsTestReview: string[];
+  ok: boolean;
+};
+
+const EXEMPT_PREFIXES = ["docs/", "public/", ".gitignore", "README", "package.json", "pnpm-lock.yaml", "tsconfig", "eslint", "next.config", "CLAUDE.md", "AGENTS.md"] as const;
+const CODE_CATEGORIES: ReadonlySet<OmnisResourceCategory> = new Set(["page", "api", "component", "service", "library"]);
+
+/**
+ * P04-03: a change set is "scoped" when every changed file has a known owner area (impact rule or
+ * resource category) or is documentation/config. Unknown paths block the change (ok=false) so no
+ * unreviewed area is modified. Code files with an exact import graph but no importing test are
+ * listed for review; they do not block, because tests may cover them indirectly.
+ */
+export function evaluateOmnisChangeScope(paths: readonly string[], graph?: OmnisImportGraph | null): OmnisChangeScope {
+  const entries: OmnisChangeScopeEntry[] = [];
+  for (const raw of paths) {
+    const path = normalizeOmnisResourcePath(raw);
+    if (!path) {
+      entries.push({ path: String(raw), scope: "unscoped", affectedModules: [], relatedTests: [], needsTestReview: false });
+      continue;
+    }
+    if (EXEMPT_PREFIXES.some((prefix) => path.startsWith(prefix))) {
+      entries.push({ path, scope: "exempt", affectedModules: [], relatedTests: [], needsTestReview: false });
+      continue;
+    }
+    const category = classifyOmnisResource(path);
+    const analysis = analyzeOmnisResourceImpact(path, graph);
+    const known = Boolean(matchingRule(path)) || category !== null || isTestPath(path);
+    const exact = analysis?.confidence === "import-graph";
+    entries.push({
+      path,
+      scope: known ? "scoped" : "unscoped",
+      affectedModules: analysis?.affectedModules ?? [],
+      relatedTests: analysis?.relatedTests ?? [],
+      needsTestReview: known && exact && category !== null && CODE_CATEGORIES.has(category) && (analysis?.relatedTests.length ?? 0) === 0,
+    });
+  }
+  const unscoped = entries.filter((entry) => entry.scope === "unscoped").map((entry) => entry.path);
+  return {
+    entries,
+    unscoped,
+    needsTestReview: entries.filter((entry) => entry.needsTestReview).map((entry) => entry.path),
+    ok: unscoped.length === 0,
+  };
+}
