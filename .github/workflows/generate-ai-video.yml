@@ -72,7 +72,7 @@ jobs:
       HF_VIDEO_PYTHON: ${{ github.workspace }}/.automation-venv/bin/python
       # Generate on free visual AI providers with deterministic FFmpeg fallback; the canonical video record stays in ZIKR.
       AUTO_VIDEO_SECONDS: "25"
-      # Candidates are queued after source-locked automated QA; the social worker separately requires human review for Kids videos.
+      # Every generated video must pass snapshot-bound automated QA; Kids-suitable videos also require the strict automated Kids QA before public publishing and Kids-section cross-listing. No routine human approval hold is used.
       BACKGROUND_JOB_TARGET: "videos"
       VIDEO_TEMPLATE_VERSION: "2026-11-06-composition-sync-v8"
       VIDEO_OUTPUT_CRF: "17"
