@@ -25,12 +25,13 @@ assert(
 );
 
 assert(
-  worker.includes("const priorityDay = Math.floor(Date.now() / 86_400_000);"),
-  "worker computes the same UTC day-index format as the seeder",
+  worker.includes('const priorityTimeZone = process.env.PROMO_VIDEO_TIMEZONE?.trim() || "Africa/Cairo";') &&
+    worker.includes("resolveZonedDailyVideoQuotaWindow(new Date(), priorityTimeZone).dayIndex"),
+  "worker computes the same Cairo-local day-index format as the video seeder",
 );
 assert(
   worker.includes("processTemplateVideoQueue(waveSize, priorityDay)"),
-  "worker passes the current UTC day to the prioritized queue processor",
+  "worker passes the current Cairo local day to the prioritized queue processor",
 );
 assert(
   worker.includes("const wave = [await processTemplateVideoQueue(waveSize, priorityDay)];"),
