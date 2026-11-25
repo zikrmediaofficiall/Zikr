@@ -1,0 +1,1169 @@
+{
+ "migrationCount": 481,
+ "latestMigration": "20261125210000_omnis_source_gate_other_tables",
+ "tables": [
+  {
+   "table": "admin_audit_events",
+   "createdIn": "20260905190421",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "admin_omnis_execution_events",
+   "createdIn": "20261125045720",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "admin_omnis_execution_ledger",
+   "createdIn": "20261125045720",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "admin_page_views",
+   "createdIn": "20261021235117",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "admin_queue_alert_deliveries",
+   "createdIn": "20261027212803",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "admin_rate_limits",
+   "createdIn": "20261008082029",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "admin_role_assignments",
+   "createdIn": "20260911150920",
+   "rls": true,
+   "policies": 14,
+   "dropped": false
+  },
+  {
+   "table": "admin_setting_versions",
+   "createdIn": "20261125064252",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "admin_settings",
+   "createdIn": "20260901105000",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "article_categories",
+   "createdIn": "20260605000010",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "articles",
+   "createdIn": "20260605000010",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "automation_dead_letters",
+   "createdIn": "20261125180000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
+   "table": "automation_runs",
+   "createdIn": "20261125180000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
+   "table": "automation_workflows",
+   "createdIn": "20261125180000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
+   "table": "background_reminder_preferences",
+   "createdIn": "20260814190000",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "battle_events",
+   "createdIn": "20260610000014",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "battles",
+   "createdIn": "20260610000014",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "companion_stories",
+   "createdIn": "20260610000014",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "companions",
+   "createdIn": "20260610000014",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "competitions",
+   "createdIn": "20260530000200",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "conquest_events",
+   "createdIn": "20260610000014",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "conquests",
+   "createdIn": "20260610000014",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "content_agent_queue",
+   "createdIn": "20260821175629",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "content_agent_runs",
+   "createdIn": "20260821175629",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "content_agent_sources",
+   "createdIn": "20260821175629",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "content_library",
+   "createdIn": "20260901105000",
+   "rls": true,
+   "policies": 9,
+   "dropped": false
+  },
+  {
+   "table": "content_publish_queue",
+   "createdIn": "20261021235117",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "content_revisions",
+   "createdIn": "20260901105000",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "content_sources",
+   "createdIn": "20260901105000",
+   "rls": true,
+   "policies": 9,
+   "dropped": false
+  },
+  {
+   "table": "content_translation_queue",
+   "createdIn": "20261003090000",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "dua_categories",
+   "createdIn": "20260605000010",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "duas",
+   "createdIn": "20260605000010",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "favorites",
+   "createdIn": "20260530000200",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "hadith_books",
+   "createdIn": "20260530000100",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "hadith_explanations",
+   "createdIn": "20260530000100",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "hadiths",
+   "createdIn": "20260530000100",
+   "rls": true,
+   "policies": 9,
+   "dropped": false
+  },
+  {
+   "table": "kids_content",
+   "createdIn": "20260605000010",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "kids_game_levels",
+   "createdIn": "20260901105000",
+   "rls": true,
+   "policies": 9,
+   "dropped": false
+  },
+  {
+   "table": "kids_game_questions",
+   "createdIn": "20260901105000",
+   "rls": true,
+   "policies": 8,
+   "dropped": false
+  },
+  {
+   "table": "kids_games",
+   "createdIn": "20260901105000",
+   "rls": true,
+   "policies": 9,
+   "dropped": false
+  },
+  {
+   "table": "kids_player_progress",
+   "createdIn": "20260827182800",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "kids_user_achievements",
+   "createdIn": "20260827182800",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "media_assets",
+   "createdIn": "20260901105000",
+   "rls": true,
+   "policies": 9,
+   "dropped": false
+  },
+  {
+   "table": "memorization_plans",
+   "createdIn": "20260530000200",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "memorization_progress",
+   "createdIn": "20260807090000",
+   "rls": true,
+   "policies": 8,
+   "dropped": false
+  },
+  {
+   "table": "notifications",
+   "createdIn": "20260807090000",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "omnis_agent_proposals",
+   "createdIn": "20261125190000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
+   "table": "omnis_agent_runs",
+   "createdIn": "20261125190000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
+   "table": "omnis_custom_page_versions",
+   "createdIn": "20261125200000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
+   "table": "omnis_custom_pages",
+   "createdIn": "20261125200000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
+   "table": "omnis_source_gate_config",
+   "createdIn": "20261125210000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
+   "table": "pinned_messages",
+   "createdIn": "20260530000200",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "prayer_locations",
+   "createdIn": "20260610000012",
+   "rls": true,
+   "policies": 5,
+   "dropped": false
+  },
+  {
+   "table": "prayer_notification_deliveries",
+   "createdIn": "20260814160000",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "prayer_notifications",
+   "createdIn": "20260610000012",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "prayer_preferences",
+   "createdIn": "20260610000012",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "prayer_schedule_cache",
+   "createdIn": "20260814160000",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "profiles",
+   "createdIn": "20260530000200",
+   "rls": true,
+   "policies": 7,
+   "dropped": false
+  },
+  {
+   "table": "prophet_sections",
+   "createdIn": "20260605000010",
+   "rls": true,
+   "policies": 5,
+   "dropped": false
+  },
+  {
+   "table": "prophets",
+   "createdIn": "20260605000010",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "push_runtime_settings",
+   "createdIn": "20260814160000",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "push_subscriptions",
+   "createdIn": "20260814160000",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "quran_ayahs",
+   "createdIn": "20260530000100",
+   "rls": true,
+   "policies": 5,
+   "dropped": false
+  },
+  {
+   "table": "quran_reciters",
+   "createdIn": "20260530000100",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "quran_surahs",
+   "createdIn": "20260530000100",
+   "rls": true,
+   "policies": 5,
+   "dropped": false
+  },
+  {
+   "table": "quran_tafsir",
+   "createdIn": "20260530000100",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "reading_progress",
+   "createdIn": "20260530000200",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "recent_recitations",
+   "createdIn": "20260610000013",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "reciter_favorites",
+   "createdIn": "20260610000013",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "reminders",
+   "createdIn": "20260530000200",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "scholars",
+   "createdIn": "20260530000100",
+   "rls": true,
+   "policies": 9,
+   "dropped": false
+  },
+  {
+   "table": "site_audio_assets",
+   "createdIn": "20260828000000",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "site_audio_upload_intents",
+   "createdIn": "20261114000000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
+   "table": "site_settings",
+   "createdIn": "20260530000200",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "social_platform_credentials",
+   "createdIn": "20261020234239",
+   "rls": true,
+   "policies": 4,
+   "dropped": false
+  },
+  {
+   "table": "social_platform_profiles",
+   "createdIn": "20261002065000",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "social_post_insights",
+   "createdIn": "20261106090800",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "social_publish_queue",
+   "createdIn": "20260929045633",
+   "rls": true,
+   "policies": 5,
+   "dropped": false
+  },
+  {
+   "table": "social_sync_jobs",
+   "createdIn": "20261002065000",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "social_sync_state",
+   "createdIn": "20261002065000",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "stories",
+   "createdIn": "20260530000000",
+   "rls": true,
+   "policies": 9,
+   "dropped": false
+  },
+  {
+   "table": "tawasheeh",
+   "createdIn": "20260610000013",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "tawasheeh_categories",
+   "createdIn": "20260610000013",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "tawasheeh_favorites",
+   "createdIn": "20260610000013",
+   "rls": true,
+   "policies": 5,
+   "dropped": false
+  },
+  {
+   "table": "tawasheeh_playlist_items",
+   "createdIn": "20260610000013",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "tawasheeh_playlists",
+   "createdIn": "20260610000013",
+   "rls": true,
+   "policies": 14,
+   "dropped": false
+  },
+  {
+   "table": "video_automation_runs",
+   "createdIn": "20261002100000",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "video_categories",
+   "createdIn": "20260605000010",
+   "rls": true,
+   "policies": 10,
+   "dropped": false
+  },
+  {
+   "table": "video_generation_requests",
+   "createdIn": "20260630000017",
+   "rls": true,
+   "policies": 3,
+   "dropped": false
+  },
+  {
+   "table": "video_like_counts",
+   "createdIn": "20261106214309",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  },
+  {
+   "table": "video_likes",
+   "createdIn": "20261106213918",
+   "rls": true,
+   "policies": 7,
+   "dropped": false
+  },
+  {
+   "table": "video_template_versions",
+   "createdIn": "20261106010000",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "video_templates",
+   "createdIn": "20261106010000",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "videos",
+   "createdIn": "20260605000010",
+   "rls": true,
+   "policies": 16,
+   "dropped": false
+  },
+  {
+   "table": "youtube_feed_cache",
+   "createdIn": "20260828000003",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "youtube_oauth_credentials",
+   "createdIn": "20261106083147",
+   "rls": true,
+   "policies": 1,
+   "dropped": false
+  },
+  {
+   "table": "youtube_sync_state",
+   "createdIn": "20260828000003",
+   "rls": true,
+   "policies": 2,
+   "dropped": false
+  }
+ ],
+ "routes": [
+  {
+   "path": "/api/admin/analytics",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/cloudinary/image",
+   "methods": [
+    "POST",
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/content",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/media",
+   "methods": [
+    "GET",
+    "POST",
+    "PATCH"
+   ]
+  },
+  {
+   "path": "/api/admin/overview",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/page-view",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/sections",
+   "methods": [
+    "GET",
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/site-audio",
+   "methods": [
+    "GET",
+    "POST",
+    "PATCH",
+    "DELETE"
+   ]
+  },
+  {
+   "path": "/api/admin/site-audio/upload",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/social/facebook/callback",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/social/facebook/connect",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/social",
+   "methods": [
+    "GET",
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/social/written",
+   "methods": [
+    "GET",
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/social/youtube/callback",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/social/youtube/connect",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/video/templates",
+   "methods": [
+    "GET",
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/video-generation/narration-upload",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/video-generation/prophet-candidates",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/video-generation",
+   "methods": [
+    "GET",
+    "DELETE",
+    "PATCH"
+   ]
+  },
+  {
+   "path": "/api/admin/video-generation/sources",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/video-purge",
+   "methods": [
+    "GET",
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/videos/[id]/project-copy",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/videos/[id]/retry",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/videos/[id]",
+   "methods": [
+    "GET",
+    "PATCH",
+    "DELETE"
+   ]
+  },
+  {
+   "path": "/api/admin/videos/create",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/videos",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/videos/upload",
+   "methods": [
+    "POST",
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/admin/youtube-facebook/register-media",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/youtube-facebook/upload-url",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/app-version",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/auth/profile-sync",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/contact",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/content/articles",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/content/companions",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/content/prophets",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/content/stats",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/content/stories",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/content/videos/[slug]",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/download/android/aab",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/download/android",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/duas/categories",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/duas",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/geocode/reverse",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/hadith/books",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/health",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/internal/youtube-facebook/cleanup-media",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/kids/content/[slug]",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/kids/content",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/kids/games/achievements",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/kids/games/progress",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/kids/games/score",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/kids/games/submit-result",
+   "methods": [
+    "POST",
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/kids/games/validate",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/kids/games/verse",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/kids/social-posts",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/kids/track-share",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/kids/videos",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/poetry-insight",
+   "methods": [
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/prayer-location",
+   "methods": [
+    "GET",
+    "POST"
+   ]
+  },
+  {
+   "path": "/api/prayer-times",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/push/public-key",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/push/subscription",
+   "methods": [
+    "POST",
+    "DELETE"
+   ]
+  },
+  {
+   "path": "/api/quran/audio",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/quran/reciters",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/quran/surahs",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/reminders/background",
+   "methods": [
+    "GET",
+    "PUT"
+   ]
+  },
+  {
+   "path": "/api/search",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/site-audio",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/site-settings",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/storage/presign",
+   "methods": [
+    "POST",
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/tawasheeh/categories",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/tawasheeh",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/user/favorites",
+   "methods": [
+    "GET",
+    "POST",
+    "DELETE"
+   ]
+  },
+  {
+   "path": "/api/user/notifications",
+   "methods": [
+    "GET"
+   ]
+  },
+  {
+   "path": "/api/user/profile",
+   "methods": [
+    "GET",
+    "PUT"
+   ]
+  },
+  {
+   "path": "/api/videos/[videoId]/like",
+   "methods": [
+    "GET",
+    "POST",
+    "DELETE"
+   ]
+  }
+ ]
+}

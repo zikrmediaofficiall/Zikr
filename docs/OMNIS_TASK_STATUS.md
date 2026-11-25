@@ -35,7 +35,7 @@ no DB runner yet. **Not built** = nothing exists for the deliverable.
 | P10-02 execution reliability | Built (flagged) | `automation/workflow-store.ts` DB-backed runs: idempotency, rate limit, retry, timeout, dead-letter list; migration 20261125180000 not applied | only notify_admin and revalidate_path execute; other actions dead-letter; verification is recorded, not machine-checked | this commit |
 | P10-03 approvals, kill switch, recovery | Built (flagged) | dry run default, approval by a different admin, per-workflow disable, global AUTOMATION_KILL_SWITCH | pause/resume queue not wired to executor | this commit |
 | P11-01 cloud services center | Partial | `admin/services/platform.ts` (GitHub, workflows, health) | no Vercel/Supabase/storage panel | existing |
-| P11-02 database and API studio | Not built | static scripts only (`verify-migration-rls-coverage`) | inventory UI | 4fdc67d |
+| P11-02 database and API studio | Built (read-only static) | `/admin/omnis/database`, `scripts/lib/db-inventory.mjs`, generated inventory (97 tables with RLS and policy counts, 481 migrations, 76 API routes) + freshness test | reflects repo files not the live DB; no query console or live migration status | this commit |
 | P11-03 code development center | Not built | none | branches, PRs, reviews view | none |
 | P12-01 fine-grained permissions, SoD | Built (optional ADMIN_ABAC_POLICY) | RBAC `permissions.ts`, SoD flag `b84de20`, `admin/services/abac-policy.ts` environment/scope rules restricting step-up actions, test | rules only restrict; scope tag is not yet passed by callers; applied in requireAdminStepUp only | b84de20, this commit |
 | P12-02 security and secrets monitoring | Built | `verify-no-committed-secrets`, `/admin/security` | none known | 6d7957e |
