@@ -481,7 +481,7 @@ assert.ok(
   templateVideoWorker.includes('if (existing.status === "processing")') &&
     templateVideoWorker.includes("if (newlyEnabledTargets.length > 0) await queueSupplementalTargets(newlyEnabledTargets)") &&
     templateVideoWorker.includes(":late:${target}") &&
-    templateVideoWorker.includes("buildQueuePayload([target], supplementalKey)"),
+    templateVideoWorker.includes("buildQueuePayload([target], supplementalKey, scheduledAt)"),
   "newly enabled targets must use idempotent supplemental rows while the original social row is processing",
 );
 assert.ok(
