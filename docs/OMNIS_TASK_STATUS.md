@@ -42,7 +42,7 @@ no DB runner yet. **Not built** = nothing exists for the deliverable.
 | P12-03 backup and recovery | Partial (tooling built) | runbook, `scripts/restore-drill.mjs` offline dump analyzer + test | no managed backups exist; a real restore into a scratch DB was NOT performed | ca046ea, this commit |
 | P13-01 specialist agents | Scaffold | `omnis/agents.ts`, migration `20261125190000` | flag off | 627c714 |
 | P13-02 tools and resource scoping | Scaffold | scoped authorization in `agents.ts` | flag off | 627c714 |
-| P13-03 analysis and repair orchestration | Not built | proposal table only | orchestration and review UI | none |
+| P13-03 analysis and repair orchestration | Built (review UI + intake, flagged OMNIS_AGENTS_ENABLED) | `/admin/omnis/agents`, `omnis/agent-store.ts`: scoped intake with budgets/limits and run log, human approve/reject/applied transitions by agent permission | no runner that calls a model to generate proposals; applying a proposal is manual | this commit |
 | P14-01 contract and integration tests | Built | static RLS and admin-guard checks, ~190 test files | E2E needs live env | 4fdc67d |
 | P14-02 load and recovery tests | Not built | none | runnable-without-live tests | none |
 | P14-03 gradual release and closure | Partial | `/admin/release`, release gates | closure needs live Preview/Staging and human approval | existing |

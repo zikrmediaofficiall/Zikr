@@ -21,7 +21,7 @@ const pages = existsSync(appRoot)
   : [];
 
 if (!pages.length) failures.push("no admin page files discovered");
-if (pages.length !== 56) failures.push(`expected 56 active admin pages (55 navigation routes + 1 security step-up page), found ${pages.length}`);
+if (pages.length !== 57) failures.push(`expected 57 active admin pages (56 navigation routes + 1 security step-up page), found ${pages.length}`);
 const retiredAdminRoutes = [
   "src/app/admin/videos/page.tsx",
   "src/app/admin/video-factory/page.tsx",
