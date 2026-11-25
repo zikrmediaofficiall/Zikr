@@ -6,14 +6,18 @@ import { requireAdminPermission } from "@/features/admin/services/admin";
 import { getAdminSettings } from "@/features/admin/services/platform";
 import { saveAdminSettingAction } from "@/app/admin/system-actions";
 import { resolveDestructiveMfaRequirement } from "@/features/admin/services/security-policy";
+import { ADMIN_SETTING_REGISTRY, getEditableAdminSettingDefinition, type BooleanAdminSettingDefinition } from "@/features/admin/config/settings-registry";
 
 export const metadata: Metadata = { title: "إعدادات الإدارة | الأدمن" };
 
-const BOOLEAN_SETTINGS = [
-  ["require_mfa_for_destructive", "طلب MFA قبل العمليات الحساسة", "يتحكم في طبقة الإحالة قبل الحذف والنشر والعمليات الخطرة."],
-  ["maintenance_mode", "وضع الصيانة", "يوقف واجهات الصيانة التي تعتمد على هذا الإعداد دون تغيير بيانات المحتوى."],
-  ["admin_alerts_enabled", "تنبيهات الإدارة", "يسمح لمركز الإدارة بعرض والتنبيه عن الأحداث التشغيلية المهمة."],
-] as const;
+const BOOLEAN_SETTINGS = ADMIN_SETTING_REGISTRY.filter(
+  (setting): setting is BooleanAdminSettingDefinition =>
+    setting.editable && setting.category !== "video" && setting.valueType === "boolean",
+);
+const SEARCH_RESULT_LIMIT = getEditableAdminSettingDefinition("search_result_limit");
+if (!SEARCH_RESULT_LIMIT || SEARCH_RESULT_LIMIT.valueType !== "integer") {
+  throw new Error("The search_result_limit registry definition is missing or invalid.");
+}
 
 export default async function AdminSettingsPage() {
   await requireAdminPermission("settings.manage");
@@ -30,10 +34,16 @@ export default async function AdminSettingsPage() {
       </header>
 
       <section className="grid gap-4 md:grid-cols-3">
-        {BOOLEAN_SETTINGS.map(([key, label, description]) => {
+        {BOOLEAN_SETTINGS.map((definition) => {
+          const { key, label, description } = definition;
+          const storedValue = values[key];
           const enabled = key === "require_mfa_for_destructive"
-            ? resolveDestructiveMfaRequirement(values[key])
-            : values[key] === true;
+            ? resolveDestructiveMfaRequirement(storedValue)
+            : typeof storedValue === "boolean"
+              ? storedValue
+              : typeof storedValue === "string"
+                ? storedValue.trim().toLowerCase() === "true"
+                : definition.runtimeFallback;
           return (
             <form key={key} action={saveAdminSettingAction} className="rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
               <input type="hidden" name="key" value={key} />
@@ -57,9 +67,13 @@ export default async function AdminSettingsPage() {
         <input
           name="value"
           type="number"
-          min={10}
-          max={100}
-          defaultValue={typeof values.search_result_limit === "number" ? values.search_result_limit : 40}
+          min={SEARCH_RESULT_LIMIT.minimum}
+          max={SEARCH_RESULT_LIMIT.maximum}
+          defaultValue={
+            typeof values.search_result_limit === "number" && Number.isSafeInteger(values.search_result_limit)
+              ? values.search_result_limit
+              : SEARCH_RESULT_LIMIT.runtimeFallback
+          }
           className="mt-4 w-full rounded-xl border border-brand-gold/15 bg-black/20 px-3 py-2 text-sm text-brand-cream outline-none focus:border-brand-gold/40"
         />
         <button type="submit" className="mt-4 rounded-xl border border-brand-gold/25 px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold/10">حفظ حد البحث</button>
