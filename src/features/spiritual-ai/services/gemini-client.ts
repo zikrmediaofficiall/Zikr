@@ -1,5 +1,6 @@
 import "server-only";
 
+import { resolveGeminiModelRoute } from "./model-routing";
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory, type GenerationConfig } from '@google/generative-ai';
 import { getServerEnv } from '@/lib/env';
 
@@ -37,8 +38,10 @@ function getNextApiKey(): string | null {
 }
 
 function getDirectModels(): string[] {
-  const configured = (getServerEnv().GEMINI_MODEL?.replace(/^google\//, '') ?? 'gemini-3.1-flash-lite').trim();
-  return [...new Set([configured, 'gemini-3.5-flash-lite'])];
+  return resolveGeminiModelRoute({
+    primary: getServerEnv().GEMINI_MODEL,
+    fallbacks: process.env.GEMINI_FALLBACK_MODELS,
+  });
 }
 
 const BLOCK_ONLY_HIGH = 'BLOCK_ONLY_HIGH' as unknown as HarmBlockThreshold;
