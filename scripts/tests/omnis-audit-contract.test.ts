@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { sanitizeAdminAuditMetadata } from "../../src/features/admin/services/audit-metadata";
+import { isValidControlPlaneRequest } from "../../src/features/admin/omnis/contracts";
+
+const request = {
+  commandKey: "configuration.update",
+  resourceType: "admin_setting",
+  resourceId: "homepage.title",
+  scope: "resource" as const,
+  requestId: "0f8fad5b-d9cb-469f-a165-70867728950e",
+};
+assert.equal(isValidControlPlaneRequest(request), true);
+assert.equal(isValidControlPlaneRequest({ ...request, requestId: "not-a-uuid" }), false);
+assert.equal(isValidControlPlaneRequest({ ...request, requestId: "" }), false);
 
 const circular: Record<string, unknown> = { visible: "safe" };
 circular.self = circular;
