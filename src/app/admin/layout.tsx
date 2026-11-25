@@ -4,6 +4,7 @@ import { AdminMobileNav, AdminSidebar, type AdminNavGroup } from "@/features/adm
 import { requireAdmin } from "@/features/admin/services/admin";
 import { hasAdminPermission, type AdminPermission } from "@/features/admin/services/permissions";
 import { ADMIN_NAVIGATION } from "@/features/admin/config/navigation";
+import { buildSidebarGroups } from "@/features/admin/config/navigation-layout";
 import { AdminPageViewTracker } from "@/features/admin/components/admin-page-view-tracker";
 import { AdminCommandPalette } from "@/features/admin/components/admin-command-palette";
 import { AdminRouteBreadcrumbs } from "@/features/admin/components/admin-route-breadcrumbs";
@@ -18,10 +19,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const profile = await requireAdmin();
   const role = profile.role;
 
-  const visibleGroups: AdminNavGroup[] = ADMIN_NAVIGATION
+  // ADMIN_NAVIGATION remains the registry; the sidebar layout only groups it for display.
+  void ADMIN_NAVIGATION;
+  const visibleGroups: AdminNavGroup[] = buildSidebarGroups()
     .map((group) => ({
       key: group.key,
-      group: group.label,
+      group: group.group,
       icon: group.icon,
       items: group.items
         .filter((item) => hasAdminPermission(role, item.permission as AdminPermission))
