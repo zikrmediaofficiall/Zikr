@@ -22,7 +22,7 @@ import { buildDuplicateVideoOwnerRecoveryFilter, canRecoverDuplicateVideoRender,
 import { buildMissingMediaQueueRecoveryPatch } from "../../src/features/social/services/platform-availability";
 import { buildVideoSocialQueueUpdateFilter } from "../../src/features/social/services/social-queue-selection";
 import { resolveSocialPublishCutoff } from "../../src/features/social/services/facebook-queue-recovery-policy";
-import { calculateDailyVideoQuotaState } from "../../src/features/videos/services/video-automation-quota";
+import { calculateDailyVideoQuotaState, resolveZonedDailyVideoQuotaWindow } from "../../src/features/videos/services/video-automation-quota";
 import { resolveAutomatedVideoMode } from "../../src/features/videos/services/video-content-distribution";
 import { canReserveVideoPublishAt, resolveNextVideoPublishAt, type VideoPublishScheduleRow } from "../../src/features/social/services/video-publishing-schedule";
 import {
@@ -911,20 +911,20 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   if (process.env.AUTO_VIDEO_ENABLED?.toLowerCase() === "false") return 0;
   if (await isVideoGenerationPaused()) return 0;
   const now = new Date();
-  const day = dayIndex(now);
+  const quotaTimeZone = process.env.PROMO_VIDEO_TIMEZONE?.trim() || DEFAULT_PROMO_VIDEO_TIME_ZONE;
+  const quotaWindow = resolveZonedDailyVideoQuotaWindow(now, quotaTimeZone);
+  const day = quotaWindow.dayIndex;
   let created = await seedWeeklyLaylEpisodeRequest(now);
   created += await seedWeeklyPromotionalVideoRequests(now);
 
   // Daily quota: keys are unique per UTC day (kind:day:counter) so every run can create new
   // videos, and the DAILY_VIDEO_TARGET is spread evenly across the day instead of bursting.
   // Urgent admin "Run Now" may bypass time-of-day pacing, but never the daily quota.
-  const quotaDayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const quotaNextDayStart = new Date(quotaDayStart.getTime() + 86_400_000);
-  const quotaDayStartIso = encodeURIComponent(quotaDayStart.toISOString());
-  const quotaNextDayStartIso = encodeURIComponent(quotaNextDayStart.toISOString());
+  const quotaDayStartIso = encodeURIComponent(quotaWindow.startIso);
+  const quotaNextDayStartIso = encodeURIComponent(quotaWindow.nextStartIso);
   const [dailyRows, promotionalRows] = await Promise.all([
     supabaseServerAdminRequest<Array<{ id: string; status: string; automation_key: string | null }>>(
-      `/rest/v1/video_generation_requests?automation_key=like.*:${day}:*&select=id,status,automation_key&limit=1000`,
+      `/rest/v1/video_generation_requests?created_at=gte.${quotaDayStartIso}&created_at=lt.${quotaNextDayStartIso}&select=id,status,automation_key&limit=1000`,
     ),
     // Promotional requests use publish-date keys rather than the numeric daily
     // slot key. Count those created today so campaigns cannot bypass the
@@ -933,14 +933,18 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       `/rest/v1/video_generation_requests?automation_key=like.promo-*&created_at=gte.${quotaDayStartIso}&created_at=lt.${quotaNextDayStartIso}&select=id,status,automation_key&limit=1000`,
     ),
   ]);
-  const todaysRows = [...new Map(
+  const quotaInventoryRows = [...new Map(
     [...(dailyRows ?? []), ...(promotionalRows ?? [])].map((row) => [row.id, row] as const),
   ).values()];
-  if ((dailyRows ?? []).length >= 1000 || (promotionalRows ?? []).length >= 1000 || todaysRows.length >= 1000) {
+  if ((dailyRows ?? []).length >= 1000 || (promotionalRows ?? []).length >= 1000 || quotaInventoryRows.length >= 1000) {
     throw new Error(
       "Daily video quota inventory reached 1,000 rows; refusing to seed requests from a truncated slot history.",
     );
   }
+  // The weekly long-form Layl episode is editorial programming, not one of the
+  // three short-form video slots. All other manual, standard and promo requests
+  // created within the Cairo local day share the same quota inventory.
+  const todaysRows = quotaInventoryRows.filter((row) => !row.automation_key?.startsWith("layl-weekly:"));
   const dailyQuota = calculateDailyVideoQuotaState(todaysRows);
   const alreadySeededToday = dailyQuota.reservedCount;
   // Enforce a hard three-short-video daily ceiling, including urgent admin dispatches.
