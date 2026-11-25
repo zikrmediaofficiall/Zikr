@@ -24,10 +24,10 @@ no DB runner yet. **Not built** = nothing exists for the deliverable.
 | P06-03 editorial governance | Built | `editorial/review-transitions.ts`, audited unpublish | none known | 10d6f8f |
 | P07-01 model and provider management | Built (optional AI_PROVIDER_BUDGETS) | Gemini route `a6cf276`; `spiritual-ai/services/provider-budget.ts` per-model daily request/output-token budgets, exhausted models skipped, test | counters are per process (not a global billing cap); output tokens estimated from text length; no admin UI | a6cf276, this commit |
 | P07-02 video and audio factory | Partial | `/admin/video/*`, video job, templates | unification is existing admin; not re-audited against plan | existing |
-| P07-03 quality and asset gate | Partial | `verify-video-qa`, automated QA checklist, rights gate | not re-audited against plan | existing |
-| P08-01 accounts and channels | Partial | `/admin/social` | not re-audited (OAuth state per account) | existing |
-| P08-02 scheduling and queues | Partial | `social_publish_queue`, publish schedule and claim logic | not re-audited | existing |
-| P08-03 post-publish tracking | Partial | `social_post_insights`, youtube/facebook ids | not re-audited | existing |
+| P07-03 quality and asset gate | Covered by existing code (audited) | `scripts/verify-video-qa.mjs` asserts audience classification (general/kids), `rightsReviewed`, `audienceCta`, backfill classification; `video-qa-backfill-policy.test.ts`, `video-source-approval.test.ts` | media-level checks beyond QA checklist not re-verified live | existing |
+| P08-01 accounts and channels | Covered by existing code (audited) | `social/services/platform-availability.ts` per-platform `authBlocked`/`unavailable` state, `facebook-oauth-policy.ts`, `oauth-state.ts`, `/admin/social` | one account per platform; no multi-account switcher | existing |
+| P08-02 scheduling and queues | Covered by existing code (audited) | `social_publish_queue` + `social_sync_jobs` (attempts, next_attempt_at, locked_at, unique source key), `social-queue-selection.ts`, `social-publish-recovery-policy.ts`, per-platform results, `social-platform-isolation.test.ts` | per-channel schedule UI not re-audited | existing |
+| P08-03 post-publish tracking | Covered by existing code (audited) | `facebook_post_id`/platform ids on queue and jobs, `social_post_insights`, `social-insights-sync-status.ts`, youtube/facebook insights services | post URL is derived, not stored as its own column | existing |
 | P09-01 analytics data layer | Built | `admin/services/analytics-completeness.ts` | none known | 85ced85 |
 | P09-02 audience and content analytics | Partial | `/admin/analytics`, GA4/YouTube contracts | not re-audited | existing |
 | P09-03 growth, revenue, SEO | Partial | traffic-revenue panel, `/admin/seo`, `/admin/video/performance` | not re-audited | existing, 5b6ee1a |
