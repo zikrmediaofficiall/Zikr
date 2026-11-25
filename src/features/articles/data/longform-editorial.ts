@@ -1,4 +1,5 @@
 import type { StaticArticle } from "@/features/articles/data/articles";
+import { longformExtraBatch1 } from "@/features/articles/data/longform-extra-1";
 
 const publishedAt = "2026-10-15T00:00:00.000Z";
 
@@ -18,7 +19,7 @@ function longformArticle(seed: LongformSeed): StaticArticle {
   };
 }
 
-export const longformEditorialArticles: StaticArticle[] = [
+const baseLongformEditorialArticles: StaticArticle[] = [
   longformArticle({
     id: "longform-pillars-of-islam",
     title_ar: "أركان الإسلام الخمسة: شرح مبسط وأثرها في الحياة اليومية",
@@ -597,6 +598,8 @@ export const longformEditorialArticles: StaticArticle[] = [
 وفي الخلاصة: الاعتدال خلق يحفظ المال والصحة والعلاقات، وهو توجيه قرآني ونبوي متكرر. ومن بدأ بخطوات صغيرة، كقائمة مشتريات وميزانية بسيطة، وجد أن حياته أخف وأن بركة ماله تزيد. وهذا المقال إرشاد عام ولا يغني عن استشارة مختص في الأمور المالية المعقدة وعن سؤال أهل العلم في الأحكام الفقهية للمعاملات.`,
   }),
 ];
+
+export const longformEditorialArticles: StaticArticle[] = [...baseLongformEditorialArticles, ...longformExtraBatch1];
 
 export function getLongformEditorialArticle(slug: string): StaticArticle | null {
   return longformEditorialArticles.find((article) => article.slug === slug) ?? null;

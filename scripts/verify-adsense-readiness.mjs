@@ -170,8 +170,12 @@ for (const file of publicEditorial) {
 // Content depth gate: AdSense rejects sites whose editorial pages are thin, repetitive, or about the product itself.
 const MIN_LONGFORM_WORDS = 500;
 const MIN_LONGFORM_ARTICLES = 16;
+const extraLongformFiles = readdirSync('src/features/articles/data').filter((f) => /^longform-extra-\d+\.ts$/.test(f));
 const longform = read('src/features/articles/data/longform-editorial.ts');
-const longformBlocks = longform.split(/longformArticle\(\{/).slice(1);
+const longformBlocks = [
+  ...longform.split(/longformArticle\(\{/).slice(1),
+  ...extraLongformFiles.flatMap((f) => read(`src/features/articles/data/${f}`).split(/extraArticle\(\{/).slice(1)),
+];
 if (longformBlocks.length < MIN_LONGFORM_ARTICLES) {
   fail(`Expected at least ${MIN_LONGFORM_ARTICLES} long-form editorial articles, found ${longformBlocks.length}.`);
 }
@@ -180,7 +184,7 @@ for (const block of longformBlocks) {
   const slug = block.match(/slug:\s*"([^"]+)"/)?.[1] ?? 'unknown';
   const body = block.match(/content_ar:\s*`([\s\S]*?)`/)?.[1] ?? '';
   const words = body.trim().split(/\s+/).filter(Boolean).length;
-  const references = (block.match(/url:\s*"https:\/\//g) ?? []).length;
+  const references = (block.match(/url:\s*"https:\/\//g) ?? []).length + (block.match(/\b[qh]\((?:\d+|"(?:bukhari|muslim)")/g) ?? []).length;
   if (seenLongformSlugs.has(slug)) fail(`Duplicate long-form article slug: ${slug}`);
   seenLongformSlugs.add(slug);
   if (words < MIN_LONGFORM_WORDS) fail(`Long-form article "${slug}" has ${words} words; minimum is ${MIN_LONGFORM_WORDS}.`);

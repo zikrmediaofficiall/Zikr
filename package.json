@@ -33,7 +33,7 @@
     "supabase:migrations:duplicates:check": "node scripts/verify-migration-duplicates.mjs",
     "supabase:migrations:replay": "SIMULATE_LEGACY=1 node scripts/validate-migrations.mjs",
     "routes:check": "node scripts/verify-platform-routes.mjs",
-    "adsense:check": "node scripts/verify-adsense-readiness.mjs",
+    "adsense:check": "node scripts/verify-adsense-readiness.mjs && node scripts/verify-article-sources.mjs",
     "search-console:check": "node scripts/verify-google-search-console.mjs",
     "hygiene:check": "node scripts/verify-hygiene.mjs",
     "quran:offline:check": "node scripts/verify-quran-offline.mjs",
