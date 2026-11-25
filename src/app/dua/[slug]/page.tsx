@@ -41,6 +41,7 @@ export async function generateMetadata({
     description: isEnglish ? dua?.textEn?.trim().slice(0, 160) || 'A supplication in ZIKR.' : dua?.textAr?.trim().slice(0, 160) || 'دعاء مأثور في منصة ذِكرٌ.',
     path: `/dua/${slug}`,
     noindex: !hasPublicDuaContent(dua),
+    canonicalPath: DUA_CANONICAL_SLUG[slug] ? `/dua/${DUA_CANONICAL_SLUG[slug]}` : undefined,
   });
 }
 
