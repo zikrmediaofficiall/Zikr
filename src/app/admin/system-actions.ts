@@ -10,6 +10,7 @@ import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 import { dispatchGitHubWorkflow } from "@/lib/github/dispatch-workflow";
 import { buildRunNowRequestValueFilter } from "@/features/videos/services/background-job-outcome";
 import { isVideoAutomationEnabled, isVideoPurgeLockResponseActive } from "@/features/videos/services/background-job-settings";
+import { getEditableAdminSettingDefinition, validateAdminSettingValue } from "@/features/admin/config/settings-registry";
 
 function formValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -26,36 +27,22 @@ async function recordAdminAuditEventSafely(event: AdminAuditEvent): Promise<bool
 
 export async function saveAdminSettingAction(formData: FormData) {
   const key = formValue(formData, "key");
-  // The policy can be disabled; changing it must still require a fresh AAL2 session.
-  const requiresConditionalStepUp = key === "maintenance_mode" || key === "admin_alerts_enabled";
-  const profile = key === "require_mfa_for_destructive"
-    ? await requireAdminStepUp("settings.manage", "/admin/settings", true)
-    : requiresConditionalStepUp
-      ? await requireAdminStepUp("settings.manage", "/admin/settings")
-      : await requireAdminPermission("settings.manage");
-  const rawValues = formData.getAll("value").map((value) => String(value).trim());
-  const rawValue = rawValues.at(-1) ?? "";
   if (!key) throw new Error("مفتاح الإعداد مطلوب.");
-
-  const allowedSettings = new Set([
-    "require_mfa_for_destructive",
-    "maintenance_mode",
-    "admin_alerts_enabled",
-    "search_result_limit",
-  ]);
-  if (!allowedSettings.has(key)) throw new Error("إعداد إدارة غير مدعوم.");
-
-  let value: unknown;
-  if (["require_mfa_for_destructive", "maintenance_mode", "admin_alerts_enabled"].includes(key)) {
-    if (rawValue !== "true" && rawValue !== "false") throw new Error("قيمة منطقية غير صالحة.");
-    value = rawValue === "true";
-  } else {
-    const numeric = Number(rawValue);
-    if (!Number.isInteger(numeric) || numeric < 10 || numeric > 100) {
-      throw new Error("حد نتائج البحث يجب أن يكون بين 10 و100.");
-    }
-    value = numeric;
+  const definition = getEditableAdminSettingDefinition(key);
+  if (!definition || definition.category === "video") {
+    throw new Error("إعداد الإدارة غير معروف أو غير مسموح به في هذا النموذج.");
   }
+
+  const profile = definition.stepUpPolicy === "always"
+    ? await requireAdminStepUp(definition.permission, "/admin/settings", true)
+    : definition.stepUpPolicy === "policy"
+      ? await requireAdminStepUp(definition.permission, "/admin/settings")
+      : await requireAdminPermission(definition.permission);
+  const rawValue = formData.getAll("value").map((value) => String(value).trim()).at(-1) ?? "";
+  const validation = validateAdminSettingValue(key, rawValue);
+  if (!validation.ok) throw new Error(validation.error);
+  const value = validation.value;
+
   await supabaseServerAdminRequest("/rest/v1/admin_settings?on_conflict=key", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
@@ -64,20 +51,22 @@ export async function saveAdminSettingAction(formData: FormData) {
 
   await recordAdminAuditEventSafely({
     action: "admin.settings.update",
-    permission: "settings.manage",
+    permission: definition.permission,
     resourceType: "admin_settings",
     resourceId: key,
     metadata: { value },
   });
 
-  revalidatePath("/admin/settings");
-  revalidatePath("/admin/security");
+  for (const path of definition.revalidatePaths) revalidatePath(path);
 }
 
 export async function saveVideoAutomationSettingAction(formData: FormData) {
-  const profile = await requireAdminStepUp("system.manage", "/admin/automation");
   const key = formValue(formData, "key");
-  if (!key.startsWith("video_automation_")) throw new Error("إعداد أتمتة الفيديو غير صالح.");
+  const definition = getEditableAdminSettingDefinition(key);
+  if (!definition || definition.category !== "video") {
+    throw new Error("إعداد أتمتة الفيديو غير معروف أو غير قابل للتحرير.");
+  }
+  const profile = await requireAdminStepUp(definition.permission, "/admin/automation", true);
 
   if (key === "video_automation_enabled") {
     const purgeRows = await supabaseServerAdminRequest<Array<{ value: unknown }>>(
@@ -88,46 +77,10 @@ export async function saveVideoAutomationSettingAction(formData: FormData) {
     }
   }
 
-  const rawValues = formData.getAll("value").map((value) => String(value).trim());
-  const rawValue = rawValues.at(-1) ?? "";
-  let value: unknown = rawValue;
-
-  if (
-    key === "video_automation_enabled" ||
-    key === "video_automation_ai_enabled" ||
-    key === "video_automation_auto_publish"
-  ) {
-    if (rawValue !== "true" && rawValue !== "false") {
-      throw new Error("قيمة منطقية غير صالحة لإعداد أتمتة الفيديو.");
-    }
-    value = rawValue === "true";
-  } else if (key === "video_automation_batch_size") {
-    const numeric = Number(rawValue);
-    if (!Number.isInteger(numeric) || numeric < 1 || numeric > 10) {
-      throw new Error("حجم الدفعة يجب أن يكون بين 1 و10.");
-    }
-    value = numeric;
-  } else if (key === "video_automation_daily_target") {
-    const numeric = Number(rawValue);
-    if (!Number.isInteger(numeric) || numeric < 1 || numeric > 24) {
-      throw new Error("الهدف اليومي يجب أن يكون بين 1 و24.");
-    }
-    value = numeric;
-  } else if (key === "video_automation_ai_attempts_per_run") {
-    const numeric = Number(rawValue);
-    if (!Number.isInteger(numeric) || numeric < 0 || numeric > 4) {
-      throw new Error("محاولات مزودات الفيديو الذكية يجب أن تكون بين 0 و4.");
-    }
-    value = numeric;
-  } else if (key === "video_automation_video_seconds") {
-    const numeric = Number(rawValue);
-    if (!Number.isInteger(numeric) || numeric < 10 || numeric > 45) {
-      throw new Error("مدة الفيديو يجب أن تكون بين 10 و45 ثانية.");
-    }
-    value = numeric;
-  } else {
-    throw new Error("إعداد أتمتة فيديو غير مدعوم.");
-  }
+  const rawValue = formData.getAll("value").map((value) => String(value).trim()).at(-1) ?? "";
+  const validation = validateAdminSettingValue(key, rawValue);
+  if (!validation.ok) throw new Error(validation.error);
+  const value = validation.value;
 
   await supabaseServerAdminRequest("/rest/v1/admin_settings?on_conflict=key", {
     method: "POST",
@@ -142,15 +95,13 @@ export async function saveVideoAutomationSettingAction(formData: FormData) {
 
   await recordAdminAuditEventSafely({
     action: "admin.video_automation.setting_update",
-    permission: "system.manage",
+    permission: definition.permission,
     resourceType: "admin_settings",
     resourceId: key,
     metadata: { value },
   });
 
-  revalidatePath("/admin/automation");
-  revalidatePath("/admin/social");
-  revalidatePath("/admin/health");
+  for (const path of definition.revalidatePaths) revalidatePath(path);
 }
 
 export async function requestVideoAutomationRunAction() {
