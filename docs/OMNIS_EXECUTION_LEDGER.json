@@ -808,6 +808,34 @@
       "evidence": {
         "scope": "inventory config keys, sources, owners, environments and dependency categories only; never retrieve, copy or write secret values"
       }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-010",
+      "task_key": "OMNIS-P02-01",
+      "state": "completed",
+      "commit_sha": "d0a297ea0459df8af40edbee2dfbbf8fe8e38489",
+      "recorded_at": "2026-11-25T06:03:00.298Z",
+      "evidence": {
+        "github_quality_gate": "success (run 45557274870)",
+        "configuration_inventory": "passed; 125 environment-variable names, no values copied",
+        "postgres_integration_checks": 32,
+        "circleci_config_guard": "success",
+        "circleci_source_verify": "success",
+        "circleci_application_build_docs": "success",
+        "android_debug": "success (run 45557274791)",
+        "vercel_preview": "BUILDING (dpl_7fE7YXPHdVzeLRkTjYSpF7jY16uV)",
+        "acceptance_note": "temporarily completed then reopened because Preview readiness and route smoke test were still pending"
+      }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-011",
+      "task_key": "OMNIS-P02-01",
+      "state": "in_progress",
+      "recorded_at": "2026-11-25T06:03:27.857Z",
+      "evidence": {
+        "previous_state": "completed",
+        "reason": "exact-commit Vercel Preview remained BUILDING; task remains open until READY and the admin route smoke test"
+      }
     }
   ]
 }
