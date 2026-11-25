@@ -45,9 +45,11 @@ const privilegedPatterns = [
   /\bsupabase\s*\.from\s*\(/,
 ];
 
+// Registry-owned settings pass their typed permission through definition.permission.
+// Multi-domain read gates use requireAnyAdminPermission([...]); these remain server-side guards.
 function checkGuardedBlock({ block, label, allow405 = false }) {
   const gatePattern =
-    /\brequireAdminApi\s*\(\s*(['"])([a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*)\1\s*\)|\brequireAdminStepUpApi\s*\(\s*(['"])([a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*)\3\s*,|\brequireAdminPermission\s*\(\s*(['"])([a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*)\5\s*\)|\brequireAdminStepUp\s*\(\s*(['"])([a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*)\7\s*,|\brequireAdmin\s*\(\s*\)/;
+    /\brequireAdminApi\s*\(\s*(['"])([a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*)\1\s*\)|\brequireAdminStepUpApi\s*\(\s*(['"])([a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*)\3\s*,|\brequireAdminPermission\s*\(\s*(?:(['"])([a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*)\5|definition\.permission)\s*\)|\brequireAdminStepUp\s*\(\s*(?:(['"])([a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*)\7|definition\.permission)\s*,|\brequireAnyAdminPermission\s*\(\s*\[|\brequireAdmin\s*\(\s*\)/;
   const gate = gatePattern.exec(block);
 
   if (!gate && allow405 && isMethodRejectionOnly(block)) {
