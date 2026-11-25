@@ -162,6 +162,11 @@ jobs:
         run: bash scripts/tests/admin-managed-write-rls.integration.sh
         timeout-minutes: 5
 
+      - name: Verify OMNIS execution ledger against PostgreSQL 17
+        shell: bash
+        run: bash scripts/tests/omnis-execution-ledger.integration.sh
+        timeout-minutes: 5
+
       - name: Verify shared rate-limit null arguments against PostgreSQL 17
         shell: bash
         run: bash scripts/tests/admin-rate-limit-arguments.integration.sh
