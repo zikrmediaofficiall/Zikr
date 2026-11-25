@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { SITE_CATALOG, getCatalogItemKey } from "@/lib/navigation/catalog";
 import { useLanguage } from "./language-provider";
 
-type MobileNavProps = { isAuthenticated?: boolean; hiddenHrefs?: string[]; sectionOrder?: string[]; labelOverrides?: Record<string, { ar?: string; en?: string }> };
+type MobileNavProps = { isAuthenticated?: boolean; hiddenHrefs?: string[]; sectionOrder?: string[]; labelOverrides?: Record<string, { ar?: string; en?: string }>; inApp?: boolean };
 
 type IconName = string;
 
@@ -44,7 +44,7 @@ function isCurrentPath(pathname: string, href: string) {
   return pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
 }
 
-export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOrder = [], labelOverrides }: MobileNavProps) {
+export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOrder = [], labelOverrides, inApp = false }: MobileNavProps) {
   const pathname = usePathname() ?? "/";
   const { isEnglish, dir } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -105,7 +105,7 @@ export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOr
     [catalogGroups, isEnglish, searchNeedle],
   );
   const filteredUtilityLinks = useMemo(
-    () => utilityLinks.filter((item) =>
+    () => utilityLinks.filter((item) => !(inApp && /android/i.test(item.href + item.en))).filter((item) =>
       [item.ar, item.en].some((value) =>
         value.toLocaleLowerCase(isEnglish ? "en" : "ar").includes(searchNeedle),
       ),

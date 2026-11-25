@@ -31,7 +31,7 @@ const links: NavLink[] = [
   { href: "/sections", label: "كل الأقسام", labelEn: "All sections", icon: "Grid3X3" },
 ];
 
-export async function Navbar({ hiddenHrefs = [], sectionOrder = [], labelOverrides = {} }: { hiddenHrefs?: string[]; sectionOrder?: string[]; labelOverrides?: Record<string, { ar?: string; en?: string }> }) {
+export async function Navbar({ hiddenHrefs = [], sectionOrder = [], labelOverrides = {}, inApp = false }: { inApp?: boolean; hiddenHrefs?: string[]; sectionOrder?: string[]; labelOverrides?: Record<string, { ar?: string; en?: string }> }) {
   const locale = await getRequestLocale();
   const isEnglish = locale === "en";
   const hidden = new Set(hiddenHrefs);
@@ -79,6 +79,7 @@ export async function Navbar({ hiddenHrefs = [], sectionOrder = [], labelOverrid
 
         <LanguageAwareNav links={visibleLinks} />
 
+        {inApp ? null : (
         <Link
           href="/api/download/android"
           className="hidden shrink-0 items-center gap-2 rounded-xl bg-brand-gold px-3 py-2 text-xs font-bold text-black transition hover:bg-brand-gold/90 lg:inline-flex"
@@ -86,6 +87,7 @@ export async function Navbar({ hiddenHrefs = [], sectionOrder = [], labelOverrid
           <Download className="h-4 w-4" aria-hidden="true" />
           {isEnglish ? "Download app" : "تحميل التطبيق"}
         </Link>
+        )}
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <LanguageToggle />
@@ -96,7 +98,7 @@ export async function Navbar({ hiddenHrefs = [], sectionOrder = [], labelOverrid
           >
             <Settings className="h-5 w-5" aria-hidden="true" />
           </Link>
-          <MobileNav isAuthenticated={Boolean(user)} hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} labelOverrides={labelOverrides} />
+          <MobileNav isAuthenticated={Boolean(user)} hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} labelOverrides={labelOverrides} inApp={inApp} />
           <AuthNavActions initialUser={user} initialIsAdmin={isAdmin} />
         </div>
       </Container>

@@ -7,6 +7,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from '@/lib/i18n';
 import { EditorialDepth } from '@/components/content/editorial-depth';
 import { EditorialUtilityDepth } from '@/components/content/editorial-utility-depth';
 import { ContentExpansion } from '@/components/content/content-expansion';
+import { isInAppUserAgent } from '@/lib/native-app';
 import { SITE_EXPERIENCE_KEY, parseSiteExperience } from '@/lib/omnis/site-experience';
 import { getSiteSetting, getSectionVisibility, getSectionDisplayOrder } from '@/features/site-content/services/site-content';
 import { SITE_CATALOG, getCatalogItemKey } from '@/lib/navigation/catalog';
@@ -30,6 +31,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
   const cookieLocale = cookieStore.get('zikr-locale')?.value ?? null;
   const initialLocale: Locale = isLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
   const pathname = requestHeaders.get('x-zikr-pathname') ?? '';
+  const inApp = isInAppUserAgent(requestHeaders.get('user-agent'));
   const [socialSettings, sectionVisibility, sectionOrder, experienceSetting] = await Promise.all([
     getSiteSetting('social'),
     getSectionVisibility(),
@@ -50,12 +52,16 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
         >
           {initialLocale === 'ar' ? 'تخطي إلى المحتوى' : 'Skip to content'}
         </a>
-        <Navbar hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} labelOverrides={labelOverrides} />
+        <Navbar hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} labelOverrides={labelOverrides} inApp={inApp} />
         <main id="main-content" tabIndex={-1}>
           {children}
-          <EditorialDepth pathname={pathname} locale={initialLocale} />
-          <EditorialUtilityDepth pathname={pathname} locale={initialLocale} />
-          <ContentExpansion pathname={pathname} locale={initialLocale === 'en' ? 'en' : 'ar'} />
+          {inApp ? null : (
+            <>
+              <EditorialDepth pathname={pathname} locale={initialLocale} />
+              <EditorialUtilityDepth pathname={pathname} locale={initialLocale} />
+              <ContentExpansion pathname={pathname} locale={initialLocale === 'en' ? 'en' : 'ar'} />
+            </>
+          )}
         </main>
         <Footer socialLinks={{
           facebookPageUrl: socialSettings?.facebookPageUrl,
@@ -63,10 +69,10 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
           instagramUrl: socialSettings?.instagramUrl,
           twitterUrl: socialSettings?.twitterUrl,
           xUrl: socialSettings?.xUrl,
-        }} hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} />
+        }} hiddenHrefs={hiddenHrefs} sectionOrder={sectionOrder} inApp={inApp} />
         {/* Non-critical client integrations stay code-split from the shell. */}
         <NotificationPermissionBanner />
-        <InstallPrompt />
+        {inApp ? null : <InstallPrompt />}
         <OfflineIndicator />
       </div>
     </LanguageProvider>

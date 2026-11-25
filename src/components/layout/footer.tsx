@@ -79,7 +79,7 @@ const legalLinks: FooterLink[] = [
   { href: "/data-deletion", ar: "حذف البيانات", en: "Data deletion" },
 ];
 
-export function Footer({ socialLinks, hiddenHrefs = [], sectionOrder = [] }: { socialLinks?: FooterSocialLinks; hiddenHrefs?: string[]; sectionOrder?: string[] }) {
+export function Footer({ socialLinks, hiddenHrefs = [], sectionOrder = [], inApp = false }: { socialLinks?: FooterSocialLinks; hiddenHrefs?: string[]; sectionOrder?: string[]; inApp?: boolean }) {
   const { isEnglish } = useLanguage();
   const hidden = new Set(hiddenHrefs);
   const orderIndex = new Map(sectionOrder.map((key, index) => [key, index]));
@@ -111,6 +111,20 @@ export function Footer({ socialLinks, hiddenHrefs = [], sectionOrder = [] }: { s
         legal: "السياسات",
         copyright: `© ${new Date().getFullYear()} ZIKR | ذِكرٌ — جميع الحقوق محفوظة.`,
       };
+
+  if (inApp) {
+    // App mode: no website-style footer or download card; keep policy links (store requirement).
+    return (
+      <footer className="mt-10 border-t border-brand-gold/10 px-4 pb-6 pt-5 text-center text-[11px] text-brand-cream/55">
+        <nav aria-label={copy.legal} className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+          {legalLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="hover:text-brand-gold">{isEnglish ? link.en : link.ar}</Link>
+          ))}
+        </nav>
+        <p className="mt-3" dir={isEnglish ? "ltr" : "rtl"}>{copy.copyright} · v{APP_VERSION}</p>
+      </footer>
+    );
+  }
 
   return (
     <footer className="relative mt-20 overflow-hidden border-t border-brand-gold/15 bg-black py-12 sm:py-16">

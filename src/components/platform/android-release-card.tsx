@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/layout/language-provider";
+import { isInAppClient } from "@/lib/native-app";
 
 type AppVersion = {
   version?: string;
@@ -19,6 +20,8 @@ export default function AndroidReleaseCard() {
   const { isEnglish } = useLanguage();
   const [release, setRelease] = useState<AppVersion | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inApp, setInApp] = useState(false);
+  useEffect(() => { setInApp(isInAppClient()); }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -35,6 +38,8 @@ export default function AndroidReleaseCard() {
       mounted = false;
     };
   }, []);
+
+  if (inApp) return null;
 
   return (
     <section

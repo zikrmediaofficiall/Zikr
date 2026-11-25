@@ -10,6 +10,8 @@ import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import AndroidReleaseCard from '@/components/platform/android-release-card';
 
+export const metadata: import("next").Metadata = { alternates: { canonical: "/" } };
+
 export const dynamic = 'force-dynamic';
 
 const QUICK_ACTIONS = [
