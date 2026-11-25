@@ -82,7 +82,7 @@ const securityPage = readFileSync("src/app/admin/security/page.tsx", "utf8");
 const settingsPage = readFileSync("src/app/admin/settings/page.tsx", "utf8");
 assert.match(securityService, /resolveDestructiveMfaRequirement\(rows\[0\]\?\.value\)/, "runtime enforcement must fail closed when the setting row is absent");
 assert.match(securityPage, /resolveDestructiveMfaRequirement\(settings\.require_mfa_for_destructive\)/, "the security dashboard must display the same fail-closed effective policy");
-assert.match(settingsPage, /key === "require_mfa_for_destructive"[\s\S]*?resolveDestructiveMfaRequirement\(values\[key\]\)/, "the settings form must show MFA enabled when the setting is missing or malformed");
+assert.match(settingsPage, /key === "require_mfa_for_destructive"[\s\S]*?resolveDestructiveMfaRequirement\(storedValue\)/, "the registry-driven settings form must show MFA enabled when the setting is missing or malformed");
 
 const usersPage = readFileSync("src/app/admin/users/page.tsx", "utf8");
 const usersTable = readFileSync("src/features/admin/components/users-table.tsx", "utf8");
