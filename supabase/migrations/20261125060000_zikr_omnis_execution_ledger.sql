@@ -88,7 +88,7 @@ BEGIN
     RAISE EXCEPTION 'A task key and authenticated actor are required' USING ERRCODE = '22023';
   END IF;
 
-  IF p_next_state NOT IN ('pending', 'in_progress', 'blocked', 'completed') THEN
+  IF p_next_state IS NULL OR p_next_state NOT IN ('pending', 'in_progress', 'blocked', 'completed') THEN
     RAISE EXCEPTION 'Unsupported execution state' USING ERRCODE = '22023';
   END IF;
 

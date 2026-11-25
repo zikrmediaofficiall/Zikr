@@ -37,6 +37,7 @@ END;
 $rls_allow$;
 RESET ROLE;
 
+SET ROLE authenticated;
 DO $write_deny$
 BEGIN
   BEGIN
@@ -49,6 +50,7 @@ BEGIN
   END;
 END;
 $write_deny$;
+RESET ROLE;
 
 INSERT INTO auth.users (id, email)
 VALUES ('00000000-0000-0000-0000-000000000001', 'omnis-test@example.invalid')
@@ -113,7 +115,7 @@ BEGIN
   SELECT previous_state INTO v_previous
   FROM public.admin_omnis_execution_events
   WHERE task_key = 'OMNIS-P00-03'
-  ORDER BY created_at DESC, id DESC
+    AND next_state = 'completed'
   LIMIT 1;
 
   SELECT count(*) INTO v_events

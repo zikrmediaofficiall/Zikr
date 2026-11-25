@@ -19,7 +19,7 @@ const STATE_LABELS = OMNIS_TASK_STATE_LABELS as Record<string, string>;
 const STATE_STYLES = OMNIS_TASK_STATE_STYLES as Record<string, string>;
 
 export default async function AdminOmnisPage() {
-  const profile = await requireAdminPermission("dashboard.view");
+  const profile = await requireAdminPermission("system.manage");
   const [snapshot] = await Promise.all([getOmnisExecutionSnapshot()]);
   const canManage = hasAdminPermission(profile.role, "system.manage");
   const completed = snapshot.items.filter((item) => item.state === "completed").length;

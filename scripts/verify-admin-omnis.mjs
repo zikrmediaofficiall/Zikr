@@ -37,8 +37,8 @@ if (!migration.includes("GRANT EXECUTE ON FUNCTION public.transition_admin_omnis
 if (!migration.includes("valid 40-character commit SHA") || !migration.includes("meaningful test and verification summary")) {
   failures.push("completion must require commit and test evidence");
 }
-if (!navigation.includes('href: "/admin/omnis"')) failures.push("OMNIS command center must be in canonical admin navigation");
-if (!page.includes("getOmnisExecutionSnapshot") || !page.includes("OMNIS_CENTERS.map")) failures.push("OMNIS page must render persisted execution status and the 30-center registry");
+if (!navigation.includes('href: "/admin/omnis"') || !navigation.includes('permission: "system.manage"')) failures.push("OMNIS command center must be in canonical admin navigation with system.manage");
+if (!page.includes('requireAdminPermission("system.manage")') || !page.includes("getOmnisExecutionSnapshot") || !page.includes("OMNIS_CENTERS.map")) failures.push("OMNIS page must enforce system.manage and render persisted execution status and the 30-center registry");
 if (!actions.includes("requireAdminStepUp") || !actions.includes("transition_admin_omnis_task")) {
   failures.push("state changes must require step-up authorization and the row-locked RPC");
 }
