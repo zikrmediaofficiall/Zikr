@@ -9,6 +9,7 @@ import { runPostCommitAudit } from "@/features/admin/services/post-commit-audit"
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 
 import { publishSourceProblem } from "@/features/editorial/publish-gate";
+import { isSeparationOfDutiesEnforced, separationOfDutiesProblem } from "@/features/editorial/separation-of-duties";
 import { canTransitionReview, isReviewState } from "@/features/editorial/review-transitions";
 
 function target(formData: FormData) {
@@ -74,8 +75,9 @@ export async function changeEditorialReviewStatusAction(formData: FormData) {
   const status = String(formData.get("status") ?? "").trim();
   if (!isReviewState(status)) editorialError("حالة مراجعة غير صالحة.");
 
-  const current = await supabaseServerAdminRequest<Array<{ id: string; updated_at: string; review_status: string }>>(
-    `/rest/v1/content_library?select=id,updated_at,review_status&id=eq.${encodeURIComponent(id)}&limit=1`,
+  const sodEnforced = isSeparationOfDutiesEnforced();
+  const current = await supabaseServerAdminRequest<Array<{ id: string; updated_at: string; review_status: string; created_by?: string | null }>>(
+    `/rest/v1/content_library?select=id,updated_at,review_status${sodEnforced ? ",created_by" : ""}&id=eq.${encodeURIComponent(id)}&limit=1`,
     { method: "GET" },
   );
   if (!current[0]) editorialError("المحتوى غير موجود.");
@@ -84,9 +86,15 @@ export async function changeEditorialReviewStatusAction(formData: FormData) {
     editorialError("هذا الانتقال غير مسموح. يجب أن يمر المحتوى بالمراجعة التحريرية ثم العلمية قبل الاعتماد.");
   }
 
+  if (status === "approved") {
+    const sodProblem = separationOfDutiesProblem({ enforced: sodEnforced, actorId: admin.id, createdBy: current[0].created_by });
+    if (sodProblem) editorialError(sodProblem);
+  }
+
   const expectedUpdatedAt = updatedAt || current[0].updated_at;
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { review_status: status, updated_at: now };
+  if (status === "approved" && sodEnforced) patch.approved_by = admin.id;
   if (status === "approved") patch.published = false;
   if (status === "rejected" || status === "draft" || status === "editorial_review" || status === "scholarly_review") patch.published = false;
 
