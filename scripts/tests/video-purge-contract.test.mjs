@@ -6,6 +6,7 @@ const route = read("src/app/api/admin/video-purge/route.ts");
 assert.ok(route.includes("readBoundedJsonBody(request)"), "video purge confirmation must use the bounded JSON reader");
 assert.ok(!route.includes("request.json()"), "video purge must not buffer an unbounded request body");
 const adminSystemActions = read("src/app/admin/system-actions.ts");
+const adminSettingsRegistry = read("src/features/admin/config/settings-registry.ts");
 const videoGenerationRoute = read("src/app/api/admin/video-generation/route.ts");
 const videoMediaContract = read("src/features/videos/services/video-media-contract.ts");
 const cloudinaryMediaUrl = read("src/features/videos/services/video-media-url.ts");
@@ -140,9 +141,26 @@ const automationSettingActionEnd = adminSystemActions.indexOf("export async func
 const automationSettingAction = adminSystemActions.slice(automationSettingActionStart, automationSettingActionEnd);
 assert.ok(automationSettingActionStart >= 0 && automationSettingActionEnd > automationSettingActionStart, "the guarded automation settings action must remain present");
 assert.ok(
-  automationSettingAction.includes('requireAdminStepUp("system.manage", "/admin/automation")'),
-  "video automation settings must remain protected by the system-manage MFA step-up action.",
+  automationSettingAction.includes('requireAdminStepUp(definition.permission, "/admin/automation", true)'),
+  "video automation settings must retain an unconditional server-side MFA step-up through the typed registry.",
 );
+for (const key of [
+  "video_automation_enabled",
+  "video_automation_ai_enabled",
+  "video_automation_auto_publish",
+  "video_automation_batch_size",
+  "video_automation_daily_target",
+  "video_automation_ai_attempts_per_run",
+  "video_automation_video_seconds",
+]) {
+  const settingStart = adminSettingsRegistry.indexOf(`key: "${key}"`);
+  const settingEnd = adminSettingsRegistry.indexOf("revalidatePaths:", settingStart);
+  assert.ok(settingStart >= 0 && settingEnd > settingStart, `${key} must remain present in the typed registry`);
+  assert.ok(
+    adminSettingsRegistry.slice(settingStart, settingEnd).includes('stepUpPolicy: "always"'),
+    `${key} must require mandatory MFA step-up`,
+  );
+}
 const videoGenerationDelete = videoGenerationRoute.split("export async function DELETE()")[1]?.split("export async function PATCH")[0] ?? "";
 assert.ok(videoGenerationDelete.includes("VIDEO_GENERATION_DELETE_REQUIRES_REFERENCE_AUDIT"), "legacy video request deletion must remain disabled until media, catalog, and queue references are audited");
 assert.ok(videoGenerationDelete.includes("status: 410"), "legacy video request deletion must return 410");
