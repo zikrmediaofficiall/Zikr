@@ -4,6 +4,7 @@ import { getAdminHealth } from "@/features/admin/services/platform";
 import { supabaseServerAdminRequest } from "@/lib/supabase/server";
 import {
   applyOmnisIncidentLifecycle,
+  buildOmnisIncidentHistoryQuery,
   type OmnisIncidentLifecycleEvent,
 } from "@/features/admin/omnis/incident-lifecycle";
 import { buildOmnisIncidents, type OmnisIncident } from "@/features/admin/omnis/incidents";
@@ -104,7 +105,7 @@ async function getOmnisIncidentHistory(): Promise<{
 }> {
   try {
     const rows = await supabaseServerAdminRequest<AdminIncidentAuditRow[]>(
-      "/rest/v1/admin_audit_events?select=id,actor_user_id,action,resource_id,metadata,created_at&resource_type=eq.omnis_incident&order=created_at.desc&limit=50",
+      buildOmnisIncidentHistoryQuery(),
       { method: "GET" },
     );
     const events = (rows ?? []).flatMap((row): OmnisIncidentLifecycleEvent[] => {

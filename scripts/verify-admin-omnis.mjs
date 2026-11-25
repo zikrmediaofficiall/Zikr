@@ -108,7 +108,9 @@ if (
   || !incidentLifecycle.includes("canResolveOmnisIncident")
   || !incidentLifecycle.includes('dependency.freshness === "fresh"')
   || !moduleStatusService.includes("admin_audit_events")
-  || !moduleStatusService.includes("resource_type=eq.omnis_incident")
+  || !moduleStatusService.includes("buildOmnisIncidentHistoryQuery")
+  || !incidentLifecycle.includes("action=in.(admin.omnis.incident.acknowledged,admin.omnis.incident.resolved)")
+  || !incidentLifecycle.includes("order=created_at.desc,id.desc")
 ) {
   failures.push("OMNIS incident identity, append-only audit lifecycle and fresh-healthy recovery gate must be implemented");
 }

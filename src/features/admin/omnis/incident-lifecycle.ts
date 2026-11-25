@@ -21,6 +21,17 @@ export const OMNIS_INCIDENT_LIFECYCLE_LABELS: Record<
   reopened: "مفتوحة مجددًا",
 };
 
+/**
+ * Read only incident lifecycle audit actions, with stable ordering for equal timestamps.
+ * Filtering in PostgREST prevents unrelated admin audit rows from consuming the history window.
+ */
+export function buildOmnisIncidentHistoryQuery(): string {
+  return "/rest/v1/admin_audit_events?select=id,actor_user_id,action,resource_id,metadata,created_at"
+    + "&resource_type=eq.omnis_incident"
+    + "&action=in.(admin.omnis.incident.acknowledged,admin.omnis.incident.resolved)"
+    + "&order=created_at.desc,id.desc&limit=50";
+}
+
 /** Apply the latest immutable audit event to each currently-live incident. */
 export function applyOmnisIncidentLifecycle(
   incidents: readonly OmnisIncident[],
