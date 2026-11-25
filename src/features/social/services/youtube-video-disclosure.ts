@@ -53,20 +53,11 @@ export function resolveYouTubeVideoDisclosure(input: YouTubeVideoDisclosureInput
     : "";
   const provider = contentProvider || storedProvider;
 
-  // "Suitable for children" is an editorial/safety classification, not a
-  // YouTube audience declaration. ZIKR's internally generated videos are
-  // published for a general religious audience, even when their story also
-  // passes the separate Kids-section review.
-  const generalDistribution =
-    normalizeVideoAudience(content.publicDistributionAudience, false) === "general" ||
-    normalizeVideoAudience(queueMetadata.publicDistributionAudience, false) === "general" ||
-    normalizeVideoMarker(content.renderer) === "template" ||
-    normalizeVideoMarker(content.generator) === "zikr_internal_video_factory" ||
-    normalizeVideoMarker(queueMetadata.generator) === "zikr_internal_video_factory" ||
-    normalizeVideoMarker(provider) === "template";
-
+  // Upload privacy and public-library availability do not determine whether
+  // a video is child-directed. Keep canonical Kids intent markers authoritative;
+  // a template renderer is not evidence of a general audience by itself.
   return {
-    selfDeclaredMadeForKids: audience === "kids" && !generalDistribution,
+    selfDeclaredMadeForKids: audience === "kids",
     containsSyntheticMedia: provider !== "template",
   };
 }

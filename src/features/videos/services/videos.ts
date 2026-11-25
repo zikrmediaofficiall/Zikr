@@ -52,8 +52,9 @@ export async function getVideos(
     : FALLBACK_VIDEOS;
 
   if (!isSupabaseConfigured()) return fallback.slice(0, safeLimit);
-  // The general video catalog must never mix child-directed media into the
-  // public feed. Kids content is served only by the dedicated Kids experience.
+  // Start with general-audience rows. Kids-directed stories are added only
+  // through the separate strict source-fingerprint and automated-QA path below,
+  // so approved stories can be public without weakening the Kids review gate.
   let query =
     "/rest/v1/videos?select=id,title,slug,description,youtube_id,thumbnail_url,duration,views,published,category_id,metadata,created_at&published=eq.true&or=(metadata->>audience.is.null,metadata->>audience.eq.general)&order=created_at.desc";
 
