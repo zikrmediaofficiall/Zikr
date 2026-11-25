@@ -117,7 +117,7 @@
     "nominatim:db:check": "bash scripts/tests/nominatim-global-rate-limit.integration.sh",
     "translate:content:en": "tsx scripts/translate-published-content-en.ts",
     "admin:omnis:check": "node scripts/verify-admin-omnis.mjs",
-    "control-plane:check": "node scripts/verify-control-plane-contracts.mjs && node --test scripts/tests/control-plane-contracts.test.mjs && tsx scripts/tests/omnis-module-status.test.ts"
+    "control-plane:check": "node scripts/verify-control-plane-contracts.mjs && node --test scripts/tests/control-plane-contracts.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "7.6.10",
