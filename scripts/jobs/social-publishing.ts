@@ -104,7 +104,21 @@ export async function syncSocialInsights() {
 type DueVideoPublishQueueRow = VideoPublishScheduleRow & {
   id: string;
   updated_at: string | null;
+  metadata: Record<string, unknown> | null;
 };
+
+function completedVideoPublishPlatforms(metadata: Record<string, unknown> | null): string[] {
+  const results = metadata?.platformResults;
+  if (!results || typeof results !== "object" || Array.isArray(results)) return [];
+  return Object.entries(results as Record<string, unknown>)
+    .filter(([platform, value]) => {
+      if (!["youtube", "facebook_reels", "facebook"].includes(platform)) return false;
+      if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+      const result = value as Record<string, unknown>;
+      return result.ok === true && typeof result.remoteId === "string" && result.remoteId.trim().length > 0;
+    })
+    .map(([platform]) => platform);
+}
 
 async function rebalanceDueVideoPublishBacklog(): Promise<{ rescheduled: number; failed: number }> {
   const now = new Date();
@@ -112,12 +126,16 @@ async function rebalanceDueVideoPublishBacklog(): Promise<{ rescheduled: number;
   const rows = await supabaseServerAdminRequest<DueVideoPublishQueueRow[]>(
     "/rest/v1/social_publish_queue?content_type=like.*_video&status=in.(queued,partial,processing,published)&created_at=gte." +
       cutoff +
-      "&select=id,status,target_platforms,scheduled_at,published_at,created_at,updated_at&order=created_at.asc,id.asc&limit=1000",
+      "&select=id,status,target_platforms,scheduled_at,published_at,created_at,updated_at,metadata&order=created_at.asc,id.asc&limit=1000",
   );
-  const occupiedRows: DueVideoPublishQueueRow[] = rows ?? [];
+  const occupiedRows: DueVideoPublishQueueRow[] = (rows ?? []).map((row) => ({
+    ...row,
+    completed_platforms: completedVideoPublishPlatforms(row.metadata),
+  }));
   const dueRows = occupiedRows.filter((row) =>
     (row.status === "queued" || row.status === "partial") &&
-    (!row.scheduled_at || Date.parse(row.scheduled_at) <= now.getTime()),
+    (!row.scheduled_at || Date.parse(row.scheduled_at) <= now.getTime()) &&
+    (row.target_platforms ?? []).some((platform) => !(row.completed_platforms ?? []).includes(platform)),
   );
   let rescheduled = 0;
   let failed = 0;
@@ -126,7 +144,7 @@ async function rebalanceDueVideoPublishBacklog(): Promise<{ rescheduled: number;
     const nextScheduledAt = resolveNextVideoPublishAt({
       now,
       rows: occupiedRows.filter((candidate) => candidate.id !== row.id),
-      targetPlatforms: row.target_platforms ?? [],
+      targetPlatforms: (row.target_platforms ?? []).filter((platform) => !(row.completed_platforms ?? []).includes(platform)),
       minimumLeadMinutes: 15,
       searchDays: 60,
     });
