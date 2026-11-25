@@ -65,6 +65,20 @@ assert.ok(
   visualsPageSource.includes("...(config.aiEnabled ? config.customSpaces.map((entry) => entry.name) : [])"),
   "Admin visuals must not label custom providers enabled while the global AI switch is off",
 );
+const automaticPublishingDefaults = getVideoEngineConfig({
+  NODE_ENV: "test",
+  VIDEO_AUTOMATION_DRY_RUN: "false",
+});
+assert.equal(automaticPublishingDefaults.dryRun, false);
+assert.equal(automaticPublishingDefaults.autoPublishEnabled, true);
+assert.equal(automaticPublishingDefaults.requiresApproval, false);
+const explicitHold = getVideoEngineConfig({
+  NODE_ENV: "test",
+  AUTO_VIDEO_PUBLISH_ENABLED: "false",
+  AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "true",
+});
+assert.equal(explicitHold.autoPublishEnabled, false);
+assert.equal(explicitHold.requiresApproval, true);
 const missingConfig = getVideoEngineConfig({ ...process.env, ...process.env, VIDEO_FREE_ONLY: "true", VIDEO_PROVIDER_ORDER: "hf_custom_2,hf_wan" });
 assert.ok(!missingConfig.order.includes("hf_custom_2"));
 console.log("Custom Hugging Face provider registry tests passed.");
