@@ -31,7 +31,7 @@ export async function updateOmnisExecutionTaskAction(formData: FormData) {
     throw new Error("لا يمكن إغلاق المهمة دون SHA صحيح وملخص اختبارات وتحقق.");
   }
 
-  const result = await supabaseServerAdminRequest<Record<string, unknown>>(
+  await supabaseServerAdminRequest<Record<string, unknown>>(
     "/rest/v1/rpc/transition_admin_omnis_task",
     {
       method: "POST",
@@ -59,5 +59,4 @@ export async function updateOmnisExecutionTaskAction(formData: FormData) {
   );
 
   revalidatePath("/admin/omnis");
-  return result;
 }
