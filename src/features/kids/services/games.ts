@@ -186,6 +186,15 @@ export async function recordKidsGameResultForUser(
     };
   }
 
+  // Log-only plausibility check: never rejects, only records suspicious scores for review.
+  if (payload.score > 0 && payload.score / Math.max(1, payload.timeSeconds ?? 0) > 5000) {
+    console.warn("[kids-games] implausible score rate (log-only)", {
+      gameId: payload.gameId,
+      score: payload.score,
+      timeSeconds: payload.timeSeconds ?? null,
+    });
+  }
+
   const admin = createAdminClient();
   const { data, error } = await admin.rpc(
     "kids_record_game_result_internal",

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { serializeJsonLd } from "@/lib/json-ld";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { cache } from "react";
@@ -196,7 +197,7 @@ export default async function ArticleDetailPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             "@context": "https://schema.org",
             "@type": "Article",
             headline: article.title,

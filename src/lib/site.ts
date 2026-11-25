@@ -55,7 +55,7 @@ export const siteConfig = {
   description:
     "ZIKR - منصة إسلامية شاملة للقرآن الكريم، الأحاديث النبوية، قصص الأنبياء، ومواقيت الصلاة بتجربة حديثة ومتكاملة.",
   url: PRODUCTION_URL,
-  locale: "ar_SA",
+  locale: "ar_EG",
   dir: "rtl" as const,
 };
 

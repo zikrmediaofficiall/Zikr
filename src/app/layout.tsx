@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { serializeJsonLd } from "@/lib/json-ld";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/site-shell";
 
@@ -162,7 +163,7 @@ export default async function RootLayout({
         <WebAdvertisingRuntime />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
         <OfflineNavigationGuard />
         <SiteShell>{children}</SiteShell>

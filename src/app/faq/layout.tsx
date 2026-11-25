@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { serializeJsonLd } from "@/lib/json-ld";
 import { pageMetadata } from '@/lib/site';
 import { generateFAQSchema } from '@/lib/seo';
 
@@ -23,7 +24,7 @@ export default function FAQLayout({ children }: { children: React.ReactNode }) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       {children}
     </>
