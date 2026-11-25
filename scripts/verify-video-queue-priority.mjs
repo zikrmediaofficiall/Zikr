@@ -42,8 +42,12 @@ assert(
   "queue processor supports an optional daily priority key",
 );
 assert(
-  queue.includes("calculateDailyVideoQuotaState(todaysRows ?? [])"),
-  "daily video quota excludes terminal failed/cancelled requests while retaining their slot keys",
+  queue.includes("const dailyQuota = calculateDailyVideoQuotaState(todaysRows);") &&
+    queue.includes("const todaysRows = [...new Map(") &&
+    queue.includes("automation_key=like.promo-*") &&
+    queue.includes("created_at=gte.") &&
+    queue.includes("if ((dailyRows ?? []).length >= 1000"),
+  "daily video quota counts deduplicated normal and promotional requests, excludes terminal failed/cancelled requests while retaining their slot keys, and fails closed on truncated inventory",
 );
 assert(
   queue.includes("const slot = dailyQuota.nextSlot + i;"),
