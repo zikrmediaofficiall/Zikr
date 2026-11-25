@@ -286,7 +286,7 @@
           "task_order": 2,
           "title": "اعتماد عقد الحوكمة والملكية",
           "description": "تحديد مالك كل وحدة ومصدر الحقيقة وصلاحيات كل عملية وبوابات قبولها.",
-          "initial_state": "pending"
+          "initial_state": "completed"
         }
       ]
     },
@@ -697,6 +697,19 @@
         "supabase_initial_events": 45,
         "vercel_preview": "READY",
         "production": "not deployed; protected release gate preserved"
+      }
+    },
+    {
+      "event_id": "OMNIS-EXEC-20261125-002",
+      "task_key": "OMNIS-P00-03",
+      "state": "completed",
+      "commit_sha": "fc1495a9c941b68d6b57a11be742cc278e84faa9",
+      "recorded_at": "2026-11-25T05:17:05Z",
+      "evidence": {
+        "governance_contract": "documented",
+        "module_ownership": "registry",
+        "quality_gate": "success",
+        "preview": "READY"
       }
     }
   ]
