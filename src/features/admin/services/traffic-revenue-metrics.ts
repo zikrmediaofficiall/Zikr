@@ -69,6 +69,7 @@ export function getGa4ReportingStatusPresentation(
 export type YoutubeAnalyticsStatus =
   | "connected"
   | "authorization_required"
+  | "scope_missing"
   | "permission_denied"
   | "api_disabled"
   | "quota_exceeded"
@@ -145,6 +146,8 @@ export function getYoutubeAnalyticsStatusPresentation(
       return { connected: false, label: "غير مهيأة", description: "يلزم ضبط بيانات OAuth وربط حساب يملك القناة وصلاحية تقارير YouTube Analytics.", canReauthorize: true };
     case "authorization_required":
       return { connected: false, label: "تحتاج إعادة تفويض", description: "رفض OAuth رمز التحديث أو رمز الوصول؛ أعد ربط القناة بعد التحقق من الحساب المطلوب.", canReauthorize: true };
+    case "scope_missing":
+      return { connected: false, label: "صلاحية Analytics مفقودة", description: "بيانات OAuth محفوظة لكن نطاق yt-analytics.readonly أو youtube.readonly غير موجود؛ أعد تفويض قناة ZIKR من مركز النشر لحفظ صلاحيات القراءة المطلوبة.", canReauthorize: true };
     case "api_disabled":
       return { connected: false, label: "YouTube Analytics API غير مفعّل", description: "فعّل YouTube Analytics API في مشروع Google المرتبط ببيانات OAuth، ثم أعد تحميل التقرير.", canReauthorize: false };
     case "quota_exceeded":
