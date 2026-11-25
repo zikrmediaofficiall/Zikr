@@ -237,4 +237,26 @@ VALUES
 ('OMNIS-P14-03', 'P14', 14, 2, 'إطلاق تدريجي وإغلاق موثق', 'Preview ثم Staging ثم إنتاج بعد موافقات بوابات الإصدار وإغلاق الفجوات.', 'pending', NULL, NULL, NULL, NULL, NULL)
 ON CONFLICT (task_key) DO NOTHING;
 
+-- Record the initial state exactly once so the execution timeline starts with
+-- a durable snapshot of the seeded plan. Replaying this migration does not
+-- create duplicate initialization events.
+INSERT INTO public.admin_omnis_execution_events (
+  task_key, event_type, previous_state, next_state, note, commit_sha, tests_summary, actor_user_id
+)
+SELECT
+  ledger.task_key,
+  'state_changed',
+  NULL,
+  ledger.state,
+  'Initial OMNIS execution-plan baseline seeded on feat/zikr-omnis-control-plane-20261125.',
+  ledger.commit_sha,
+  ledger.tests_summary,
+  NULL
+FROM public.admin_omnis_execution_ledger AS ledger
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM public.admin_omnis_execution_events AS event
+  WHERE event.task_key = ledger.task_key
+);
+
 COMMIT;

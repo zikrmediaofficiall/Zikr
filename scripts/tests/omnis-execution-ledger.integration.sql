@@ -1,10 +1,15 @@
 DO $seed_check$
 DECLARE
   v_count integer;
+  v_events integer;
 BEGIN
   SELECT count(*) INTO v_count FROM public.admin_omnis_execution_ledger;
+  SELECT count(*) INTO v_events FROM public.admin_omnis_execution_events;
   IF v_count <> 45 THEN
     RAISE EXCEPTION 'Expected 45 unique OMNIS tasks, found %', v_count;
+  END IF;
+  IF v_events <> 45 THEN
+    RAISE EXCEPTION 'Expected one initial event per task after migration replay, found %', v_events;
   END IF;
 END;
 $seed_check$;
@@ -71,8 +76,8 @@ DECLARE
 BEGIN
   SELECT count(*) INTO v_count FROM public.admin_omnis_execution_events
   WHERE task_key = 'OMNIS-P00-03';
-  IF v_count <> 1 THEN
-    RAISE EXCEPTION 'Same-state transition must not create duplicate events; found %', v_count;
+  IF v_count <> 2 THEN
+    RAISE EXCEPTION 'Same-state transition must not create duplicate events beyond the initial event; found %', v_count;
   END IF;
 END;
 $idempotency$;
@@ -141,8 +146,8 @@ BEGIN
   IF v_previous <> 'blocked' THEN
     RAISE EXCEPTION 'Expected previous_state=blocked in final event, found %', v_previous;
   END IF;
-  IF v_events <> 3 THEN
-    RAISE EXCEPTION 'Expected exactly 3 state-change events, found %', v_events;
+  IF v_events <> 4 THEN
+    RAISE EXCEPTION 'Expected one initial and three subsequent state-change events, found %', v_events;
   END IF;
 END;
 $history_check$;
