@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   ADMIN_SETTING_REGISTRY,
   getAdminSettingDefinition,
   getEditableAdminSettingDefinition,
   validateAdminSettingValue,
 } from "../../src/features/admin/config/settings-registry";
+
+const read = (path: string) => readFileSync(path, "utf8");
+const systemActions = read("src/app/admin/system-actions.ts");
+const adminSettingsPage = read("src/app/admin/settings/page.tsx");
+const automationPage = read("src/app/admin/automation/page.tsx");
+
+assert.match(systemActions, /validateAdminSettingValue\\(key, rawValue\\)/, "server actions must validate through the registry");
+assert.match(adminSettingsPage, /ADMIN_SETTING_REGISTRY/, "the admin settings form must render from the registry");
+assert.match(automationPage, /ADMIN_SETTING_REGISTRY/, "the video automation form must render from the registry");
+assert.ok(!systemActions.includes("const allowedSettings = new Set"), "legacy hand-maintained setting allow-lists must be removed");
 
 const keys = ADMIN_SETTING_REGISTRY.map((item) => item.key);
 assert.equal(new Set(keys).size, keys.length, "registry keys must be unique");
