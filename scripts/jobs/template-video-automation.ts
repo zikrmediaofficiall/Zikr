@@ -805,9 +805,9 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
   }
 }
 
-async function seedWeeklyPromotionalVideoRequests(now: Date): Promise<number> {
+async function seedWeeklyPromotionalVideoRequests(now: Date, dailyCapacity: number): Promise<number> {
   const target = resolveWeeklyPromoVideoTarget(process.env.PROMO_VIDEO_WEEKLY_TARGET);
-  if (target === 0) return 0;
+  if (target === 0 || dailyCapacity <= 0) return 0;
   const timeZone = process.env.PROMO_VIDEO_TIMEZONE?.trim() || DEFAULT_PROMO_VIDEO_TIME_ZONE;
   let slots: ReturnType<typeof selectUpcomingWeeklyPromoSlots>;
   try {
@@ -821,7 +821,7 @@ async function seedWeeklyPromotionalVideoRequests(now: Date): Promise<number> {
 
   let created = 0;
   for (const publishSlot of slots) {
-    if (await isVideoGenerationPaused()) break;
+    if (created >= dailyCapacity || await isVideoGenerationPaused()) break;
     const day = Math.floor(Date.parse(`${publishSlot.localDate}T00:00:00.000Z`) / 86_400_000);
     const concept = selectPromotionalVideoConcept(day, publishSlot.slot);
     const automationKey = `promo-weekly:${publishSlot.localDate}:${publishSlot.slot}:${concept.key}`;
@@ -915,7 +915,6 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   const quotaWindow = resolveZonedDailyVideoQuotaWindow(now, quotaTimeZone);
   const day = quotaWindow.dayIndex;
   let created = await seedWeeklyLaylEpisodeRequest(now);
-  created += await seedWeeklyPromotionalVideoRequests(now);
 
   // Daily quota keys and inventory are scoped to the resolved Cairo local day so UTC
   // midnight cannot reset the generation cap early or late.
@@ -946,9 +945,12 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   // created within the Cairo local day share the same quota inventory.
   const todaysRows = quotaInventoryRows.filter((row) => !row.automation_key?.startsWith("layl-weekly:"));
   const dailyQuota = calculateDailyVideoQuotaState(todaysRows);
-  const alreadySeededToday = dailyQuota.reservedCount;
   // Enforce a hard three-short-video daily ceiling, including urgent admin dispatches.
   const dailyTarget = Math.max(1, Math.min(3, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3));
+  const promoDailyCapacity = Math.max(0, Math.min(batchSize, dailyTarget - dailyQuota.reservedCount));
+  const promoCreated = await seedWeeklyPromotionalVideoRequests(now, promoDailyCapacity);
+  created += promoCreated;
+  const alreadySeededToday = dailyQuota.reservedCount + promoCreated;
   // The worker runs in four six-hour windows; pace against Cairo local time, including DST.
   const scheduleWindow = Math.min(4, Math.max(1, Math.floor(quotaWindow.localHour / 6) + 1));
   const dueByNow = Math.ceil((dailyTarget * scheduleWindow) / 4);
@@ -956,7 +958,8 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   const remainingDailyQuota = Math.max(0, dailyTarget - alreadySeededToday);
   const pacedAllowance = Math.max(0, dueByNow - alreadySeededToday);
   // Run Now bypasses time-of-day pacing only. It never bypasses the daily quota.
-  const allowed = Math.min(3, batchSize, remainingDailyQuota, urgent ? remainingDailyQuota : pacedAllowance);
+  const remainingRunBatch = Math.max(0, batchSize - promoCreated);
+  const allowed = Math.min(3, remainingRunBatch, remainingDailyQuota, urgent ? remainingDailyQuota : pacedAllowance);
 
   for (let i = 0; i < allowed; i += 1) {
     if (await isVideoGenerationPaused()) break;
