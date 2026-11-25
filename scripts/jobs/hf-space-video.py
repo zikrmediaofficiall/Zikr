@@ -85,13 +85,16 @@ class SameOriginRedirectHandler(HTTPRedirectHandler):
         return super().redirect_request(request, file_pointer, code, message, headers, new_url)
 
 
-VIDEO_FILE_EXTENSIONS = {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi"}
+# materialize_output verifies the ISO-BMFF "ftyp" signature; do not choose
+# WebM/AVI/MKV alternatives that the downloader intentionally cannot persist.
+VIDEO_FILE_EXTENSIONS = {".mp4", ".m4v", ".mov"}
 
 
 def _is_video_file_reference(candidate, mime_type=None):
     if not isinstance(candidate, str) or not candidate.strip():
         return False
-    if isinstance(mime_type, str) and mime_type.lower().split(";", 1)[0].strip().startswith("video/"):
+    normalized_mime = mime_type.lower().split(";", 1)[0].strip() if isinstance(mime_type, str) else ""
+    if normalized_mime in {"video/mp4", "video/quicktime"}:
         return True
     value = candidate.strip()
     try:

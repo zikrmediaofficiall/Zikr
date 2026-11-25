@@ -116,6 +116,11 @@ class HuggingFaceOutputSafetyTests(unittest.TestCase):
             "https://space.hf.space/gradio_api/file=abc123",
         )
 
+    def test_unsupported_video_container_mime_is_rejected(self):
+        self.assertIsNone(
+            MODULE.extract_file_value({"url": "https://space.hf.space/gradio_api/file=abc123", "mime_type": "video/webm"})
+        )
+
     def test_remote_file_path_is_converted_to_same_origin_file_url(self):
         result = MODULE.resolve_file_url(
             {"path": "/tmp/gradio/video output.mp4"},
