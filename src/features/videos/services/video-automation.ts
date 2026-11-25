@@ -1,4 +1,5 @@
 import { supabaseServerAdminRequest } from '@/lib/supabase/admin-rest';
+import { fitTitle, resolveSeoTerms } from './video-seo';
 import { getServerEnv } from '@/lib/env';
 import { getYouTubeUploadRefreshToken } from '@/features/social/services/youtube-oauth-credentials';
 import { assertCloudinaryVideoUrl } from '@/features/videos/services/video-media-url';
@@ -334,11 +335,12 @@ export function generateYoutubeMetadata(request: VideoGenerationRequest) {
   const content = contentObject(request);
   const sourceLabel = typeof content.sourceLabel === 'string' ? content.sourceLabel : '';
   const qualityNote = 'محتوى تعليمي موثق بإيقاع واضح وترجمة نصية سهلة القراءة.';
-  const title = `${socialHook(request.category)} | ${request.title}`.slice(0, 100);
+  const title = fitTitle(`${socialHook(request.category)} | ${request.title}`, 100);
+  const seo = resolveSeoTerms(request.category, content.audience);
   return {
     title,
-    description: [sourceSocialCaption(request), qualityNote, sourceLabel, isShort ? '#Shorts' : '', '#ذكر #تدبر #اسلاميات'].filter(Boolean).join('\n\n'),
-    tags: ['zikr', 'islamic', 'quran', 'hadith', 'dua', 'adhkar', 'تعلم', 'تدبر', 'ذكر', ...(isShort ? ['shorts', 'ريلز'] : [])],
+    description: [sourceSocialCaption(request), qualityNote, sourceLabel, isShort ? '#Shorts' : '', seo.hashtags.join(' ')].filter(Boolean).join('\n\n'),
+    tags: [...seo.tags, ...(isShort ? ['shorts', 'ريلز'] : [])],
     categoryId: '27',
     isShort,
   };
