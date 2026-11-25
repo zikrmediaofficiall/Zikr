@@ -31,7 +31,7 @@ const renderContract = read("src/features/videos/services/video-render-contract.
 if (!renderContract.includes("1080x1920") || !renderContract.includes("1920x1080")) failures.push("automated renders must be restricted to the two QA-approved resolutions");
 if (!template.includes("resolveVideoResolution(request.content?.resolution, request.content?.videoFormat)")) failures.push("video worker must reject arbitrary render dimensions before invoking FFmpeg");
 const catalogDurationUsesRenderedMedia = template.includes("duration: resolveVideoCatalogDuration(rendered.durationSeconds)") ||
-  template.includes('duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl" ? 120 : MAX_AUTO_VIDEO_SECONDS)');
+  template.includes('duration: resolveVideoCatalogDuration(rendered.durationSeconds, request.content?.workflow === "hady-program" ? 135 : request.content?.workflow === "layl-program" && request.content?.programId === "dakitayn-ma3-layl" ? 120 : MAX_AUTO_VIDEO_SECONDS)');
 if (!template.includes("durationSeconds: renderedDurationSeconds") || !template.includes("renderDurationSeconds: rendered.durationSeconds") || !catalogDurationUsesRenderedMedia) failures.push("catalog duration must reflect the actual rendered media duration");
 const videoCreateRoute = read("src/app/api/admin/videos/create/route.ts");
 if (!videoCreateRoute.includes("resolveVideoResolution(content.resolution, content.videoFormat)")) failures.push("admin video creation must normalize and validate render dimensions");
