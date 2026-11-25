@@ -18,6 +18,7 @@ import {
   type ProphetEpisodeHumanReview,
 } from "../../src/features/videos/data/prophet-story-series";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
+import { calculateDailyVideoQuotaState } from "../../src/features/videos/services/video-automation-quota";
 import { resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
 import { readFileSync } from "node:fs";
 
@@ -95,8 +96,25 @@ assert.equal(validateProphetEpisodeForQueue({ ...candidate!, researchSummaryAr: 
 const sourceFile = readFileSync("src/features/videos/data/prophet-story-research-candidates.json", "utf8");
 assert.match(sourceFile, /sourceUrls/);
 assert.match(sourceFile, /research_candidate_not_approved/);
+const promoDailyQuota = calculateDailyVideoQuotaState([
+  { status: "pending", automation_key: "promo-weekly:2026-11-25:0:one-quiet-minute" },
+  { status: "completed", automation_key: "promo-manual:2026-11-25:1:small-steady-step" },
+  { status: "failed", automation_key: "promo-weekly:2026-11-25:0:failed-candidate" },
+  { status: "completed", automation_key: "quran:20682:2" },
+]);
+assert.equal(promoDailyQuota.reservedCount, 3, "pending and completed promotional short videos must consume the daily short-video quota");
+assert.equal(promoDailyQuota.nextSlot, 3, "promotional keys must not corrupt the numeric daily sequence slot");
+
 const schedulerSource = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 assert.match(schedulerSource, /selectUpcomingWeeklyPromoSlots\(now, timeZone, target, 0\)/);
+const promoQuotaInventory = schedulerSource.slice(
+  schedulerSource.indexOf("const [dailyRows, promotionalRows]"),
+  schedulerSource.indexOf("const dailyQuota = calculateDailyVideoQuotaState"),
+);
+assert.match(promoQuotaInventory, /automation_key=like\\.promo-\\*/);
+assert.match(promoQuotaInventory, /created_at=gte\\./);
+assert.match(promoQuotaInventory, /new Map/);
+assert.match(promoQuotaInventory, /Weekly Layl episodes are excluded/);
 assert.match(schedulerSource, /promo-weekly:\$\{publishSlot\.localDate\}:\$\{publishSlot\.slot\}:\$\{concept\.key\}/);
 assert.match(schedulerSource, /promoScheduledAt: publishSlot\.scheduledAt/);
 assert.match(schedulerSource, /scheduled_at: scheduledAt/);
