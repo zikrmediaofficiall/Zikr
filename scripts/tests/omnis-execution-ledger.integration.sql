@@ -102,6 +102,19 @@ SELECT public.transition_admin_omnis_task(
   'PostgreSQL 17 RLS, idempotency, state-transition and completion-guard checks passed.'
 );
 
+DO $append_only$
+BEGIN
+  BEGIN
+    UPDATE public.admin_omnis_execution_events
+    SET note = 'tampered'
+    WHERE task_key = 'OMNIS-P00-03';
+    RAISE EXCEPTION 'OMNIS event history must reject mutation';
+  EXCEPTION
+    WHEN SQLSTATE '42501' THEN NULL;
+  END;
+END;
+$append_only$;
+
 DO $history_check$
 DECLARE
   v_state text;

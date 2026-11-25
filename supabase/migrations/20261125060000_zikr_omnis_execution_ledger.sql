@@ -42,6 +42,29 @@ CREATE INDEX IF NOT EXISTS admin_omnis_ledger_state_idx
 CREATE INDEX IF NOT EXISTS admin_omnis_events_task_created_idx
   ON public.admin_omnis_execution_events (task_key, created_at DESC);
 
+CREATE OR REPLACE FUNCTION public.reject_admin_omnis_event_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $function$
+BEGIN
+  RAISE EXCEPTION 'OMNIS execution events are append-only and cannot be updated, deleted, or truncated'
+    USING ERRCODE = '42501';
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.reject_admin_omnis_event_mutation()
+  FROM PUBLIC, anon, authenticated, service_role;
+
+DROP TRIGGER IF EXISTS admin_omnis_execution_events_immutable
+  ON public.admin_omnis_execution_events;
+CREATE TRIGGER admin_omnis_execution_events_immutable
+  BEFORE UPDATE OR DELETE OR TRUNCATE
+  ON public.admin_omnis_execution_events
+  FOR EACH STATEMENT
+  EXECUTE FUNCTION public.reject_admin_omnis_event_mutation();
+
 ALTER TABLE public.admin_omnis_execution_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_omnis_execution_events ENABLE ROW LEVEL SECURITY;
 
