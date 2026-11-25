@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 
 const STUDIO_LINKS = [
   { href: "/admin/sections", label: "أقسام الموقع وظهورها", note: "إدارة ظهور الأقسام في الصفحة الرئيسية." },
+  { href: "/admin/omnis/pages", label: "منشئ الصفحات والمكونات", note: "صفحات من مكونات محددة بنسخ ومعاينة ونشر وتراجع." },
   { href: "/admin/settings", label: "الإعدادات المركزية", note: "إعدادات typed بنسخ وتراجع." },
   { href: "/admin/android", label: "تطبيق Android", note: "الإصدارات والتوقيع والروابط وجاهزية النشر." },
   { href: "/admin/seo", label: "SEO والفهرسة", note: "بيانات الصفحات المنظمة والخرائط." },

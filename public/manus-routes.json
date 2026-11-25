@@ -85,6 +85,9 @@
       "path": "/admin/omnis"
     },
     {
+      "path": "/admin/omnis/pages"
+    },
+    {
       "path": "/admin/omnis/project"
     },
     {
@@ -293,6 +296,9 @@
     },
     {
       "path": "/offline-library"
+    },
+    {
+      "path": "/p/:slug"
     },
     {
       "path": "/platform"
