@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { ChangeEvent } from "react";
 import { type Reciter } from "@/features/quran/types/quran";
 import { getQuranReciters } from "@/features/quran/services/quran-client";
@@ -11,6 +11,7 @@ import {
   resolveQuranAudio,
 } from "@/features/quran/services/offline-audio";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/components/layout/language-provider";
 
 type FavoriteState = "unknown" | "saved" | "not-saved";
 
@@ -21,6 +22,8 @@ export function QuranAudioPlayer({
   surahId: number;
   initialReciterId?: string;
 }) {
+  const { isEnglish } = useLanguage();
+  const t = useCallback((ar: string, en: string) => (isEnglish ? en : ar), [isEnglish]);
   const [isClient, setIsClient] = useState(false);
   const [availableReciters, setAvailableReciters] = useState<Reciter[]>([]);
   const [reciter, setReciter] = useState<Reciter | null>(null);
@@ -56,19 +59,19 @@ export function QuranAudioPlayer({
             data[0];
           setReciter(initial);
         } else {
-          setError("لا توجد تلاوات متاحة حاليًا.");
+          setError(t("لا توجد تلاوات متاحة حاليًا.", "No recitations are available right now."));
         }
       })
       .catch((loadError) => {
         if (!active) return;
         console.error("[audio] Failed to load reciters:", loadError);
-        setError("تعذر تحميل قائمة القراء. حاول مرة أخرى.");
+        setError(t("تعذر تحميل قائمة القراء. حاول مرة أخرى.", "Could not load the reciter list. Please try again."));
       });
 
     return () => {
       active = false;
     };
-  }, [initialReciterId]);
+  }, [initialReciterId, t]);
 
   useEffect(() => {
     let active = true;
@@ -99,7 +102,7 @@ export function QuranAudioPlayer({
         if (!active) return;
         setDatabaseAudioUrl(audioUrl);
         if (!audioUrl) {
-          setError("لا تتوفر هذه التلاوة في مكتبة الصوت الداخلية حاليًا.");
+          setError(t("لا تتوفر هذه التلاوة في مكتبة الصوت الداخلية حاليًا.", "This recitation is not in the audio library yet."));
           return;
         }
 
@@ -114,14 +117,14 @@ export function QuranAudioPlayer({
           return;
         }
         console.warn("[audio] Quran audio source unavailable", fetchError);
-        if (active) setError("تعذر الوصول إلى مصدر التلاوة.");
+        if (active) setError(t("تعذر الوصول إلى مصدر التلاوة.", "Could not reach the recitation source."));
       });
 
     return () => {
       active = false;
       controller.abort();
     };
-  }, [isClient, reciter, surahId]);
+  }, [isClient, reciter, surahId, t]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -138,7 +141,7 @@ export function QuranAudioPlayer({
     const handleError = () => {
       setIsLoading(false);
       setIsPlaying(false);
-      setError("تعذر تشغيل هذا التسجيل. حاول مرة أخرى.");
+      setError(t("تعذر تشغيل هذا التسجيل. حاول مرة أخرى.", "Could not play this recording. Please try again."));
     };
 
     audio.addEventListener("loadstart", handleLoadStart);
@@ -156,7 +159,7 @@ export function QuranAudioPlayer({
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("error", handleError);
     };
-  }, [isClient]);
+  }, [isClient, t]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -221,7 +224,7 @@ export function QuranAudioPlayer({
     try {
       const source = await prepareSource();
       if (!source) {
-        setError("لا توجد تلاوة متاحة حاليًا.");
+        setError(t("لا توجد تلاوة متاحة حاليًا.", "No recitation is available right now."));
         return;
       }
       if (audio.src !== source) {
@@ -234,7 +237,7 @@ export function QuranAudioPlayer({
     } catch (playError) {
       console.error("[audio] Playback failed:", playError);
       setIsPlaying(false);
-      setError("تعذر تشغيل التلاوة. اضغط تشغيل مرة أخرى.");
+      setError(t("تعذر تشغيل التلاوة. اضغط تشغيل مرة أخرى.", "Could not play the recitation. Press play again."));
     }
   };
 
@@ -258,7 +261,7 @@ export function QuranAudioPlayer({
       setError(
         downloadError instanceof Error
           ? downloadError.message
-          : "تعذر حفظ التلاوة على الجهاز.",
+          : t("تعذر حفظ التلاوة على الجهاز.", "Could not save the recitation to this device."),
       );
     } finally {
       setIsDownloading(false);
@@ -272,7 +275,7 @@ export function QuranAudioPlayer({
       setOfflineReady(false);
       setDownloadProgress(null);
     } catch {
-      setError("تعذر حذف التلاوة من الجهاز.");
+      setError(t("تعذر حذف التلاوة من الجهاز.", "Could not remove the recitation from this device."));
     }
   };
 
@@ -298,8 +301,8 @@ export function QuranAudioPlayer({
       setFavoriteState(nextSaved ? "not-saved" : "saved");
       setError(
         nextSaved
-          ? "سجّل الدخول أولًا لحفظ السورة في مفضلاتك."
-          : "تعذر تحديث المفضلة.",
+          ? t("سجّل الدخول أولًا لحفظ السورة في مفضلاتك.", "Sign in first to save this surah to your favorites.")
+          : t("تعذر تحديث المفضلة.", "Could not update favorites."),
       );
     }
   };
@@ -349,8 +352,8 @@ export function QuranAudioPlayer({
     <div className="space-y-4 rounded-2xl border border-brand-gold/25 bg-black/20 p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs text-brand-cream/50">تلاوة السورة كاملة</p>
-          <p className="mt-1 font-semibold text-brand-cream">{reciter.nameAr}</p>
+          <p className="text-xs text-brand-cream/50">{t("تلاوة السورة كاملة", "Full surah recitation")}</p>
+          <p className="mt-1 font-semibold text-brand-cream">{isEnglish ? reciter.nameEn || reciter.nameAr : reciter.nameAr}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -358,16 +361,16 @@ export function QuranAudioPlayer({
             variant="ghost"
             onClick={() => void toggleFavorite()}
             className="border border-brand-gold/20 px-3"
-            aria-label="حفظ السورة في المفضلة"
+            aria-label={t("حفظ السورة في المفضلة", "Save surah to favorites")}
           >
-            {favoriteState === "saved" ? "★ محفوظة" : "☆ مفضلة"}
+            {favoriteState === "saved" ? t("★ محفوظة", "★ Saved") : t("☆ مفضلة", "☆ Favorite")}
           </Button>
         </div>
       </div>
 
       <div className="flex flex-col gap-3">
         <label className="text-sm text-brand-cream/60" htmlFor={`reciter-${surahId}`}>
-          القارئ
+          {t("القارئ", "Reciter")}
         </label>
         <select
           id={`reciter-${surahId}`}
@@ -377,7 +380,7 @@ export function QuranAudioPlayer({
         >
           {availableReciters.map((item) => (
             <option key={item.id} value={item.id} className="bg-brand-emeraldDeep">
-              {item.nameAr}
+              {isEnglish ? item.nameEn || item.nameAr : item.nameAr}
             </option>
           ))}
         </select>
@@ -397,7 +400,7 @@ export function QuranAudioPlayer({
             disabled={isLoading || !databaseAudioUrl}
             className="min-w-28"
           >
-            {isLoading ? "جاري التحضير..." : isPlaying ? "إيقاف" : "تشغيل"}
+            {isLoading ? t("جاري التحضير...", "Preparing...") : isPlaying ? t("إيقاف", "Pause") : t("تشغيل", "Play")}
           </Button>
 
           {!offlineReady ? (
@@ -410,9 +413,9 @@ export function QuranAudioPlayer({
             >
               {isDownloading
                 ? downloadProgress === null
-                  ? "جاري الحفظ..."
-                  : `جاري الحفظ ${downloadProgress}%`
-                : "حفظ بدون إنترنت"}
+                  ? t("جاري الحفظ...", "Saving...")
+                  : (isEnglish ? `Saving ${downloadProgress}%` : `جاري الحفظ ${downloadProgress}%`)
+                : t("حفظ بدون إنترنت", "Save for offline")}
             </Button>
           ) : (
             <Button
@@ -421,7 +424,7 @@ export function QuranAudioPlayer({
               onClick={() => void removeDownload()}
               className="min-w-36 border border-emerald-400/20 text-emerald-200"
             >
-              ✓ محفوظ على الجهاز
+              {t("✓ محفوظ على الجهاز", "✓ Saved on this device")}
             </Button>
           )}
         </div>
@@ -434,7 +437,7 @@ export function QuranAudioPlayer({
             value={currentTime}
             onChange={handleSeek}
             className="h-2 w-full cursor-pointer appearance-none rounded-full bg-brand-gold/20"
-            aria-label="موضع التلاوة"
+            aria-label={t("موضع التلاوة", "Playback position")}
           />
         </div>
 
@@ -453,8 +456,10 @@ export function QuranAudioPlayer({
       />
 
       <p className="text-center text-xs leading-6 text-brand-cream/45">
-        عند حفظ السورة، تصبح التلاوة متاحة من مساحة جهازك حتى عند انقطاع الإنترنت. ملفات الصوت
-        لا تُرفع إلى تخزين Supabase الخاص بالمشروع.
+        {t(
+          "عند حفظ السورة، تصبح التلاوة متاحة من مساحة جهازك حتى عند انقطاع الإنترنت. ملفات الصوت لا تُرفع إلى تخزين Supabase الخاص بالمشروع.",
+          "When you save a surah, the recitation stays available from your device even offline. Audio files are not uploaded to the project's Supabase storage.",
+        )}
       </p>
     </div>
   );
