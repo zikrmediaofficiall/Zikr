@@ -88,6 +88,9 @@
       "path": "/admin/omnis/agents"
     },
     {
+      "path": "/admin/omnis/code"
+    },
+    {
       "path": "/admin/omnis/database"
     },
     {

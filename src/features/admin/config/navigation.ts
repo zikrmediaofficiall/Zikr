@@ -35,6 +35,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       { href: "/admin/omnis/workflows", label: "مصمم سير العمل", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/omnis/database", label: "استوديو قاعدة البيانات", permission: "system.manage", icon: "database" },
       { href: "/admin/omnis/agents", label: "وكلاء أومنيس", permission: "system.manage", icon: "refresh-cw" },
+      { href: "/admin/omnis/code", label: "مركز تطوير الكود", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/queues", label: "مركز الطوابير", permission: "dashboard.view", icon: "list-checks" },
       { href: "/admin/automation", label: "التشغيل الآلي", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/health", label: "صحة النظام", permission: "system.manage", icon: "heart-pulse" },
