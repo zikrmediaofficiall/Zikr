@@ -167,7 +167,7 @@ function ProphetGenerator() {
       category: "other",
       narration: candidate.summary,
       content: {
-        renderer: "template", workflow: "prophet-story", prophetId: candidate.prophetId, beatSequence: candidate.beatSequence,
+        renderer: "template", workflow: "prophet-story", audience: "kids", prophetId: candidate.prophetId, beatSequence: candidate.beatSequence,
         verifiedReferences: references, scriptReviewed, unsupportedDetailsRemoved: detailsRemoved,
         childSafetyReviewed: childSafe, symbolicClayVisualsReviewed: visualsReviewed,
         videoFormat: "vertical", resolution: "1080x1920", language: "ar",
