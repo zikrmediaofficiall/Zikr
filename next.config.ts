@@ -78,7 +78,6 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: '4mb' },
     optimizePackageImports: ['lucide-react'],
-    inlineCss: true,
   },
 };
 
