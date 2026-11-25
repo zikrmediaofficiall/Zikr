@@ -37,9 +37,9 @@ no DB runner yet. **Not built** = nothing exists for the deliverable.
 | P11-01 cloud services center | Partial | `admin/services/platform.ts` (GitHub, workflows, health) | no Vercel/Supabase/storage panel | existing |
 | P11-02 database and API studio | Not built | static scripts only (`verify-migration-rls-coverage`) | inventory UI | 4fdc67d |
 | P11-03 code development center | Not built | none | branches, PRs, reviews view | none |
-| P12-01 fine-grained permissions, SoD | Partial | RBAC `permissions.ts`, SoD flag `b84de20` | ABAC by environment/scope | b84de20 |
+| P12-01 fine-grained permissions, SoD | Built (optional ADMIN_ABAC_POLICY) | RBAC `permissions.ts`, SoD flag `b84de20`, `admin/services/abac-policy.ts` environment/scope rules restricting step-up actions, test | rules only restrict; scope tag is not yet passed by callers; applied in requireAdminStepUp only | b84de20, this commit |
 | P12-02 security and secrets monitoring | Built | `verify-no-committed-secrets`, `/admin/security` | none known | 6d7957e |
-| P12-03 backup and recovery | Partial | runbook and contract check | no tested restore drill (none possible: no managed backups) | ca046ea |
+| P12-03 backup and recovery | Partial (tooling built) | runbook, `scripts/restore-drill.mjs` offline dump analyzer + test | no managed backups exist; a real restore into a scratch DB was NOT performed | ca046ea, this commit |
 | P13-01 specialist agents | Scaffold | `omnis/agents.ts`, migration `20261125190000` | flag off | 627c714 |
 | P13-02 tools and resource scoping | Scaffold | scoped authorization in `agents.ts` | flag off | 627c714 |
 | P13-03 analysis and repair orchestration | Not built | proposal table only | orchestration and review UI | none |

@@ -5,6 +5,7 @@ import { createClient, supabaseServerAdminRequest } from "@/lib/supabase/server"
 import { requireAdminPermission, requireAdminPermissionApi } from "@/features/admin/services/admin";
 import { sanitizeInternalPath } from "@/lib/safe-redirect";
 import type { AdminPermission } from "@/features/admin/services/permissions";
+import { abacAllows, currentEnvironment, parseAbacPolicy } from "@/features/admin/services/abac-policy";
 import { resolveDestructiveMfaRequirement, shouldRequireAdminStepUp } from "@/features/admin/services/security-policy";
 
 async function destructiveMfaRequired() {
@@ -21,8 +22,13 @@ async function destructiveMfaRequired() {
   }
 }
 
+function abacAllowed(permission: AdminPermission, role: string): boolean {
+  return abacAllows({ permission, role, environment: currentEnvironment() }, parseAbacPolicy(process.env.ADMIN_ABAC_POLICY));
+}
+
 export async function requireAdminStepUp(permission: AdminPermission, nextPath = "/admin", forceMfa = false) {
   const profile = await requireAdminPermission(permission);
+  if (!abacAllowed(permission, profile.role)) redirect("/profile?error=admin_permission_required");
   if (!shouldRequireAdminStepUp(await destructiveMfaRequired(), forceMfa)) return profile;
 
   const supabase = await createClient();
