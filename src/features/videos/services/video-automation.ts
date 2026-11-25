@@ -1,5 +1,5 @@
 import { supabaseServerAdminRequest } from '@/lib/supabase/admin-rest';
-import { fitTitle, resolveSeoTerms } from './video-seo';
+import { fitTitle, pickTitleHook, resolveSeoTerms } from './video-seo';
 import { getServerEnv } from '@/lib/env';
 import { getYouTubeUploadRefreshToken } from '@/features/social/services/youtube-oauth-credentials';
 import { assertCloudinaryVideoUrl } from '@/features/videos/services/video-media-url';
@@ -91,17 +91,6 @@ function isVerticalVideo(request: VideoGenerationRequest): boolean {
         return match ? Number(match[2]) > Number(match[1]) : true;
       })()
     : true;
-}
-
-function socialHook(category: string) {
-  const hooks: Record<string, string> = {
-    quran: 'آية قصيرة تستحق دقيقة من التدبر',
-    hadith: 'رسالة نحتاج أن نتذكرها اليوم',
-    dua: 'ردّد هذا الدعاء بقلب حاضر',
-    adhkar: 'اجعل هذه الدقيقة نصيبك من الذكر',
-    story: 'قصة قصيرة بمعنى يبقى معك',
-  };
-  return hooks[category] || 'خذ دقيقة هادئة مع ذِكر';
 }
 
 function growthCallToAction() {
@@ -335,7 +324,7 @@ export function generateYoutubeMetadata(request: VideoGenerationRequest) {
   const content = contentObject(request);
   const sourceLabel = typeof content.sourceLabel === 'string' ? content.sourceLabel : '';
   const qualityNote = 'محتوى تعليمي موثق بإيقاع واضح وترجمة نصية سهلة القراءة.';
-  const title = fitTitle(`${socialHook(request.category)} | ${request.title}`, 100);
+  const title = fitTitle(`${pickTitleHook(request.category, request.id)} | ${request.title}`, 100);
   const seo = resolveSeoTerms(request.category, content.audience);
   return {
     title,
@@ -347,7 +336,7 @@ export function generateYoutubeMetadata(request: VideoGenerationRequest) {
 }
 
 export function generateFacebookMetadata(request: VideoGenerationRequest) {
-  return { title: `${socialHook(request.category)} | ${request.title}`.slice(0, 150), description: sourceSocialCaption(request) };
+  return { title: `${pickTitleHook(request.category, request.id)} | ${request.title}`.slice(0, 150), description: sourceSocialCaption(request) };
 }
 
 export async function generateQuranVideo(

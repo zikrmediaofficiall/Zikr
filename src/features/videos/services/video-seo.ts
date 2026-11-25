@@ -35,3 +35,34 @@ export function fitTitle(title: string, max: number): string {
   const space = cut.lastIndexOf(" ");
   return (space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd() + "…";
 }
+
+// Opening phrases for social titles. The first entry of each list is the long-standing
+// phrase; the others are alternates for A/B comparison. None makes a reward, ruling
+// or attribution claim, so the source text stays the only religious content.
+const TITLE_HOOKS: Record<string, string[]> = {
+  quran: ["آية قصيرة تستحق دقيقة من التدبر", "دقيقة مع آية من كتاب الله", "هل توقفت عند معنى هذه الآية؟"],
+  hadith: ["رسالة نحتاج أن نتذكرها اليوم", "حديث قصير بمعنى كبير", "هل تعرف هذا الحديث؟"],
+  dua: ["ردّد هذا الدعاء بقلب حاضر", "دعاء قصير احفظه اليوم", "هل حفظت هذا الدعاء؟"],
+  adhkar: ["اجعل هذه الدقيقة نصيبك من الذكر", "ذكر قصير في يومك", "هل ذكرت الله اليوم؟"],
+  story: ["قصة قصيرة بمعنى يبقى معك", "قصة وعبرة في دقيقة", "هل سمعت هذه القصة من قبل؟"],
+};
+const DEFAULT_TITLE_HOOKS = ["خذ دقيقة هادئة مع ذِكر", "دقيقة هادئة مع ذِكر", "هل جربت دقيقة هدوء اليوم؟"];
+
+function stableIndex(seed: string, size: number): number {
+  let hash = 2166136261;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % size;
+}
+
+export function listTitleHooks(category: string): string[] {
+  return TITLE_HOOKS[category] ?? DEFAULT_TITLE_HOOKS;
+}
+
+/** Deterministic per request id, so a retry keeps the same title and results can be compared later. */
+export function pickTitleHook(category: string, seed: string): string {
+  const hooks = listTitleHooks(category);
+  return hooks[stableIndex(`${category}:${seed}`, hooks.length)];
+}
