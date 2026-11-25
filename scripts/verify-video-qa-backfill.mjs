@@ -144,8 +144,24 @@ if (!dynamicWorker.includes('isKidsVideo ? "kids-stories"') ||
 const publicVideoService = read("src/features/videos/services/videos.ts");
 if (!publicVideoService.includes("Boolean(video.youtubeId)")) failures.push("YouTube-recovered generated videos must remain visible in the public video library");
 const runtimeSettings = read("src/app/admin/automation/page.tsx");
-if (!runtimeSettings.includes('? "4"')) failures.push("Admin AI-attempt fallback must match the four-attempt production setting");
-if (!runtimeSettings.includes('? "25"')) failures.push("Admin video-duration fallback must match the production 25-second default");
+const adminSettingsRegistry = read("src/features/admin/config/settings-registry.ts");
+function getSettingRegistryBlock(key) {
+  const start = adminSettingsRegistry.indexOf(`key: "${key}"`);
+  if (start < 0) return "";
+  const end = adminSettingsRegistry.indexOf("\n  },", start);
+  return adminSettingsRegistry.slice(start, end < 0 ? adminSettingsRegistry.length : end);
+}
+const aiAttemptsSetting = getSettingRegistryBlock("video_automation_ai_attempts_per_run");
+const videoDurationSetting = getSettingRegistryBlock("video_automation_video_seconds");
+if (!aiAttemptsSetting.includes("runtimeFallback: 4") || !aiAttemptsSetting.includes("formFallback: 4")) {
+  failures.push("Admin AI-attempt registry fallbacks must match the four-attempt production setting");
+}
+if (!videoDurationSetting.includes("runtimeFallback: 25") || !videoDurationSetting.includes("formFallback: 25")) {
+  failures.push("Admin video-duration registry fallbacks must match the production 25-second default");
+}
+if (!runtimeSettings.includes("definition.formFallback") || !runtimeSettings.includes("defaultValue={numericValue ?? definition.formFallback}")) {
+  failures.push("Admin automation numeric inputs must use the typed registry form fallback");
+}
 const backgroundRunner = read("scripts/run-background-jobs.ts");
 if (!backgroundRunner.includes("AUTO_VIDEO_SECONDS ?? 25") ||
     !backgroundRunner.includes("|| 25")) {

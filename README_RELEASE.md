@@ -1,1 +1,0 @@
-Release documentation is maintained in the release notes and CI configuration.

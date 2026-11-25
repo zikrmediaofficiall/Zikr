@@ -13,6 +13,7 @@ const tables = new Set(
   [...tableBlock.matchAll(/^\s{6}([a-z][a-z0-9_]*)\s*:\s*\{$/gm)].map(match => match[1]),
 );
 const requiredTables = [
+  "admin_setting_versions",
   "admin_audit_events",
   "kids_games",
   "kids_content",
@@ -32,6 +33,8 @@ const functions = new Set(
   [...functionBlock.matchAll(/^\s{6}([a-z][a-z0-9_]*)\s*:\s*\{/gm)].map(match => match[1]),
 );
 const requiredFunctions = [
+  "save_admin_setting_version",
+  "restore_admin_setting_version",
   "admin_set_primary_site_audio_asset",
   "admin_update_user_role",
   "consume_min_interval_rate_limit",

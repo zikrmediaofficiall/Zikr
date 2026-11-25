@@ -25,6 +25,8 @@ const analytics = read("src/app/admin/analytics/page.tsx");
 const analyticsDashboard = read("src/app/admin/analytics/analytics-dashboard.tsx");
 const securityService = read("src/features/admin/services/security.ts");
 const auditService = read("src/features/admin/services/audit.ts");
+const auditMetadata = read("src/features/admin/services/audit-metadata.ts");
+const controlPlaneAudit = read("src/features/admin/services/control-plane.ts");
 const editorialActions = read("src/app/admin/editorial-actions.ts");
 const knowledgeActions = read("src/app/admin/knowledge/actions.ts");
 const androidActions = read("src/app/admin/android/actions.ts");
@@ -242,8 +244,26 @@ if (
 if (!/catch \(error\) \{[\s\S]*return true;[\s\S]*\}/.test(securityService)) {
   failures.push("destructive-action MFA policy must fail closed when settings cannot be read");
 }
-if (!auditService.includes("safeMetadata") || !/token\|secret\|password\|cookie\|authorization\|key/i.test(auditService)) {
-  failures.push("audit metadata must remove credential-like keys");
+if (
+  !auditService.includes("sanitizeAdminAuditMetadata") ||
+  !auditMetadata.includes("SENSITIVE_KEY") ||
+  !auditMetadata.includes("MAX_DEPTH") ||
+  !auditMetadata.includes("MAX_STRING_LENGTH") ||
+  !auditMetadata.includes("MAX_OBJECT_ENTRIES") ||
+  !auditMetadata.includes("MAX_ARRAY_ITEMS")
+) {
+  failures.push("audit metadata must recursively remove credential-like keys and bound nested values");
+}
+if (
+  !controlPlaneAudit.includes("recordAdminAuditEvent") ||
+  !controlPlaneAudit.includes('outcome: "denied"') ||
+  !controlPlaneAudit.includes('outcome: "success"') ||
+  !controlPlaneAudit.includes("authorized_not_executed") ||
+  !controlPlaneAudit.includes("targetResourceFingerprint") ||
+  /targetResourceId:\s*input\.requestedResourceId/.test(controlPlaneAudit) ||
+  /payload:\s*request\.payload/.test(controlPlaneAudit)
+) {
+  failures.push("OMNIS control-plane authorization decisions must be audited without raw payloads or resource identifiers");
 }
 if (packageJson.scripts?.["admin:governance:check"] !== "node scripts/verify-admin-governance.mjs") {
   failures.push("admin:governance:check must be registered");
