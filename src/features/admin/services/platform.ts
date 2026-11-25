@@ -184,6 +184,10 @@ const GITHUB_WORKFLOW_PATHS = new Set([
   ".github/workflows/refresh-offline-content.yml",
   ".github/workflows/publish-social.yml",
   ".github/workflows/storage-retention.yml",
+  ".github/workflows/android-release-signing-preflight.yml",
+  ".github/workflows/sign-android-release-tag.yml",
+  ".github/workflows/publish-android-release-assets.yml",
+  ".github/workflows/android-native-login-test.yml",
   ".github/workflows/dispatch-android-release-recovery.yml",
 ]);
 
