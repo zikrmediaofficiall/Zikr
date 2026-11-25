@@ -917,8 +917,8 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   let created = await seedWeeklyLaylEpisodeRequest(now);
   created += await seedWeeklyPromotionalVideoRequests(now);
 
-  // Daily quota: keys are unique per UTC day (kind:day:counter) so every run can create new
-  // videos, and the DAILY_VIDEO_TARGET is spread evenly across the day instead of bursting.
+  // Daily quota keys and inventory are scoped to the resolved Cairo local day so UTC
+  // midnight cannot reset the generation cap early or late.
   // Urgent admin "Run Now" may bypass time-of-day pacing, but never the daily quota.
   const quotaDayStartIso = encodeURIComponent(quotaWindow.startIso);
   const quotaNextDayStartIso = encodeURIComponent(quotaWindow.nextStartIso);
@@ -949,8 +949,8 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   const alreadySeededToday = dailyQuota.reservedCount;
   // Enforce a hard three-short-video daily ceiling, including urgent admin dispatches.
   const dailyTarget = Math.max(1, Math.min(3, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3));
-  // The workflow runs in four six-hour UTC windows; release a quarter of the daily target per window.
-  const scheduleWindow = Math.min(4, Math.max(1, Math.floor(now.getUTCHours() / 6) + 1));
+  // The worker runs in four six-hour windows; pace against Cairo local time, including DST.
+  const scheduleWindow = Math.min(4, Math.max(1, Math.floor(quotaWindow.localHour / 6) + 1));
   const dueByNow = Math.ceil((dailyTarget * scheduleWindow) / 4);
   const urgent = process.env.AUTO_VIDEO_URGENT?.toLowerCase() === "true";
   const remainingDailyQuota = Math.max(0, dailyTarget - alreadySeededToday);
