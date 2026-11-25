@@ -25,15 +25,15 @@ These numbers are directional and limited by the available metrics. The insight 
 - Publish at most 3 short videos/day on each connected short-form platform. This cap includes existing/manual video queue rows even when they are scheduled outside the three preferred slots. One approved vertical master is cross-published to YouTube Shorts and Facebook Reels: 3 YouTube uploads plus 3 Reels per day, not 6 separately generated videos.
 - Publish one separate written Facebook Page post/day. It does not consume the video quota.
 - Do not publish immediately when rendering finishes. Queue each video to the next Cairo slot, with at least 15 minutes of lead time.
-- Keep the admin Run Now batch bounded at 3 by default. Do not use repeated urgent runs to evade the daily cap.
+- Keep the admin Run Now batch bounded at 3 by default. The Video Studio's verified batch now creates one Quran item plus at most two additional published-source items; it cannot create the former 12-item burst. Do not use repeated urgent runs to evade the daily cap.
 
 ### Cairo posting slots
 
-| Slot | Cairo time | Editorial role |
-|---|---:|---|
-| 1 | 05:37 | Early morning: Quran or Dua |
-| 2 | 14:22 | Afternoon: Quran or Dua |
-| 3 | 17:52 | Evening: Hadith, Adhkar, verified story or Kids rotation |
+| Slot | Cairo time | Editorial role                                           |
+| ---- | ---------: | -------------------------------------------------------- |
+| 1    |      05:37 | Early morning: Quran or Dua                              |
+| 2    |      14:22 | Afternoon: Quran or Dua                                  |
+| 3    |      17:52 | Evening: Hadith, Adhkar, verified story or Kids rotation |
 
 The allocator reserves a slot independently for every target platform, checks queued/partial/processing/published video rows and fails closed if no slot is available. It uses the IANA timezone Africa/Cairo, not a fixed UTC offset. The publisher now re-slots due/null video backlog using a compare-and-set update before claiming work; if that reconciliation fails, it does not claim more queue rows. Reassess the slots after 14 days using actual platform insights; these times are a controlled starting experiment, not a universal best-time claim.
 
@@ -41,15 +41,15 @@ The allocator reserves a slot independently for every target platform, checks qu
 
 The generator uses a deterministic 14-video cycle informed by the current YouTube category sample:
 
-| Type | Videos per 14 | Share |
-|---|---:|---:|
-| Quran | 4 | 28.6% |
-| Dua | 3 | 21.4% |
-| Hadith | 2 | 14.3% |
-| Kids | 2 | 14.3% |
-| Adhkar | 1 | 7.1% |
-| Verified stories | 1 | 7.1% |
-| General messages | 1 | 7.1% |
+| Type             | Videos per 14 | Share |
+| ---------------- | ------------: | ----: |
+| Quran            |             4 | 28.6% |
+| Dua              |             3 | 21.4% |
+| Hadith           |             2 | 14.3% |
+| Kids             |             2 | 14.3% |
+| Adhkar           |             1 |  7.1% |
+| Verified stories |             1 |  7.1% |
+| General messages |             1 |  7.1% |
 
 At 3/day this produces a rolling 42-video mix over 14 days. Category selection is stable across retries. Kids remains in its separate child-audience path with age-appropriate metadata and child-safety QA; it is never used to fill a general-audience gap.
 
@@ -62,6 +62,7 @@ At 3/day this produces a rolling 42-video mix over 14 days. Category selection i
 - ZIKR's initial internal cap is deliberately much lower: 3 Shorts/day. Verify the remote upload ID before counting a platform delivery as published.
 
 Official references:
+
 - https://developers.google.com/youtube/v3/determine_quota_cost
 - https://developers.google.com/youtube/v3/docs/videos/insert
 
@@ -72,6 +73,7 @@ Official references:
 - Meta Page API usage is dynamic and depends on Business Use Case usage. Monitor provider usage headers and back off when throttling is signaled. Do not translate an API-call formula into a guessed number of permitted posts.
 
 Official reference:
+
 - https://developers.facebook.com/docs/graph-api/overview/rate-limiting/
 
 Do not add Instagram/TikTok targets until OAuth credentials, scopes, account eligibility, media rules and platform-specific delivery adapters are implemented and tested.
