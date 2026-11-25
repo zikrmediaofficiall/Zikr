@@ -14,6 +14,9 @@ const actions = read("src/app/admin/omnis/actions.ts");
 const moduleDependencies = read("src/features/admin/omnis/module-dependencies.ts");
 const moduleStatusService = read("src/features/admin/services/omnis-module-status.ts");
 const incidents = read("src/features/admin/omnis/incidents.ts");
+const importGraph = read("src/features/admin/omnis/import-graph.ts");
+const importGraphGenerator = read("scripts/generate-omnis-import-graph.ts");
+const importGraphSnapshot = JSON.parse(read("src/features/admin/omnis/import-graph.generated.json"));
 const incidentLifecycle = read("src/features/admin/omnis/incident-lifecycle.ts");
 const commands = read("src/features/admin/omnis/commands.ts");
 const resourceIndex = read("src/features/admin/omnis/resource-index.ts");
@@ -66,8 +69,26 @@ if (!page.includes('globalOperationalDependencies.map') || !page.includes('depen
 if (!incidents.includes("buildOmnisIncidents") || !incidents.includes("affectedModules") || !incidents.includes("owner")) {
   failures.push("OMNIS incident view must aggregate affected modules and define an accountable owner");
 }
-if (!commands.includes('key: "refresh-operational-status"') || !commands.includes("mutates: false") || !commands.includes("resolveOmnisSafeCommand")) {
-  failures.push("OMNIS safe commands must be explicitly allow-listed and read-only by default");
+if (
+  !commands.includes('key: "refresh-operational-status"')
+  || !commands.includes('key: "pause-video-automation"')
+  || !commands.includes('key: "resume-video-automation"')
+  || !commands.includes("mutates: true")
+  || !commands.includes("requiresStepUp: true")
+  || !commands.includes("resolveOmnisSafeCommand")
+) {
+  failures.push("OMNIS commands must be allow-listed and mutating commands must require step-up");
+}
+if (
+  !actions.includes('command.operation !== "pause"')
+  || !actions.includes('command.operation !== "resume"')
+  || !actions.includes("saveAdminSettingVersion")
+  || !actions.includes("isVideoPurgeLockResponseActive")
+  || !actions.includes("ENABLE_VIDEO_AUTOMATION")
+  || !page.includes('value="pause-video-automation"')
+  || !page.includes('value="resume-video-automation"')
+) {
+  failures.push("OMNIS video pause/resume must use the canonical versioned owner adapter, purge-lock guard and explicit MFA confirmation");
 }
 if (!actions.includes("resolveOmnisSafeCommand") || !actions.includes("admin.omnis.safe_command.inspect") || !actions.includes('requireAdminPermission("system.manage")')) {
   failures.push("OMNIS operational refresh command must check permission and append an audit event");
@@ -105,8 +126,20 @@ if (!resourceIndex.includes("classifyOmnisResource") || !resourceIndex.includes(
 if (!resourceService.includes('import "server-only"') || !resourceService.includes("/git/trees/") || !resourceService.includes("GITHUB_DISPATCH_TOKEN")) {
   failures.push("Project Explorer index must read the current GitHub tree server-side without exposing credentials");
 }
-if (!explorerPage.includes('requireAdminPermission("system.manage")') || !explorerPage.includes("OMNIS_MODULE_DEPENDENCIES.map") || !explorerPage.includes("analyzeOmnisResourceImpact")) {
-  failures.push("Project Explorer page must require admin permission and show the index, dependency map and impact analysis");
+if (!explorerPage.includes('requireAdminPermission("system.manage")') || !explorerPage.includes("OMNIS_MODULE_DEPENDENCIES.map") || !explorerPage.includes("analyzeOmnisResourceImpact(resourcePath, index.importGraph)")) {
+  failures.push("Project Explorer page must require admin permission and use the exact-commit import graph when available");
+}
+if (
+  !importGraph.includes("buildOmnisImportGraph")
+  || !importGraph.includes("getTransitiveOmnisImporters")
+  || !importGraphGenerator.includes("buildOmnisImportGraph")
+  || !resourceService.includes("generatedImportGraphJson")
+  || !resourceService.includes("exactImportGraphForCommit")
+  || !resourceIndex.includes('confidence: "import-graph"')
+  || !explorerPage.includes("impact.relatedTests")
+  || importGraphSnapshot.version !== 1
+) {
+  failures.push("P04 must generate an exact-commit reverse import graph and expose impacted files/tests with a safe fallback");
 }
 if (!centers.includes('id: "project-explorer"') || !centers.includes('path: "/admin/omnis/project"')) {
   failures.push("Project Explorer must be reachable from the registered OMNIS center");
@@ -116,4 +149,4 @@ if (failures.length) {
   console.error("OMNIS verification failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
-console.log("OMNIS verification passed: 30 centers, 15 phases, 45 unique tasks, audited transitions, source-backed operations status and persistent incident lifecycle.");
+console.log("OMNIS verification passed: 30 centers, 15 phases, 45 unique tasks, audited incident lifecycle, step-up worker controls and exact-commit import impact graph.");

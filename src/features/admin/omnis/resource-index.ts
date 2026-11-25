@@ -1,25 +1,22 @@
 import { OMNIS_MODULE_DEPENDENCIES } from "@/features/admin/omnis/module-dependencies";
+import { getTransitiveOmnisImporters, type OmnisImportGraph } from "@/features/admin/omnis/import-graph";
 
 export type OmnisResourceCategory = "page" | "api" | "component" | "service" | "library" | "workflow" | "migration" | "test";
 export type OmnisResource = { path: string; category: OmnisResourceCategory; sha: string };
 export type OmnisImpactAnalysis = {
   path: string;
-  confidence: "area-based";
+  confidence: "import-graph" | "area-based";
   directModules: string[];
   affectedModules: string[];
   sharedDependencies: string[];
+  impactedFiles: string[];
+  relatedTests: string[];
   explanation: string;
 };
 
 export const OMNIS_RESOURCE_CATEGORY_LABELS: Record<OmnisResourceCategory, string> = {
-  page: "صفحة",
-  api: "واجهة API",
-  component: "مكوّن",
-  service: "خدمة",
-  library: "مكتبة",
-  workflow: "Workflow",
-  migration: "Migration",
-  test: "اختبار",
+  page: "صفحة", api: "واجهة API", component: "مكوّن", service: "خدمة",
+  library: "مكتبة", workflow: "Workflow", migration: "Migration", test: "اختبار",
 };
 
 export function normalizeOmnisResourcePath(value: unknown): string | null {
@@ -28,7 +25,7 @@ export function normalizeOmnisResourcePath(value: unknown): string | null {
   if (!path || path.startsWith("/") || path.length > 500 || path.includes(String.fromCharCode(92))) return null;
   const segments = path.split("/");
   if (segments.some((segment) => !segment || segment === "." || segment === "..")) return null;
-  if (segments.some((segment) => !/^[a-zA-Z0-9._@+-]+$/.test(segment))) return null;
+  if (segments.some((segment) => !/^[a-zA-Z0-9._@+-]+$/.test(segment) && !/^\[[a-zA-Z0-9._@-]+\]$/.test(segment))) return null;
   return path;
 }
 
@@ -48,82 +45,57 @@ export function classifyOmnisResource(value: unknown): OmnisResourceCategory | n
 }
 
 const IMPACT_RULES: ReadonlyArray<{ prefixes: readonly string[]; moduleIds: readonly string[]; explanation: string }> = [
-  {
-    prefixes: ["supabase/migrations/", "src/lib/supabase/"],
-    moduleIds: ["database-studio", "cloud-infrastructure", "security-recovery"],
-    explanation: "تغيير قاعدة البيانات أو موصل Supabase قد يؤثر في التخزين والصلاحيات والوحدات التي تعتمد على قاعدة البيانات.",
-  },
-  {
-    prefixes: [".github/workflows/", ".circleci/"],
-    moduleIds: ["cloud-infrastructure", "software-development", "release-deployment"],
-    explanation: "تغيير CI أو Workflow قد يؤثر في التحقق والبناء والجدولة والنشر.",
-  },
-  {
-    prefixes: ["src/features/admin/omnis/", "src/features/admin/services/"],
-    moduleIds: ["global-command", "universal-control", "identity-access", "security-recovery"],
-    explanation: "تغيير طبقة OMNIS أو خدمات الإدارة قد يؤثر في القيادة والصلاحيات والتدقيق.",
-  },
-  {
-    prefixes: ["src/features/video/", "src/app/admin/video/"],
-    moduleIds: ["video-production", "media-assets", "omnichannel-publishing", "kids-learning"],
-    explanation: "تغيير الفيديو قد يؤثر في التوليد والوسائط والتوزيع وسياسات عرض الأطفال.",
-  },
-  {
-    prefixes: ["src/features/social/", "src/app/admin/social/"],
-    moduleIds: ["omnichannel-publishing", "growth-campaigns", "audience-intelligence"],
-    explanation: "تغيير النشر الاجتماعي قد يؤثر في القنوات والجدولة والتحليلات.",
-  },
-  {
-    prefixes: ["src/features/content/", "src/app/admin/content/"],
-    moduleIds: ["content-os", "knowledge-verification", "seo-search"],
-    explanation: "تغيير المحتوى قد يؤثر في التحرير والتحقق والفهرسة.",
-  },
-  {
-    prefixes: ["src/app/api/"],
-    moduleIds: ["api-integrations", "identity-access", "cloud-infrastructure"],
-    explanation: "تغيير API قد يؤثر في عقود التكامل والمصادقة والبنية التشغيلية.",
-  },
-  {
-    prefixes: ["src/app/"],
-    moduleIds: ["website-experience", "seo-search"],
-    explanation: "تغيير مسار أو صفحة في الموقع قد يؤثر في تجربة الموقع والفهرسة.",
-  },
-  {
-    prefixes: ["src/features/"],
-    moduleIds: ["universal-control", "business-intelligence"],
-    explanation: "التغيير داخل نطاق ميزة يحتاج مراجعة مالك الميزة واعتمادياتها المشتركة.",
-  },
+  { prefixes: ["supabase/migrations/", "src/lib/supabase/"], moduleIds: ["database-studio", "cloud-infrastructure", "security-recovery"], explanation: "تغيير قاعدة البيانات أو موصل Supabase قد يؤثر في التخزين والصلاحيات والوحدات التي تعتمد على قاعدة البيانات." },
+  { prefixes: [".github/workflows/", ".circleci/"], moduleIds: ["cloud-infrastructure", "software-development", "release-deployment"], explanation: "تغيير CI أو Workflow قد يؤثر في التحقق والبناء والجدولة والنشر." },
+  { prefixes: ["src/features/admin/omnis/", "src/features/admin/services/"], moduleIds: ["global-command", "universal-control", "identity-access", "security-recovery"], explanation: "تغيير طبقة OMNIS أو خدمات الإدارة قد يؤثر في القيادة والصلاحيات والتدقيق." },
+  { prefixes: ["src/features/videos/", "src/features/video/", "src/app/admin/video/"], moduleIds: ["video-production", "media-assets", "omnichannel-publishing", "kids-learning"], explanation: "تغيير الفيديو قد يؤثر في التوليد والوسائط والتوزيع وسياسات عرض الأطفال." },
+  { prefixes: ["src/features/social/", "src/app/admin/social/"], moduleIds: ["omnichannel-publishing", "growth-campaigns", "audience-intelligence"], explanation: "تغيير النشر الاجتماعي قد يؤثر في القنوات والجدولة والتحليلات." },
+  { prefixes: ["src/features/content/", "src/app/admin/content/"], moduleIds: ["content-os", "knowledge-verification", "seo-search"], explanation: "تغيير المحتوى قد يؤثر في التحرير والتحقق والفهرسة." },
+  { prefixes: ["src/app/api/"], moduleIds: ["api-integrations", "identity-access", "cloud-infrastructure"], explanation: "تغيير API قد يؤثر في عقود التكامل والمصادقة والبنية التشغيلية." },
+  { prefixes: ["src/app/"], moduleIds: ["website-experience", "seo-search"], explanation: "تغيير مسار أو صفحة في الموقع قد يؤثر في تجربة الموقع والفهرسة." },
+  { prefixes: ["src/features/"], moduleIds: ["universal-control", "business-intelligence"], explanation: "التغيير داخل نطاق ميزة يحتاج مراجعة مالك الميزة واعتمادياتها المشتركة." },
 ];
 
-/** Area-based pre-change impact estimate; not an import-graph or test-coverage proof. */
-export function analyzeOmnisResourceImpact(value: unknown): OmnisImpactAnalysis | null {
+function matchingRule(path: string) {
+  return IMPACT_RULES.find((item) => item.prefixes.some((prefix) => path.startsWith(prefix)));
+}
+function isTestPath(path: string): boolean {
+  const basename = path.split("/").at(-1) ?? "";
+  return path.startsWith("scripts/tests/") || /\.(test|spec)\.(ts|tsx|js|mjs|cjs)$/.test(basename);
+}
+
+/** Exact reverse import graph for code; explicit area-based estimate for non-code or missing graphs. */
+export function analyzeOmnisResourceImpact(value: unknown, graph?: OmnisImportGraph | null): OmnisImpactAnalysis | null {
   const path = normalizeOmnisResourcePath(value);
   if (!path) return null;
-  const rule = IMPACT_RULES.find((item) => item.prefixes.some((prefix) => path.startsWith(prefix)));
-  if (!rule) {
-    return {
-      path,
-      confidence: "area-based",
-      directModules: [],
-      affectedModules: [],
-      sharedDependencies: [],
-      explanation: "لم تتطابق المسارات المعروفة؛ يلزم تحديد مالك الملف ومراجعة الاعتماديات يدويًا قبل التغيير.",
-    };
-  }
-  const byModule = new Map(OMNIS_MODULE_DEPENDENCIES.map((item) => [item.moduleId, item.dependencyIds]));
-  const sharedDependencies = new Set(rule.moduleIds.flatMap((moduleId) => [...(byModule.get(moduleId) ?? [])]));
-  const affectedModules = new Set(rule.moduleIds);
-  for (const relation of OMNIS_MODULE_DEPENDENCIES) {
-    if (relation.dependencyIds.some((dependencyId) => sharedDependencies.has(dependencyId))) {
-      affectedModules.add(relation.moduleId);
+  const directRule = matchingRule(path);
+  const hasExactGraph = Boolean(graph?.complete && graph.files.includes(path));
+  const importers = hasExactGraph && graph ? getTransitiveOmnisImporters(graph, path) : [];
+  const impactedPaths = [path, ...importers];
+  const moduleIds = new Set<string>(directRule?.moduleIds ?? []);
+  if (hasExactGraph) {
+    for (const importer of importers) {
+      for (const moduleId of matchingRule(importer)?.moduleIds ?? []) moduleIds.add(moduleId);
     }
   }
+  const byModule = new Map(OMNIS_MODULE_DEPENDENCIES.map((item) => [item.moduleId, item.dependencyIds]));
+  const sharedDependencies = new Set([...moduleIds].flatMap((moduleId) => [...(byModule.get(moduleId) ?? [])]));
+  const affectedModules = new Set(moduleIds);
+  for (const relation of OMNIS_MODULE_DEPENDENCIES) {
+    if (relation.dependencyIds.some((dependencyId) => sharedDependencies.has(dependencyId))) affectedModules.add(relation.moduleId);
+  }
+  const relatedTests = hasExactGraph ? importers.filter(isTestPath).slice(0, 50) : [];
+  const explanation = hasExactGraph
+    ? "تم تتبع " + importers.length + " ملفًا يستورد هذا المورد مباشرة أو بصورة انتقالية من خريطة البناء. المراكز المالكة مشتقة من نطاقات الملفات المستوردة، وتظل مراجعة الاختبارات وسلوك التشغيل مطلوبة."
+    : directRule?.explanation ?? "لم تتطابق المسارات المعروفة؛ يلزم تحديد مالك الملف ومراجعة الاعتماديات يدويًا قبل التغيير.";
   return {
     path,
-    confidence: "area-based",
-    directModules: [...rule.moduleIds],
+    confidence: hasExactGraph ? "import-graph" : "area-based",
+    directModules: [...(directRule?.moduleIds ?? [])],
     affectedModules: [...affectedModules].sort(),
     sharedDependencies: [...sharedDependencies].sort(),
-    explanation: rule.explanation,
+    impactedFiles: impactedPaths.slice(0, 100),
+    relatedTests,
+    explanation,
   };
 }

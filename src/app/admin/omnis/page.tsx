@@ -194,20 +194,42 @@ export default async function AdminOmnisPage() {
         </div>
         <div className="space-y-3 rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
           <h2 className="text-lg font-bold text-brand-gold">الأوامر الآمنة</h2>
-          <p className="text-xs leading-6 text-brand-cream/45">الأوامر الحالية محددة بقائمة سماح. هذا الأمر للفحص فقط ولا يغير إعدادات العامل أو النشر أو الطوابير.</p>
+          <p className="text-xs leading-6 text-brand-cream/45">كل أمر مرتبط بمحول مالك مسجل. الفحص قراءة فقط، بينما إيقاف واستئناف توليد الفيديو يطلبان MFA ويحفظان نسخة إعداد جديدة وسجل تدقيق.</p>
           {canManage ? (
-            <form action={runOmnisSafeCommandAction} className="space-y-3 rounded-xl border border-brand-gold/10 bg-black/10 p-3">
-              <input type="hidden" name="command_key" value="refresh-operational-status" />
-              <div>
-                <p className="text-sm font-semibold text-brand-cream/80">إعادة فحص الحالة التشغيلية</p>
-                <p className="mt-1 text-[11px] leading-5 text-brand-cream/40">قراءة Supabase وGitHub والطابور وVercel ثم تسجيل ملخص الفحص في سجل الإدارة.</p>
-              </div>
-              <button type="submit" className="w-full rounded-lg border border-brand-gold/25 bg-brand-gold/10 px-3 py-2 text-xs font-semibold text-brand-gold hover:bg-brand-gold/15">تشغيل الفحص الآمن</button>
-            </form>
+            <>
+              <form action={runOmnisSafeCommandAction} className="space-y-3 rounded-xl border border-brand-gold/10 bg-black/10 p-3">
+                <input type="hidden" name="command_key" value="refresh-operational-status" />
+                <div>
+                  <p className="text-sm font-semibold text-brand-cream/80">إعادة فحص الحالة التشغيلية</p>
+                  <p className="mt-1 text-[11px] leading-5 text-brand-cream/40">قراءة Supabase وGitHub والطابور وVercel ثم تسجيل ملخص الفحص في سجل الإدارة.</p>
+                </div>
+                <button type="submit" className="w-full rounded-lg border border-brand-gold/25 bg-brand-gold/10 px-3 py-2 text-xs font-semibold text-brand-gold hover:bg-brand-gold/15">تشغيل الفحص الآمن</button>
+              </form>
+              <form action={runOmnisSafeCommandAction} className="space-y-2 rounded-xl border border-amber-400/15 bg-amber-400/5 p-3">
+                <input type="hidden" name="command_key" value="pause-video-automation" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-100/85">إيقاف توليد الفيديوهات</p>
+                  <p className="text-[11px] leading-5 text-amber-100/55">يحوّل مفتاح العامل المركزي إلى إيقاف عبر سجل إعدادات ذي نسخ. لا يحذف الطلبات أو ملفات الوسائط ولا يغيّر إعداد النشر الاجتماعي.</p>
+                </div>
+                <button type="submit" className="w-full rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-400/15">إيقاف العامل مع MFA</button>
+              </form>
+              <form action={runOmnisSafeCommandAction} className="space-y-2 rounded-xl border border-red-400/15 bg-red-400/5 p-3">
+                <input type="hidden" name="command_key" value="resume-video-automation" />
+                <div>
+                  <p className="text-sm font-semibold text-red-100/85">استئناف توليد الفيديوهات</p>
+                  <p className="text-[11px] leading-5 text-red-100/55">قد يستأنف الدورات المجدولة ويستهلك موارد التوليد. يلزم MFA وكتابة عبارة التأكيد كما هي.</p>
+                </div>
+                <label className="grid gap-1 text-[10px] text-red-100/55">
+                  اكتب ENABLE_VIDEO_AUTOMATION للتأكيد
+                  <input name="confirmation" required pattern="ENABLE_VIDEO_AUTOMATION" autoComplete="off" className="rounded-lg border border-red-400/20 bg-black/20 px-3 py-2 text-xs text-brand-cream" dir="ltr" />
+                </label>
+                <button type="submit" className="w-full rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-xs font-semibold text-red-100 hover:bg-red-400/15">استئناف العامل مع MFA</button>
+              </form>
+            </>
           ) : (
             <p className="text-xs text-brand-cream/40">لا تملك صلاحية system.manage لتشغيل الأوامر.</p>
           )}
-          <p className="text-[10px] leading-5 text-brand-cream/30">أوامر الإيقاف والتشغيل والنشر غير مفعلة في هذه القائمة حتى ربط كل أمر بمحول مالك مستقل واعتماد مناسب وKill Switch.</p>
+          <p className="text-[10px] leading-5 text-brand-cream/30">تغيير حالة العامل لا ينفذ نشرًا اجتماعيًا ولا يرسل أي Workflow مباشرة. عمليات النشر وترقية الإصدارات تظل خارج قائمة السماح حتى اكتمال بواباتها المستقلة.</p>
         </div>
       </section>
 

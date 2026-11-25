@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeOmnisResourceImpact, classifyOmnisResource, normalizeOmnisResourcePath } from "@/features/admin/omnis/resource-index";
+import { buildOmnisImportGraph, getTransitiveOmnisImporters } from "@/features/admin/omnis/import-graph";
 
 test("resource classifier recognizes core project resource categories", () => {
   assert.equal(classifyOmnisResource("src/app/admin/page.tsx"), "page");
@@ -19,6 +20,7 @@ test("resource paths reject traversal, absolute and malformed paths", () => {
   assert.equal(normalizeOmnisResourcePath("src/../.env"), null);
   assert.equal(normalizeOmnisResourcePath("src\\\\secrets.env"), null);
   assert.equal(classifyOmnisResource("src/features/admin/components/panel.exe"), null);
+  assert.equal(normalizeOmnisResourcePath("src/app/articles/[slug]/page.tsx"), "src/app/articles/[slug]/page.tsx");
 });
 
 test("database migration impact includes database and security owners and expands shared dependencies", () => {
@@ -44,4 +46,47 @@ test("unknown areas return a manual ownership warning instead of guessed modules
   assert.deepEqual(impact.directModules, []);
   assert.deepEqual(impact.affectedModules, []);
   assert.match(impact.explanation, /لم تتطابق/);
+});
+
+
+test("build-time import graph resolves aliases, relative imports, transitive parents and related tests", () => {
+  const graph = buildOmnisImportGraph({
+    files: [
+      "src/features/admin/omnis/contracts.ts",
+      "src/features/admin/omnis/commands.ts",
+      "src/app/admin/omnis/page.tsx",
+      "scripts/tests/omnis-admin.test.ts",
+      "src/features/admin/omnis/external.ts",
+    ],
+    specifiersByFile: {
+      "src/features/admin/omnis/contracts.ts": [],
+      "src/features/admin/omnis/commands.ts": ["./contracts"],
+      "src/app/admin/omnis/page.tsx": ["@/features/admin/omnis/commands"],
+      "scripts/tests/omnis-admin.test.ts": ["../../src/app/admin/omnis/page"],
+      "src/features/admin/omnis/external.ts": ["react"],
+    },
+    commitSha: "cccccccccccccccccccccccccccccccccccccccc",
+  });
+  assert.equal(graph.complete, true);
+  assert.equal(graph.edgeCount, 3);
+  assert.deepEqual(
+    getTransitiveOmnisImporters(graph, "src/features/admin/omnis/contracts.ts"),
+    ["scripts/tests/omnis-admin.test.ts", "src/app/admin/omnis/page.tsx", "src/features/admin/omnis/commands.ts"],
+  );
+  assert.deepEqual(graph.imports["src/features/admin/omnis/external.ts"], []);
+  const impact = analyzeOmnisResourceImpact("src/features/admin/omnis/commands.ts", graph);
+  assert.equal(impact?.confidence, "import-graph");
+  assert.ok(impact?.impactedFiles.includes("src/app/admin/omnis/page.tsx"));
+  assert.ok(impact?.relatedTests.includes("scripts/tests/omnis-admin.test.ts"));
+  assert.ok(impact?.directModules.includes("global-command"));
+});
+
+test("area-based fallback remains explicit when the graph does not contain a resource", () => {
+  const graph = buildOmnisImportGraph({
+    files: ["src/features/admin/omnis/commands.ts"],
+    specifiersByFile: { "src/features/admin/omnis/commands.ts": [] },
+  });
+  const impact = analyzeOmnisResourceImpact("supabase/migrations/example.sql", graph);
+  assert.equal(impact?.confidence, "area-based");
+  assert.deepEqual(impact?.relatedTests, []);
 });

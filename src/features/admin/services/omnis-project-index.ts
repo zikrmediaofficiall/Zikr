@@ -1,11 +1,13 @@
 import "server-only";
 
+import generatedImportGraphJson from "@/features/admin/omnis/import-graph.generated.json";
 import { getServerEnv } from "@/lib/env";
+import { isOmnisImportGraph, type OmnisImportGraph } from "@/features/admin/omnis/import-graph";
 import { classifyOmnisResource, type OmnisResource, type OmnisResourceCategory } from "@/features/admin/omnis/resource-index";
 
 const REPOSITORY = "zikrmediaofficiall/Zikr";
 const BRANCH = "feat/zikr-omnis-control-plane-20261125";
-const MAX_RESOURCES = 200;
+const MAX_RESOURCES = 500;
 
 export type OmnisProjectResourceIndex = {
   available: boolean;
@@ -17,18 +19,14 @@ export type OmnisProjectResourceIndex = {
   total: number;
   counts: Record<OmnisResourceCategory, number>;
   resources: OmnisResource[];
+  importGraph: OmnisImportGraph | null;
+  importGraphAvailable: boolean;
+  importGraphError: string | null;
   error: string | null;
 };
 
 const emptyCounts = (): Record<OmnisResourceCategory, number> => ({
-  page: 0,
-  api: 0,
-  component: 0,
-  service: 0,
-  library: 0,
-  workflow: 0,
-  migration: 0,
-  test: 0,
+  page: 0, api: 0, component: 0, service: 0, library: 0, workflow: 0, migration: 0, test: 0,
 });
 
 async function githubJson(url: string, token: string | undefined): Promise<Response> {
@@ -41,6 +39,12 @@ async function githubJson(url: string, token: string | undefined): Promise<Respo
       ...(token ? { Authorization: "Bearer " + token } : {}),
     },
   });
+}
+
+function exactImportGraphForCommit(commitSha: string): OmnisImportGraph | null {
+  if (!isOmnisImportGraph(generatedImportGraphJson)) return null;
+  if (!generatedImportGraphJson.files.length || generatedImportGraphJson.commitSha !== commitSha) return null;
+  return generatedImportGraphJson;
 }
 
 export async function getOmnisProjectResourceIndex(): Promise<OmnisProjectResourceIndex> {
@@ -78,30 +82,21 @@ export async function getOmnisProjectResourceIndex(): Promise<OmnisProjectResour
       resources.push({ path: entry.path, category, sha: entry.sha });
     }
     resources.sort((a, b) => a.path.localeCompare(b.path));
+    const importGraph = exactImportGraphForCommit(commitSha);
     return {
-      available: true,
-      complete: !treePayload.truncated,
-      branch: BRANCH,
-      commitSha,
-      treeSha: treePayload.sha ?? null,
-      generatedAt,
-      total: resources.length,
-      counts,
+      available: true, complete: !treePayload.truncated, branch: BRANCH, commitSha,
+      treeSha: treePayload.sha ?? null, generatedAt, total: resources.length, counts,
       resources: resources.slice(0, MAX_RESOURCES),
+      importGraph, importGraphAvailable: Boolean(importGraph),
+      importGraphError: importGraph ? null : "خريطة الاستيراد غير متاحة لهذا الـ Commit بالضبط؛ سيظل تحليل المسارات النطاقي متاحًا.",
       error: treePayload.truncated ? "GitHub marked this resource tree as truncated; the index is partial." : null,
     };
   } catch (error) {
     console.error("[admin/omnis] project resource index failed", error);
     return {
-      available: false,
-      complete: false,
-      branch: BRANCH,
-      commitSha: null,
-      treeSha: null,
-      generatedAt,
-      total: 0,
-      counts,
-      resources: [],
+      available: false, complete: false, branch: BRANCH, commitSha: null, treeSha: null,
+      generatedAt, total: 0, counts, resources: [], importGraph: null,
+      importGraphAvailable: false, importGraphError: "تعذر تحميل خريطة الاستيراد لهذا الإصدار.",
       error: "تعذر قراءة فهرس موارد GitHub. لم يتم عرض نتائج مخزنة على أنها حديثة.",
     };
   }

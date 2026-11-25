@@ -22,7 +22,7 @@ export default async function OmnisProjectExplorerPage({ searchParams }: PagePro
   const index = await getOmnisProjectResourceIndex();
   const query = (params.q ?? "").trim().toLowerCase().slice(0, 120);
   const resourcePath = (params.path ?? "").trim().slice(0, 500);
-  const impact = resourcePath ? analyzeOmnisResourceImpact(resourcePath) : null;
+  const impact = resourcePath ? analyzeOmnisResourceImpact(resourcePath, index.importGraph) : null;
   const resources = index.resources.filter((item) => !query || item.path.toLowerCase().includes(query)).slice(0, 80);
   const dependencyLabels = new Map(OMNIS_DEPENDENCY_DEFINITIONS.map((item) => [item.id, item.label]));
   const centerLabels = new Map(OMNIS_CENTERS.map((item) => [item.id, item.title]));
@@ -32,7 +32,7 @@ export default async function OmnisProjectExplorerPage({ searchParams }: PagePro
       <header className="space-y-3">
         <Link href="/admin/omnis" className="text-xs text-brand-gold/70 hover:text-brand-gold">← العودة إلى مركز القيادة</Link>
         <h1 className="text-3xl font-bold text-brand-gold">مستكشف المشروع</h1>
-        <p className="max-w-4xl text-sm leading-7 text-brand-cream/55">فهرس مباشر من GitHub للصفحات والمكونات والخدمات وواجهات API وملفات CI والترحيلات والاختبارات. خريطة الأثر تعتمد على قواعد ملكية المسارات والاعتماديات المسجلة، ولا تحل محل مراجعة imports والاختبارات المتأثرة.</p>
+        <p className="max-w-4xl text-sm leading-7 text-brand-cream/55">فهرس مباشر من GitHub للصفحات والمكونات والخدمات وواجهات API وملفات CI والترحيلات والاختبارات. تُولَّد خريطة الاستيراد من ملفات TypeScript وJavaScript في نفس Commit أثناء البناء، وتُعرض الاختبارات التي تستورد المورد بصورة مباشرة أو انتقالية.</p>
       </header>
 
       {!index.available ? (
@@ -50,7 +50,14 @@ export default async function OmnisProjectExplorerPage({ searchParams }: PagePro
       </section>
 
       {index.available ? (
-        <p className="text-[11px] text-brand-cream/35" dir="ltr">Branch: {index.branch} · Commit: {index.commitSha?.slice(0, 12)} · Indexed: {new Date(index.generatedAt).toLocaleString("en-GB")} · Showing up to 200 resources</p>
+        <div className="space-y-1">
+          <p className="text-[11px] text-brand-cream/35" dir="ltr">Branch: {index.branch} · Commit: {index.commitSha?.slice(0, 12)} · Indexed: {new Date(index.generatedAt).toLocaleString("en-GB")} · Showing up to 500 resources</p>
+          <p className="text-[11px] text-brand-cream/45">
+            خريطة الاستيراد: {index.importGraphAvailable
+              ? `${index.importGraph?.files.length ?? 0} ملفًا و${index.importGraph?.edgeCount ?? 0} علاقة داخلية مؤكدة لنفس Commit`
+              : index.importGraphError ?? "غير متاحة"}
+          </p>
+        </div>
       ) : null}
 
       <section className="space-y-3 rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
@@ -77,18 +84,36 @@ export default async function OmnisProjectExplorerPage({ searchParams }: PagePro
 
       <section className="space-y-3 rounded-2xl border border-brand-gold/10 bg-black/15 p-5">
         <h2 className="text-lg font-bold text-brand-gold">تحليل الأثر قبل التغيير</h2>
-        <p className="text-xs leading-6 text-brand-cream/45">أدخل مسارًا داخل المستودع لتحديد المراكز المالكة ومراكز التأثير غير المباشر عبر الاعتماديات المشتركة. النتيجة تقدير نطاقي يحتاج مراجعة بشرية قبل تنفيذ تعديل.</p>
+        <p className="text-xs leading-6 text-brand-cream/45">أدخل مسارًا داخل المستودع. عند توفر خريطة الاستيراد المطابقة للـ Commit سيُحسب المستوردون المباشرون والانتقاليون والاختبارات المرتبطة؛ أما الترحيلات والموارد غير البرمجية فتستخدم قواعد الملكية النطاقية.</p>
         <form method="get" className="flex flex-wrap gap-2">
           <input name="path" defaultValue={resourcePath} maxLength={500} placeholder="مثال: src/features/video/services/generator.ts" className="min-w-0 flex-1 rounded-lg border border-brand-gold/15 bg-black/20 px-3 py-2 text-sm text-brand-cream" dir="ltr" />
           <button type="submit" className="rounded-lg border border-brand-gold/25 bg-brand-gold/10 px-4 py-2 text-xs font-semibold text-brand-gold">تحليل الأثر</button>
         </form>
         {impact ? (
           <div className="space-y-3 rounded-xl border border-brand-gold/10 bg-black/10 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2"><code className="text-xs text-brand-gold" dir="ltr">{impact.path}</code><span className="text-[10px] text-amber-200">تقدير حسب نطاق المسار</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><code className="text-xs text-brand-gold" dir="ltr">{impact.path}</code><span className={impact.confidence === "import-graph" ? "text-[10px] text-emerald-200" : "text-[10px] text-amber-200"}>{impact.confidence === "import-graph" ? "علاقات استيراد مؤكدة من نفس Commit" : "تقدير حسب نطاق المسار"}</span></div>
             <p className="text-xs leading-6 text-brand-cream/60">{impact.explanation}</p>
             <div><p className="text-xs text-brand-cream/35">المراكز المالكة مباشرة</p><p className="mt-1 text-sm text-brand-cream/75">{impact.directModules.map((id) => centerLabels.get(id) ?? id).join("، ") || "غير محدد؛ يلزم تعيين مالك يدويًا"}</p></div>
             <div><p className="text-xs text-brand-cream/35">المراكز المتأثرة عبر الاعتماديات المشتركة</p><p className="mt-1 text-sm leading-6 text-brand-cream/75">{impact.affectedModules.map((id) => centerLabels.get(id) ?? id).join("، ") || "لا توجد علاقات مسجلة لهذا المسار"}</p></div>
             <div><p className="text-xs text-brand-cream/35">الاعتماديات المشتركة</p><p className="mt-1 text-sm text-brand-cream/60">{impact.sharedDependencies.map((id) => dependencyLabels.get(id) ?? id).join("، ") || "لا توجد"}</p></div>
+            {impact.confidence === "import-graph" ? (
+              <>
+                <div>
+                  <p className="text-xs text-brand-cream/35">الملفات المتأثرة عبر الاستيراد ({impact.impactedFiles.length})</p>
+                  <div className="mt-1 max-h-40 space-y-1 overflow-auto rounded-lg border border-brand-gold/10 p-2">
+                    {impact.impactedFiles.map((path) => <code key={path} className="block break-all text-[10px] text-brand-cream/60" dir="ltr">{path}</code>)}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-brand-cream/35">الاختبارات التي تستورد المورد ({impact.relatedTests.length})</p>
+                  <div className="mt-1 space-y-1">
+                    {impact.relatedTests.length
+                      ? impact.relatedTests.map((path) => <code key={path} className="block break-all text-[10px] text-emerald-100/70" dir="ltr">{path}</code>)
+                      : <p className="text-xs text-brand-cream/45">لم يُعثر على ملف اختبار يستورد هذا المورد في الرسم الحالي.</p>}
+                  </div>
+                </div>
+              </>
+            ) : null}
           </div>
         ) : resourcePath ? (
           <p role="alert" className="text-xs text-amber-200">مسار غير صالح. استخدم مسارًا نسبيًا من دون مقاطع traversal أو شرطة عكسية.</p>
