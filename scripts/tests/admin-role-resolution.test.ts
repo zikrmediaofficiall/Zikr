@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hasAdminPermission, resolveAdminRole } from "../../src/features/admin/services/permissions";
 import { resolveDestructiveMfaRequirement } from "../../src/features/admin/services/security-policy";
+import { getEditableAdminSettingDefinition } from "../../src/features/admin/config/settings-registry";
 
 assert.equal(resolveAdminRole("admin", null), "admin", "a full admin without a delegated assignment remains a full admin");
 assert.equal(resolveAdminRole("admin", "content_manager"), "content_manager", "a valid delegated assignment must be respected");
@@ -66,11 +67,17 @@ assert.equal(resolveDestructiveMfaRequirement("false"), true, "a malformed strin
 
 const securityService = readFileSync("src/features/admin/services/security.ts", "utf8");
 const adminSystemActions = readFileSync("src/app/admin/system-actions.ts", "utf8");
-assert.match(
-  adminSystemActions,
-  /key === "require_mfa_for_destructive"[\s\S]*?requireAdminStepUp\("settings\.manage", "\/admin\/settings", true\)/,
+assert.equal(
+  getEditableAdminSettingDefinition("require_mfa_for_destructive")?.stepUpPolicy,
+  "always",
   "changing the destructive-action MFA policy must always force AAL2, even when the current policy is disabled",
 );
+assert.match(
+  adminSystemActions,
+  /definition\.stepUpPolicy === "always"[\s\S]*?requireAdminStepUp\(definition\.permission, "\/admin\/settings", true\)/,
+  "the shared settings action must derive unconditional step-up from registry metadata",
+);
+
 const securityPage = readFileSync("src/app/admin/security/page.tsx", "utf8");
 const settingsPage = readFileSync("src/app/admin/settings/page.tsx", "utf8");
 assert.match(securityService, /resolveDestructiveMfaRequirement\(rows\[0\]\?\.value\)/, "runtime enforcement must fail closed when the setting row is absent");
