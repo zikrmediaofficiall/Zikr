@@ -66,3 +66,24 @@ export function pickTitleHook(category: string, seed: string): string {
   const hooks = listTitleHooks(category);
   return hooks[stableIndex(`${category}:${seed}`, hooks.length)];
 }
+
+const SEO_TITLE_LIMIT = 100;
+
+/** Surah name, ayah number and the first words of the ayah, copied verbatim. No topic is invented. */
+export function buildQuranVideoTitle(input: { surahName: string; surahId: number; ayahNumber: number; ayahText: string }): string {
+  const base = `آية اليوم — ${input.surahName} ${input.surahId}:${input.ayahNumber}`;
+  const words = input.ayahText.replace(/\s+/gu, " ").trim().split(" ").filter(Boolean);
+  if (words.length === 0) return base;
+  const head = words.slice(0, 5).join(" ") + (words.length > 5 ? "…" : "");
+  const withHead = `${base} | ${head}`;
+  return withHead.length <= SEO_TITLE_LIMIT ? withHead : base;
+}
+
+/** Dua name plus the occasion recorded with the dua in the library, when it is short and not already in the name. */
+export function buildDuaVideoTitle(input: { titleAr: string; occasionAr?: string | null }): string {
+  const base = `دعاء اليوم — ${input.titleAr}`;
+  const occasion = (input.occasionAr ?? "").replace(/\s+/gu, " ").trim();
+  if (!occasion || occasion.length > 40 || input.titleAr.includes(occasion)) return base;
+  const withOccasion = `${base} (${occasion})`;
+  return withOccasion.length <= SEO_TITLE_LIMIT ? withOccasion : base;
+}

@@ -27,6 +27,7 @@ import { buildVideoSocialQueueUpdateFilter } from "../../src/features/social/ser
 import { resolveSocialPublishCutoff } from "../../src/features/social/services/facebook-queue-recovery-policy";
 import { calculateDailyVideoQuotaState, resolveZonedDailyVideoQuotaWindow } from "../../src/features/videos/services/video-automation-quota";
 import { resolveAutomatedVideoMode } from "../../src/features/videos/services/video-content-distribution";
+import { buildQuranVideoTitle, buildDuaVideoTitle } from "../../src/features/videos/services/video-seo";
 import { canReserveVideoPublishAt, resolveNextVideoPublishAt, type VideoPublishScheduleRow } from "../../src/features/social/services/video-publishing-schedule";
 import {
   DEFAULT_PROMO_VIDEO_TIME_ZONE,
@@ -1105,7 +1106,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       const surahName = await getSurahName(row.surah_id);
       const sourceUrl = `https://quran.com/${row.surah_id}/${row.ayah_number}`;
       payload = {
-        title: `آية اليوم — ${surahName} ${row.surah_id}:${row.ayah_number}`,
+        title: buildQuranVideoTitle({ surahName, surahId: row.surah_id, ayahNumber: row.ayah_number, ayahText: row.text_uthmani || row.text_ar }),
         description: `فيديو آلي يعرض آية موثقة من ${surahName} مع تصميم ذِكر ومصدر مباشر.`,
         category: "quran",
         content: {
@@ -1163,7 +1164,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       const row = await getDuaRow(day * 16 + slot);
       const sourceUrl = `${siteUrl()}/dua/${row.slug}`;
       payload = {
-        title: `دعاء اليوم — ${row.title_ar}`,
+        title: buildDuaVideoTitle({ titleAr: row.title_ar, occasionAr: row.occasion_ar }),
         description: row.occasion_ar || "دعاء موثق من مكتبة ذِكر.",
         category: "dua",
         content: {
