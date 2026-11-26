@@ -2564,6 +2564,8 @@ export function buildAutomatedVideoQaChecklist(
   };
 }
 
+export const QURAN_FOUNDATION_CREDIT_LINE = "النص والتلاوة: Quran data provided by Quran Foundation (quran.com). القارئ: مشاري راشد العفاسي.";
+
 function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: string) {
   const content = request.content ?? {};
   const ai = content.ai && typeof content.ai === "object" ? content.ai as Record<string, unknown> : {};
@@ -2609,6 +2611,7 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
     callToAction[request.category] ?? callToAction.other,
     visualDisclosure,
     tags[request.category] ?? tags.other,
+    request.category === "quran" ? QURAN_FOUNDATION_CREDIT_LINE : "",
     resolveVideoSourceDisclosureLine(content, contentSourceUrl(request)),
     publicUrl,
   ].filter((value, index, values): value is string =>
