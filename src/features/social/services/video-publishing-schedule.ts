@@ -1,7 +1,7 @@
 export const VIDEO_PUBLISH_TIME_ZONE = "Africa/Cairo";
 export const VIDEO_PUBLISH_SLOTS = [
-  // Use observed YouTube audience windows and align with the publisher's :07/:22/:37/:52 cron.
-  { hour: 5, minute: 37 },
+  // Two posts a day (cut from three on 2026-11-26) in the afternoon/evening windows, aligned with the
+  // publisher's :07/:22/:37/:52 cron. The 05:37 slot was dropped to reduce repetitive output.
   { hour: 14, minute: 22 },
   { hour: 17, minute: 52 },
 ] as const;

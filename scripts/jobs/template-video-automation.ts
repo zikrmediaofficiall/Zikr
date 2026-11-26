@@ -1071,7 +1071,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   const todaysRows = quotaInventoryRows.filter((row) => !row.automation_key?.startsWith("layl-weekly:") && !row.automation_key?.startsWith("hady-weekly:"));
   const dailyQuota = calculateDailyVideoQuotaState(todaysRows);
   // Enforce a hard three-short-video daily ceiling, including urgent admin dispatches.
-  const dailyTarget = Math.max(1, Math.min(3, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3));
+  const dailyTarget = Math.max(1, Math.min(2, Number(process.env.DAILY_VIDEO_TARGET ?? 2) || 2));
   const promoDailyCapacity = Math.max(0, Math.min(batchSize, dailyTarget - dailyQuota.reservedCount));
   const promoCreated = await seedWeeklyPromotionalVideoRequests(now, promoDailyCapacity);
   created += promoCreated;

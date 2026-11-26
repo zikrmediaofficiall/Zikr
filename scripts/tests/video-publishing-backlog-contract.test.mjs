@@ -16,7 +16,7 @@ assert.ok(worker.includes("targetPlatforms: (row.target_platforms ?? []).filter(
 assert.ok(worker.includes('Prefer: "return=representation"'));
 assert.ok(worker.includes("backlogScheduleBlocked: true"), "Worker must fail closed when backlog scheduling fails.");
 const generationWorker = readFileSync(new URL("../jobs/template-video-automation.ts", import.meta.url), "utf8");
-assert.ok(generationWorker.includes("Math.min(3, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3)"));
+assert.ok(generationWorker.includes("Math.min(2, Number(process.env.DAILY_VIDEO_TARGET ?? 2) || 2)"));
 assert.ok(generationWorker.includes("const promoDailyCapacity = Math.max(0, Math.min(batchSize, dailyTarget - dailyQuota.reservedCount))"));
 assert.ok(generationWorker.includes("seedWeeklyPromotionalVideoRequests(now, promoDailyCapacity)"));
 assert.ok(generationWorker.includes("const alreadySeededToday = dailyQuota.reservedCount + promoCreated"));
