@@ -9,7 +9,7 @@ const advertisingRuntime = readFileSync(
 const consentDefault = advertisingRuntime.indexOf("gtag('consent', 'default'");
 const consentDefaultCall = advertisingRuntime.indexOf("installConsentModeDefaults();");
 const cmpScript = advertisingRuntime.indexOf('"google-funding-choices"');
-const analytics = advertisingRuntime.indexOf('id="google-analytics-src"');
+const analytics = -1; // GA4 is configured inside GTM; do not load gtag.js in parallel.
 const tagManager = advertisingRuntime.indexOf('"google-tag-manager"');
 const nativeGuard = advertisingRuntime.indexOf(
   "if (Capacitor.isNativePlatform())",
@@ -62,11 +62,11 @@ for (const index of [nativeGuard, canonicalOriginGuard]) {
 if (
   consentDefaultCall > cmpScript ||
   consentDefaultCall > tagManager ||
-  analytics < 0 ||
+  analytics >= 0 ||
   consentDefaultCall > analytics
 ) {
   throw new Error(
-    "Consent Mode defaults must be installed after both guards and before Funding Choices, GTM, and GA4",
+    "Consent Mode defaults must be installed after both guards and before Funding Choices and GTM; GA4 loads only from GTM",
   );
 }
 if (!advertisingRuntime.includes('script#google-consent-mode-default')) {
