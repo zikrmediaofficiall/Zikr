@@ -185,3 +185,19 @@ export function canReserveVideoPublishAt(input: {
     !occupiedPlatforms.has(platform),
   );
 }
+
+
+/**
+ * How long a scheduled slot stays claimable by the publisher. A row whose slot just arrived must be
+ * published, not re-slotted. Only rows left overdue for longer than this (historical or stuck) are
+ * moved to a fresh slot.
+ */
+export const VIDEO_SLOT_CLAIM_GRACE_MS = 6 * 60 * 60 * 1000;
+
+export function shouldRebalanceDueVideoRow(scheduledAt: string | null | undefined, now: Date): boolean {
+  if (!scheduledAt) return true;
+  const due = Date.parse(scheduledAt);
+  if (!Number.isFinite(due)) return true;
+  if (due > now.getTime()) return false;
+  return now.getTime() - due > VIDEO_SLOT_CLAIM_GRACE_MS;
+}
