@@ -194,7 +194,7 @@ for (const block of longformBlocks) {
   }
 }
 if (/tag\.min\.js/.test(webAdvertisingRuntime)) {
-  warn('Separate third-party Monetag scripts remain in the web-only advertising runtime; review their ad formats, consent and AdSense policy compatibility in the publisher accounts.');
+  warn('Separate third-party scripts remain in the web-only advertising runtime; review their formats, consent and AdSense policy compatibility in the publisher accounts.');
 }
 
 const productionUrl = site.match(/PRODUCTION_URL\s*=\s*["']([^"']+)["']/)?.[1];

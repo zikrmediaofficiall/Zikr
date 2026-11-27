@@ -4,8 +4,7 @@ This repository keeps one Next.js codebase and runs the production web app insid
 
 ## Advertising policy
 
-The native Android/iOS application is ad-free. Monetag tags and SmartLinks,
-Google Funding Choices, Google Tag Manager, and AdSense ad slots are loaded
+The native Android/iOS application is ad-free. Google Funding Choices, Google Tag Manager, and AdSense ad slots are loaded
 only in the website runtime and are not requested by Capacitor. The app keeps
 offline caching, Quran/audio storage, prayer notifications, authentication,
 and other native capabilities.

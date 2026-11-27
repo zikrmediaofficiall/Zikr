@@ -20,7 +20,7 @@ Its purpose is to grow legitimate audience traffic, use existing publishing syst
 
 The dashboard uses exact server-side counts for queue and published-content records. It does not use `admin_page_views` as public traffic because that table records views of the Admin interface.
 
-Public visitor counts require GA4 reporting access. Impression and earnings metrics require a supported Monetag reporting integration or an administrator-reviewed Monetag CSV import. Until that source is connected, visitor, impression, and earnings figures are intentionally shown as unavailable.
+Public visitor counts require GA4 reporting access. Until that source is connected, visitor figures are intentionally shown as unavailable.
 
 The dashboard never reads or returns `social_platform_credentials.page_access_token`. Platform profile presence is not proof that an OAuth token is valid; actual publishing preflight remains the responsibility of the existing publisher.
 
@@ -35,10 +35,6 @@ The existing publisher supports its already-configured YouTube and Facebook work
 ### Google Analytics 4
 
 To show public sessions, users, landing pages, and source/medium reports, configure a server-side GA4 Data API connection with a GA4 property ID and a read-only service identity that has access to that property. Credentials must be stored only in the protected Vercel environment and never in `NEXT_PUBLIC_*` variables or the repository.
-
-### Monetag
-
-The publisher dashboard currently has the Monetag verification meta tag and disclosed SmartLink placement in source code. This does not grant access to earnings reports. Add a reporting integration only when Monetag provides a supported publisher API credential/contract for this account. Otherwise, implement a manual CSV import with administrator review and source timestamp. Never infer revenue from visitor counts or SmartLink clicks.
 
 ## Operational checks
 

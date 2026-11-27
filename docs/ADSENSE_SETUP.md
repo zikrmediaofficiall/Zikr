@@ -16,6 +16,6 @@ The site code now supports one **manual, non-personalized AdSense unit on editor
 
 ## Separate services and mobile apps
 
-The repository has separate Monetag-tag scripts and sponsored SmartLink placements; they are not controlled by the AdSense flag. Review those formats and their own consent configuration in their provider accounts before an AdSense reapplication. Native Android/iOS ads require a separate AdMob implementation and Google Mobile Ads UMP consent flow; AdSense is not loaded in the native app.
+Native Android/iOS ads require a separate AdMob implementation and Google Mobile Ads UMP consent flow; AdSense is not loaded in the native app.
 
 No Supabase schema migration is required for this code-only setup. Do not put Supabase service-role keys or other secrets in any `NEXT_PUBLIC_*` variable.

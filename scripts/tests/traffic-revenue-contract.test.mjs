@@ -44,7 +44,7 @@ assert.match(service, /credential\.status === "permission_missing"\) return unav
 assert.match(panel, /youtubeAnalyticsStatus\.canReauthorize/);
 assert.match(metricsHelper, /classifyYoutubeAnalyticsApiError/);
 assert.match(metricsHelper, /classifyYoutubeOAuthTokenError/);
-assert.match(service, /monetagReportingConnected: false/);
+assert.doesNotMatch(service, /monetag/i);
 assert.match(service, /return result\.error \? null : \(result\.count \?\? 0\)/);
 assert.match(panel, /Google Analytics 4/);
 assert.match(panel, /قنوات الزيارات/);
@@ -53,7 +53,7 @@ assert.match(panel, /تحليلات قناة YouTube/);
 assert.match(panel, /getYoutubeAnalyticsStatusPresentation/);
 assert.match(panel, /youtubeAnalyticsStatus\.label/);
 assert.match(panel, /snapshot\.youtubeAnalytics\.message/);
-assert.match(panel, /Monetag/);
+assert.doesNotMatch(panel, /monetag/i);
 assert.match(panel, /getTrafficRevenueSnapshot/);
 assert.match(panel, /غير متاح/);
 assert.match(panel, /لا يستخدم هذا المحرك تحديث الصفحات أو النقرات الاصطناعية/);

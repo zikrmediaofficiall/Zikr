@@ -31,6 +31,8 @@ export type YoutubeAnalyticsSnapshot = {
 export type Ga4AnalyticsSnapshot = {
   /** Names (never values) of server variables that are missing or invalid when status is not_configured. */
   missingEnv?: string[];
+  /** Google's own error code/reason (never secrets) when the OAuth token or Data API call failed. */
+  failure?: string;
   status: "connected" | "authorization_required" | "unavailable" | "not_configured";
   startDate: string | null;
   endDate: string | null;
@@ -113,7 +115,11 @@ async function fetchGa4AnalyticsSnapshot(): Promise<Ga4AnalyticsSnapshot> {
       signal: AbortSignal.timeout(10_000),
     });
     if (!tokenResponse.ok) {
-      return unavailable(tokenResponse.status === 400 || tokenResponse.status === 401 ? "authorization_required" : "unavailable");
+      const tokenError = (await tokenResponse.json().catch(() => null)) as { error?: string; error_description?: string } | null;
+      return {
+        ...unavailable(tokenResponse.status === 400 || tokenResponse.status === 401 ? "authorization_required" : "unavailable"),
+        failure: "oauth " + tokenResponse.status + (tokenError?.error ? ": " + tokenError.error : "") + (tokenError?.error_description ? " (" + tokenError.error_description.slice(0, 120) + ")" : ""),
+      };
     }
     const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
     if (!tokenPayload.access_token) return unavailable("authorization_required");
@@ -157,7 +163,11 @@ async function fetchGa4AnalyticsSnapshot(): Promise<Ga4AnalyticsSnapshot> {
       }),
     ]);
     if (!summaryResponse.ok) {
-      return unavailable(summaryResponse.status === 401 || summaryResponse.status === 403 ? "authorization_required" : "unavailable");
+      const apiError = (await summaryResponse.clone().json().catch(() => null)) as { error?: { status?: string; message?: string; details?: Array<{ reason?: string }> } } | null;
+      return {
+        ...unavailable(summaryResponse.status === 401 || summaryResponse.status === 403 ? "authorization_required" : "unavailable"),
+        failure: "data-api " + summaryResponse.status + (apiError?.error?.status ? ": " + apiError.error.status : "") + (apiError?.error?.details?.[0]?.reason ? " / " + apiError.error.details[0].reason : "") + (apiError?.error?.message ? " (" + apiError.error.message.slice(0, 140) + ")" : ""),
+      };
     }
 
     const summary = (await summaryResponse.json()) as Ga4RunReport;
@@ -231,9 +241,6 @@ export type TrafficRevenueSnapshot = {
   integrations: {
     ga4MeasurementConfigured: boolean;
     ga4ReportingConnected: boolean;
-    monetagVerificationMetaPresent: false;
-    monetagSmartLinkConfigured: false;
-    monetagReportingConnected: false;
     youtubeAnalyticsConfigured: boolean;
     youtubeAnalyticsConnected: boolean;
   };
@@ -493,9 +500,6 @@ export async function getTrafficRevenueSnapshot(): Promise<TrafficRevenueSnapsho
     integrations: {
       ga4MeasurementConfigured: Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID),
       ga4ReportingConnected: ga4Analytics.status === "connected",
-      monetagVerificationMetaPresent: false,
-      monetagSmartLinkConfigured: false,
-      monetagReportingConnected: false,
       youtubeAnalyticsConfigured: hasYoutubeAnalyticsCredentials,
       youtubeAnalyticsConnected: youtubeAnalytics.status === "connected",
     },

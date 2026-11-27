@@ -55,12 +55,6 @@ Only newly created rows at or after `SOCIAL_PUBLISH_AFTER` are eligible. The his
 
 The internal website video catalog and `content_publish_queue` remain independent from external social delivery. A video may appear on the ZIKR website without being posted publicly to a social platform.
 
-## Monetag SmartLink
-
-Monetag SmartLink placement is limited to approved general-audience website placements: the homepage promotional section, the dedicated About/Articles placements, and eligible general-public footer routes. The public video hub and individual video-detail routes do not render a SmartLink component; the shared footer is suppressed there. It is not shown in children's sections or sacred-text/worship-tool interfaces.
-
-Monetag links are not appended to YouTube or Facebook descriptions/captions; provider captions use the approved social metadata contract. The website SmartLink placement was removed.
-
 ## Admin Run Now
 
 Admin Run Now does not run a second scheduler; the shared social queue has one bounded 15-minute retry schedule plus the immediate post-generation trigger.

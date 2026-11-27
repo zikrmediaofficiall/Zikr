@@ -4,11 +4,9 @@ import {
   ArrowUpLeft,
   BarChart3,
   CheckCircle2,
-  ExternalLink,
   Globe2,
   Search,
   Share2,
-  Wallet,
   Clock3,
   Users,
   Eye,
@@ -93,7 +91,7 @@ export async function TrafficRevenuePanel({
           </Badge>
         </div>
         <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-4 text-sm leading-7 text-amber-100/80">
-          الزيارات والأرباح لا تُحسب من فتح الموقع آليًا. أرقام الزيارات وظهور Monetag والأرباح لن تظهر إلا بعد ربط تقارير المصدر الحقيقي. لا يستخدم هذا المحرك تحديث الصفحات أو النقرات الاصطناعية.
+          الزيارات والأرباح لا تُحسب من فتح الموقع آليًا. أرقام الزيارات لن تظهر إلا بعد ربط تقارير المصدر الحقيقي. لا يستخدم هذا المحرك تحديث الصفحات أو النقرات الاصطناعية.
         </div>
       </header>
 
@@ -106,8 +104,6 @@ export async function TrafficRevenuePanel({
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="زيارات الموقع الحقيقية" value={null} note="يلزم اتصال تقارير GA4" icon={Globe2} />
-          <MetricCard label="مرات ظهور Monetag" value={null} note="يلزم استيراد تقرير الناشر" icon={BarChart3} />
-          <MetricCard label="أرباح Monetag" value={null} note="لا توجد مزامنة أرباح متصلة بعد" icon={Wallet} />
           <MetricCard label="مقالات منشورة" value={metrics.publishedArticles} note="عدد دقيق من قاعدة البيانات" icon={Search} />
           <MetricCard label="فيديوهات منشورة" value={metrics.publishedVideos} note="عدد دقيق من قاعدة البيانات" icon={Share2} />
           <MetricCard label="فيديوهات بانتظار إعادة المحاولة" value={metrics.videoRetryPending} note="لها موعد إعادة محاولة مسجل" icon={Clock3} />
@@ -185,6 +181,9 @@ export async function TrafficRevenuePanel({
                   ? "يلزم إعداد GOOGLE_CLIENT_ID وGOOGLE_CLIENT_SECRET وGA4_REFRESH_TOKEN وGA4_PROPERTY_ID. لا يكفي وجود Measurement ID لقراءة التقارير." + (snapshot.ga4Analytics.missingEnv?.length ? " الناقص حاليًا: " + snapshot.ga4Analytics.missingEnv.join("، ") + "." : "")
                   : "تعذر الوصول إلى تقارير GA4 حاليًا. لم يتم استبدال البيانات المفقودة بأصفار."}
             </p>
+            {snapshot.ga4Analytics.failure ? (
+              <p dir="ltr" className="mt-2 text-xs leading-5 text-brand-cream/45">رد Google: {snapshot.ga4Analytics.failure}</p>
+            ) : null}
           </Card>
         )}
       </section>
@@ -260,23 +259,6 @@ export async function TrafficRevenuePanel({
                 </p>
               </div>
               <Badge variant="outline" className={"shrink-0 " + (ga4Status.connected ? "border-emerald-400/20 text-emerald-200/80" : "border-amber-300/20 text-amber-100/75")}>{ga4Status.label}</Badge>
-            </div>
-            <div className="flex items-start justify-between gap-3 py-3">
-              <div>
-                <p className="font-semibold text-brand-cream">Monetag</p>
-                <p className="mt-1 text-xs leading-5 text-brand-cream/45">
-                  تمت إزالة Monetag من الموقع: لا وسم تحقق ولا سكربت ولا SmartLink في الكود أو في صفحات الموقع. لا توجد مزامنة للظهور أو الأرباح.
-                </p>
-                <a
-                  href="https://publishers.monetag.com"
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="mt-2 inline-flex items-center gap-1 text-xs text-brand-gold hover:underline"
-                >
-                  فتح لوحة Monetag <ExternalLink size={12} />
-                </a>
-              </div>
-              <Badge variant="outline" className="shrink-0 border-amber-300/20 text-amber-100/75">تمت الإزالة</Badge>
             </div>
           </div>
           {snapshot.unavailable.length > 0 ? (
