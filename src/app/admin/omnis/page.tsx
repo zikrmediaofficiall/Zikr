@@ -59,7 +59,7 @@ export default async function AdminOmnisPage() {
         <p className="max-w-4xl text-sm leading-8 text-brand-cream/60">
           مركز القيادة وسجل التنفيذ الموحد. يوضح ما هو قائم بالفعل، وما هو متكامل جزئيًا، وما زال ضمن خطة البناء. لا تُعرض أي وحدة مخططة على أنها مكتملة.
         </p>
-        <p className="text-xs text-brand-cream/35" dir="ltr">Branch: feat/zikr-omnis-control-plane-20261125</p>
+        <p className="text-xs text-brand-cream/35" dir="ltr">Branch: main</p>
       </header>
 
       <section className="space-y-4 rounded-2xl border border-brand-gold/10 bg-black/15 p-5 md:p-6">

@@ -6,7 +6,7 @@ import { isOmnisImportGraph, type OmnisImportGraph } from "@/features/admin/omni
 import { classifyOmnisResource, type OmnisResource, type OmnisResourceCategory } from "@/features/admin/omnis/resource-index";
 
 const REPOSITORY = "zikrmediaofficiall/Zikr";
-const BRANCH = "feat/zikr-omnis-control-plane-20261125";
+const BRANCH = "main";
 const MAX_RESOURCES = 500;
 
 export type OmnisProjectResourceIndex = {
@@ -29,7 +29,7 @@ const emptyCounts = (): Record<OmnisResourceCategory, number> => ({
   page: 0, api: 0, component: 0, service: 0, library: 0, workflow: 0, migration: 0, test: 0,
 });
 
-async function githubJson(url: string, token: string | undefined): Promise<Response> {
+async function githubFetch(url: string, token: string | undefined): Promise<Response> {
   return fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(7000),
@@ -39,6 +39,14 @@ async function githubJson(url: string, token: string | undefined): Promise<Respo
       ...(token ? { Authorization: "Bearer " + token } : {}),
     },
   });
+}
+
+// The repository is public. A configured token that GitHub rejects (401/403, e.g. expired) must not
+// take the read-only index down, so retry once without it.
+async function githubJson(url: string, token: string | undefined): Promise<Response> {
+  const response = await githubFetch(url, token);
+  if (token && (response.status === 401 || response.status === 403)) return githubFetch(url, undefined);
+  return response;
 }
 
 function exactImportGraphForCommit(commitSha: string): OmnisImportGraph | null {
@@ -53,7 +61,7 @@ export async function getOmnisProjectResourceIndex(): Promise<OmnisProjectResour
   try {
     const token = getServerEnv().GITHUB_DISPATCH_TOKEN?.trim() || undefined;
     const branchResponse = await githubJson(
-      "https://api.github.com/repos/" + REPOSITORY + "/branches/feat/zikr-omnis-control-plane-20261125",
+      "https://api.github.com/repos/" + REPOSITORY + "/branches/" + BRANCH,
       token,
     );
     if (!branchResponse.ok) throw new Error("GitHub branch lookup failed with HTTP " + branchResponse.status + ".");
