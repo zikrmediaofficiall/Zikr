@@ -8,7 +8,7 @@ interface PageSkeletonProps {
 
 export function PageSkeleton({ title, cards = 6, variant = 'grid' }: PageSkeletonProps) {
   return (
-    <Container className="py-10 space-y-8 animate-pulse">
+    <Container className="py-10 space-y-8 animate-pulse min-h-[100svh]">
       {/* Page title skeleton */}
       <div className="space-y-3">
         {title ? (
