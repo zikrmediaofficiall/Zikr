@@ -46,7 +46,7 @@ if (layout.includes('NEXT_PUBLIC_GA_MEASUREMENT_ID') || layout.includes(approved
 if (!webAdvertisingRuntime.includes('NEXT_PUBLIC_GTM_ID')) failures.push('متغير GTM canonical غير موجود في web-only runtime.');
 if (!webAdvertisingRuntime.includes(approvedGtmId)) failures.push(`معرّف GTM المعتمد غير موجود: ${approvedGtmId}`);
 if (!webAdvertisingRuntime.includes('https://www.googletagmanager.com/gtm.js?id=')) failures.push('مصدر GTM غير موجود في web-only runtime.');
-if (webAdvertisingRuntime.includes('googletagmanager.com/gtag/js')) failures.push('يجب تحميل GA4 من داخل GTM فقط لتجنب تكرار Page View.');
+if (webAdvertisingRuntime.includes('googletagmanager.com/gtag/js?id=')) failures.push('يجب تحميل GA4 من داخل GTM فقط لتجنب تكرار Page View.');
 if (!webAdvertisingRuntime.includes("analytics_storage: 'denied'")) failures.push('يجب أن يبقى Consent Mode في حالة رفض افتراضية حتى يحصل النظام على اختيار موافقة صالح.');
 
 if (!layout.includes('import { WebAdvertisingRuntime } from "@/components/layout/web-advertising-runtime";')) failures.push('استيراد WebAdvertisingRuntime غير موجود في root layout.');
