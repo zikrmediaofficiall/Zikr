@@ -47,12 +47,12 @@ if (!webAdvertisingRuntime.includes('NEXT_PUBLIC_GTM_ID')) failures.push('متغ
 if (!webAdvertisingRuntime.includes(approvedGtmId)) failures.push(`معرّف GTM المعتمد غير موجود: ${approvedGtmId}`);
 if (!webAdvertisingRuntime.includes('https://www.googletagmanager.com/gtm.js?id=')) failures.push('مصدر GTM غير موجود في web-only runtime.');
 if (webAdvertisingRuntime.includes('googletagmanager.com/gtag/js')) failures.push('يجب تحميل GA4 من داخل GTM فقط لتجنب تكرار Page View.');
-if (!webAdvertisingRuntime.includes("analytics_storage: 'granted'")) failures.push('يجب أن يسمح Consent Mode بقياس GA4 غير الإعلاني؛ لا تجعل analytics_storage denied دون آلية موافقة فعلية.');
+if (!webAdvertisingRuntime.includes("analytics_storage: 'denied'")) failures.push('يجب أن يبقى Consent Mode في حالة رفض افتراضية حتى يحصل النظام على اختيار موافقة صالح.');
 
 if (!layout.includes('import { WebAdvertisingRuntime } from "@/components/layout/web-advertising-runtime";')) failures.push('استيراد WebAdvertisingRuntime غير موجود في root layout.');
 if (!layout.includes('<WebAdvertisingRuntime />')) failures.push('WebAdvertisingRuntime غير مركّب في root layout.');
 const nativeGuardIndex = webAdvertisingRuntime.indexOf('if (Capacitor.isNativePlatform())');
-const canonicalOriginGuardIndex = webAdvertisingRuntime.indexOf('!isCanonicalProductionOrigin()');
+const canonicalOriginGuardIndex = webAdvertisingRuntime.indexOf('if (!isCanonicalProductionOrigin())');
 const consentDefaultsIndex = webAdvertisingRuntime.indexOf('installConsentModeDefaults();');
 const gtmInjectionIndex = webAdvertisingRuntime.indexOf('"google-tag-manager"');
 const fundingChoicesInjectionIndex = webAdvertisingRuntime.indexOf('"google-funding-choices"');
