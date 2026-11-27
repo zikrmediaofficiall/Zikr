@@ -382,7 +382,7 @@ export default async function HomePage() {
         </section>
 
         <section
-          className="border-b border-brand-gold/10 px-3 py-9 sm:px-4 sm:py-12"
+          className="cv-auto border-b border-brand-gold/10 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="journeys-heading"
           hidden={!showJourneys || visibleGroups.length === 0}
         >
@@ -456,7 +456,7 @@ export default async function HomePage() {
 
 
         <section
-          className="border-b border-brand-gold/10 bg-brand-emerald/6 px-3 py-9 sm:px-4 sm:py-12"
+          className="cv-auto border-b border-brand-gold/10 bg-brand-emerald/6 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="guided-heading"
           hidden={!showGuidedPaths || visibleGuidedPaths.length === 0}
         >
@@ -503,7 +503,7 @@ export default async function HomePage() {
         </section>
 
         <section
-          className="border-b border-brand-gold/10 bg-[#0a332b]/45 px-3 py-9 sm:px-4 sm:py-12"
+          className="cv-auto border-b border-brand-gold/10 bg-[#0a332b]/45 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="editorial-heading"
           hidden={!showEditorialLibrary}
           style={{ contentVisibility: 'auto', containIntrinsicSize: '0 560px' }}
@@ -550,7 +550,7 @@ export default async function HomePage() {
         </section>
 
         <section
-          className="border-b border-brand-gold/10 bg-[#071d18]/70 px-3 py-9 sm:px-4 sm:py-12"
+          className="cv-auto border-b border-brand-gold/10 bg-[#071d18]/70 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="social-heading"
           hidden={!isSectionVisible('/videos')}
         >
@@ -604,7 +604,7 @@ export default async function HomePage() {
         </section>
 
         <section
-          className="border-b border-brand-gold/10 bg-brand-emerald/10 px-3 py-9 sm:px-4 sm:py-12"
+          className="cv-auto border-b border-brand-gold/10 bg-brand-emerald/10 px-3 py-9 sm:px-4 sm:py-12"
           aria-labelledby="tools-heading"
           hidden={!showDailyTools || visibleDailyTools.length === 0}
           style={{ contentVisibility: 'auto', containIntrinsicSize: '0 420px' }}

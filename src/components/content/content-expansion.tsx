@@ -1158,7 +1158,7 @@ export function ContentExpansion({ pathname, locale = 'ar' }: { pathname: string
 
   return (
     <section
-      className="border-y border-brand-gold/10 bg-[#071a13]/55 px-3 py-12 sm:px-4 sm:py-16"
+      className="cv-auto border-y border-brand-gold/10 bg-[#071a13]/55 px-3 py-12 sm:px-4 sm:py-16"
       dir={isEnglishContent ? 'ltr' : 'rtl'}
       lang={isEnglishContent ? 'en' : 'ar'}
       aria-labelledby="content-expansion-title"

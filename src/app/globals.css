@@ -432,3 +432,9 @@ footer {
 }
 #kids-world-game-frame button { max-width: 100%; overflow-wrap: anywhere; -webkit-tap-highlight-color: transparent; }
 #kids-world-game-frame button:focus-visible { outline: 2px solid #c7a86b; outline-offset: 2px; }
+
+/* Skip rendering work for below-the-fold sections until they approach the viewport. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 700px;
+}

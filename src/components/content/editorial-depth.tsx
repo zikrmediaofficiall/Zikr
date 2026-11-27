@@ -979,7 +979,7 @@ export function EditorialDepth({ pathname, locale = "ar" }: { pathname: string; 
 
   return (
     <section
-      className="border-y border-brand-gold/10 bg-black/20 px-3 py-12 sm:px-4 sm:py-16"
+      className="cv-auto border-y border-brand-gold/10 bg-black/20 px-3 py-12 sm:px-4 sm:py-16"
       aria-labelledby="editorial-depth-title"
       dir={direction}
     >

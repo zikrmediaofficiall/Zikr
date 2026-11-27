@@ -245,7 +245,7 @@ export function EditorialUtilityDepth({ pathname, locale = "ar" }: { pathname: s
   const direction = locale === "ar" ? "rtl" : "ltr";
 
   return (
-    <section className="border-y border-brand-gold/10 bg-black/10 px-3 py-10 sm:px-4 sm:py-12" dir={direction} aria-labelledby="utility-editorial-title">
+    <section className="cv-auto border-y border-brand-gold/10 bg-black/10 px-3 py-10 sm:px-4 sm:py-12" dir={direction} aria-labelledby="utility-editorial-title">
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-3 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-gold/45">{locale === "ar" ? "دليل استخدام موسع" : "EXTENDED USER GUIDE"}</p>
