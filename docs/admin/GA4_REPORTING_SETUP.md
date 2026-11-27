@@ -15,7 +15,7 @@ The Admin Analytics dashboard reads Google Analytics 4 reports through the Googl
 2. Grant the Google account used for OAuth at least Viewer access to the required GA4 property.
 3. Run the Google OAuth authorization-code flow with the scope `https://www.googleapis.com/auth/analytics.readonly`, offline access, and consent so a refresh token is issued.
 4. Store only the refresh token in Vercel as `GA4_REFRESH_TOKEN`; never place it in a public `NEXT_PUBLIC_*` variable or the repository.
-5. Set the numeric property ID as `GA4_PROPERTY_ID` and redeploy so the server picks up the new environment.
+5. Set the numeric property ID of the newly created ZIKR GA4 property as `GA4_PROPERTY_ID` (do not reuse the former Firebase property ID `524513235` unless the new property's Admin page explicitly shows that same numeric ID), then redeploy so the server picks up the new environment.
 
 The dashboard reports 28 completed days of active users, sessions, page views, engagement rate, events, key events, session channel groups, and landing pages. It caches successful/authorization results for up to one hour and never exposes OAuth tokens.
 
