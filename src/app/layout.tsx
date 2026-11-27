@@ -30,6 +30,7 @@ const notoSansArabic = Noto_Sans_Arabic({
   subsets: ["arabic"],
   display: "swap",
   variable: "--font-noto-sans-arabic-loaded",
+  preload: false, // only a glyph fallback; Naskh is the primary face, so do not spend early bandwidth on it
   fallback: ["Arial", "Tahoma", "sans-serif"],
 });
 
