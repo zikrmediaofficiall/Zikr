@@ -265,6 +265,7 @@ export default async function HomePage() {
                   width={1080}
                   height={1200}
                   priority
+                  fetchPriority="high"
                   unoptimized
                   className="absolute inset-0 h-full w-full object-contain"
                 />
