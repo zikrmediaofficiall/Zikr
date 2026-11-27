@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { Container } from '@/components/ui/container';
 import { getSiteSetting, getSectionVisibility, getSectionDisplayOrder } from '@/features/site-content/services/site-content';
@@ -255,17 +256,16 @@ export default async function HomePage() {
                 aria-hidden="true"
                 className="relative aspect-[9/10] overflow-hidden rounded-[2rem] border border-brand-gold/20 bg-[#0b251d] shadow-[0_28px_90px_rgba(0,0,0,.36)]"
               >
-                {/* A real <img> (not a CSS background) so the browser discovers and
+                {/* A real image element (not a CSS background) so the browser discovers and
                     prioritises the largest visual immediately; dimensions are fixed
                     by the aspect-ratio box, so there is no layout shift. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src="/banners/homepage/home-visual.svg"
                   alt=""
                   width={1080}
                   height={1200}
-                  fetchPriority="high"
-                  decoding="async"
+                  priority
+                  unoptimized
                   className="absolute inset-0 h-full w-full object-contain"
                 />
                 <div className="absolute inset-0" style={{ backgroundImage: "linear-gradient(180deg,rgba(4,18,13,.02),rgba(4,18,13,.4))" }} />
