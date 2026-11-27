@@ -27,9 +27,9 @@ const ga4CacheDefinition = service.slice(
   service.indexOf("const getCachedGa4AnalyticsSnapshot"),
   service.indexOf("export type TrafficRevenueSnapshot"),
 );
-assert.match(ga4CacheDefinition, /const getCachedGa4AnalyticsSnapshot = unstable_cache/);
-assert.match(ga4CacheDefinition, /\(_credentialFingerprint: string\) => fetchGa4AnalyticsSnapshot\(\)/);
-assert.match(ga4CacheDefinition, /zikr-ga4-analytics-readonly-v2/);
+assert.match(ga4CacheDefinition, /const getCachedGa4AnalyticsSnapshotRaw = unstable_cache/);
+assert.match(ga4CacheDefinition, /fetchGa4AnalyticsSnapshot\(\)[\s\S]*throw new UncachedSnapshot/);
+assert.match(ga4CacheDefinition, /zikr-ga4-analytics-readonly-v3/);
 assert.match(service, /getCachedGa4AnalyticsSnapshot\(ga4CredentialFingerprint\)/);
 const youtubeFingerprintStart = service.indexOf("const youtubeCredentialFingerprint = createHash");
 const ga4FingerprintStart = service.indexOf("const ga4CredentialFingerprint = createHash");

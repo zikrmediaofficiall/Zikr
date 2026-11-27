@@ -217,11 +217,37 @@ async function fetchGa4AnalyticsSnapshot(): Promise<Ga4AnalyticsSnapshot> {
   }
 }
 
-const getCachedGa4AnalyticsSnapshot = unstable_cache(
-  (_credentialFingerprint: string) => fetchGa4AnalyticsSnapshot(),
-  ["zikr-ga4-analytics-readonly-v2"],
+/**
+ * Only connected snapshots are cached for an hour. A transient or fixable failure
+ * (token refresh blip, quota, a just-corrected credential) must not stay on the
+ * admin card for an hour, so failures are thrown out of the cache and returned live.
+ */
+class UncachedSnapshot<T> extends Error {
+  constructor(readonly snapshot: T) {
+    super("uncached analytics snapshot");
+  }
+}
+
+async function unwrapUncached<T>(read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    const snapshot = (error as { snapshot?: T } | null)?.snapshot;
+    if (snapshot !== undefined) return snapshot;
+    throw error;
+  }
+}
+
+const getCachedGa4AnalyticsSnapshotRaw = unstable_cache(
+  async (_credentialFingerprint: string) => {
+    const snapshot = await fetchGa4AnalyticsSnapshot();
+    if (snapshot.status !== "connected") throw new UncachedSnapshot(snapshot);
+    return snapshot;
+  },
+  ["zikr-ga4-analytics-readonly-v3"],
   { revalidate: 3600 },
 );
+const getCachedGa4AnalyticsSnapshot = (fingerprint: string) => unwrapUncached(() => getCachedGa4AnalyticsSnapshotRaw(fingerprint));
 
 export type TrafficRevenueSnapshot = {
   generatedAt: string;
@@ -402,11 +428,16 @@ async function fetchYoutubeAnalyticsSnapshot(): Promise<YoutubeAnalyticsSnapshot
   }
 }
 
-const getCachedYoutubeAnalyticsSnapshot = unstable_cache(
-  (_credentialFingerprint: string) => fetchYoutubeAnalyticsSnapshot(),
-  ["zikr-youtube-analytics-readonly-v2"],
+const getCachedYoutubeAnalyticsSnapshotRaw = unstable_cache(
+  async (_credentialFingerprint: string) => {
+    const snapshot = await fetchYoutubeAnalyticsSnapshot();
+    if (snapshot.status !== "connected") throw new UncachedSnapshot(snapshot);
+    return snapshot;
+  },
+  ["zikr-youtube-analytics-readonly-v3"],
   { revalidate: 3600 },
 );
+const getCachedYoutubeAnalyticsSnapshot = (fingerprint: string) => unwrapUncached(() => getCachedYoutubeAnalyticsSnapshotRaw(fingerprint));
 
 /**
  * Reads exact server-side operational counts and verified YouTube Analytics
