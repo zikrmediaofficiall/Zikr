@@ -29,6 +29,8 @@ export type YoutubeAnalyticsSnapshot = {
 
 
 export type Ga4AnalyticsSnapshot = {
+  /** Names (never values) of server variables that are missing or invalid when status is not_configured. */
+  missingEnv?: string[];
   status: "connected" | "authorization_required" | "unavailable" | "not_configured";
   startDate: string | null;
   endDate: string | null;
@@ -88,7 +90,13 @@ async function fetchGa4AnalyticsSnapshot(): Promise<Ga4AnalyticsSnapshot> {
     channels: null, landingPages: null, capturedAt: null,
   });
   if (!clientId || !clientSecret || !refreshToken || !propertyId || !/^\d+$/.test(propertyId)) {
-    return unavailable("not_configured");
+    const missingEnv = [
+      !clientId ? "GOOGLE_CLIENT_ID" : null,
+      !clientSecret ? "GOOGLE_CLIENT_SECRET" : null,
+      !refreshToken ? "GA4_REFRESH_TOKEN" : null,
+      !propertyId ? "GA4_PROPERTY_ID" : propertyId && !/^\d+$/.test(propertyId) ? "GA4_PROPERTY_ID (must be numeric, not G-XXXX)" : null,
+    ].filter((name): name is string => Boolean(name));
+    return { ...unavailable("not_configured"), missingEnv };
   }
 
   try {
@@ -223,7 +231,7 @@ export type TrafficRevenueSnapshot = {
   integrations: {
     ga4MeasurementConfigured: boolean;
     ga4ReportingConnected: boolean;
-    monetagVerificationMetaPresent: true;
+    monetagVerificationMetaPresent: false;
     monetagSmartLinkConfigured: false;
     monetagReportingConnected: false;
     youtubeAnalyticsConfigured: boolean;
@@ -485,7 +493,7 @@ export async function getTrafficRevenueSnapshot(): Promise<TrafficRevenueSnapsho
     integrations: {
       ga4MeasurementConfigured: Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID),
       ga4ReportingConnected: ga4Analytics.status === "connected",
-      monetagVerificationMetaPresent: true,
+      monetagVerificationMetaPresent: false,
       monetagSmartLinkConfigured: false,
       monetagReportingConnected: false,
       youtubeAnalyticsConfigured: hasYoutubeAnalyticsCredentials,
