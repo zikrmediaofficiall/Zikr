@@ -15,12 +15,22 @@ import { WebAdvertisingRuntime } from "@/components/layout/web-advertising-runti
 import { getRequestLocaleContext } from "@/lib/i18n/server";
 import { getSiteSetting } from "@/features/site-content/services/site-content";
 import { SITE_EXPERIENCE_KEY, buildThemeCss, parseSiteExperience } from "@/lib/omnis/site-experience";
-import { Noto_Naskh_Arabic } from "next/font/google";
+import { Noto_Naskh_Arabic, Noto_Sans_Arabic } from "next/font/google";
 
 const notoNaskhArabic = Noto_Naskh_Arabic({
   subsets: ["arabic"],
   display: "swap",
   variable: "--font-noto-arabic-loaded",
+  fallback: ["Noto Sans Arabic", "Arial", "Tahoma", "sans-serif"],
+});
+
+// Self-hosted (no render-blocking @import from fonts.googleapis.com) and with
+// size-adjusted fallbacks, which prevents the large layout shift on font swap.
+const notoSansArabic = Noto_Sans_Arabic({
+  subsets: ["arabic"],
+  display: "swap",
+  variable: "--font-noto-sans-arabic-loaded",
+  fallback: ["Arial", "Tahoma", "sans-serif"],
 });
 
 
@@ -149,7 +159,7 @@ export default async function RootLayout({
       lang={lang}
       dir={dir}
       data-scroll-behavior="smooth"
-      className={`bg-black ${notoNaskhArabic.variable}`}
+      className={`bg-black ${notoNaskhArabic.variable} ${notoSansArabic.variable}`}
       suppressHydrationWarning={true}
     >
       <head>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { Container } from '@/components/ui/container';
 import { getSiteSetting, getSectionVisibility, getSectionDisplayOrder } from '@/features/site-content/services/site-content';
@@ -253,14 +254,22 @@ export default async function HomePage() {
             <div className="relative mx-auto w-full min-w-0 max-w-[320px] sm:max-w-[380px] lg:max-w-[440px]">
               <div
                 aria-hidden="true"
-                className="aspect-[9/10] rounded-[2rem] border border-brand-gold/20 bg-[#0b251d] bg-center bg-no-repeat shadow-[0_28px_90px_rgba(0,0,0,.36)]"
-                style={{
-                  backgroundImage: "linear-gradient(180deg,rgba(4,18,13,.02),rgba(4,18,13,.4)),url('/banners/homepage/home-visual.svg')",
-                  backgroundSize: "100% 100%, contain",
-                  backgroundRepeat: "no-repeat, no-repeat",
-                  backgroundPosition: "center, center",
-                }}
-              />
+                className="relative aspect-[9/10] overflow-hidden rounded-[2rem] border border-brand-gold/20 bg-[#0b251d] shadow-[0_28px_90px_rgba(0,0,0,.36)]"
+              >
+                {/* A real image element (not a CSS background) so the browser discovers and
+                    prioritises the largest visual immediately; dimensions are fixed
+                    by the aspect-ratio box, so there is no layout shift. */}
+                <Image
+                  src="/banners/homepage/home-visual.svg"
+                  alt=""
+                  width={1080}
+                  height={1200}
+                  priority
+                  unoptimized
+                  className="absolute inset-0 h-full w-full object-contain"
+                />
+                <div className="absolute inset-0" style={{ backgroundImage: "linear-gradient(180deg,rgba(4,18,13,.02),rgba(4,18,13,.4))" }} />
+              </div>
               <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-brand-gold/25 bg-[#061610]/85 p-4 shadow-xl backdrop-blur-sm sm:inset-x-6 sm:bottom-6">
                 <p className="text-[10px] font-semibold tracking-[0.2em] text-brand-gold/60">{isEnglish ? "A CALMER WAY TO LEARN" : "معرفة وذكر في تجربة واحدة"}</p>
                 <p className="mt-2 break-words text-lg font-bold leading-8 text-brand-cream sm:text-xl">{isEnglish ? "Read, listen, reflect and keep your daily practice close." : "اقرأ، واستمع، وتدبّر، واجعل وردك اليومي أقرب إليك."}</p>

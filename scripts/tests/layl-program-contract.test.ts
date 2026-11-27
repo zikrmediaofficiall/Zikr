@@ -85,7 +85,8 @@ assert.ok(worker.includes("overlay=0:0:format=auto"), "the renderer must composi
 assert.ok(worker.includes("content.visualBackground"), "the renderer must select the background from the active episode's topic");
 
 assert.ok(worker.includes('if (!isTemplatePreview && !isLaylProgram && !isHadyProgram && !isProphetStoryRequest) aiPlan = await generateAiVideoPlan(request, signal);'), "fixed Layl and Hady scripts and source-locked Prophet stories must not call Gemini for script planning");
-assert.ok(worker.includes('      !isLaylProgram &&\n      !isHadyProgram &&\n      !isProphetStoryRequest &&\n      !boundTemplate &&\n      engineConfig().aiEnabled &&'), "Layl and Hady use branded local renderers and Prophet scenes remain source-locked, without external AI scene generation");
+assert.ok(worker.includes('      !isLaylProgram &&\n      !isHadyProgram &&\n      !isProphetStoryRequest &&\n      !boundTemplate &&'), "Layl and Hady use branded local renderers and Prophet scenes remain source-locked, without external AI scene generation");
+assert.ok(worker.includes('!["quran", "hadith", "dua", "adhkar"].includes(String(request.category)) &&'), "sacred-text categories must never receive generative AI backgrounds");
 
 const voice = readFileSync("scripts/generate-arabic-voice.py", "utf8");
 assert.ok(voice.includes('voice.strip().lower().startswith("ar-eg-")'), "Egyptian neural voice requests must not silently fall back to generic Arabic");

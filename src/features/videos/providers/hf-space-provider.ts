@@ -75,12 +75,12 @@ async function writePromptFile(tempDir: string, input: VideoGenerationInput) {
       ? "Create a polished, child-safe animated story scene for the ZIKR family learning platform."
       : "Create a premium cinematic Arabic Islamic short video for the ZIKR platform.",
     ...kidsBrief,
-    "Title: " + input.title + ".",
-    "Section: " + input.category + ".",
-    "Verified source text: " + input.text.slice(0, 1800) + ".",
-    input.sourceUrl ? "Reference URL: " + input.sourceUrl + "." : "",
+    // Never pass the Arabic source text or title to the video model: text-to-video
+    // models paint it as garbled, mangled lettering across the background.
+    // The real text is added later by the renderer as subtitles.
+    "Scene: an abstract, calm, respectful background with soft light, slow gentle motion, natural or architectural textures, no people.",
+    "Absolutely no text, letters, writing, calligraphy, Arabic script, numbers, logos or watermarks anywhere in the frame.",
     aiVisualPolicyPromptLine(),
-    "Treat the supplied source text as factual content context, not as a license to invent religious quotations.",
   ]
     .filter(Boolean)
     .join("\n");

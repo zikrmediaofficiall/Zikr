@@ -257,7 +257,7 @@ assert.match(worker, /videoTemplateAssetPath/);
 assert.match(worker, /videoTemplateScene/);
 assert.match(worker, /request\.content\.templatePreview === true/);
 assert.match(worker, /if \(!isTemplatePreview && !isLaylProgram && !isHadyProgram && !isProphetStoryRequest\) aiPlan = await generateAiVideoPlan/);
-assert.match(worker, /!isTemplatePreview &&\s*!isLaylProgram &&\s*!isHadyProgram &&\s*!isProphetStoryRequest &&\s*!boundTemplate &&\s*engineConfig\(\)\.aiEnabled/);
+assert.match(worker, /!isTemplatePreview &&\s*!isLaylProgram &&\s*!isHadyProgram &&\s*!isProphetStoryRequest &&\s*!boundTemplate &&[\s\S]*?engineConfig\(\)\.aiEnabled/);
 assert.match(worker, /content\.skipSocialPublish !== true/);
 assert.match(worker, /source_hash: rendered\.sourceHash/);
 assert.match(worker, /content_hash: rendered\.contentHash/);

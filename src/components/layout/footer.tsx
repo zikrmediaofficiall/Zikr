@@ -186,6 +186,7 @@ export function Footer({ socialLinks, hiddenHrefs = [], sectionOrder = [], inApp
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/api/download/android"
+              prefetch={false}
               className="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-gold px-5 py-2.5 text-sm font-bold text-black transition hover:bg-brand-gold/90"
             >
               {isEnglish ? "Download APK" : "تنزيل التطبيق APK"}

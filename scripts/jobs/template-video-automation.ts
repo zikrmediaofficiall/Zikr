@@ -2077,6 +2077,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       !isHadyProgram &&
       !isProphetStoryRequest &&
       !boundTemplate &&
+      // Sacred-text videos use the curated clean template backgrounds only:
+      // generative video models draw garbled pseudo-Arabic over the scene.
+      !["quran", "hadith", "dua", "adhkar"].includes(String(request.category)) &&
       engineConfig().aiEnabled &&
       engineConfig().order.some((provider) => provider !== "template") &&
       aiAttemptsUsed < getAiAttemptsPerRunLimit()
@@ -3057,7 +3060,7 @@ async function queueSocialItems(request: GeneratedRequest, videoUrl: string, sig
       rows: rows ?? [],
       targetPlatforms: queueTargets,
       minimumLeadMinutes: 15,
-      searchDays: 31,
+      searchDays: 60,
     });
     if (!scheduledAt) throw new Error("No safe Cairo publishing slot is available for the requested social platforms.");
     return scheduledAt;

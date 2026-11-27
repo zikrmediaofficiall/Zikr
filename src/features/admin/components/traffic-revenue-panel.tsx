@@ -182,7 +182,7 @@ export async function TrafficRevenuePanel({
               {snapshot.ga4Analytics.status === "authorization_required"
                 ? "رمز GA4 لا يملك صلاحية analytics.readonly أو لا يستطيع الوصول إلى خاصية GA4. أعد التفويض بعد تفعيل Google Analytics Data API ومنح حساب Google صلاحية قراءة للخاصية."
                 : snapshot.ga4Analytics.status === "not_configured"
-                  ? "يلزم إعداد GOOGLE_CLIENT_ID وGOOGLE_CLIENT_SECRET وGA4_REFRESH_TOKEN وGA4_PROPERTY_ID. لا يكفي وجود Measurement ID لقراءة التقارير."
+                  ? "يلزم إعداد GOOGLE_CLIENT_ID وGOOGLE_CLIENT_SECRET وGA4_REFRESH_TOKEN وGA4_PROPERTY_ID. لا يكفي وجود Measurement ID لقراءة التقارير." + (snapshot.ga4Analytics.missingEnv?.length ? " الناقص حاليًا: " + snapshot.ga4Analytics.missingEnv.join("، ") + "." : "")
                   : "تعذر الوصول إلى تقارير GA4 حاليًا. لم يتم استبدال البيانات المفقودة بأصفار."}
             </p>
           </Card>
@@ -265,7 +265,7 @@ export async function TrafficRevenuePanel({
               <div>
                 <p className="font-semibold text-brand-cream">Monetag</p>
                 <p className="mt-1 text-xs leading-5 text-brand-cream/45">
-                  وسم التحقق فقط موجود في الكود (تمت إزالة رابط SmartLink). مزامنة مرات الظهور والأرباح غير متصلة.
+                  تمت إزالة Monetag من الموقع: لا وسم تحقق ولا سكربت ولا SmartLink في الكود أو في صفحات الموقع. لا توجد مزامنة للظهور أو الأرباح.
                 </p>
                 <a
                   href="https://publishers.monetag.com"
@@ -276,7 +276,7 @@ export async function TrafficRevenuePanel({
                   فتح لوحة Monetag <ExternalLink size={12} />
                 </a>
               </div>
-              <Badge variant="outline" className="shrink-0 border-amber-300/20 text-amber-100/75">التقارير غير متصلة</Badge>
+              <Badge variant="outline" className="shrink-0 border-amber-300/20 text-amber-100/75">تمت الإزالة</Badge>
             </div>
           </div>
           {snapshot.unavailable.length > 0 ? (

@@ -9,6 +9,7 @@ import { isVideoPurgeLockResponseActive } from "../../src/features/videos/servic
 import { recoverPendingVideoSocialQueueEnqueues } from "./template-video-automation";
 import {
   resolveNextVideoPublishAt,
+  shouldRebalanceDueVideoRow,
   type VideoPublishScheduleRow,
 } from "../../src/features/social/services/video-publishing-schedule";
 import {
@@ -139,7 +140,7 @@ async function rebalanceDueVideoPublishBacklog(): Promise<{ rescheduled: number;
   }));
   const dueRows = occupiedRows.filter((row) =>
     (row.status === "queued" || row.status === "partial") &&
-    (!row.scheduled_at || Date.parse(row.scheduled_at) <= now.getTime()) &&
+    shouldRebalanceDueVideoRow(row.scheduled_at, now) && Boolean(!row.scheduled_at || Date.parse(row.scheduled_at) <= now.getTime()) &&
     (row.target_platforms ?? []).some((platform) => !(row.completed_platforms ?? []).includes(platform)),
   );
   let rescheduled = 0;

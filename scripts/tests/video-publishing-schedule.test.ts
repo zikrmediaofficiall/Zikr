@@ -3,6 +3,7 @@ import {
   canReserveVideoPublishAt,
   resolveNextVideoPublishAt,
   VIDEO_PUBLISH_SLOTS,
+  shouldRebalanceDueVideoRow,
 } from "../../src/features/social/services/video-publishing-schedule";
 
 const now = new Date("2026-11-25T03:00:00.000Z"); // 05:00 Cairo
@@ -128,5 +129,11 @@ assert.equal(canReserveVideoPublishAt({
   rows: [partialYoutubeSuccess],
   targetPlatforms: ["youtube"],
 }), false, "a confirmed YouTube result must retain its per-platform slot reservation");
+
+const slotNow = new Date("2026-11-27T15:55:00.000Z");
+assert.equal(shouldRebalanceDueVideoRow("2026-11-27T15:52:00.000Z", slotNow), false, "a slot that just arrived must be published, not re-slotted");
+assert.equal(shouldRebalanceDueVideoRow("2026-11-28T12:22:00.000Z", slotNow), false, "future slots are untouched");
+assert.equal(shouldRebalanceDueVideoRow("2026-11-27T05:00:00.000Z", slotNow), true, "rows overdue past the claim grace are re-slotted");
+assert.equal(shouldRebalanceDueVideoRow(null, slotNow), true, "rows without a slot are slotted");
 
 console.log("Cairo video publishing schedule tests passed.");

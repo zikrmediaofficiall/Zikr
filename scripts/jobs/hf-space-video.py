@@ -17,6 +17,10 @@ BUILTIN_SPACE_IDS = {
 }
 
 
+NEGATIVE_PROMPT = ("worst quality, inconsistent motion, blurry, jittery, distorted, text, letters, words, Arabic script, "
+                   "calligraphy, writing, typography, subtitles, captions, watermark, logo, people, human figure, face, hands")
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider", choices=["wan2_2_fast", "ltx_fast"], required=True)
@@ -253,7 +257,7 @@ def main():
         result = client.predict(
             handle_file(args.image),
             prompt,
-            "worst quality, inconsistent motion, blurry, jittery, distorted",
+            NEGATIVE_PROMPT,
             max(2.0, min(5.0, float(args.duration))),
             1.0,
             3.0,
@@ -271,7 +275,7 @@ def main():
         # 60-second ZeroGPU budget; FFmpeg composes/loops it into the full reel.
         result = client.predict(
             prompt,
-            "worst quality, inconsistent motion, blurry, jittery, distorted",
+            NEGATIVE_PROMPT,
             None,
             None,
             512,

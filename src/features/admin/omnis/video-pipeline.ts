@@ -1,11 +1,18 @@
 /** OMNIS P07-02: one pipeline view over a video request: script, render, thumbnail, publish. Pure. */
-export type VideoRow = { id: string; title: string; status: string; content: string | null; video_url: string | null; thumbnail_url: string | null; youtube_id: string | null; facebook_id: string | null; published_at: string | null; error_message: string | null; generation_attempts: number | null; next_retry_at: string | null; created_at: string };
+export type VideoRow = { id: string; title: string; status: string; content: unknown; video_url: string | null; thumbnail_url: string | null; youtube_id: string | null; facebook_id: string | null; published_at: string | null; error_message: string | null; generation_attempts: number | null; next_retry_at: string | null; created_at: string };
 export type StageKey = "script" | "render" | "thumbnail" | "publish";
 export type StageState = "done" | "pending" | "blocked";
 export type PipelineView = { id: string; title: string; stages: Record<StageKey, StageState>; blocker: string | null; stuckStage: StageKey | null };
 
 const ORDER: StageKey[] = ["script", "render", "thumbnail", "publish"];
-const filled = (v: string | null | undefined) => Boolean(v && v.trim());
+// content is a jsonb object in production, other columns are strings: handle both without throwing.
+const filled = (v: unknown): boolean => {
+  if (v == null) return false;
+  if (typeof v === "string") return v.trim().length > 0;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === "object") return Object.keys(v as Record<string, unknown>).length > 0;
+  return true;
+};
 
 export function pipelineFor(row: VideoRow): PipelineView {
   const done: Record<StageKey, boolean> = {
