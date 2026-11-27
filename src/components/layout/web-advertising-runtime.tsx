@@ -36,7 +36,7 @@ window.adsbygoogle = window.adsbygoogle || [];
 window.adsbygoogle.requestNonPersonalizedAds = 1;
 gtag('consent', 'default', {
   ad_storage: 'denied',
-  analytics_storage: 'granted',
+  analytics_storage: 'denied',
   ad_user_data: 'denied',
   ad_personalization: 'denied',
   personalization_storage: 'denied',
@@ -81,7 +81,12 @@ export function WebAdvertisingRuntime() {
       removeAdvertisingElements();
       return;
     }
-    if (process.env.NODE_ENV !== "production" || !isCanonicalProductionOrigin()) {
+    if (process.env.NODE_ENV !== "production") {
+      removeAdvertisingElements();
+      return;
+    }
+
+    if (!isCanonicalProductionOrigin()) {
       removeAdvertisingElements();
       return;
     }
