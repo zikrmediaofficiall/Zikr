@@ -114,8 +114,11 @@ async function main() {
         continue;
       }
 
+      // Very long Arabic texts overflow the request URL limit (Supabase 400), so the text_ar guard is
+      // used only when it fits; book, number and the empty-English condition still scope the update.
+      const arabicGuard = encodeURIComponent(row.text_ar).length <= 1200 ? `&text_ar=eq.${encodeURIComponent(row.text_ar)}` : "";
       const updatedRows = await supabase<Array<{ hadith_number: string }>>(
-        `/rest/v1/hadiths?book_id=eq.${encodeURIComponent(row.book_id)}&hadith_number=eq.${encodeURIComponent(row.hadith_number)}&published=eq.true&text_ar=eq.${encodeURIComponent(row.text_ar)}&or=(text_en.is.null,text_en.eq.)`,
+        `/rest/v1/hadiths?book_id=eq.${encodeURIComponent(row.book_id)}&hadith_number=eq.${encodeURIComponent(row.hadith_number)}&published=eq.true${arabicGuard}&or=(text_en.is.null,text_en.eq.)`,
         {
           method: "PATCH",
           body: JSON.stringify({
