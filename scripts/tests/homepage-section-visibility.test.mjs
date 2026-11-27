@@ -12,7 +12,7 @@ assert.match(home, /featured-videos-heading/, "Home must include a dedicated pub
 assert.match(home, /استكشف كل أقسام ذِكر/, "Hero must include a clear route to section discovery");
 assert.match(home, /getSectionVisibility/, "Home must consume the persisted administrator visibility settings");
 assert.match(home, /getSectionDisplayOrder/, "Home must consume the persisted administrator section order");
-assert.match(home, /home-visual\.svg/, "Home hero must include its branded illustration");
+assert.match(home, /HomeHeroArt/, "Home hero must include its branded illustration (inlined SVG component)");
 assert.match(home, /grid w-full min-w-0 max-w-6xl grid-cols-1/, "The mobile hero must use one bounded, shrinkable grid column");
 assert.match(home, /w-full min-w-0 text-center lg:text-right/, "Hero copy must shrink within the mobile viewport");
 assert.match(home, /flex w-full min-w-0 flex-col items-stretch/, "Hero actions must stack and fit narrow screens");
