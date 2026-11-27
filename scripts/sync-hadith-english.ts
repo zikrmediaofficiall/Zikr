@@ -61,6 +61,20 @@ async function supabase<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+const LIKE_UNSAFE = /[*,()%_\\"]/;
+
+// Longest safe leading/trailing piece (max 150 chars) that contains no PostgREST/LIKE special character.
+function safePrefix(value: string): string {
+  const head = value.slice(0, 150);
+  const bad = head.search(LIKE_UNSAFE);
+  return bad === -1 ? head : head.slice(0, bad);
+}
+function safeSuffix(value: string): string {
+  const tail = value.slice(-150);
+  for (let i = tail.length - 1; i >= 0; i -= 1) if (LIKE_UNSAFE.test(tail[i])) return tail.slice(i + 1);
+  return tail;
+}
+
 async function fetchEnglish(
   bookSlug: string,
   number: string
@@ -114,11 +128,16 @@ async function main() {
         continue;
       }
 
-      // Very long Arabic texts overflow the request URL limit (Supabase 400), so the text_ar guard is
-      // used only when it fits; book, number and the empty-English condition still scope the update.
-      const arabicGuard = encodeURIComponent(row.text_ar).length <= 1200 ? `&text_ar=eq.${encodeURIComponent(row.text_ar)}` : "";
+      // Very long Arabic texts overflow the request URL limit (Supabase 400), so those are revalidated by
+      // their first and last 150 characters instead of the whole text.
+      const exactArabic = encodeURIComponent(row.text_ar).length <= 1200;
+      const arabicFilter = exactArabic
+        ? `&text_ar=eq.${encodeURIComponent(row.text_ar)}`
+        : `&and=(${["text_ar.like." + safePrefix(row.text_ar) + "*", "text_ar.like.*" + safeSuffix(row.text_ar)].map(encodeURIComponent).join(",")})`;
       const updatedRows = await supabase<Array<{ hadith_number: string }>>(
-        `/rest/v1/hadiths?book_id=eq.${encodeURIComponent(row.book_id)}&hadith_number=eq.${encodeURIComponent(row.hadith_number)}&published=eq.true${arabicGuard}&or=(text_en.is.null,text_en.eq.)`,
+        exactArabic
+          ? `/rest/v1/hadiths?book_id=eq.${encodeURIComponent(row.book_id)}&hadith_number=eq.${encodeURIComponent(row.hadith_number)}&published=eq.true&text_ar=eq.${encodeURIComponent(row.text_ar)}&or=(text_en.is.null,text_en.eq.)`
+          : `/rest/v1/hadiths?book_id=eq.${encodeURIComponent(row.book_id)}&hadith_number=eq.${encodeURIComponent(row.hadith_number)}&published=eq.true${arabicFilter}&or=(text_en.is.null,text_en.eq.)`,
         {
           method: "PATCH",
           body: JSON.stringify({
