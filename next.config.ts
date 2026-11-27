@@ -61,6 +61,8 @@ const nextConfig: NextConfig = {
   ],
   redirects: async () => [
     { source: '/home', destination: '/', permanent: false },
+    // Search Console still has the old /sitemap submission; point it to the real index.
+    { source: '/sitemap', destination: '/sitemap-index.xml', permanent: true },
     { source: '/bookmarks', destination: '/favorites', permanent: false },
     { source: '/auth/signup', destination: '/auth/register', permanent: false },
     { source: '/prayer', destination: '/prayer-times', permanent: true },

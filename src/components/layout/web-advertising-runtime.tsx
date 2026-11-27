@@ -107,37 +107,55 @@ export function WebAdvertisingRuntime() {
     }
 
     installConsentModeDefaults();
-    setCanonicalWebRuntime(true);
 
-    const adsenseMeta = document.querySelector(
-      'meta[name="google-adsense-account"]',
-    );
-    if (!adsenseMeta) {
-      const meta = document.createElement("meta");
-      meta.name = "google-adsense-account";
-      meta.content = GOOGLE_ADSENSE_CLIENT;
-      document.head.appendChild(meta);
-    }
+    // Third-party Google tags (about 330 KiB of JavaScript) are loaded on the
+    // first user interaction or after a short delay, whichever comes first, so
+    // they no longer compete with the page's own rendering and main thread.
+    let started = false;
+    const interactionEvents = ["pointerdown", "keydown", "touchstart", "scroll"] as const;
+    const startThirdParties = () => {
+      if (started) return;
+      started = true;
+      window.clearTimeout(timeoutId);
+      interactionEvents.forEach((name) => window.removeEventListener(name, startThirdParties));
+      setCanonicalWebRuntime(true);
 
-    appendScript(
-      "google-funding-choices",
-      "https://fundingchoicesmessages.google.com/i/fundingchoicesmessages.js",
-    );
-
-    if (/^GTM-[A-Z0-9]+$/i.test(GOOGLE_TAG_MANAGER_ID)) {
-      const windowWithDataLayer = window as Window & {
-        dataLayer?: Array<Record<string, unknown>>;
-      };
-      windowWithDataLayer.dataLayer = windowWithDataLayer.dataLayer ?? [];
-      windowWithDataLayer.dataLayer.push({
-        "gtm.start": Date.now(),
-        event: "gtm.js",
-      });
-      appendScript(
-        "google-tag-manager",
-        `https://www.googletagmanager.com/gtm.js?id=${GOOGLE_TAG_MANAGER_ID}`,
+      const adsenseMeta = document.querySelector(
+        'meta[name="google-adsense-account"]',
       );
-    }
+      if (!adsenseMeta) {
+        const meta = document.createElement("meta");
+        meta.name = "google-adsense-account";
+        meta.content = GOOGLE_ADSENSE_CLIENT;
+        document.head.appendChild(meta);
+      }
+
+      appendScript(
+        "google-funding-choices",
+        "https://fundingchoicesmessages.google.com/i/fundingchoicesmessages.js",
+      );
+
+      if (/^GTM-[A-Z0-9]+$/i.test(GOOGLE_TAG_MANAGER_ID)) {
+        const windowWithDataLayer = window as Window & {
+          dataLayer?: Array<Record<string, unknown>>;
+        };
+        windowWithDataLayer.dataLayer = windowWithDataLayer.dataLayer ?? [];
+        windowWithDataLayer.dataLayer.push({
+          "gtm.start": Date.now(),
+          event: "gtm.js",
+        });
+        appendScript(
+          "google-tag-manager",
+          `https://www.googletagmanager.com/gtm.js?id=${GOOGLE_TAG_MANAGER_ID}`,
+        );
+      }
+    };
+    interactionEvents.forEach((name) => window.addEventListener(name, startThirdParties, { once: true, passive: true }));
+    const timeoutId = window.setTimeout(startThirdParties, 4000);
+    return () => {
+      window.clearTimeout(timeoutId);
+      interactionEvents.forEach((name) => window.removeEventListener(name, startThirdParties));
+    };
   }, []);
 
   const validAnalyticsId = /^G-[A-Z0-9]+$/i.test(GOOGLE_ANALYTICS_ID);

@@ -344,6 +344,7 @@ export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOr
                               <Link
                                 key={item.href}
                                 href={item.href}
+                                prefetch={item.href.startsWith("/api/") ? false : undefined}
                                 onClick={() => setOpen(false)}
                                 aria-current={current ? "page" : undefined}
                                 className={[
@@ -376,6 +377,7 @@ export function MobileNav({ isAuthenticated = false, hiddenHrefs = [], sectionOr
                       <Link
                         key={item.href}
                         href={item.href}
+                        prefetch={item.href.startsWith("/api/") ? false : undefined}
                         onClick={() => setOpen(false)}
                         aria-current={current ? "page" : undefined}
                         className="flex min-h-10 items-center gap-3 rounded-lg px-2 text-sm text-brand-cream/75 hover:bg-white/[.04] hover:text-brand-gold"
