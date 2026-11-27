@@ -21,7 +21,7 @@ for (const token of ["buildKidsSeriesEpisode", "validateGeneratedKidsEpisode", "
 }
 const videoDistribution = read("src/features/videos/services/video-content-distribution.ts");
 if (!worker.includes("resolveAutomatedVideoMode(day * 3 + slot)") ||
-    !videoDistribution.includes("0, 2, 0, 1, 2, 5, 3, 0, 2, 1, 6, 0, 5, 4") ||
+    !videoDistribution.includes("0, 2, 0, 1, 2, 5, 3, 0, 2, 1, 2, 0, 5, 4") ||
     (videoDistribution.match(/\b5\b/g) ?? []).length < 2) {
   failures.push("weighted 14-video rotation must retain recurring Kids episodes without requiring the legacy slot % 7 order");
 }
