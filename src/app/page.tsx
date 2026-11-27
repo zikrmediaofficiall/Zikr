@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import { HomeHeroArt } from '@/features/home/components/home-hero-art';
 import { cookies } from 'next/headers';
 import { Container } from '@/components/ui/container';
 import { getSiteSetting, getSectionVisibility, getSectionDisplayOrder } from '@/features/site-content/services/site-content';
@@ -259,16 +259,7 @@ export default async function HomePage() {
                 {/* A real image element (not a CSS background) so the browser discovers and
                     prioritises the largest visual immediately; dimensions are fixed
                     by the aspect-ratio box, so there is no layout shift. */}
-                <Image
-                  src="/banners/homepage/home-visual.svg"
-                  alt=""
-                  width={1080}
-                  height={1200}
-                  priority
-                  fetchPriority="high"
-                  unoptimized
-                  className="absolute inset-0 h-full w-full object-contain"
-                />
+                <HomeHeroArt />
                 <div className="absolute inset-0" style={{ backgroundImage: "linear-gradient(180deg,rgba(4,18,13,.02),rgba(4,18,13,.4))" }} />
               </div>
               <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-brand-gold/25 bg-[#061610]/85 p-4 shadow-xl backdrop-blur-sm sm:inset-x-6 sm:bottom-6">
