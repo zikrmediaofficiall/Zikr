@@ -5,6 +5,7 @@ const advertisingRuntime = readFileSync(
   "src/components/layout/web-advertising-runtime.tsx",
   "utf8",
 );
+const csp = readFileSync("src/lib/csp.ts", "utf8");
 
 const consentDefault = advertisingRuntime.indexOf("gtag('consent', 'default'");
 const consentDefaultCall = advertisingRuntime.indexOf("installConsentModeDefaults();");
@@ -82,6 +83,17 @@ if (
 if (layout.includes("ns.html?id=") || layout.includes("<noscript>")) {
   throw new Error(
     "GTM noscript iframe bypasses the consent gate and must remain disabled",
+  );
+}
+
+const imgSrcDirective = csp.match(/img-src ([^;]+);/);
+if (
+  !imgSrcDirective ||
+  !imgSrcDirective[1].includes("https://www.googletagmanager.com") ||
+  !imgSrcDirective[1].includes("https://www.google-analytics.com")
+) {
+  throw new Error(
+    "CSP img-src must allow the exact Google Tag Manager and Google Analytics measurement endpoints so consent-aware image/beacon fallbacks are not blocked",
   );
 }
 
