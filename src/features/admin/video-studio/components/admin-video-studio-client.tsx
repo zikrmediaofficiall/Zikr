@@ -82,7 +82,7 @@ const AUDIO_TYPES = [
 ];
 const MAX_AUDIO_BYTES = 15 * 1024 * 1024;
 const DAILY_SHORT_VIDEO_CAP = 3;
-const PUBLISH_SLOTS = ["05:37", "14:22", "17:52"];
+const PUBLISH_SLOTS = ["14:22", "17:52"];
 const MIX_LABELS = [
   "القرآن 4/14",
   "الدعاء 3/14",

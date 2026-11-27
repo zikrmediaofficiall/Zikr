@@ -31,9 +31,10 @@ These numbers are directional and limited by the available metrics. The insight 
 
 | Slot | Cairo time | Editorial role                                           |
 | ---- | ---------: | -------------------------------------------------------- |
-| 1    |      05:37 | Early morning: Quran or Dua                              |
-| 2    |      14:22 | Afternoon: Quran or Dua                                  |
-| 3    |      17:52 | Evening: Hadith, Adhkar, verified story or Kids rotation |
+| 1    |      14:22 | Afternoon: Quran or Dua                                  |
+| 2    |      17:52 | Evening: Hadith, Adhkar, verified story or Kids rotation |
+
+Update 2026-11-26 (user-approved plan): cadence cut from 3 to 2 per day, the 05:37 slot removed, general-message videos removed from the mix (replaced by Dua), and weekly app-promo videos paused (PROMO_VIDEO_WEEKLY_TARGET=0). Queued items were rescheduled, not deleted.
 
 The allocator reserves a slot independently for every target platform, checks queued/partial/processing/published video rows and fails closed if no slot is available. It uses the IANA timezone Africa/Cairo, not a fixed UTC offset. The publisher now re-slots due/null video backlog using a compare-and-set update before claiming work; if that reconciliation fails, it does not claim more queue rows. Automated QA is the approval gate; there is no routine human approval hold for generated videos. Failed or incomplete QA remains blocked. Reassess the slots after 14 days using actual platform insights; these times are a controlled starting experiment, not a universal best-time claim.
 

@@ -27,6 +27,7 @@ import { buildVideoSocialQueueUpdateFilter } from "../../src/features/social/ser
 import { resolveSocialPublishCutoff } from "../../src/features/social/services/facebook-queue-recovery-policy";
 import { calculateDailyVideoQuotaState, resolveZonedDailyVideoQuotaWindow } from "../../src/features/videos/services/video-automation-quota";
 import { resolveAutomatedVideoMode } from "../../src/features/videos/services/video-content-distribution";
+import { buildQuranVideoTitle, buildDuaVideoTitle } from "../../src/features/videos/services/video-seo";
 import { canReserveVideoPublishAt, resolveNextVideoPublishAt, type VideoPublishScheduleRow } from "../../src/features/social/services/video-publishing-schedule";
 import {
   DEFAULT_PROMO_VIDEO_TIME_ZONE,
@@ -38,7 +39,7 @@ import {
 } from "../../src/features/videos/data/promotional-video-campaign";
 import { buildProphetEpisodeCandidate, validateProphetEpisodeForQueue } from "../../src/features/videos/data/prophet-story-series";
 import { HADY_SHOW } from "../../src/features/videos/shows/hady-show";
-import { SHOW_TOPIC_BACKGROUNDS } from "../../src/features/videos/shows/topic-backgrounds";
+import { SHOW_TOPIC_BACKGROUNDS, backgroundForTheme } from "../../src/features/videos/shows/topic-backgrounds";
 import { validateHadyEpisodeForProduction, type HadyEpisode } from "../../src/features/videos/shows/episode-contract";
 import {
   buildContentPublishQueueRecoveryFilter,
@@ -69,6 +70,8 @@ import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/f
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 import { LAYL_EPISODES, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
 import { isoWeekKey, resolveNextScheduledLaylEpisode } from "../../src/features/videos/services/layl-program-schedule";
+import { HADY_REVIEW } from "../../src/features/videos/data/hady-episodes";
+import { resolveNextScheduledHadyEpisode } from "../../src/features/videos/services/hady-program-schedule";
 
 const execFileAsync = promisify(execFile);
 const BATCH_SIZE = Math.max(1, Number(process.env.AUTO_VIDEO_BATCH_SIZE ?? process.env.DAILY_VIDEO_TARGET ?? 3));
@@ -810,6 +813,123 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
   }
 }
 
+/**
+ * Weekly "دقيقتين مع هادي" episode. It seeds only on Thursdays (UTC), only after the previous episode
+ * completed, and only when a human reviewer has been recorded in HADY_REVIEW. Without that record
+ * nothing is created, so an unreviewed religious script can never reach the renderer.
+ */
+async function seedWeeklyHadyEpisodeRequest(now: Date): Promise<number> {
+  if (!HADY_REVIEW || !HADY_REVIEW.reviewer.trim() || !Number.isFinite(Date.parse(HADY_REVIEW.reviewedAt))) return 0;
+  if (now.getUTCDay() !== 4) return 0;
+  const week = isoWeekKey(now);
+  if (!week) return 0;
+  const automationKey = "hady-weekly:season-1:" + week;
+  if (await findByAutomationKey("video_generation_requests", automationKey)) return 0;
+
+  const latestRows = await supabaseServerAdminRequest<Array<{ status: string; content: unknown; created_at: string }>>(
+    "/rest/v1/video_generation_requests?content->>hadyShowId=eq." + encodeURIComponent(HADY_SHOW.id) +
+      "&select=status,content,created_at&order=created_at.desc&limit=1",
+  );
+  const latestRow = latestRows?.[0] ?? null;
+  const latestContent = latestRow?.content && typeof latestRow.content === "object" && !Array.isArray(latestRow.content)
+    ? latestRow.content as Record<string, unknown> : {};
+  const latestWeek = Number(latestContent.week);
+  const latest = latestRow && Number.isInteger(latestWeek)
+    ? { episodeNumber: latestWeek, status: latestRow.status, createdAt: latestRow.created_at } : null;
+  const episode = resolveNextScheduledHadyEpisode(now, latest);
+  if (!episode) return 0;
+
+  const source = await resolveVideoSource(episode.sourceKind, episode.sourceId);
+  if (!source) {
+    console.error("[template-video] Hady source " + episode.sourceId + " is missing or unpublished; episode not seeded.");
+    return 0;
+  }
+  const background = backgroundForTheme(episode.theme);
+  const ids = ["hook", "advice", "story", "reflection", "closing"] as const;
+  const review = { status: "approved" as const, reviewer: HADY_REVIEW.reviewer, reviewedAt: HADY_REVIEW.reviewedAt };
+  const hadyEpisode = {
+    week: episode.week,
+    titleAr: episode.titleAr,
+    theme: episode.theme,
+    background,
+    segments: ids.map((id, index) => ({
+      id,
+      text: episode[id],
+      ...(index === 2 ? { sourceRefs: [{ kind: episode.sourceKind, reference: source.id, verified: true }] } : {}),
+    })),
+    review,
+  } as HadyEpisode;
+  const known = new Set(Object.values(SHOW_TOPIC_BACKGROUNDS).flatMap((entry) => [entry.primary, ...entry.alternates]));
+  const check = validateHadyEpisodeForProduction(hadyEpisode, known);
+  if (!check.ok) {
+    console.error("[template-video] Hady episode " + episode.week + " failed validation; not seeded: " + check.errors.join(" | "));
+    return 0;
+  }
+  const script = hadyEpisode.segments.map((segment) => segment.text).join("\n\n");
+  const content: Record<string, unknown> = {
+    renderer: "template",
+    type: "hady_episode",
+    workflow: "hady-program",
+    hadyShowId: HADY_SHOW.id,
+    hadyEpisode,
+    hadySourceReference: { category: episode.sourceKind, id: source.id, label: source.sourceLabel, url: source.sourceUrl },
+    hadyReview: review,
+    week: episode.week,
+    theme: episode.theme,
+    sourceType: "editorial",
+    sourceLabel: "برنامج دقيقتين مع هادي — نص محرر راجع مصدره",
+    sourceUrl: source.sourceUrl,
+    sourceId: source.id,
+    textAr: script,
+    text: script,
+    script,
+    prompt: script,
+    aiMode: "hady_program",
+    voiceProfile: HADY_SHOW.host.hostVoiceProfile,
+    audience: "general",
+    visualTheme: "calm",
+    visualBackground: background,
+    maxDurationSeconds: 135,
+    videoFormat: "vertical",
+    resolution: "1080x1920",
+    publicPath: "/videos",
+    language: "ar-EG",
+    automationKey,
+  };
+  const contentHash = videoContentHash({ category: "other", sourceId: source.id, text: script, format: "vertical", templateVersion: VIDEO_TEMPLATE_VERSION, language: "ar-EG", style: "calm" });
+  const sourceHashValue = sourceHash({ sourceId: source.id, sourceUrl: source.sourceUrl, text: script });
+  if (engineConfig().dryRun) {
+    console.log("[template-video] dry-run planned " + automationKey);
+    return 1;
+  }
+  try {
+    await supabaseServerAdminRequest("/rest/v1/video_generation_requests", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        title: episode.titleAr,
+        description: episode.descriptionAr,
+        category: "other",
+        content: { ...content, contentHash, sourceHash: sourceHashValue, templateVersion: VIDEO_TEMPLATE_VERSION },
+        duration: 120,
+        status: "pending",
+        automation_key: automationKey,
+        content_hash: contentHash,
+        source_hash: sourceHashValue,
+        provider: "template",
+        template_version: VIDEO_TEMPLATE_VERSION,
+      }),
+    });
+    console.log("[template-video] Seeded weekly Hady episode " + episode.week + " for " + week + ".");
+    return 1;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (isContentHashConflict(error) || (message.includes("duplicate key value violates unique constraint") && message.toLowerCase().includes("automation_key"))) return 0;
+    console.error("[template-video] Weekly Hady scheduling failed safely:", message.slice(0, 500));
+    return 0;
+  }
+}
+
 async function seedWeeklyPromotionalVideoRequests(now: Date, dailyCapacity: number): Promise<number> {
   const target = resolveWeeklyPromoVideoTarget(process.env.PROMO_VIDEO_WEEKLY_TARGET);
   if (target === 0 || dailyCapacity <= 0) return 0;
@@ -920,6 +1040,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   const quotaWindow = resolveZonedDailyVideoQuotaWindow(now, quotaTimeZone);
   const day = quotaWindow.dayIndex;
   let created = await seedWeeklyLaylEpisodeRequest(now);
+  created += await seedWeeklyHadyEpisodeRequest(now);
 
   // Daily quota keys and inventory are scoped to the resolved Cairo local day so UTC
   // midnight cannot reset the generation cap early or late.
@@ -948,10 +1069,10 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   // The weekly long-form Layl episode is editorial programming, not one of the
   // three short-form video slots. All other manual, standard and promo requests
   // created within the Cairo local day share the same quota inventory.
-  const todaysRows = quotaInventoryRows.filter((row) => !row.automation_key?.startsWith("layl-weekly:"));
+  const todaysRows = quotaInventoryRows.filter((row) => !row.automation_key?.startsWith("layl-weekly:") && !row.automation_key?.startsWith("hady-weekly:"));
   const dailyQuota = calculateDailyVideoQuotaState(todaysRows);
   // Enforce a hard three-short-video daily ceiling, including urgent admin dispatches.
-  const dailyTarget = Math.max(1, Math.min(3, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3));
+  const dailyTarget = Math.max(1, Math.min(2, Number(process.env.DAILY_VIDEO_TARGET ?? 2) || 2));
   const promoDailyCapacity = Math.max(0, Math.min(batchSize, dailyTarget - dailyQuota.reservedCount));
   const promoCreated = await seedWeeklyPromotionalVideoRequests(now, promoDailyCapacity);
   created += promoCreated;
@@ -985,7 +1106,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       const surahName = await getSurahName(row.surah_id);
       const sourceUrl = `https://quran.com/${row.surah_id}/${row.ayah_number}`;
       payload = {
-        title: `آية اليوم — ${surahName} ${row.surah_id}:${row.ayah_number}`,
+        title: buildQuranVideoTitle({ surahName, surahId: row.surah_id, ayahNumber: row.ayah_number, ayahText: row.text_uthmani || row.text_ar }),
         description: `فيديو آلي يعرض آية موثقة من ${surahName} مع تصميم ذِكر ومصدر مباشر.`,
         category: "quran",
         content: {
@@ -1043,7 +1164,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       const row = await getDuaRow(day * 16 + slot);
       const sourceUrl = `${siteUrl()}/dua/${row.slug}`;
       payload = {
-        title: `دعاء اليوم — ${row.title_ar}`,
+        title: buildDuaVideoTitle({ titleAr: row.title_ar, occasionAr: row.occasion_ar }),
         description: row.occasion_ar || "دعاء موثق من مكتبة ذِكر.",
         category: "dua",
         content: {
@@ -1585,7 +1706,7 @@ export async function validateSourceContent(request: GeneratedRequest) {
       !reference.label.trim() ||
       !["quran", "hadith", "story"].includes(String(reference.category)) ||
       !episodeCheck.ok ||
-      text !== episode.segments.map((segment) => segment.text).join("\\n\\n")
+      text !== episode.segments.map((segment) => segment.text).join("\n\n")
     ) {
       throw new Error("Hady episode failed server-side source, five-part script, Egyptian dialect, duration or human-review validation: " + episodeCheck.errors.join(" | "));
     }
@@ -2443,6 +2564,8 @@ export function buildAutomatedVideoQaChecklist(
   };
 }
 
+export const QURAN_FOUNDATION_CREDIT_LINE = "النص والتلاوة: Quran data provided by Quran Foundation (quran.com). القارئ: مشاري راشد العفاسي.";
+
 function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: string) {
   const content = request.content ?? {};
   const ai = content.ai && typeof content.ai === "object" ? content.ai as Record<string, unknown> : {};
@@ -2488,6 +2611,7 @@ function buildAutomatedSocialCaption(request: GeneratedRequest, publicUrl: strin
     callToAction[request.category] ?? callToAction.other,
     visualDisclosure,
     tags[request.category] ?? tags.other,
+    request.category === "quran" ? QURAN_FOUNDATION_CREDIT_LINE : "",
     resolveVideoSourceDisclosureLine(content, contentSourceUrl(request)),
     publicUrl,
   ].filter((value, index, values): value is string =>

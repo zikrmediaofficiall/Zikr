@@ -87,7 +87,7 @@ function firstInstantOfLocalDate(localDate: string, timeZone: string, formatter:
 
 /** Layl is long-form editorial programming and does not consume the short-video quota. */
 export function isShortVideoQuotaRow(row: Pick<DailyVideoQuotaRow, "automation_key">): boolean {
-  return !(typeof row.automation_key === "string" && row.automation_key.startsWith("layl-weekly:"));
+  return !(typeof row.automation_key === "string" && (row.automation_key.startsWith("layl-weekly:") || row.automation_key.startsWith("hady-weekly:")));
 }
 
 /**

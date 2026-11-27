@@ -1,3 +1,5 @@
+import { editorialGuideDepth } from "./dua-guide-depth";
+
 export interface DuaGuide {
   meaning: string;
   context: string;
@@ -196,5 +198,13 @@ const editorialGuides: Record<string, DuaGuide> = {
 export function getDuaGuide(slug: string): DuaGuide | null {
   const ref = slugToRef[slug];
   if (ref && quranGuides[ref]) return quranGuides[ref];
-  return editorialGuides[slug] ?? null;
+  const base = editorialGuides[slug];
+  if (!base) return null;
+  const depth = editorialGuideDepth[slug];
+  if (!depth) return base;
+  return {
+    meaning: base.meaning + depth.meaning,
+    context: base.context + depth.context,
+    practice: base.practice + depth.practice,
+  };
 }

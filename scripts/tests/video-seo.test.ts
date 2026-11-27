@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { fitTitle, resolveSeoTerms } from "../../src/features/videos/services/video-seo";
+import { buildDuaVideoTitle, buildQuranVideoTitle, fitTitle, resolveSeoTerms } from "../../src/features/videos/services/video-seo";
 
 const quran = resolveSeoTerms("quran", "general");
 assert.ok(quran.hashtags.includes("#القرآن_الكريم") && quran.hashtags[0] === "#ذكر" && quran.hashtags.length <= 4);
@@ -23,4 +23,11 @@ assert.equal(seen.size, 3, "all three variants are used");
 for (const category of ["quran", "hadith", "dua", "adhkar", "story", "other"]) {
   for (const hook of listTitleHooks(category)) assert.ok(!/أجر|ثواب|حسنات|يغفر|مضمون/.test(hook), "no reward claims in hooks: " + hook);
 }
+const quranTitle = buildQuranVideoTitle({ surahName: "النحل", surahId: 16, ayahNumber: 124, ayahText: "إِنَّمَا جُعِلَ ٱلسَّبْتُ عَلَى ٱلَّذِينَ ٱخْتَلَفُوا۟ فِيهِ" });
+assert.equal(quranTitle, "آية اليوم — النحل 16:124 | إِنَّمَا جُعِلَ ٱلسَّبْتُ عَلَى ٱلَّذِينَ…");
+assert.ok(buildQuranVideoTitle({ surahName: "النحل", surahId: 16, ayahNumber: 1, ayahText: "" }).endsWith("16:1"));
+assert.ok(buildQuranVideoTitle({ surahName: "النحل", surahId: 16, ayahNumber: 1, ayahText: "كلمة ".repeat(40) }).length <= 100);
+assert.equal(buildDuaVideoTitle({ titleAr: "دعاء قبول العمل", occasionAr: "بعد العمل الصالح" }), "دعاء اليوم — دعاء قبول العمل (بعد العمل الصالح)");
+assert.equal(buildDuaVideoTitle({ titleAr: "دعاء الثبات بعد الهداية", occasionAr: null }), "دعاء اليوم — دعاء الثبات بعد الهداية");
+assert.equal(buildDuaVideoTitle({ titleAr: "دعاء طلب الثبات", occasionAr: "طلب الثبات" }), "دعاء اليوم — دعاء طلب الثبات");
 console.log("Title hook variants passed.");

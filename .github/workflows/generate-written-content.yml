@@ -36,7 +36,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
       GEMINI_MODEL: gemini-3.1-flash-lite
       WRITTEN_CONTENT_ENABLED: "true"
-      WRITTEN_CONTENT_DAILY_TARGET: "3"
+      WRITTEN_CONTENT_DAILY_TARGET: "2"
       WRITTEN_CONTENT_BATCH_SIZE: ${{ inputs.batch_size || '1' }}
       WRITTEN_CONTENT_CATEGORY: ${{ inputs.category || 'auto' }}
       WRITTEN_CONTENT_ALLOW_KIDS: ${{ github.event_name == 'schedule' && 'true' || inputs.allow_kids || 'false' }}

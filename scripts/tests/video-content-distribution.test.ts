@@ -13,7 +13,7 @@ for (let slot = 0; slot < 14; slot += 1) {
 }
 assert.deepEqual(
   [...counts.entries()].sort((a, b) => a[0] - b[0]),
-  [[0, 4], [1, 2], [2, 3], [3, 1], [4, 1], [5, 2], [6, 1]],
+  [[0, 4], [1, 2], [2, 4], [3, 1], [4, 1], [5, 2]],
 );
 assert.throws(() => resolveAutomatedVideoMode(-1), RangeError);
 assert.throws(() => resolveAutomatedVideoMode(1.5), RangeError);

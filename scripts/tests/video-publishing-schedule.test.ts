@@ -7,50 +7,48 @@ import {
 
 const now = new Date("2026-11-25T03:00:00.000Z"); // 05:00 Cairo
 const empty = resolveNextVideoPublishAt({ now, rows: [], targetPlatforms: ["youtube", "facebook_reels"] });
-assert.equal(empty, "2026-11-25T03:37:00.000Z", "First daily slot is 05:37 Cairo.");
+assert.equal(empty, "2026-11-25T12:22:00.000Z", "First daily slot is 14:22 Cairo.");
 
 const occupied = (scheduled_at: string, platforms = ["youtube", "facebook_reels"]) => ({
   id: scheduled_at, status: "queued", target_platforms: platforms, scheduled_at,
   published_at: null, created_at: "2026-11-25T02:00:00.000Z",
 });
 assert.equal(
-  resolveNextVideoPublishAt({ now, rows: [occupied("2026-11-25T03:37:00.000Z")], targetPlatforms: ["youtube", "facebook_reels"] }),
-  "2026-11-25T12:22:00.000Z",
-  "An occupied morning slot should move the post to 14:22 Cairo.",
+  resolveNextVideoPublishAt({ now, rows: [occupied("2026-11-25T12:22:00.000Z")], targetPlatforms: ["youtube", "facebook_reels"] }),
+  "2026-11-25T15:52:00.000Z",
+  "An occupied first slot should move the post to 17:52 Cairo.",
 );
 assert.equal(
   resolveNextVideoPublishAt({
     now,
     rows: [
-      occupied("2026-11-25T03:37:00.000Z"),
       occupied("2026-11-25T12:22:00.000Z"),
       occupied("2026-11-25T15:52:00.000Z"),
     ],
     targetPlatforms: ["youtube", "facebook_reels"],
   }),
-  "2026-11-26T03:37:00.000Z",
-  "Three occupied daily slots must roll over to tomorrow.",
+  "2026-11-26T12:22:00.000Z",
+  "Two occupied daily slots must roll over to tomorrow.",
 );
 assert.equal(
   resolveNextVideoPublishAt({
     now,
-    rows: [occupied("2026-11-25T03:37:00.000Z", ["facebook_reels"])],
+    rows: [occupied("2026-11-25T12:22:00.000Z", ["facebook_reels"])],
     targetPlatforms: ["youtube"],
   }),
-  "2026-11-25T03:37:00.000Z",
+  "2026-11-25T12:22:00.000Z",
   "Platform occupancy must be isolated.",
 );
 assert.equal(
   resolveNextVideoPublishAt({
     now,
-    rows: [{ ...occupied("2026-11-25T03:37:00.000Z"), status: "failed" }],
+    rows: [{ ...occupied("2026-11-25T12:22:00.000Z"), status: "failed" }],
     targetPlatforms: ["youtube"],
   }),
-  "2026-11-25T03:37:00.000Z",
+  "2026-11-25T12:22:00.000Z",
   "Terminal failed rows must not reserve a slot.",
 );
 assert.deepEqual(VIDEO_PUBLISH_SLOTS, [
-  { hour: 5, minute: 37 },
   { hour: 14, minute: 22 },
   { hour: 17, minute: 52 },
 ]);
@@ -64,14 +62,13 @@ assert.equal(
   resolveNextVideoPublishAt({
     now,
     rows: [
-      offSlot("2026-11-25T05:30:00.000Z"), // 07:30 Cairo
       offSlot("2026-11-25T09:00:00.000Z"), // 11:00 Cairo
       offSlot("2026-11-25T14:00:00.000Z"), // 16:00 Cairo
     ],
     targetPlatforms: ["youtube", "facebook_reels"],
   }),
-  "2026-11-26T03:37:00.000Z",
-  "Three off-slot manual videos must still exhaust the per-platform daily quota.",
+  "2026-11-26T12:22:00.000Z",
+  "Two off-slot manual videos must still exhaust the per-platform daily quota.",
 );
 assert.equal(canReserveVideoPublishAt({
   now,
@@ -83,7 +80,6 @@ assert.equal(canReserveVideoPublishAt({
   now,
   scheduledAt: "2026-11-25T15:00:00.000Z",
   rows: [
-    offSlot("2026-11-25T05:30:00.000Z"),
     offSlot("2026-11-25T09:00:00.000Z"),
     offSlot("2026-11-25T14:00:00.000Z"),
   ],
@@ -99,7 +95,7 @@ assert.equal(resolveNextVideoPublishAt({ now, rows: [], targetPlatforms: ["tikto
 const partialYoutubeSuccess = {
   ...occupied("2026-11-24T12:22:00.000Z"),
   status: "partial",
-  published_at: "2026-11-25T02:55:00.000Z",
+  published_at: "2026-11-25T12:10:00.000Z",
   completed_platforms: ["youtube"],
 };
 assert.equal(
@@ -108,7 +104,7 @@ assert.equal(
     rows: [partialYoutubeSuccess],
     targetPlatforms: ["facebook_reels"],
   }),
-  "2026-11-25T03:37:00.000Z",
+  "2026-11-25T12:22:00.000Z",
   "A confirmed YouTube result must not occupy the Facebook Reels slot for a partially delivered queue item.",
 );
 assert.equal(
@@ -117,18 +113,18 @@ assert.equal(
     rows: [partialYoutubeSuccess],
     targetPlatforms: ["youtube"],
   }),
-  "2026-11-25T12:22:00.000Z",
+  "2026-11-25T15:52:00.000Z",
   "A completed YouTube result must still consume YouTube's daily quota at its confirmed publish time.",
 );
 assert.equal(canReserveVideoPublishAt({
   now,
-  scheduledAt: "2026-11-25T03:37:00.000Z",
+  scheduledAt: "2026-11-25T12:22:00.000Z",
   rows: [partialYoutubeSuccess],
   targetPlatforms: ["facebook_reels"],
 }), true, "Reels may use an open slot while YouTube's result is already confirmed");
 assert.equal(canReserveVideoPublishAt({
   now,
-  scheduledAt: "2026-11-25T03:37:00.000Z",
+  scheduledAt: "2026-11-25T12:22:00.000Z",
   rows: [partialYoutubeSuccess],
   targetPlatforms: ["youtube"],
 }), false, "a confirmed YouTube result must retain its per-platform slot reservation");

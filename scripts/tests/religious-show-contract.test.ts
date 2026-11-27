@@ -3,6 +3,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { HADY_SHOW, SEASON_ONE } from "../../src/features/videos/shows/hady-show";
 import { SHOW_TOPIC_BACKGROUNDS, SHOW_TOPIC_THEMES, backgroundForTheme } from "../../src/features/videos/shows/topic-backgrounds";
 import { estimateEpisodeSeconds, validateHadyEpisode, validateHadyEpisodeForProduction, type HadyEpisode } from "../../src/features/videos/shows/episode-contract";
+import { HADY_EPISODES, HADY_REVIEW } from "../../src/features/videos/data/hady-episodes";
+import { resolveNextScheduledHadyEpisode } from "../../src/features/videos/services/hady-program-schedule";
 import { getVideoVoiceProfile } from "../../src/features/videos/services/voice-profiles";
 
 const templates = new Set(readdirSync("public/video/templates").filter((name) => name.endsWith(".svg")).map((name) => name.replace(/\.svg$/, "")));
@@ -126,5 +128,30 @@ fails(clone(fixture(), (d) => { d.segments[0].text = d.segments[0].text.replace(
 fails(clone(fixture(), (d) => { d.segments[4].text = d.segments[4].text.replace(HADY_SHOW.signature.closingAr, "مع السلامة."); }), /signature farewell/);
 fails(clone(fixture(), (d) => { d.review = { status: "approved" }; }), /name its reviewer/);
 fails(clone(fixture(), (d) => { d.segments[2].text = `${filler(190, 2)} {{quote:0}}`; }), /story: \d+ words|Estimated duration/);
+
+// --- Season one scripts: each must pass the production contract once a human reviewer is recorded.
+assert.equal(HADY_EPISODES.length, 8);
+assert.deepEqual(HADY_EPISODES.map((item) => item.week), [1, 2, 3, 4, 5, 6, 7, 8]);
+assert.equal(new Set(HADY_EPISODES.map((item) => item.sourceId)).size, 8, "each episode needs its own verified Quran source");
+for (const item of HADY_EPISODES) {
+  assert.match(item.sourceId, /^quran:\d+:\d+$/);
+  const scripted = {
+    week: item.week, titleAr: item.titleAr, theme: item.theme, background: backgroundForTheme(item.theme),
+    segments: (["hook", "advice", "story", "reflection", "closing"] as const).map((id, index) => ({
+      id, text: item[id], ...(index === 2 ? { sourceRefs: [{ kind: item.sourceKind, reference: item.sourceId, verified: true }] } : {}),
+    })),
+    review: { status: "approved", reviewer: "contract-test-reviewer", reviewedAt: "2026-11-26T12:00:00.000Z" },
+  } as unknown as HadyEpisode;
+  const result = validateHadyEpisodeForProduction(scripted, templates);
+  assert.equal(result.ok, true, `week ${item.week}: ${result.errors.join(" | ")}`);
+}
+// Seeding is gated on a recorded human review, and advances only on Thursdays after a completed episode.
+assert.ok(HADY_REVIEW === null || (HADY_REVIEW.reviewer.trim() && !HADY_REVIEW.reviewer.startsWith("system:")));
+const thursday = new Date("2026-12-03T09:00:00.000Z");
+assert.equal(resolveNextScheduledHadyEpisode(new Date("2026-12-02T09:00:00.000Z"), null), null);
+assert.equal(resolveNextScheduledHadyEpisode(thursday, null)?.week, 1);
+assert.equal(resolveNextScheduledHadyEpisode(thursday, { episodeNumber: 1, status: "pending", createdAt: "2026-11-26T09:00:00.000Z" }), null);
+assert.equal(resolveNextScheduledHadyEpisode(thursday, { episodeNumber: 1, status: "completed", createdAt: "2026-11-26T09:00:00.000Z" })?.week, 2);
+assert.equal(resolveNextScheduledHadyEpisode(thursday, { episodeNumber: 1, status: "completed", createdAt: "2026-12-03T03:00:00.000Z" }), null);
 
 console.log(`Religious show contract passed: ${HADY_SHOW.titleAr}, ${SEASON_ONE.length} candidate topics, ${templates.size} backgrounds available.`);
