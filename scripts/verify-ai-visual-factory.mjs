@@ -28,7 +28,7 @@ for (const token of ["prophets or sacred figures", "invented Arabic scripture", 
   if (!policy.includes(token)) failures.push(`shared AI visual policy missing: ${token}`);
 }
 const hf = read("src/features/videos/providers/hf-space-provider.ts");
-if (!hf.includes("Verified source text:")) failures.push("HF provider prompt must receive verified source text");
+if (!hf.includes("Absolutely no text, letters")) failures.push("HF provider prompt must forbid generated lettering and must not receive Arabic source text");
 if (!hf.includes("aiVisualPolicyPromptLine()")) failures.push("HF provider must consume the shared visual policy");
 if (!hf.includes("freeZeroGpuQuotaExhausted") ||
     !hf.includes("Free ZeroGPU quota exhausted; skipping remaining Hugging Face providers")) {

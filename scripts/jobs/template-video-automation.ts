@@ -2077,6 +2077,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       !isHadyProgram &&
       !isProphetStoryRequest &&
       !boundTemplate &&
+      // Sacred-text videos use the curated clean template backgrounds only:
+      // generative video models draw garbled pseudo-Arabic over the scene.
+      !["quran", "hadith", "dua", "adhkar"].includes(String(request.category)) &&
       engineConfig().aiEnabled &&
       engineConfig().order.some((provider) => provider !== "template") &&
       aiAttemptsUsed < getAiAttemptsPerRunLimit()
