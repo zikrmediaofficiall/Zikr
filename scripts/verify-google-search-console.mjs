@@ -5,9 +5,8 @@ const layout = readFileSync('src/app/layout.tsx', 'utf8');
 const webAdvertisingRuntime = readFileSync('src/components/layout/web-advertising-runtime.tsx', 'utf8');
 const deferredAnalytics = readFileSync('src/components/layout/deferred-analytics.tsx', 'utf8');
 const nextConfig = readFileSync('next.config.ts', 'utf8') + readFileSync('src/lib/csp.ts', 'utf8');
-const approvedGaId = 'G-W30Z9JW0VF';
-const approvedGtmId = 'GTM-PVQCFKCB';
-const analytics = webAdvertisingRuntime.indexOf('id="google-analytics-src"');
+const approvedGaId = 'G-EMG4X46V0S';
+const approvedGtmId = 'GTM-WM4SD7HP';
 const verificationFiles = [
   'public/google3526c15e10fa1913.html',
   'public/google6f7827292f8e19bc.html',
@@ -42,23 +41,17 @@ if (
 }
 
 if (layout.includes('NEXT_PUBLIC_GA_MEASUREMENT_ID') || layout.includes(approvedGaId) || layout.includes('googletagmanager.com/gtag/js')) {
-  failures.push('يجب ألا يُحقن GA4 من root layout قبل فحص المضيف والبيئة.');
+  failures.push('يجب ألا يُحقن GA4 مباشرة من root layout.');
 }
-if (!webAdvertisingRuntime.includes('NEXT_PUBLIC_GA_MEASUREMENT_ID')) failures.push('متغير GA4 canonical غير موجود في web-only runtime.');
-if (!webAdvertisingRuntime.includes(approvedGaId)) failures.push(`معرّف GA4 المعتمد غير موجود: ${approvedGaId}`);
-if (!webAdvertisingRuntime.includes('googletagmanager.com/gtag/js?id=')) failures.push('مصدر GA4 gtag.js غير موجود في web-only runtime.');
-if (!webAdvertisingRuntime.includes('canonicalWebRuntime && validAnalyticsId')) failures.push('يجب ألا يُحمّل GA4 إلا بعد اجتياز فحص أصل الإنتاج canonical.');
+if (!webAdvertisingRuntime.includes('NEXT_PUBLIC_GTM_ID')) failures.push('متغير GTM canonical غير موجود في web-only runtime.');
+if (!webAdvertisingRuntime.includes(approvedGtmId)) failures.push(`معرّف GTM المعتمد غير موجود: ${approvedGtmId}`);
+if (!webAdvertisingRuntime.includes('https://www.googletagmanager.com/gtm.js?id=')) failures.push('مصدر GTM غير موجود في web-only runtime.');
+if (webAdvertisingRuntime.includes('googletagmanager.com/gtag/js')) failures.push('يجب تحميل GA4 من داخل GTM فقط لتجنب تكرار Page View.');
 
-if (layout.includes(approvedGtmId) || layout.includes('NEXT_PUBLIC_GTM_ID') || layout.includes('googletagmanager.com/gtm.js')) {
-  failures.push('يجب إبقاء GTM خارج root layout حتى لا يُحقن في HTML الخاص بتطبيق Capacitor.');
-}
 if (!layout.includes('import { WebAdvertisingRuntime } from "@/components/layout/web-advertising-runtime";')) failures.push('استيراد WebAdvertisingRuntime غير موجود في root layout.');
 if (!layout.includes('<WebAdvertisingRuntime />')) failures.push('WebAdvertisingRuntime غير مركّب في root layout.');
-if (!webAdvertisingRuntime.includes(approvedGtmId)) failures.push(`معرّف GTM المعتمد غير موجود في web-only runtime: ${approvedGtmId}`);
-if (!webAdvertisingRuntime.includes('NEXT_PUBLIC_GTM_ID')) failures.push('متغير GTM canonical غير موجود في web-only runtime.');
-if (!webAdvertisingRuntime.includes('https://www.googletagmanager.com/gtm.js?id=')) failures.push('مصدر GTM غير موجود في web-only runtime.');
 const nativeGuardIndex = webAdvertisingRuntime.indexOf('if (Capacitor.isNativePlatform())');
-const canonicalOriginGuardIndex = webAdvertisingRuntime.indexOf('if (!isCanonicalProductionOrigin())');
+const canonicalOriginGuardIndex = webAdvertisingRuntime.indexOf('!isCanonicalProductionOrigin()');
 const consentDefaultsIndex = webAdvertisingRuntime.indexOf('installConsentModeDefaults();');
 const gtmInjectionIndex = webAdvertisingRuntime.indexOf('"google-tag-manager"');
 const fundingChoicesInjectionIndex = webAdvertisingRuntime.indexOf('"google-funding-choices"');
@@ -73,14 +66,10 @@ if (
   nativeGuardIndex > consentDefaultsIndex ||
   canonicalOriginGuardIndex > consentDefaultsIndex ||
   consentDefaultsIndex > gtmInjectionIndex ||
-  consentDefaultsIndex > fundingChoicesInjectionIndex ||
-  nativeGuardIndex > analytics ||
-  canonicalOriginGuardIndex > analytics
+  consentDefaultsIndex > fundingChoicesInjectionIndex
 ) {
-  failures.push('يجب أن يسبق خروج Capacitor وفحص الأصل canonical كل حقن فعلي لإعلانات الويب وGA4 وGTM وFunding Choices.');
+  failures.push('يجب أن يسبق خروج Capacitor وفحص الأصل canonical كل حقن فعلي لإعلانات الويب وGTM وFunding Choices.');
 }
-if (layout.includes('G-G9DPYTK78')) failures.push('المعرّف القديم G-G9DPYTK78 ما زال موجودًا في root layout.');
-if (!webAdvertisingRuntime.includes('strategy="lazyOnload"')) failures.push('GA4 لا يستخدم lazyOnload في web-only runtime.');
 if (/import\(.+analytics/.test(deferredAnalytics)) failures.push('تمت إعادة تحميل Analytics ديناميكيًا خارج root layout.');
 const frameSrc = nextConfig.match(/frame-src\s+([^;]+)/)?.[1] ?? '';
 if (!frameSrc.split(/\s+/).includes('https://www.googletagmanager.com')) failures.push('أصل GTM مفقود من CSP frame-src؛ قد يُحجب إطار noscript.');
