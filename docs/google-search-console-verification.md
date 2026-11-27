@@ -5,61 +5,47 @@
 الموقع يستخدم طريقتين متكاملتين للتحقق من ملكية النطاق `https://zikrmediaofficial.vercel.app`:
 
 1. **وسما HTML داخل الصفحة الرئيسية** من خلال `verification.google` في `src/app/layout.tsx`.
-2. **ملفا HTML ثابتان** داخل `public/`، ويجب أن يعيدا استجابة HTTP `200` من جذر الموقع:
+2. **ملفا HTML ثابتان** داخل `public/`:
    - `/google3526c15e10fa1913.html`
    - `/google6f7827292f8e19bc.html`
 
-وجود الطريقتين مقصود؛ فلا ينبغي حذف أي منهما ما دامت الخاصيتان أو طرق التحقق المرتبطة بهما موجودتين في Search Console.
+لا تحذف أي رمز تحقق ما دامت الخاصية المرتبطة به موجودة في Search Console.
 
-## الفحص المحلي
+## GA4 وGoogle Tag Manager — الإعداد الجديد
 
-شغّل الأمر التالي من جذر المشروع:
+الإعداد الإنتاجي الجديد الخاص بموقع ZIKR يستخدم حاوية GTM واحدة:
 
-```bash
-pnpm search-console:check
-```
+- **GA4 Measurement ID:** `G-EMG4X46V0S`
+- **GA4 Web Stream ID:** `16431107734`
+- **GTM Container ID:** `GTM-WM4SD7HP`
+- **Canonical URL:** `https://zikrmediaofficial.vercel.app`
 
-يفحص الأمر وجود ملفي HTML، تطابق محتوى كل ملف مع اسمه، ووجود رمزي التحقق في `src/app/layout.tsx`. لا تضع رموز تحقق جديدة في سجل عام أو في وثائق خارج المستودع دون الحاجة.
+يُحمّل GTM من `src/components/layout/web-advertising-runtime.tsx` فقط، بعد التحقق من منصة الويب والنطاق الإنتاجي canonical. لا يُحمّل `gtag.js` مباشرة بالتوازي. أضف Google Tag داخل حاوية `GTM-WM4SD7HP` باستخدام Measurement ID الجديد، واضبط حدث Page View مرة واحدة فقط.
 
-## التحقق بعد النشر
-
-بعد اكتمال نشر Vercel، تحقّق من الأصول العامة:
-
-```bash
-curl -i https://zikrmediaofficial.vercel.app/google3526c15e10fa1913.html
-curl -i https://zikrmediaofficial.vercel.app/google6f7827292f8e19bc.html
-curl -s https://zikrmediaofficial.vercel.app/ | grep -o 'google-site-verification[^>]*' | head
-```
-
-النتيجة المتوقعة هي `200` لكل ملف، وظهور وسمَي `google-site-verification` في HTML الصفحة الرئيسية. إذا أعاد أحد الملفين `404`، افحص أولًا أن الملف موجود تحت `public/` وأن النشر خرج من commit الصحيح، ثم أعد محاولة النشر قبل الضغط على **Verify** في Search Console.
-
-## معالجة شاشة “Ownership verification”
-
-من Search Console افتح الخاصية الصحيحة، ثم راجع **Settings → Ownership verification**. استخدم طريقة HTML file أو HTML tag المطابقة لما هو منشور. إذا كان التحقق مرتبطًا بنطاق DNS بدل خاصية URL-prefix، أضف سجل TXT الذي تعرضه Google إلى مزود DNS، ثم انتظر انتشار DNS وأعد التحقق.
-
-لا تغيّر رموز التحقق يدويًا في الإنتاج. عند استبدال خاصية Search Console أو إنشاء رمز جديد، حدّث `src/app/layout.tsx` وملف HTML المقابل، ثم شغّل الفحص المحلي واختبار HTTP بعد النشر.
-
-## سبب المشكلة التي عولجت
-
-كان من السهل أن يظهر التحقق ناجحًا في commit محلي أو في خاصية مختلفة بينما لا يكون ملف HTML متاحًا على النطاق الفعلي. توحيد الأصول، وإضافة الفحص الآلي، وتوثيق اختبار HTTP يمنع هذا الالتباس ويجعل فشل النشر ظاهرًا قبل طلب التحقق مرة أخرى.
-
-## GA4 وGoogle Tag Manager
-
-كان سبب فشل اكتشاف GA4 أن المكوّن كان يُحمّل متأخرًا من المتصفح فقط بعد اكتمال الصفحة. أصبحت تهيئة GA4 الآن في `src/app/layout.tsx` داخل `head` باستخدام `next/script` مع `lazyOnload` حتى يبقى الكود ظاهرًا في المصدر الأولي من دون تعطيل أول رسم. المعرّف الإنتاجي المعتمد هو `G-W30Z9JW0VF`، ولا توجد تهيئة ثانية لـ `gtag`؛ أما مكوّن التحليلات المتأخر فأصبح خاصًا بـ Vercel Speed Insights.
-
-أضيف دعم GTM إلى الطبقة نفسها باستخدام `NEXT_PUBLIC_GTM_ID`. المعرّف الإنتاجي المعتمد هو `GTM-PVQCFKCB`. يظهر كود GTM و`noscript` في المصدر الأولي، ولا توجد تهيئة ثانية للحاوية. استخدم التطبيق قيمًا احتياطية عامة معتمدة، حتى لا يؤدي غياب متغير build-time في Vercel إلى تعطيل التتبع بصمت.
-
-لإكمال التفعيل في Vercel، أضف القيم العامة الحقيقية في **Production**:
+### متغيرات Vercel Production
 
 ```text
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-W30Z9JW0VF
-NEXT_PUBLIC_GTM_ID=GTM-PVQCFKCB
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-EMG4X46V0S
+NEXT_PUBLIC_GTM_ID=GTM-WM4SD7HP
 ```
 
-بعد النشر، افحص المصدر الأولي للصفحة لا DOM بعد التفاعل:
+هذه المعرفات عامة وليست أسرارًا. لا تضع OAuth refresh token أو client secret في متغيرات `NEXT_PUBLIC_*`.
 
-```bash
-curl -s https://zikrmediaofficial.vercel.app/ | grep -Eo 'googletagmanager\.com/(gtag/js|gtm\.js)|G-[A-Z0-9]+|GTM-[A-Z0-9]+' | sort -u
-```
+### فحوصات ما بعد النشر
 
-إذا كانت القيم صحيحة، يجب أن يظهر GA4 في `head`، ويجب أن يظهر GTM في `head` و`noscript` مباشرة بعد فتح `body`. نجاح تحقق Google Analytics وGTM يعتمد أيضًا على أن تكون الخاصية والحاوية والحساب المستخدم في Search Console هي الحسابات الصحيحة.
+1. في View Source يجب أن يظهر مصدر GTM واحد فقط، وألا يظهر مصدر `gtag/js` المباشر.
+2. في Tag Assistant يجب أن يظهر `GTM-WM4SD7HP` ويتصل بالموقع.
+3. يجب أن يطلق Google Tag المرتبط بـ `G-EMG4X46V0S` مرة واحدة لكل تحميل صفحة.
+4. في GTM Preview → Hits Sent يجب أن يظهر `page_view` أو GA4 page_view hit.
+5. في GA4 Realtime يجب ظهور الجلسة التجريبية. ظهور Tag Fired وحده لا يثبت وصول Hit.
+6. افحص Console وNetwork عند وجود CSP أو Consent blockers قبل تعديل سياسة CSP.
+
+لا تحذف الحاويات أو الخصائص القديمة من Google قبل نجاح هذه الفحوصات والتأكد من عدم ارتباطها بتطبيق أو موقع آخر.
+
+## تقارير GA4 في لوحة الإدارة
+
+لوحة تقارير GA4 تستخدم Google Analytics Data API ببيانات اعتماد خادمية مستقلة عن Measurement ID. راجع `docs/admin/GA4_REPORTING_SETUP.md` لإعداد `GOOGLE_CLIENT_ID` و`GOOGLE_CLIENT_SECRET` و`GA4_PROPERTY_ID` و`GA4_REFRESH_TOKEN`. يجب أن يبقى Refresh Token خادميًا فقط وبنطاق `analytics.readonly`.
+
+## التحقق من Search Console
+
+شغّل `pnpm search-console:check`، وبعد النشر تحقق من ملفات HTML ورموز meta على النطاق الفعلي قبل إعادة Verify.
