@@ -93,12 +93,11 @@ export function WebAdvertisingRuntime() {
 
     installConsentModeDefaults();
     let started = false;
-    let timeoutId: number | undefined;
     const interactionEvents = ["pointerdown", "keydown", "touchstart", "scroll"] as const;
     const startThirdParties = () => {
       if (started) return;
       started = true;
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      window.clearTimeout(timeoutId);
       interactionEvents.forEach(name => window.removeEventListener(name, startThirdParties));
 
       if (!document.querySelector('meta[name="google-adsense-account"]')) {
@@ -124,12 +123,12 @@ export function WebAdvertisingRuntime() {
       }
     };
 
+    const timeoutId = window.setTimeout(startThirdParties, 4000);
     interactionEvents.forEach(name =>
       window.addEventListener(name, startThirdParties, { once: true, passive: true }),
     );
-    timeoutId = window.setTimeout(startThirdParties, 4000);
     return () => {
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      window.clearTimeout(timeoutId);
       interactionEvents.forEach(name => window.removeEventListener(name, startThirdParties));
     };
   }, []);
