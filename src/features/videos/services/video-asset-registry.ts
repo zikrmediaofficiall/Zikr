@@ -7,7 +7,7 @@ import {
 
 export const VIDEO_ASSET_REGISTRY_VERSION = "zikr-visual-assets-v1";
 export const ZIKR_ORIGINAL_LICENSE_ID = "ZIKR-ORIGINAL";
-export const OWNER_CONFIRMATION_REFERENCE = "owner-confirmation:2026-11-28:all-repository-svg-assets-are-zikr-originals";
+export const OWNER_CONFIRMATION_REFERENCE = "owner-confirmation: telegram 28660253, 2026-11-28 06:39 Cairo, repository SVG assets are ZIKR originals";
 export const OWNER_CONFIRMATION_DATE = "2026-11-28";
 
 export type VideoAssetRightsState = "review_required" | "approved" | "restricted";
