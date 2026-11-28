@@ -239,7 +239,13 @@ export async function PATCH(request: NextRequest) {
       {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({
+          status: nextStatus,
+          ...(action === 'approve' ? {
+            rights_reviewer: (auth.profile.display_name || auth.profile.email || auth.profile.id).trim().slice(0, 120),
+            rights_reviewed_at: new Date().toISOString(),
+          } : {}),
+        }),
         timeoutMs: 10000,
       },
     );
@@ -248,6 +254,10 @@ export async function PATCH(request: NextRequest) {
     const auditRecorded = await recordClipAudit('video.clip.' + action, id, {
       previousStatus: current.status,
       status: nextStatus,
+      ...(action === 'approve' ? {
+        rightsReviewer: (auth.profile.display_name || auth.profile.email || auth.profile.id).trim().slice(0, 120),
+        rightsReviewedAt: new Date().toISOString(),
+      } : {}),
     });
     return NextResponse.json({ clip: changed, auditRecorded }, {
       headers: { 'Cache-Control': 'no-store' },
