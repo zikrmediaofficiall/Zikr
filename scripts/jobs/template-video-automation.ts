@@ -57,6 +57,7 @@ import { getServerEnv } from "../../src/lib/env";
 import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig, videoTemplateAssetPath, videoTemplateScene, type VideoTemplateAudience, type VideoTemplateAsset } from "../../src/features/videos/services/template-config";
 import { CURRENT_VIDEO_RENDERER_VERSION, versionedTemplateLabel } from "../../src/features/videos/services/video-template-version";
 import { applyAutomatedVideoTemplateBinding, selectAutomatedVideoTemplate, type VideoTemplateCandidateInput, type VideoTemplateUsage } from "../../src/features/videos/services/video-template-selection";
+import { buildVideoStoryboard, buildVideoStoryboardFilterGraph, type VideoStoryboard } from "../../src/features/videos/services/video-storyboard";
 import { AI_VISUAL_POLICY_VERSION, aiVisualPolicyPromptLine } from "../../src/features/videos/providers/ai-visual-policy";
 import { createVideoProviderRouter } from "../../src/features/videos/providers/provider-router";
 import { MAX_PROVIDER_VIDEO_BYTES, readBoundedMediaResponse } from "../../src/features/videos/providers/media-response";
@@ -532,6 +533,69 @@ async function renderBackground(temp: string, scene: AiVideoPlan["scene"], width
     return composedOutput;
   }
   return output;
+}
+
+
+async function renderStoryboardBackground(
+  temp: string,
+  storyboard: VideoStoryboard,
+  width: number,
+  height: number,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (storyboard.scenes.length < 2 || storyboard.scenes.length > 6) {
+    throw new Error("Storyboard renderer accepts between two and six visual scenes.");
+  }
+  const scenePaths: string[] = [];
+  for (const scene of storyboard.scenes) {
+    throwIfVideoLeaseAborted(signal);
+    const relativeAssetPath = videoTemplateAssetPath(scene.assetKey, storyboard.audience);
+    if (!relativeAssetPath) {
+      throw new Error("Storyboard scene asset is not approved for the requested audience: " + scene.assetKey);
+    }
+    const source = path.join(process.cwd(), relativeAssetPath);
+    const output = path.join(temp, "storyboard-scene-" + String(scene.index + 1) + ".png");
+    await execFileAsync(
+      "rsvg-convert",
+      ["-w", String(width), "-h", String(height), source, "-o", output],
+      { maxBuffer: 2 * 1024 * 1024, signal },
+    );
+    scenePaths.push(output);
+  }
+
+  const outputPath = path.join(temp, "storyboard-background.mp4");
+  const filterGraph = buildVideoStoryboardFilterGraph(storyboard, width, height);
+  const args = [
+    "-y",
+    ...scenePaths.flatMap((scenePath) => ["-loop", "1", "-framerate", "30", "-i", scenePath]),
+    "-filter_complex", filterGraph,
+    "-map", "[storyboard_v]",
+    "-t", storyboard.totalDurationSeconds.toFixed(3),
+    "-an",
+    "-c:v", "libx264",
+    "-preset", "ultrafast",
+    "-crf", "24",
+    "-pix_fmt", "yuv420p",
+    "-r", "30",
+    "-movflags", "+faststart",
+    outputPath,
+  ];
+  await execFileAsync("ffmpeg", args, { maxBuffer: 8 * 1024 * 1024, signal });
+  throwIfVideoLeaseAborted(signal);
+
+  const probe = await probeMedia(outputPath, signal);
+  const video = probe.streams?.find((stream) => stream.codec_type === "video");
+  const renderedDuration = Number(probe.format?.duration ?? 0);
+  if (
+    !video ||
+    video.width !== width ||
+    video.height !== height ||
+    !Number.isFinite(renderedDuration) ||
+    Math.abs(renderedDuration - storyboard.totalDurationSeconds) > 0.55
+  ) {
+    throw new Error("Storyboard MP4 failed its duration or frame-dimension verification.");
+  }
+  return outputPath;
 }
 
 async function probeMedia(pathname: string, signal?: AbortSignal) {
@@ -2284,8 +2348,6 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         aiFallbackReason: "AI per-run budget exhausted; deterministic template fallback used.",
       };
     }
-    const backgroundPath = aiVideoPath || await renderBackground(temp, scene, width, height, request.content, signal);
-    const animatedBackground = isHadyProgram && !aiVideoPath;
     throwIfVideoLeaseAborted(signal);
     let audioKind = contentAudioKind(request, audioUrl);
     if (audioUrl) {
@@ -2328,6 +2390,27 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     const audioProbe = await probeMedia(audioPath, signal);
     const audioDuration = Number(audioProbe.format?.duration ?? 0);
     const duration = resolveRenderDuration(audioDuration, TARGET_VIDEO_SECONDS, maxDurationSeconds);
+    const storyboard = !isTemplatePreview &&
+      !isLaylProgram &&
+      !isHadyProgram &&
+      !isProphetStoryRequest &&
+      !aiVideoPath
+      ? buildVideoStoryboard({
+          requestId: request.id,
+          category: request.category,
+          audience: request.content?.audience === "kids" ? "kids" : "general",
+          durationSeconds: duration,
+          templateAssetKey: boundTemplate?.config.assetKey ?? null,
+          visualTheme: requestedVisualTheme,
+        })
+      : null;
+    const backgroundPath = aiVideoPath || (
+      storyboard
+        ? await renderStoryboardBackground(temp, storyboard, width, height, signal)
+        : await renderBackground(temp, scene, width, height, request.content, signal)
+    );
+    const animatedBackground = (isHadyProgram && !aiVideoPath) || Boolean(storyboard);
+    throwIfVideoLeaseAborted(signal);
     const composition = resolveVideoComposition({
       category: request.category,
       audience: request.content?.audience,
@@ -2375,9 +2458,11 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       "zoompan=z='min(zoom+" + composition.zoomIncrement + ",1.06)':x='(iw-iw/zoom)*" +
       cameraX + "':y='(ih-ih/zoom)*" + cameraY +
       "':d=1:s=" + width + "x" + height + ":fps=30";
-    const sourceFilter = aiVideoPath || animatedBackground
-      ? `fps=30,scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1,${cameraFilter}`
-      : cameraFilter;
+    const sourceFilter = storyboard
+      ? `fps=30,scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1`
+      : aiVideoPath || animatedBackground
+        ? `fps=30,scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1,${cameraFilter}`
+        : cameraFilter;
     const filter = [
       sourceFilter,
       `drawbox=x=${panelX}:y=${panelY}:w=${panelW}:h=${panelH}:color=0x${composition.panelHex}@${composition.panelOpacity}:t=fill`,
@@ -2458,6 +2543,22 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         composition: composition.key,
         cameraPath: composition.cameraPath,
         captionTiming: "page-weighted-audio-duration",
+        visualEngine: storyboard ? storyboard.version : (aiVideoPath ? "provider-video" : "single-template"),
+        storyboard: storyboard ? {
+          version: storyboard.version,
+          sceneCount: storyboard.scenes.length,
+          totalDurationSeconds: storyboard.totalDurationSeconds,
+          overlapSeconds: storyboard.overlapSeconds,
+          scenes: storyboard.scenes.map((scene) => ({
+            id: scene.id,
+            index: scene.index,
+            assetKey: scene.assetKey,
+            startSeconds: scene.startSeconds,
+            durationSeconds: scene.durationSeconds,
+            transitionIn: scene.transitionIn,
+            cameraPath: scene.cameraPath,
+          })),
+        } : null,
       },
     };
     return {
