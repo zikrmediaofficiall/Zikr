@@ -77,7 +77,7 @@ if (!page.includes("سلاسل قصص الأطفال") || !page.includes("CURATE
 }
 
 const workflow = read(".github/workflows/generate-ai-video.yml");
-for (const token of ['VIDEO_FREE_ONLY: "true"', 'VIDEO_PROVIDER_ORDER: "hf_ltx_fast,hf_wan,template"', 'FREE_VIDEO_PROVIDER_ENABLED: "false"', "pnpm kids:video:check"]) {
+for (const token of ['VIDEO_FREE_ONLY: "true"', 'VIDEO_PROVIDER_ORDER: "hf_wan,hf_ltx_fast,template"', 'FREE_VIDEO_PROVIDER_ENABLED: "false"', "pnpm kids:video:check"]) {
   if (!workflow.includes(token)) failures.push("production workflow missing free/QC setting: " + token);
 }
 if (workflow.includes("GEMINI_API_KEY:")) failures.push("free-only workflow must not inject a Gemini credential");
