@@ -1,3 +1,5 @@
+import { ClipLibraryVideoProvider } from "./clip-library-provider";
+import type { ClipLibraryStore } from "./clip-library";
 import { ComfyUIVideoProvider } from "./comfyui-provider";
 import { FreeApiVideoProvider } from "./free-api-provider";
 import { HuggingFaceSpaceVideoProvider } from "./hf-space-provider";
@@ -14,12 +16,14 @@ export function createVideoProviderRouter(
     input: VideoGenerationInput,
   ) => Promise<VideoGenerationResult>,
   env = process.env,
+  options: { clipStore?: ClipLibraryStore | null } = {},
 ) {
   const config = getVideoEngineConfig(env);
   const providers: Partial<Record<string, VideoProvider>> = {
     template: new TemplateVideoProvider(templateRenderer),
     comfyui: new ComfyUIVideoProvider(env.COMFYUI_BASE_URL),
     free_api: new FreeApiVideoProvider(),
+    clip_library: new ClipLibraryVideoProvider(options.clipStore ?? null, config.clipLibraryEnabled),
     hf_wan: new HuggingFaceSpaceVideoProvider("wan2_2_fast"),
     hf_ltx_fast: new HuggingFaceSpaceVideoProvider("ltx_fast"),
     ...Object.fromEntries(config.customSpaces.map((entry) => [
@@ -31,7 +35,9 @@ export function createVideoProviderRouter(
   return {
     config,
     async generate(input: VideoGenerationInput): Promise<VideoGenerationResult> {
-      const fallbackCandidates = config.order;
+      const fallbackCandidates = config.clipLibraryEnabled && !config.order.includes("clip_library")
+        ? ["clip_library" as const, ...config.order]
+        : config.order;
       const preferred =
         input.preferredProvider && fallbackCandidates.includes(input.preferredProvider)
           ? [input.preferredProvider]
@@ -46,12 +52,14 @@ export function createVideoProviderRouter(
         // Free-only mode permits public Hugging Face Spaces and the local FFmpeg renderer only.
         // Unknown/custom endpoints may have separate billing, so they require explicit opt-in.
         const isCustomFreeSpace = config.customSpaces.some((entry) => entry.name === name);
-        if (config.freeOnly && !["hf_ltx_fast", "hf_wan", "template"].includes(name) && !isCustomFreeSpace) continue;
+        if (config.freeOnly && !["hf_ltx_fast", "hf_wan", "template", "clip_library"].includes(name) && !isCustomFreeSpace) continue;
         if (name === "comfyui" && !config.comfyUiEnabled) continue;
         if (name === "free_api" && !config.freeApiEnabled) continue;
         if (name === "hf_wan" && !config.hfWanEnabled) continue;
         if (name === "hf_ltx_fast" && !config.hfLtxFastEnabled) continue;
-        if (!config.aiEnabled && name !== "template") continue;
+        if (name === "clip_library" && !config.clipLibraryEnabled) continue;
+        // The clip library serves finished manual clips and calls no AI service, so the AI switch does not gate it.
+        if (!config.aiEnabled && name !== "template" && name !== "clip_library") continue;
 
         const provider = providers[name];
         if (!provider) continue;
