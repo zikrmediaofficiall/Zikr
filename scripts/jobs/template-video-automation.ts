@@ -66,7 +66,7 @@ import { selectVideoVoiceProfile, resolveVideoAudioRenderPolicy, buildVerifiedVi
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
 import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
 import { GENERAL_VIDEO_SCENES, KIDS_VIDEO_SCENES, isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene, resolveDeterministicVideoVisualTheme, type VideoScene, type VideoHookStyle } from "../../src/features/videos/services/video-creative-variation";
-import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
+import { paginateCaptionText, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
@@ -191,13 +191,11 @@ function narrationProfileForRequest(request: GeneratedRequest) {
   return selectVideoVoiceProfile({
     category: isLaylRequest || isHadyRequest ? "story" : request.category,
     audience: isLaylRequest || isHadyRequest ? "general" : request.content?.audience,
-    requestedProfileId: configured ?? (
-      isLaylRequest
-        ? LAYL_VOICE_PROFILE
-        : isHadyRequest
-          ? "documentary_male_msa"
-          : undefined
-    ),
+    requestedProfileId: isLaylRequest
+      ? LAYL_VOICE_PROFILE
+      : isHadyRequest
+        ? configured ?? "documentary_male_msa"
+        : configured,
   });
 }
 
