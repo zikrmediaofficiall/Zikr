@@ -8,8 +8,8 @@ create table if not exists public.video_clip_library (
   audience text not null default 'general' check (audience in ('general', 'kids')),
   video_url text not null check (video_url like 'https://res.cloudinary.com/%/video/upload/%'),
   cloudinary_public_id text not null check (char_length(cloudinary_public_id) between 1 and 255),
-  width integer not null check (width between 320 and 3840),
-  height integer not null check (height between 320 and 3840),
+  width integer not null check (width between 720 and 3840),
+  height integer not null check (height between 720 and 3840),
   duration_seconds numeric(6, 2) not null check (duration_seconds between 2 and 60),
   audio_muted boolean not null default true check (audio_muted is true),
   source_kind text not null check (source_kind in ('flow_manual', 'owned_original', 'stock_licensed', 'other_documented')),
@@ -30,7 +30,7 @@ alter table public.video_clip_library enable row level security;
 
 -- The service-role worker is the only reader/writer; client roles cannot enumerate or claim clips.
 revoke all on table public.video_clip_library from public, anon, authenticated;
-grant select on table public.video_clip_library to service_role;
+grant select, insert, update on table public.video_clip_library to service_role;
 
 -- Atomic use counter update. Never expose this mutation to browser/client roles.
 create or replace function public.mark_video_clip_library_used(p_clip_id uuid)
