@@ -1,0 +1,82 @@
+name: ZIKR Upload Library Clip
+
+# Manual only. Takes one clip from a GitHub release asset, strips audio, uploads it to Cloudinary
+# and registers it as PENDING in video_clip_library. The owner approves it in /admin/video/clips.
+# It never approves, publishes, or changes any flag.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag that holds the clip"
+        required: true
+        type: string
+      asset_name:
+        description: "Clip file name in that release"
+        required: true
+        type: string
+      slug:
+        description: "Cloudinary public id, lowercase letters, digits, dashes"
+        required: true
+        type: string
+      title:
+        required: true
+        type: string
+      category:
+        description: "quran, hadith, dua, adhkar, story, kids or general"
+        required: true
+        type: string
+      audience:
+        description: "general or kids"
+        required: true
+        default: "general"
+        type: string
+      source_kind:
+        required: true
+        default: "flow_manual"
+        type: string
+      rights_license:
+        required: true
+        type: string
+      rights_evidence:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upload-library-clip
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download clip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+        run: gh release download "$RELEASE_TAG" --pattern "$ASSET_NAME" --dir /tmp/clip --repo "$GITHUB_REPOSITORY"
+      - name: Upload and register as pending
+        env:
+          CLIP_TITLE: ${{ inputs.title }}
+          CLIP_CATEGORY: ${{ inputs.category }}
+          CLIP_AUDIENCE: ${{ inputs.audience }}
+          CLIP_SOURCE_KIND: ${{ inputs.source_kind }}
+          CLIP_RIGHTS_LICENSE: ${{ inputs.rights_license }}
+          CLIP_RIGHTS_EVIDENCE: ${{ inputs.rights_evidence }}
+          CLIP_SLUG: ${{ inputs.slug }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          export CLIP_FILE="/tmp/clip/$(basename "$ASSET_NAME")"
+          node scripts/jobs/upload-library-clip.mjs
