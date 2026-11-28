@@ -1,4 +1,5 @@
 "use client";
+import { LetterFlasks, getLetterTheme, letterColors } from "./letter-scene";
 import { useEffect, useMemo, useState } from "react";
 import { useManagedTimeouts } from "@/features/kids/components/games/use-managed-timeouts";
 import { useLanguage } from "@/components/layout/language-provider";
@@ -117,7 +118,7 @@ export function KidsLetterLabGame({
       level: round + 1,
       completed,
       mistakes,
-      accuracy: round ? Math.round(((round - mistakes) / round) * 100) : 100,
+      accuracy: round + mistakes ? Math.round((round / (round + mistakes)) * 100) : 100,
     });
   }, [completed, mistakes, onHud, round, score]);
 
@@ -149,7 +150,7 @@ export function KidsLetterLabGame({
         level: nextRound,
         completed: true,
         mistakes,
-        accuracy: Math.round(((nextRound - mistakes) / nextRound) * 100),
+        accuracy: Math.round((nextRound / (nextRound + mistakes)) * 100),
       });
       onResult({
         score: nextScore,
@@ -159,7 +160,7 @@ export function KidsLetterLabGame({
         level: nextRound,
         completed: true,
         mistakes,
-        accuracy: Math.round(((nextRound - mistakes) / nextRound) * 100),
+        accuracy: Math.round((nextRound / (nextRound + mistakes)) * 100),
       });
       setFeedback(
         isEnglish ? "You completed the letter lab!" : "أكملت مختبر الحروف!"
@@ -223,7 +224,7 @@ export function KidsLetterLabGame({
             },
             {
               label: isEnglish ? "Accuracy" : "الدقة",
-              value: `${round ? Math.round(((round - mistakes) / round) * 100) : 100}%`,
+              value: `${round + mistakes ? Math.round((round / (round + mistakes)) * 100) : 100}%`,
               tone: "text-sky-200",
             },
             {
@@ -239,13 +240,14 @@ export function KidsLetterLabGame({
           {isEnglish ? "Find this letter" : "اعثر على هذا الحرف"}
         </p>
         <div
-          className="mx-auto mt-4 grid h-32 w-32 place-items-center rounded-[2rem] border-2 border-brand-gold/50 bg-brand-gold/10 text-7xl font-black text-brand-gold shadow-[0_0_45px_rgba(243,201,105,.15)]"
+          className="mx-auto mt-4 grid h-32 w-32 place-items-center rounded-[2rem] border-4 text-7xl font-black text-white shadow-lg" style={{ background: letterColors(getLetterTheme(round)).tile, borderColor: letterColors(getLetterTheme(round)).ring }}
           aria-label={
             (isEnglish ? "Target letter " : "الحرف المطلوب ") + target
           }
         >
           {target}
         </div>
+        <LetterFlasks theme={getLetterTheme(round)} total={ROUND_COUNT} round={round} />
         <p className="mt-4 text-sm leading-7 text-brand-cream/65">
           {isEnglish
             ? "Look at the target letter, then choose the matching card."

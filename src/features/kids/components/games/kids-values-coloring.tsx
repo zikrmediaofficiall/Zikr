@@ -1,5 +1,8 @@
 "use client";
 
+import { DeedTree, getTreeTheme } from "./deed-tree-scene";
+import { renderExtraSheet } from "./coloring-extra-sheets";
+import { RoomScene, getRoomTheme } from "./room-scene";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/layout/language-provider";
 import { useManagedTimeouts } from "@/features/kids/components/games/use-managed-timeouts";
@@ -121,7 +124,7 @@ export function GoodDeedsGame({ difficulty, restartToken, paused, onHud, onResul
         { label: isEnglish ? "Difficulty" : "الصعوبة", value: difficultyLabel(difficulty, isEnglish), tone: "text-sky-200" },
       ]} /></div>
       <div className="relative mx-4 mt-4 min-h-[500px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#09272b] sm:mx-6">
-        <GardenBackdrop /><MosqueBackdrop compact />
+        <GardenBackdrop /><MosqueBackdrop compact /><DeedTree theme={getTreeTheme(levelIndex)} done={done.length} total={deeds.length} complete={complete} />
         <div className="relative z-20 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
           {deeds.map((deed, index) => {
             const doneAlready = done.includes(deed.id), isActive = active === deed.id;
@@ -240,8 +243,8 @@ export function MosqueCleanupGame({ difficulty, restartToken, paused, onHud, onR
         { label: isEnglish ? "Level" : "المستوى", value: levelIndex + 1, tone: "text-sky-200" },
       ]} /></div>
       <div className="mx-4 mt-4 grid gap-4 sm:mx-6 lg:grid-cols-[1fr_.9fr]">
-        <div className="relative min-h-[420px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#092027] p-4 sm:p-5"><MosqueBackdrop compact /><div className="relative z-10"><div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-black tracking-[0.18em] text-brand-gold">{isEnglish ? "ITEMS" : "العناصر"}</p><p className="mt-1 text-sm text-brand-cream/45">{isEnglish ? "Choose an item, then choose its area." : "اختر عنصرًا ثم اختر ركنه."}</p></div><KidCharacter variant="helper" state="help" size={66} /></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {remaining.map(item => <button key={item.id} type="button" draggable={!paused} onDragStart={() => setSelected(item.id)} onClick={() => setSelected(item.id)} disabled={paused} className={["min-h-28 rounded-2xl border p-3 text-center transition", selected === item.id ? "border-brand-gold/70 bg-brand-gold/10 -translate-y-1" : "border-white/10 bg-black/20 hover:border-brand-gold/30"].join(" ")}><div className="text-3xl">{item.icon}</div><p className="mt-2 text-xs text-brand-cream/70">{isEnglish ? item.nameEn : item.name}</p></button>)}
+        <div className="relative min-h-[420px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#092027] p-4 sm:p-5"><RoomScene theme={getRoomTheme(levelIndex)} total={items.length} placed={Object.keys(placed).length} /><div className="relative z-10"><div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-black tracking-[0.18em] text-[#6a4a12]">{isEnglish ? "ITEMS" : "العناصر"}</p><p className="mt-1 text-sm font-bold text-[#3a2a12]">{isEnglish ? "Choose an item, then choose its area." : "اختر عنصرًا ثم اختر ركنه."}</p></div><KidCharacter variant="helper" state="help" size={66} /></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {remaining.map(item => <button key={item.id} type="button" draggable={!paused} onDragStart={() => setSelected(item.id)} onClick={() => setSelected(item.id)} disabled={paused} className={["min-h-28 rounded-2xl border p-3 text-center transition", selected === item.id ? "border-brand-gold bg-[#fff3c4]/95 -translate-y-1 text-[#3a2a12]" : "border-black/20 bg-[#fffaf0]/90 text-[#3a2a12] shadow-[0_4px_0_rgba(0,0,0,.2)] hover:border-brand-gold"].join(" ")}><div className="text-3xl">{item.icon}</div><p className="mt-2 text-xs font-bold text-[#3a2a12]">{isEnglish ? item.nameEn : item.name}</p></button>)}
         </div></div></div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
           {CLEANUP_ZONES.map(zone => <button key={zone.id} type="button" onDrop={(event) => { event.preventDefault(); place(zone); }} onDragOver={(event) => event.preventDefault()} onClick={() => place(zone)} disabled={paused || !selected} className={"group min-h-28 rounded-[1.7rem] border border-white/10 bg-black/20 p-4 " + (isEnglish ? "text-left" : "text-right") + " transition hover:border-brand-gold/40 disabled:opacity-50"}><div className="flex items-center justify-between"><div className="grid h-12 w-12 place-items-center rounded-2xl border border-brand-gold/15 bg-brand-gold/5 text-2xl">{zone.icon}</div><span className="text-xs text-brand-cream/40">{items.filter(item => placed[item.id] === zone.id).length} {isEnglish ? "items" : "عناصر"}</span></div><h4 className="mt-3 font-black text-brand-cream">{isEnglish ? zone.titleEn : zone.title}</h4><p className="mt-1 text-xs text-brand-cream/45">{isEnglish ? "Tap or drag an item to this area." : "اضغط أو اسحب العنصر إلى هذا الركن"}</p></button>)}
@@ -260,6 +263,10 @@ const COLORING_SHEETS: ColoringSheet[] = [
   { id: "lantern-street", title: "شارع الفوانيس", titleEn: "Lantern Street", subtitle: "بوابة وفوانيس تضيء طريقًا هادئًا", subtitleEn: "A gateway and lanterns along a quiet path." },
   { id: "kite-meadow", title: "مرج الطائرات الورقية", titleEn: "Kite Meadow", subtitle: "سماء واسعة وطائرات ملونة وزهور", subtitleEn: "An open sky with kites and flowers." },
   { id: "starry-village", title: "قرية النجوم", titleEn: "Starry Village", subtitle: "بيوت صغيرة ونجوم وهلال لطيف", subtitleEn: "Little houses, stars, and a friendly crescent." },
+  { id: "clay-fish", title: "السمكة", titleEn: "The Fish", subtitle: "سمكة طينية في بحر هادئ", subtitleEn: "A clay fish in a calm sea." },
+  { id: "clay-cat", title: "القطة", titleEn: "The Cat", subtitle: "قطة لطيفة جالسة", subtitleEn: "A friendly sitting cat." },
+  { id: "clay-camp", title: "الخيمة", titleEn: "The Camp", subtitle: "خيمة تحت النجوم", subtitleEn: "A tent under the stars." },
+  { id: "clay-owl", title: "البومة", titleEn: "The Owl", subtitle: "بومة حكيمة في الليل", subtitleEn: "A wise owl at night." },
 ];
 const COLOR_PALETTE = ["#f3c969","#5fd1a6","#8ab6e2","#d7a7e8","#e28a5a","#f7f1df","#7ed6c1","#9c86e8","#ffb4a2","#c6e377"];
 
@@ -277,6 +284,8 @@ function coloringSvg(sheetId: string, fill: (index: number) => string, paint: (i
     "aria-label": (isEnglish ? "Color region " : "تلوين المنطقة ") + (index + 1),
     className: "cursor-pointer focus-visible:stroke-white focus-visible:stroke-2",
   });
+  const extra = renderExtraSheet(sheetId, { fill, paintable, isEnglish });
+  if (extra) return extra;
   if (sheetId === "geometry") return <svg viewBox="0 0 360 260" className="w-full" role="group" aria-label={isEnglish ? "Geometric coloring board" : "لوحة هندسية"}><rect x="25" y="25" width="310" height="210" rx="28" fill="#0a202a" stroke="#f3c969" strokeWidth="4" />{Array.from({ length: 8 }, (_, i) => <path key={i} d={"M180 44 L" + (205 + Math.cos(i * Math.PI / 4) * 85) + " " + (130 + Math.sin(i * Math.PI / 4) * 85) + " L180 216 L" + (155 - Math.cos(i * Math.PI / 4) * 85) + " " + (130 - Math.sin(i * Math.PI / 4) * 85) + " Z"} fill={fill(i)} stroke="#f3c969" strokeWidth="2" {...paintable(i)} />)}<circle cx="180" cy="130" r="30" fill={fill(8)} stroke="#5fd1a6" strokeWidth="3" {...paintable(8)} /><circle cx="180" cy="130" r="14" fill={fill(9)} stroke="#8ab6e2" strokeWidth="2" {...paintable(9)} /></svg>;
   if (sheetId === "crescent-night") return <svg viewBox="0 0 360 260" className="w-full" role="group" aria-label={isEnglish ? "Crescent night coloring board" : "لوحة الهلال"}><rect x="25" y="25" width="310" height="210" rx="28" fill="#0b1b33" stroke="#f3c969" strokeWidth="4" /><path d="M215 53c-38 8-62 39-62 71 0 35 24 61 57 61 27 0 49-17 59-41-10 8-21 11-32 11-29 0-49-18-49-45 0-21 12-42 27-57z" fill={fill(0)} stroke="#f3c969" strokeWidth="3" {...paintable(0)} />{Array.from({ length: 7 }, (_, i) => <circle key={i} cx={72 + (i * 39) % 220} cy={60 + ((i * 31) % 120)} r={7 + (i % 2) * 3} fill={fill(i + 1)} stroke="#f7f1df" strokeWidth="1.5" {...paintable(i + 1)} />)}<path d="M75 188c22-34 45-34 67 0M82 188c12-18 28-18 40 0" fill={fill(8)} stroke="#5fd1a6" strokeWidth="4" {...paintable(8)} /><circle cx="305" cy="55" r="8" fill={fill(9)} {...paintable(9)} /></svg>;
   if (sheetId === "lantern-street") return (

@@ -1,5 +1,7 @@
 "use client";
 
+import { RunnerHazard, RunnerScene } from "./runner-scene";
+import { RoadHazard, RoadScene, getRoadTheme, roadLaneLeft, roadScale } from "./road-scene";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useLanguage } from "@/components/layout/language-provider";
 import { useManagedTimeouts } from "@/features/kids/components/games/use-managed-timeouts";
@@ -9,13 +11,11 @@ import type { WorldHud } from "@/features/kids/components/games/world-game-stage
 import { KidsGameWorld } from "@/features/kids/components/games/kids-game-visuals";
 import {
   GameToast,
-  GardenBackdrop,
   KidsGameHeader,
   KidsGameHud,
   KidsGameStage,
   KidsProgress,
   KidCharacter,
-  MosqueBackdrop,
   StarToken,
   TouchArrows,
 } from "@/features/kids/components/games/kids-game-kit";
@@ -585,8 +585,7 @@ export function ZikrRunnerGame({
         onPointerLeave={() => setSwipeStart(null)}
       >
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#07131b] to-transparent" />
-        <GardenBackdrop />
-        {theme === "mosque" && <MosqueBackdrop compact />}
+        <RunnerScene theme={theme} distance={model.distance} />
 
         <div className="absolute left-7 top-6 rounded-full border border-brand-gold/15 bg-black/20 px-4 py-2 text-xs text-brand-cream/60">
           {Math.min(100, Math.round(progress))}% —{" "}
@@ -612,13 +611,7 @@ export function ZikrRunnerGame({
                 transform: "translate(-50%,-50%)",
               }}
             >
-              <div className="grid h-12 w-12 place-items-center rounded-2xl border-2 border-rose-200/40 bg-rose-200/10 text-xl text-rose-100 shadow-lg">
-                {item.variant === "box"
-                  ? "▣"
-                  : item.variant === "cone"
-                    ? "▲"
-                    : "●"}
-              </div>
+              <RunnerHazard variant={item.variant} theme={theme} />
             </div>
           )
         )}
@@ -632,6 +625,11 @@ export function ZikrRunnerGame({
           }}
         >
           <KidCharacter state={characterState} size={72} />
+          <div
+            aria-hidden="true"
+            className="absolute -top-5 -right-6 h-5 w-5 rounded-full"
+            style={{ background: "radial-gradient(circle,#fffbe0 0,#ffe28a 45%,rgba(255,226,138,0) 72%)", boxShadow: "0 0 18px 6px rgba(255,226,138,.7)", animation: "pulse 1.6s ease-in-out infinite" }}
+          />
         </div>
 
         <div className="absolute bottom-0 inset-x-0 z-30 border-t border-white/10 bg-black/25 px-4 py-4 backdrop-blur-md">
@@ -1141,13 +1139,8 @@ export function ZikrRoadGame({
         />
       </div>
 
-      <div className="relative mx-4 mt-4 h-[500px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b2a34] sm:mx-6">
-        <MosqueBackdrop compact />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,#5fd1a622,transparent_32%),linear-gradient(180deg,#17454a,#0a2730_68%,#07151d)]" />
-        <div className="absolute inset-x-[20%] bottom-0 top-0 rounded-t-[44%] border-x border-white/5 bg-[#0c222a]/90" />
-        <div className="absolute inset-y-0 left-1/2 w-px bg-brand-gold/10" />
-        <div className="absolute inset-y-0 left-[33.333%] w-px bg-white/5" />
-        <div className="absolute inset-y-0 left-[66.666%] w-px bg-white/5" />
+      <div className="relative mx-4 mt-4 h-[580px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b2a34] sm:mx-6">
+        <RoadScene theme={getRoadTheme(state.levelIndex)} distance={state.distance} />
 
         <div className="absolute left-5 top-5 rounded-full border border-brand-emerald/20 bg-brand-emerald/10 px-4 py-2 text-xs text-brand-emerald">
           {isEnglish ? "Lane " : "المسار "}
@@ -1157,22 +1150,18 @@ export function ZikrRoadGame({
         {state.objects.map(item => (
           <div
             key={item.id}
-            className="absolute z-20 -translate-x-1/2"
+            className="absolute z-20"
             style={{
-              left: 16.5 + item.lane * 33.5 + "%",
+              left: roadLaneLeft(item.lane, item.position) + "%",
               top: item.position + "%",
+              transform: "translate(-50%,-100%) scale(" + Math.max(0.35, roadScale(item.position)) + ")",
+              transformOrigin: "bottom center",
             }}
           >
             {item.kind === "star" ? (
               <StarToken size={40} pulse />
             ) : (
-              <div className="grid h-12 w-12 place-items-center rounded-[1rem] border-2 border-brand-gold/25 bg-[#4a2b27] text-lg text-brand-gold shadow-lg">
-                {item.variant === "lantern"
-                  ? "✧"
-                  : item.variant === "stone"
-                    ? "◆"
-                    : "▲"}
-              </div>
+              <RoadHazard variant={item.variant} />
             )}
           </div>
         ))}

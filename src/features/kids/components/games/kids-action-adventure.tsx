@@ -1,5 +1,8 @@
 "use client";
 
+import { LightGuide, MapScene, StationArt, getMapTheme } from "./map-scene";
+import { JumpHazardArt, JumpPlatformArt, JumpScene, getJumpBiome } from "./jump-scene";
+import { CloudPillar, Crescent, FlyScene, getFlySky } from "./fly-scene";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/layout/language-provider";
 import { useManagedTimeouts } from "@/features/kids/components/games/use-managed-timeouts";
@@ -9,15 +12,12 @@ import type { GameSoundEvent } from "@/lib/games/tone-feedback";
 import type { WorldHud } from "@/features/kids/components/games/world-game-stage";
 import { KidsGameWorld } from "@/features/kids/components/games/kids-game-visuals";
 import {
-  Cloud,
   GameToast,
   KidsGameHeader,
   KidsGameHud,
   KidsGameStage,
   KidsProgress,
   KidCharacter,
-  Moon,
-  MosqueBackdrop,
   StarToken,
 } from "@/features/kids/components/games/kids-game-kit";
 import {
@@ -381,6 +381,7 @@ export function ZikrJumpGame({
   }, [difficulty, levels, onHud, onResult, onSound, paused, rules]);
 
   const level = levels[snapshot.levelIndex];
+  const biome = getJumpBiome(snapshot.levelIndex);
   const levelMeta = getKidsLevelMeta("zikr-jump", difficulty, snapshot.levelIndex);
   const percent = level ? Math.min(100, Math.round((1 - (snapshot.player.y - (level.platforms[level.goalPlatformIndex]?.y ?? 0)) / 1700) * 100)) : 0;
 
@@ -405,10 +406,7 @@ export function ZikrJumpGame({
       </div>
 
       <div className="relative mx-4 mt-4 h-[500px] touch-none overflow-hidden rounded-[2rem] border border-white/10 sm:mx-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,#f3c96920,transparent_25%),linear-gradient(180deg,#0e2a3a,#07151e)]" />
-        <Cloud left={8} top={19} scale={0.9} />
-        <Cloud left={57} top={12} scale={1.15} />
-        <Cloud left={77} top={38} scale={0.7} />
+        <JumpScene biome={biome} cameraY={snapshot.cameraY} />
 
         {level.platforms.map((platform, index) => {
           const y = platform.y - snapshot.cameraY;
@@ -417,12 +415,7 @@ export function ZikrJumpGame({
           return (
             <div
               key={index}
-              className={
-                "absolute -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 " +
-                (goal
-                  ? "border-brand-gold bg-brand-gold/30 shadow-[0_0_28px_rgba(243,201,105,.2)]"
-                  : "border-brand-emerald/50 bg-brand-emerald/20")
-              }
+              className="absolute -translate-x-1/2 -translate-y-1/2"
               style={{
                 left: (platform.x / JUMP_WORLD_WIDTH) * 100 + "%",
                 top: y,
@@ -430,6 +423,7 @@ export function ZikrJumpGame({
                 height: 20,
               }}
             >
+              <JumpPlatformArt biome={biome} goal={goal} widthPct={(platform.width / JUMP_WORLD_WIDTH) * 100} />
               {goal && <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-brand-gold">✦</span>}
             </div>
           );
@@ -456,14 +450,14 @@ export function ZikrJumpGame({
             return (
               <div
                 key={"hazard-" + index}
-                className="absolute grid h-9 w-14 place-items-center rounded-xl border-2 border-rose-200/40 bg-rose-200/10 text-rose-100"
+                className="absolute"
                 style={{
                   left: ((platform.x + hazard.offset) / JUMP_WORLD_WIDTH) * 100 + "%",
                   top: y,
                   transform: "translate(-50%,-50%)",
                 }}
               >
-                !
+                <JumpHazardArt />
               </div>
             );
           })}
@@ -512,6 +506,7 @@ type FlyState = {
   seed: number;
 };
 
+const FLY_PILLAR_TONE: Record<string, string> = { cloud: "#cfe0ff", gate: "#b9d4f0", lantern: "#f4d7a0", arch: "#e6c9d8", crystal: "#b8e4ee", gold: "#f2dc9a" };
 const FLY_WIDTH = 760;
 const FLY_HEIGHT = 500;
 const FLY_X = 150;
@@ -817,10 +812,7 @@ export function HilalFlyGame({
           }, 150);
         }}
       >
-        <Moon />
-        <Cloud left={3} top={34} scale={0.9} tone="light" />
-        <Cloud left={60} top={48} scale={1.15} tone="light" />
-        <Cloud left={77} top={19} scale={0.7} tone="dark" />
+        <FlyScene sky={getFlySky(state.levelIndex)} distance={state.distance} />
 
         {state.objects.map(object => {
           if (object.kind === "star") {
@@ -832,19 +824,15 @@ export function HilalFlyGame({
           }
           const topHeight = object.gapY - object.gap / 2;
           const bottomTop = object.gapY + object.gap / 2;
-          const icon = object.style === "lantern" ? "✧" : object.style === "crystal" ? "◆" : object.style === "arch" ? "⌂" : object.style === "gate" ? "⌁" : "☁";
+          const tone = FLY_PILLAR_TONE[object.style] ?? "#cfe0ff";
           return (
             <div
               key={object.id}
               className="absolute inset-y-0 z-10 w-[82px] -translate-x-1/2"
               style={{ left: (object.x / FLY_WIDTH) * 100 + "%" }}
             >
-              <div className="absolute inset-x-0 top-0 rounded-b-[2rem] border-2 border-brand-gold/20 bg-brand-gold/10" style={{ height: Math.max(0, topHeight) }}>
-                <div className="grid h-full place-items-center text-2xl text-white/35">{icon}</div>
-              </div>
-              <div className="absolute inset-x-0 bottom-0 rounded-t-[2rem] border-2 border-brand-emerald/20 bg-brand-emerald/10" style={{ height: Math.max(0, FLY_HEIGHT - bottomTop) }}>
-                <div className="grid h-full place-items-center text-2xl text-white/35">{icon}</div>
-              </div>
+              <CloudPillar height={topHeight} fromTop tone={tone} />
+              <CloudPillar height={FLY_HEIGHT - bottomTop} fromTop={false} tone={tone} />
             </div>
           );
         })}
@@ -858,8 +846,7 @@ export function HilalFlyGame({
             opacity: state.invulnerableUntil > performance.now() ? 0.45 : 1,
           }}
         >
-          <KidCharacter variant="explorer" state={state.completed ? "celebrate" : state.gameOver ? "hit" : state.vy < -20 ? "jump" : "idle"} size={78} />
-          <div className="absolute inset-0 grid place-items-center text-3xl text-brand-gold" aria-hidden="true">☾</div>
+          <Crescent tilt={state.vy / 14} hit={state.gameOver} celebrate={state.completed} />
         </div>
 
         <div className="absolute bottom-0 inset-x-0 z-40 grid grid-cols-2 gap-2 border-t border-white/10 bg-black/25 p-3 backdrop-blur-md sm:gap-3 sm:p-4">
@@ -1067,32 +1054,24 @@ export function MosqueAdventureGame({
       </div>
 
       <div className="relative mx-4 mt-4 h-[500px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#09232f] sm:mx-6">
-        <MosqueBackdrop />
-        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full opacity-50" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M10 72 C25 55 34 62 44 46 S64 48 74 38 S84 31 90 24" fill="none" stroke="#f3c969" strokeOpacity=".35" strokeWidth="1.2" strokeDasharray="3 2" />
-          <path d="M10 72 C25 55 34 62 44 46 S64 48 74 38 S84 31 90 24" fill="none" stroke="#5fd1a6" strokeOpacity=".18" strokeWidth="4" />
-        </svg>
+        <MapScene theme={getMapTheme(levelIndex)} nodes={nodes} position={position} />
 
         {nodes.map((node, index) => {
           const unlocked = index <= position;
           const next = index === position + 1;
           return (
             <button key={node.id} type="button" onClick={() => visit(index)} disabled={!next || paused || Boolean(question) || completed}
-              className={[
-                "absolute grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[1.6rem] border-2 transition",
-                unlocked ? "border-brand-gold/50 bg-brand-gold/10 text-brand-gold shadow-[0_0_34px_rgba(243,201,105,.12)]"
-                  : next ? "border-brand-emerald/60 bg-brand-emerald/10 text-brand-emerald animate-pulse"
-                  : "border-white/10 bg-black/20 text-brand-cream/35",
-              ].join(" ")}
+              className="absolute z-10 -translate-x-1/2 -translate-y-1/2 transition disabled:opacity-100"
               style={{ left: node.x + "%", top: node.y + "%" }}>
-              <span className="text-2xl">{unlocked ? node.icon : "•"}</span>
-              <span className="absolute -bottom-8 whitespace-nowrap text-xs text-brand-cream/65">{node.title}</span>
+              <StationArt state={unlocked ? "done" : next ? "next" : "locked"} icon={node.icon} />
+              <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/35 px-2 py-0.5 text-xs text-white">{node.title}</span>
             </button>
           );
         })}
 
         <div className="absolute z-20 transition-all duration-500" style={{ left: nodes[position]?.x + "%", top: (nodes[position]?.y - 10) + "%", transform: "translate(-50%,-50%)" }}>
           <KidCharacter variant="explorer" state={completed ? "celebrate" : "run"} size={68} />
+          <div className="absolute -right-4 -top-3"><LightGuide /></div>
         </div>
 
         <div className="absolute bottom-0 inset-x-0 z-30 border-t border-white/10 bg-black/25 p-4 text-center backdrop-blur-md">

@@ -86,6 +86,11 @@ const MEMORY_SCENE_ART: Record<string, MemorySceneArt> = {
   "rain-falls": { icon: "🌧️", tone: "border-blue-200/30 bg-blue-200/10 text-blue-100" },
 };
 
+import { WaterVessel, getWuduTheme } from "./wudu-scene";
+import { VerseLightString, getVerseTheme } from "./verse-scene";
+import { QuizPath, getQuizTheme } from "./quiz-scene";
+import { getMemoryTheme, memoryCardBack, memoryColumns } from "./memory-scene";
+
 export function ZikrMemoryGame({ difficulty, restartToken, paused, onHud, onResult, onSound }: LearningGameProps) {
   const { isEnglish } = useLanguage();
   const isEnglishRef = useRef(isEnglish);
@@ -242,7 +247,7 @@ export function ZikrMemoryGame({ difficulty, restartToken, paused, onHud, onResu
           <button type="button" onClick={useHint} disabled={paused || locked || complete || Boolean(hintId)} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">💡 {isEnglish ? "Hint" : "تلميح"}</button>
         </div>
       </div>
-      <div className="relative mx-4 mt-4 grid grid-cols-2 gap-3 p-1 sm:mx-6 sm:grid-cols-3 sm:gap-4">
+      <div className={"relative mx-4 mt-4 grid gap-3 p-1 sm:mx-6 sm:gap-4 " + (memoryColumns(levelIndex, cards.length) === 4 ? "grid-cols-2 sm:grid-cols-4" : memoryColumns(levelIndex, cards.length) === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3")}>
         {cards.map((card, index) => {
           const visible = flipped.includes(card.id) || matched.includes(card.id);
           const cardText = isEnglish && card.side === "situation"
@@ -274,7 +279,7 @@ export function ZikrMemoryGame({ difficulty, restartToken, paused, onHud, onResu
                   </div>
                 </div>
                 <p className="mt-3 text-sm leading-7 text-brand-cream">{cardText}</p>
-              </> : <div className="grid h-full min-h-28 place-items-center text-center"><div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-brand-gold/20 bg-brand-gold/10 text-2xl text-brand-gold">✦</div><p className="mt-3 text-xs text-brand-cream/45">{isEnglish ? "Hidden card" : "بطاقة مخفية"}</p></div></div>}
+              </> : <div className="grid h-full min-h-28 place-items-center text-center"><div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border-2 text-2xl text-white shadow-md" style={{ background: memoryCardBack(getMemoryTheme(levelIndex)).back, borderColor: memoryCardBack(getMemoryTheme(levelIndex)).ring }}>{memoryCardBack(getMemoryTheme(levelIndex)).glyph}</div><p className="mt-3 text-xs text-brand-cream/45">{isEnglish ? "Hidden card" : "بطاقة مخفية"}</p></div></div>}
             </button>
           );
         })}
@@ -385,6 +390,7 @@ export function WuduChallengeGame({ difficulty, restartToken, paused, onHud, onR
         { label: isEnglish ? "Streak" : "السلسلة", value: state.streak, tone: "text-brand-emerald" },
         { label: isEnglish ? "Level" : "المستوى", value: levelIndex + 1, tone: "text-violet-200" },
       ]} /></div>
+      <WaterVessel theme={getWuduTheme(levelIndex)} done={state.stepIndex} total={steps.length} mistakes={state.mistakes} />
       <div className="mx-4 mt-4 rounded-[2rem] border border-white/10 bg-[#072530]/70 p-5 sm:mx-6 sm:p-6">
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={isEnglish ? "Wudu step sequence" : "تسلسل خطوات الوضوء"}>
           {steps.map((step, index) => <div key={step.order} className={"min-h-[4.25rem] min-w-0 break-words rounded-xl border px-2 py-2 text-[11px] leading-5 transition sm:px-3 sm:text-xs " + (index < state.stepIndex ? "border-brand-emerald/30 bg-brand-emerald/10 text-brand-emerald" : index === state.stepIndex ? "border-sky-200/40 bg-sky-200/10 text-sky-100" : "border-white/10 bg-white/[0.02] text-brand-cream/35")}>
@@ -543,6 +549,7 @@ export function VersePuzzleGame({ difficulty, restartToken, paused, onHud, onRes
         <p className="text-xs text-brand-cream/45">{isEnglish ? "The hint adds one mistake but points toward the next word." : "التلميح يضيف خطأً واحدًا لكنه يوضح اتجاه الحل."}</p>
         <button type="button" onClick={useVerseHint} disabled={paused || complete || hintVisible} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">🔎 {isEnglish ? "Hint" : "تلميح"}</button>
       </div></div>
+      <VerseLightString theme={getVerseTheme(levelIndex)} total={tokens.length} placed={answer.length} />
       
       <div className="mx-3 mt-3 min-w-0 rounded-[1.5rem] border border-violet-200/10 bg-black/20 p-3 sm:mx-6 sm:mt-4 sm:rounded-[2rem] sm:p-5">
         <div className="flex min-h-24 min-w-0 items-center justify-center break-words rounded-[1.5rem] border border-violet-200/15 bg-violet-200/[0.04] p-3 text-center text-base leading-8 text-brand-gold [overflow-wrap:anywhere] sm:min-h-28 sm:p-5 sm:text-xl sm:leading-[2.5]">{answer.length ? answer.map(index => tokens.find(token => token.index === index)?.text ?? "").join(" ") : <span className="text-sm text-brand-cream/30">{isEnglish ? "Start with the first word" : "ابدأ من الكلمة الأولى"}</span>}</div>
@@ -697,6 +704,7 @@ export function ZikrQuizGame({ difficulty, restartToken, paused, onHud, onResult
         { label: isEnglish ? "Time" : "الوقت", value: formatSeconds(seconds), tone: "text-sky-200" },
         { label: isEnglish ? "Level" : "المستوى", value: levelIndex + 1, tone: "text-amber-200" },
       ]} />
+      <QuizPath theme={getQuizTheme(levelIndex)} total={questions.length} index={index} streak={streak} />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-brand-cream/45">{isEnglish ? "50/50 is available once per question and narrows the choices to two." : "ميزة 50/50 متاحة مرة واحدة لكل سؤال، وتفتح لك آخر خيارين محتملين."}</p>
         <button type="button" onClick={useFiftyFifty} disabled={paused || selected !== null || hiddenOptions.length > 0} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">✂️ 50/50</button>

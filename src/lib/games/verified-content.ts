@@ -25,14 +25,23 @@ function isQuestion(value: unknown): value is KidsQuizQuestion {
 }
 
 export function getVerifiedKidsQuizQuestions(items: readonly KidsItem[] = kidsContent): VerifiedQuizQuestion[] {
-  return items.filter(isKidsContentPubliclyVisible).flatMap(item => {
+  const all = items.filter(isKidsContentPubliclyVisible).flatMap(item => {
     const questions = item.quiz_data?.questions?.filter(isQuestion) ?? [];
-    if (questions.length === 0) return [];
-    return questions.map(question => ({
-      ...question,
-      category: item.metadata?.category ?? item.title_ar,
-      sourceSlug: item.slug,
-    }));
+    return questions
+      .filter(question => new Set(question.options).size === question.options.length)
+      .map(question => ({
+        ...question,
+        category: item.metadata?.category ?? item.title_ar,
+        sourceSlug: item.slug,
+      }));
+  });
+  // Automated gate: a repeated question is kept once, and a question whose repeats disagree
+  // on the correct answer is dropped entirely rather than published.
+  const byText = new Map<string, VerifiedQuizQuestion[]>();
+  for (const question of all) byText.set(question.text, [...(byText.get(question.text) ?? []), question]);
+  return [...byText.values()].flatMap(group => {
+    const answers = new Set(group.map(question => question.options[question.correctAnswer]));
+    return answers.size === 1 ? [group[0]] : [];
   });
 }
 
