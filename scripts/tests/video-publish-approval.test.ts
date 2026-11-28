@@ -48,6 +48,10 @@ const snapshot = {
 };
 const snapshotHash = buildVideoApprovalSnapshotHash(snapshot);
 assert.equal(typeof snapshotHash, "string");
+const technicalQaSnapshotHash = buildVideoApprovalSnapshotHash({ ...snapshot, technicalQaDigest: "a".repeat(64) });
+const differentTechnicalQaSnapshotHash = buildVideoApprovalSnapshotHash({ ...snapshot, technicalQaDigest: "b".repeat(64) });
+assert.notEqual(technicalQaSnapshotHash, differentTechnicalQaSnapshotHash, "technical QA digest must be part of the approval snapshot hash");
+assert.notEqual(technicalQaSnapshotHash, snapshotHash, "adding a technical QA digest changes the approval snapshot hash");
 const content = {
   approvalStatus: "approved",
   approvalReviewerId: "admin-user-1",
