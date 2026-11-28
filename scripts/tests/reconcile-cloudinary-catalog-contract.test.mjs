@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
+const wf = read("../../.github/workflows/reconcile-cloudinary-catalog.yml");
+const js = read("../jobs/reconcile-cloudinary-catalog.mjs");
+assert.ok(/^on:\n  workflow_dispatch:\n\npermissions:\n  contents: read/m.test(wf), "manual trigger and read-only token");
+assert.ok(!/pull_request|schedule:|push:/.test(wf), "no automatic or fork triggers");
+assert.ok(wf.includes("if: github.ref == 'refs/heads/main'") && wf.includes("environment: production"), "main only, production environment");
+assert.ok(!/method:\s*["'](POST|PUT|PATCH|DELETE)/i.test(js), "script must not issue write requests");
+assert.ok(!/destroy|\/delete|resources\/video\/upload\?.*public_ids/i.test(js), "script must not call any Cloudinary delete route");
+assert.ok(js.includes("/resources/video"), "lists video resources");
+console.log("Cloudinary reconciliation contract passed: manual, main-only, read-only.");
