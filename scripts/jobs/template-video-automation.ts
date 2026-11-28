@@ -1,3 +1,4 @@
+import { createStageTimer } from "../../src/features/videos/services/stage-timings";
 import { effectiveVideoDailyTarget } from "../../src/features/videos/config/daily-target";
 import { createHash } from "node:crypto";
 import { HOOK_FRAME_POSTER_SECONDS, isHookFramePosterEnabled } from "../../src/features/videos/services/video-media-url";
@@ -4058,6 +4059,7 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
     }
     processed += 1;
     const attemptStartedAt = Date.now();
+    const stageTimer = createStageTimer();
     let leaseUpdatedAt = claimUpdatedAt;
     let leaseVideoUrl: string | null = null;
     const patchProcessingRequestWithLease = createSerializedLeaseMutation(async (patch: Record<string, unknown>) => {
@@ -4100,6 +4102,7 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
         );
       await applyHookExperiment(request);
       const rendered = await withLeaseHeartbeat((signal) => renderVideo(request, signal));
+      stageTimer.mark("render");
       const qaChecks = buildAutomatedVideoQaChecklist(request, rendered);
       const qaReviewedAt = new Date().toISOString();
       const isKidsVideo = request.content.audience === "kids";
@@ -4328,6 +4331,7 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
       if (qaApproval) {
         await patchProcessingRequestWithLease({});
         await withLeaseHeartbeat((signal) => registerGeneratedVideoOnSite(request, rendered, {}, signal));
+        stageTimer.mark("register_site");
       } else {
         console.warn(`[template-video] Render retained in the generation audit only; automated QA blocked site and social publication for ${request.id}.`);
       }
@@ -4338,6 +4342,7 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
         ...request.content,
         socialQueueEnqueueStatus: "processing",
         socialQueueEnqueueLastError: null,
+        stageTimingsMs: stageTimer.snapshot(),
       };
       const completedMediaFields = {
         video_url: rendered.videoUrl,
