@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 const qaModule = readFileSync("src/features/videos/services/video-frame-diversity.ts", "utf8");
 const approval = readFileSync("src/features/videos/services/video-publish-approval.ts", "utf8");
+const adminUi = readFileSync("src/features/admin/video-requests/components/admin-video-requests-client.tsx", "utf8");
 
 const qaPosition = worker.indexOf("const videoTechnicalQa = await createVideoTechnicalQaSnapshot(outputPath, request.id, temp, signal);");
 const uploadPosition = worker.indexOf("const uploadedMedia = await uploadGeneratedVideoToCloudinary(bytes, storageKey, signal);", qaPosition);
@@ -18,5 +19,9 @@ assert.ok(qaModule.includes("containerFormat") && qaModule.includes("facts.audio
 assert.ok(worker.includes("measureFrameDiversity(frames)"), "the worker must measure sampled frame diversity");
 assert.ok(approval.includes("snapshot.technicalQaDigest?.trim()"), "the approval hash must cover the P08 digest");
 assert.ok(approval.includes("record(content?.videoTechnicalQa)?.digest"), "the publish queue must recompute its approval hash from the stored P08 digest");
+assert.ok(adminUi.includes("function VideoTechnicalQaPanel"), "the reviewer modal must expose a readable P08 report");
+assert.ok(adminUi.includes("اجتاز الفحص الآلي") && adminUi.includes("أسباب الرفض"), "the reviewer must see pass/fail state and rejection reasons");
+assert.ok(adminUi.includes("إطارات سوداء") && adminUi.includes("تشابه متتالٍ") && adminUi.includes("قمة الصوت"), "the reviewer must see frame and audio metrics");
+assert.ok(adminUi.includes("<VideoTechnicalQaPanel content={details.content} />"), "the report must appear inside each request's detail modal");
 
 console.log("P08 worker integration passed: pre-Cloudinary technical checks, sampled frames, verified report and digest-bound approval.");
