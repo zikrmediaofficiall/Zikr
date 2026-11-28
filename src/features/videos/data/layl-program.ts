@@ -18,7 +18,7 @@ export const LAYL_MAX_DURATION_SECONDS = 120;
 export const LAYL_MAX_NARRATION_WORDS = 165;
 
 export function countLaylNarrationWords(value: string): number {
-  return value.match(/[\\p{L}\\p{N}]+/gu)?.length ?? 0;
+  return value.match(/[\p{L}\p{N}]+/gu)?.length ?? 0;
 }
 
 export const LAYL_EPISODES: readonly LaylEpisode[] = [
