@@ -21,10 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 10
-    env:
-      CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
-      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
     steps:
       - name: Checkout current smoke-test commit
         uses: actions/checkout@v7
@@ -32,6 +28,10 @@ jobs:
           ref: ${{ github.sha }}
 
       - name: Validate ZIKR Cloudinary credentials without printing secrets
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
@@ -67,4 +67,8 @@ jobs:
           echo "Local MP4 fixture is ready."
 
       - name: Upload as authenticated video to the verified ZIKR cloud
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
         run: node scripts/tests/cloudinary-private-video-smoke-upload.mjs smoke-output/cloudinary-private-smoke.mp4 ltx_fast
