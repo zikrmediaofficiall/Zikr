@@ -94,4 +94,17 @@ for (const assetKey of VIDEO_TEMPLATE_ASSETS) {
   }).allowed, true, "All locally registered assets remain available for internal preview: " + assetKey);
 }
 
+
+const adminNavigation = readFileSync("src/features/admin/config/navigation.ts", "utf8");
+const adminRightsPage = readFileSync("src/app/admin/video/assets/page.tsx", "utf8");
+assert.match(
+  adminNavigation,
+  /href: "\/admin\/video\/assets", label: "مراجعة حقوق الأصول", permission: "video\\.manage"/,
+  "the asset-rights route must remain in canonical navigation with video.manage",
+);
+assert.ok(
+  adminRightsPage.includes('requireAdminPermission("video.manage")'),
+  "the asset-rights Admin page must enforce the same server-side permission",
+);
+
 console.log("Video asset registry, 52 local SVG sources, topic/audience controls, and unverified-rights publication blocking passed.");
