@@ -131,6 +131,52 @@ export function pickClip(
   )[0];
 }
 
+export type ClipLibraryRightsSnapshot = {
+  clipId: string;
+  category: ClipCategory;
+  audience: "general" | "kids";
+  sourceKind: ClipSourceKind;
+  cloudinaryPublicId: string;
+  license: string;
+  evidence: string;
+  reviewedBy: string;
+  reviewedAt: string;
+  audioMuted: boolean;
+  width: number;
+  height: number;
+  durationSeconds: number;
+};
+
+/** Validate the immutable evidence copied from a selected clip into the render request. */
+export function isClipLibraryRightsSnapshotValid(
+  value: unknown,
+  expected: { clipId: string; category: string; audience: "general" | "kids" },
+): value is ClipLibraryRightsSnapshot {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  const validCategory = typeof row.category === "string" && CLIP_CATEGORIES.has(row.category as ClipCategory);
+  const validSource = typeof row.sourceKind === "string" && CLIP_SOURCES.has(row.sourceKind as ClipSourceKind);
+  const validPublicId = typeof row.cloudinaryPublicId === "string" &&
+    /^[A-Za-z0-9_-][A-Za-z0-9_/-]{0,254}$/.test(row.cloudinaryPublicId) &&
+    !row.cloudinaryPublicId.includes("..") &&
+    !row.cloudinaryPublicId.endsWith("/");
+  return row.clipId === expected.clipId &&
+    validCategory &&
+    (row.category === expected.category || row.category === "general") &&
+    row.audience === expected.audience &&
+    (row.category !== "kids" || row.audience === "kids") &&
+    validSource &&
+    validPublicId &&
+    typeof row.license === "string" && Boolean(row.license.trim()) &&
+    typeof row.evidence === "string" && Boolean(row.evidence.trim()) &&
+    typeof row.reviewedBy === "string" && Boolean(row.reviewedBy.trim()) &&
+    typeof row.reviewedAt === "string" && Number.isFinite(Date.parse(row.reviewedAt)) &&
+    row.audioMuted === true &&
+    Number.isInteger(row.width) && Number(row.width) >= CLIP_TARGET_HEIGHT &&
+    Number.isInteger(row.height) && Number(row.height) >= CLIP_TARGET_HEIGHT &&
+    Number.isFinite(row.durationSeconds) && Number(row.durationSeconds) >= 2 && Number(row.durationSeconds) <= 60;
+}
+
 export interface ClipLibraryStore {
   listApproved(): Promise<ClipLibraryRow[]>;
   markUsed(id: string): Promise<void>;
