@@ -164,6 +164,16 @@ export function verifyQaSnapshot(snapshot: QaSnapshot): boolean {
   }
 }
 
+export function parseVolumeDetectOutput(output: string): { meanVolumeDb: number; peakVolumeDb: number } | null {
+  const meanMatch = output.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/i);
+  const peakMatch = output.match(/max_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/i);
+  if (!meanMatch || !peakMatch) return null;
+  const meanVolumeDb = Number(meanMatch[1]);
+  const peakVolumeDb = Number(peakMatch[1]);
+  if (!Number.isFinite(meanVolumeDb) || !Number.isFinite(peakVolumeDb)) return null;
+  return { meanVolumeDb, peakVolumeDb };
+}
+
 export function isVideoMediaFactsValid(value: unknown): value is VideoMediaFacts {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const facts = value as Record<string, unknown>;
