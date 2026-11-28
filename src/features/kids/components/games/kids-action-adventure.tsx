@@ -1,5 +1,6 @@
 "use client";
 
+import { LightGuide, MapScene, StationArt, getMapTheme } from "./map-scene";
 import { JumpHazardArt, JumpPlatformArt, JumpScene, getJumpBiome } from "./jump-scene";
 import { CloudPillar, Crescent, FlyScene, getFlySky } from "./fly-scene";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,14 +12,12 @@ import type { GameSoundEvent } from "@/lib/games/tone-feedback";
 import type { WorldHud } from "@/features/kids/components/games/world-game-stage";
 import { KidsGameWorld } from "@/features/kids/components/games/kids-game-visuals";
 import {
-  Cloud,
   GameToast,
   KidsGameHeader,
   KidsGameHud,
   KidsGameStage,
   KidsProgress,
   KidCharacter,
-  MosqueBackdrop,
   StarToken,
 } from "@/features/kids/components/games/kids-game-kit";
 import {
@@ -1055,32 +1054,24 @@ export function MosqueAdventureGame({
       </div>
 
       <div className="relative mx-4 mt-4 h-[500px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#09232f] sm:mx-6">
-        <MosqueBackdrop />
-        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full opacity-50" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M10 72 C25 55 34 62 44 46 S64 48 74 38 S84 31 90 24" fill="none" stroke="#f3c969" strokeOpacity=".35" strokeWidth="1.2" strokeDasharray="3 2" />
-          <path d="M10 72 C25 55 34 62 44 46 S64 48 74 38 S84 31 90 24" fill="none" stroke="#5fd1a6" strokeOpacity=".18" strokeWidth="4" />
-        </svg>
+        <MapScene theme={getMapTheme(levelIndex)} nodes={nodes} position={position} />
 
         {nodes.map((node, index) => {
           const unlocked = index <= position;
           const next = index === position + 1;
           return (
             <button key={node.id} type="button" onClick={() => visit(index)} disabled={!next || paused || Boolean(question) || completed}
-              className={[
-                "absolute grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[1.6rem] border-2 transition",
-                unlocked ? "border-brand-gold/50 bg-brand-gold/10 text-brand-gold shadow-[0_0_34px_rgba(243,201,105,.12)]"
-                  : next ? "border-brand-emerald/60 bg-brand-emerald/10 text-brand-emerald animate-pulse"
-                  : "border-white/10 bg-black/20 text-brand-cream/35",
-              ].join(" ")}
+              className="absolute z-10 -translate-x-1/2 -translate-y-1/2 transition disabled:opacity-100"
               style={{ left: node.x + "%", top: node.y + "%" }}>
-              <span className="text-2xl">{unlocked ? node.icon : "•"}</span>
-              <span className="absolute -bottom-8 whitespace-nowrap text-xs text-brand-cream/65">{node.title}</span>
+              <StationArt state={unlocked ? "done" : next ? "next" : "locked"} icon={node.icon} />
+              <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/35 px-2 py-0.5 text-xs text-white">{node.title}</span>
             </button>
           );
         })}
 
         <div className="absolute z-20 transition-all duration-500" style={{ left: nodes[position]?.x + "%", top: (nodes[position]?.y - 10) + "%", transform: "translate(-50%,-50%)" }}>
           <KidCharacter variant="explorer" state={completed ? "celebrate" : "run"} size={68} />
+          <div className="absolute -right-4 -top-3"><LightGuide /></div>
         </div>
 
         <div className="absolute bottom-0 inset-x-0 z-30 border-t border-white/10 bg-black/25 p-4 text-center backdrop-blur-md">
