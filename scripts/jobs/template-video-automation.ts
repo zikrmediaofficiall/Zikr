@@ -56,6 +56,7 @@ import { isVideoAutomationEnabled, isVideoPurgeInProgress } from "../../src/feat
 import { getServerEnv } from "../../src/lib/env";
 import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig, videoTemplateAssetPath, videoTemplateScene, type VideoTemplateAudience, type VideoTemplateAsset } from "../../src/features/videos/services/template-config";
 import { CURRENT_VIDEO_RENDERER_VERSION, versionedTemplateLabel } from "../../src/features/videos/services/video-template-version";
+import { applyAutomatedVideoTemplateBinding, selectAutomatedVideoTemplate, type VideoTemplateCandidateInput, type VideoTemplateUsage } from "../../src/features/videos/services/video-template-selection";
 import { AI_VISUAL_POLICY_VERSION, aiVisualPolicyPromptLine } from "../../src/features/videos/providers/ai-visual-policy";
 import { createVideoProviderRouter } from "../../src/features/videos/providers/provider-router";
 import { MAX_PROVIDER_VIDEO_BYTES, readBoundedMediaResponse } from "../../src/features/videos/providers/media-response";
@@ -243,6 +244,108 @@ type GeneratedRequest = {
   scene?: string | null;
   render_duration_ms?: number | null;
 };
+
+type TemplateSelectionCatalog = {
+  candidates: VideoTemplateCandidateInput[];
+  usage: VideoTemplateUsage[];
+};
+
+async function loadTemplateSelectionCatalog(now: Date): Promise<TemplateSelectionCatalog> {
+  const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const [templates, versions, recentRequests] = await Promise.all([
+    supabaseServerAdminRequest<Array<{
+      id: string;
+      slug: string;
+      audience: string;
+    }>>(
+      "/rest/v1/video_templates?select=id,slug,audience&order=slug.asc&limit=500",
+    ),
+    supabaseServerAdminRequest<Array<{
+      id: string;
+      template_id: string;
+      version: number;
+      config: unknown;
+    }>>(
+      "/rest/v1/video_template_versions?status=eq.active&select=id,template_id,version,config&order=template_id.asc&limit=1000",
+    ),
+    supabaseServerAdminRequest<Array<{
+      category: string;
+      content: unknown;
+    }>>(
+      "/rest/v1/video_generation_requests?created_at=gte." +
+        encodeURIComponent(cutoff) +
+        "&select=category,content&order=created_at.desc&limit=1000",
+    ),
+  ]);
+
+  if ((templates ?? []).length >= 500 || (versions ?? []).length >= 1000) {
+    throw new Error("Template Studio catalogue exceeded its bounded read limit; refusing to create unpinned automated requests.");
+  }
+  if ((recentRequests ?? []).length >= 1000) {
+    throw new Error("Template usage history exceeded 1,000 rows; refusing to select a template from truncated balancing data.");
+  }
+
+  const templateById = new Map((templates ?? []).map((template) => [template.id, template]));
+  const candidates: VideoTemplateCandidateInput[] = [];
+  for (const version of versions ?? []) {
+    const template = templateById.get(version.template_id);
+    if (!template || (template.audience !== "general" && template.audience !== "kids")) continue;
+    candidates.push({
+      templateId: template.id,
+      slug: template.slug,
+      audience: template.audience,
+      versionId: version.id,
+      version: version.version,
+      config: version.config,
+    });
+  }
+  if (!candidates.length) {
+    throw new Error("No active, audience-valid Template Studio versions are available; refusing to create unpinned automated video requests.");
+  }
+
+  const templateIdBySlug = new Map(candidates.map((candidate) => [candidate.slug, candidate.templateId]));
+  const activeTemplateIds = new Set(candidates.map((candidate) => candidate.templateId));
+  const usage: VideoTemplateUsage[] = [];
+  for (const row of recentRequests ?? []) {
+    const value = row.content;
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const requestContent = value as Record<string, unknown>;
+    if (requestContent.templateBindingMode === "specialized") continue;
+    const explicitId = typeof requestContent.templateId === "string" ? requestContent.templateId : "";
+    const slug = typeof requestContent.templateSlug === "string" ? requestContent.templateSlug : "";
+    const templateId = activeTemplateIds.has(explicitId) ? explicitId : (templateIdBySlug.get(slug) ?? "");
+    if (!templateId) continue;
+    usage.push({
+      templateId,
+      category: typeof row.category === "string" ? row.category : "other",
+    });
+  }
+
+  return { candidates, usage };
+}
+
+function bindAutomatedVideoContent(
+  catalog: TemplateSelectionCatalog,
+  content: Record<string, unknown>,
+  category: string,
+  automationKey: string,
+): Record<string, unknown> {
+  const audience = content.audience === "kids" ? "kids" : "general";
+  const selection = selectAutomatedVideoTemplate({
+    candidates: catalog.candidates,
+    usage: catalog.usage,
+    audience,
+    category,
+    automationKey,
+  });
+  if (!selection) {
+    throw new Error("No active Template Studio version matches category " + category + " and audience " + audience + ".");
+  }
+
+  const boundContent = applyAutomatedVideoTemplateBinding(content, selection);
+  catalog.usage.push({ templateId: selection.templateId, category });
+  return boundContent;
+}
 
 type AiVideoPlan = {
   reflection: string;
@@ -751,6 +854,8 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
     platformAudience: "general",
     approvalStatus: "awaiting_automated_review",
     automationKey,
+    templateBindingMode: "specialized",
+    templateBindingReason: "dedicated-layl-program-renderer",
     aiMode: "layl-scripted",
     contentFormat: "weekly_program_episode",
   };
@@ -899,6 +1004,8 @@ async function seedWeeklyHadyEpisodeRequest(now: Date): Promise<number> {
     publicPath: "/videos",
     language: "ar-EG",
     automationKey,
+    templateBindingMode: "specialized",
+    templateBindingReason: "dedicated-hady-program-renderer",
   };
   const contentHash = videoContentHash({ category: "other", sourceId: source.id, text: script, format: "vertical", templateVersion: VIDEO_TEMPLATE_VERSION, language: "ar-EG", style: "calm" });
   const sourceHashValue = sourceHash({ sourceId: source.id, sourceUrl: source.sourceUrl, text: script });
@@ -934,7 +1041,7 @@ async function seedWeeklyHadyEpisodeRequest(now: Date): Promise<number> {
   }
 }
 
-async function seedWeeklyPromotionalVideoRequests(now: Date, dailyCapacity: number): Promise<number> {
+async function seedWeeklyPromotionalVideoRequests(now: Date, dailyCapacity: number, catalog: TemplateSelectionCatalog): Promise<number> {
   const target = resolveWeeklyPromoVideoTarget(process.env.PROMO_VIDEO_WEEKLY_TARGET);
   if (target === 0 || dailyCapacity <= 0) return 0;
   const timeZone = process.env.PROMO_VIDEO_TIMEZONE?.trim() || DEFAULT_PROMO_VIDEO_TIME_ZONE;
@@ -991,17 +1098,20 @@ async function seedWeeklyPromotionalVideoRequests(now: Date, dailyCapacity: numb
       status: "pending",
       automation_key: automationKey,
     };
+    const boundContent = bindAutomatedVideoContent(catalog, content, "other", automationKey);
+    const format = boundContent.videoFormat === "horizontal" ? "horizontal" : "vertical";
+    const templateVersion = String(boundContent.templateVersion);
     const contentHash = videoContentHash({
       category: "other",
       sourceId: String(content.sourceId),
       text: concept.narration,
-      format: engineConfig().defaultFormat,
-      templateVersion: VIDEO_TEMPLATE_VERSION,
+      format,
+      templateVersion,
       language: "ar",
-      style: concept.visualTheme,
+      style: String(boundContent.templateAssetKey),
     });
     const sourceHashValue = sourceHash({ sourceId: String(content.sourceId), sourceUrl: featureUrl, text: concept.narration });
-    payload.content = { ...content, contentHash, sourceHash: sourceHashValue, templateVersion: VIDEO_TEMPLATE_VERSION };
+    payload.content = { ...boundContent, contentHash, sourceHash: sourceHashValue };
 
     if (engineConfig().dryRun) {
       console.log(`[template-video] dry-run planned ${automationKey} at ${publishSlot.scheduledAt}`);
@@ -1078,7 +1188,12 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   // Enforce a hard three-short-video daily ceiling, including urgent admin dispatches.
   const dailyTarget = Math.max(1, Math.min(2, Number(process.env.DAILY_VIDEO_TARGET ?? 2) || 2));
   const promoDailyCapacity = Math.max(0, Math.min(batchSize, dailyTarget - dailyQuota.reservedCount));
-  const promoCreated = await seedWeeklyPromotionalVideoRequests(now, promoDailyCapacity);
+  const templateCatalog = dailyQuota.reservedCount < dailyTarget && batchSize > 0
+    ? await loadTemplateSelectionCatalog(now)
+    : { candidates: [], usage: [] };
+  const promoCreated = templateCatalog.candidates.length
+    ? await seedWeeklyPromotionalVideoRequests(now, promoDailyCapacity, templateCatalog)
+    : 0;
   created += promoCreated;
   const alreadySeededToday = dailyQuota.reservedCount + promoCreated;
   // The worker runs in four six-hour windows; pace against Cairo local time, including DST.
@@ -1341,10 +1456,23 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
 
     const content = payload.content as Record<string, unknown>;
     const text = typeof content.textAr === "string" ? content.textAr : "";
-    const format = content.videoFormat === "horizontal" ? "horizontal" : engineConfig().defaultFormat;
-    const contentHash = videoContentHash({ category: String(payload.category), sourceId: String(content.sourceId ?? ""), text, format, templateVersion: VIDEO_TEMPLATE_VERSION, language: "ar", style: String(content.style ?? "default") });
+    if (!templateCatalog.candidates.length) {
+      throw new Error("No active Template Studio catalogue was loaded; refusing to seed a daily automated request.");
+    }
+    const boundContent = bindAutomatedVideoContent(templateCatalog, content, String(payload.category), key);
+    const format = boundContent.videoFormat === "horizontal" ? "horizontal" : "vertical";
+    const templateVersion = String(boundContent.templateVersion);
+    const contentHash = videoContentHash({
+      category: String(payload.category),
+      sourceId: String(content.sourceId ?? ""),
+      text,
+      format,
+      templateVersion,
+      language: "ar",
+      style: String(boundContent.templateAssetKey),
+    });
     const sourceHashValue = sourceHash({ sourceId: String(content.sourceId ?? ""), sourceUrl: String(content.sourceUrl ?? ""), text });
-    payload.content = { ...content, videoFormat: format, templateVersion: VIDEO_TEMPLATE_VERSION, contentHash, sourceHash: sourceHashValue };
+    payload.content = { ...boundContent, contentHash, sourceHash: sourceHashValue };
     if (engineConfig().dryRun) {
       console.log(`[template-video] dry-run planned ${key} (${contentHash.slice(0, 12)})`);
       created += 1;
