@@ -284,6 +284,23 @@ export function PrayerTimesPage() {
     };
   }, [loadForCoords]);
 
+  // Never spin forever: if nothing loaded after 12 s, stop the spinner and open the city search.
+  useEffect(() => {
+    if (!loading || prayerData) return;
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setIsFetching(false);
+      setShowCitySearch(true);
+      setError((prev) => prev ?? "تعذر تحميل المواقيت الآن. اكتب اسم مدينتك للبحث عنها.");
+    }, 12000);
+    return () => clearTimeout(timer);
+  }, [loading, prayerData]);
+
+  // When there is an error and no times, the city search must be visible.
+  useEffect(() => {
+    if (error && !prayerData) setShowCitySearch(true);
+  }, [error, prayerData]);
+
   const timings = prayerData?.data?.timings;
   const meta = prayerData?.data?.meta;
   const date = prayerData?.data?.date;
