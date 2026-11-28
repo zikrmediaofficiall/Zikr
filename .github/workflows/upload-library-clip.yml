@@ -60,7 +60,8 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v?[A-Za-z0-9][A-Za-z0-9._-]{0,79}$ ]]
-          [[ "$ASSET_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\\.mp4$ ]]
+          [[ "$ASSET_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$ ]]
+          [[ "$ASSET_NAME" == *.mp4 ]]
           mkdir -p /tmp/clip
           matched="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name == env.ASSET_NAME) | .name')"
           [[ "$matched" == "$ASSET_NAME" ]]
