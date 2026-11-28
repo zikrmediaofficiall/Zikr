@@ -22,7 +22,7 @@ assert.ok(route.includes("audioMuted !== true"), "the source clip must be explic
 assert.ok(!route.includes("formData()") && !route.includes("readBoundedRequestBytes"), "this route must store metadata only, not accept binary uploads");
 assert.ok(page.includes("requireAdminPermission('video.manage')"), "page must enforce video.manage");
 assert.ok(client.includes("/api/admin/video-clips"), "admin UI must use the guarded metadata API");
-assert.ok(client.includes('action: "approve"') && client.includes('action: "retire"'), "admin UI must expose review and retirement actions");
+assert.ok(client.includes("updateClip(clip.id, \"approve\")") && client.includes("updateClip(clip.id, \"retire\")"), "admin UI must expose review and retirement actions");
 assert.ok(navigation.includes('href: "/admin/video/clips"'), "clip library must be registered in admin navigation");
 assert.ok(layout.includes('"/admin/video/clips"'), "clip library must be placed in the video sidebar");
 assert.ok(migration.includes("video_clip_library_cloudinary_public_id_uidx"), "one Cloudinary asset must not be registered more than once");
