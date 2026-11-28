@@ -31,7 +31,7 @@ const probe = JSON.parse(execFileSync("ffprobe", [
   "-of", "json",
   video,
 ], { maxBuffer: 2 * 1024 * 1024 }).toString("utf8")) as {
-  format?: { duration?: string; size?: string };
+  format?: { duration?: string; size?: string; format_name?: string };
   streams?: Array<{ codec_type?: string; codec_name?: string; width?: number; height?: number; avg_frame_rate?: string }>;
 };
 const videoStream = probe.streams?.find((stream) => stream.codec_type === "video");
@@ -51,6 +51,7 @@ const facts: VideoMediaFacts = {
   sizeBytes,
   audioMeanVolumeDb: Number.NaN,
   audioPeakVolumeDb: Number.NaN,
+  containerFormat: String(probe.format?.format_name ?? ""),
 };
 const volumeProbe = spawnSync("ffmpeg", [
   "-hide_banner", "-nostats", "-i", video, "-vn", "-af", "volumedetect", "-f", "null", "-",
@@ -74,6 +75,7 @@ for (let index = 0; index < count; index++) {
     "-i", video,
     "-frames:v", "1",
     "-vf", "scale=16:16:force_original_aspect_ratio=decrease,pad=16:16:(ow-iw)/2:(oh-ih)/2,format=gray",
+    "-pix_fmt", "gray",
     "-f", "rawvideo",
     "-",
   ], { maxBuffer: 1024 * 1024 });

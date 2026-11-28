@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { hasSuspiciousReligiousAttribution } from "../../src/features/videos/services/religious-attribution-guard";
 import { hasExplicitKidsVideoIntentMarker, isGeneralAudienceVideoMetadata, isKidsVideoContentMarker, normalizeVideoAudience } from "../../src/features/videos/services/video-audience-visibility";
 import { isKidsVideoGenerationRequestContent } from "../../src/features/kids/services/kids-video-request-visibility";
+import { createQaSnapshot, measureFrameDiversity, type VideoMediaFacts } from "../../src/features/videos/services/video-frame-diversity";
 import { AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, buildVideoApprovalSnapshotHash, buildVideoApprovalSnapshotHashForRequest, buildVideoCatalogApprovalPatch, createAutomatedVideoQaApproval, hasCompleteKidsVideoSeriesMetadata, hasCompleteVideoApprovalChecklist, inspectVideoQueueItemApproval, inspectVideoQueueItemExternalApproval, isAutomatedKidsVideoApprovalRecorded, isVideoApprovalRecorded, isVideoQueueItemApprovedForPublishing, REQUIRED_VIDEO_APPROVAL_CHECKS, resolveKidsVideoQaStatusForApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
 assert.equal(hasSuspiciousReligiousAttribution("قال رسول الله في الحديث"), true, "Arabic attribution phrases must be detected without ASCII word boundaries");
 assert.equal(hasSuspiciousReligiousAttribution("رسول الله"), true, "an attribution at end-of-string must be detected");
@@ -48,6 +49,78 @@ const snapshot = {
 };
 const snapshotHash = buildVideoApprovalSnapshotHash(snapshot);
 assert.equal(typeof snapshotHash, "string");
+const technicalQaSnapshotHash = buildVideoApprovalSnapshotHash({ ...snapshot, technicalQaDigest: "a".repeat(64) });
+const differentTechnicalQaSnapshotHash = buildVideoApprovalSnapshotHash({ ...snapshot, technicalQaDigest: "b".repeat(64) });
+assert.notEqual(technicalQaSnapshotHash, differentTechnicalQaSnapshotHash, "technical QA digest must be part of the approval snapshot hash");
+assert.notEqual(technicalQaSnapshotHash, snapshotHash, "adding a technical QA digest changes the approval snapshot hash");
+
+const p08Facts: VideoMediaFacts = {
+  videoCodec: "h264",
+  audioCodec: "aac",
+  width: 1080,
+  height: 1920,
+  frameRate: 30,
+  durationSeconds: 12,
+  sizeBytes: 4_000_000,
+  audioMeanVolumeDb: -24,
+  audioPeakVolumeDb: -2,
+  containerFormat: "mov,mp4,m4a,3gp,3g2,mj2",
+};
+const p08Frames = Array.from({ length: 6 }, (_, index) => ({
+  timeSeconds: index,
+  pixels: Array.from({ length: 256 }, (_, pixel) => ((pixel * (index + 3)) + index * 40) % 256),
+}));
+const p08Report = measureFrameDiversity(p08Frames);
+assert.equal(p08Report.passed, true, "the approval fixture must use a passing frame-diversity report");
+const p08Snapshot = createQaSnapshot("request-p08-1", p08Report, now, p08Facts);
+const p08ApprovalHash = buildVideoApprovalSnapshotHash({ ...snapshot, technicalQaDigest: p08Snapshot.digest });
+const p08Approval = createAutomatedVideoQaApproval({
+  snapshot: { ...snapshot, technicalQaDigest: p08Snapshot.digest },
+  checks,
+  reviewedAt: now,
+});
+assert.ok(p08Approval);
+const p08ApprovedContent = {
+  ...p08Approval,
+  videoTechnicalQaStatus: "passed",
+  videoTechnicalQa: p08Snapshot,
+};
+assert.equal(isVideoApprovalRecorded(p08ApprovedContent, p08ApprovalHash), true);
+assert.equal(
+  isVideoApprovalRecorded({
+    ...p08ApprovedContent,
+    videoTechnicalQa: { ...p08Snapshot, report: { ...p08Snapshot.report, passed: false } },
+  }, p08ApprovalHash),
+  false,
+  "changing the saved frame QA report after automated approval must invalidate publication",
+);
+assert.equal(
+  isVideoApprovalRecorded({ ...p08ApprovedContent, videoTechnicalQaStatus: "blocked" }, p08ApprovalHash),
+  false,
+  "blocked P08 QA must never remain publish-approved",
+);
+const requestWithTechnicalQa = {
+  status: "completed",
+  category: snapshot.category,
+  video_url: snapshot.videoUrl,
+  source_hash: snapshot.sourceHash,
+  content_hash: snapshot.contentHash,
+  template_version: snapshot.templateVersion,
+  content: { audience: "general", videoTechnicalQa: { digest: "a".repeat(64) } },
+};
+assert.equal(
+  buildVideoApprovalSnapshotHashForRequest(requestWithTechnicalQa),
+  technicalQaSnapshotHash,
+  "the publishing queue must recompute the approval hash using the stored P08 digest",
+);
+assert.notEqual(
+  buildVideoApprovalSnapshotHashForRequest({
+    ...requestWithTechnicalQa,
+    content: { audience: "general", videoTechnicalQa: { digest: "b".repeat(64) } },
+  }),
+  technicalQaSnapshotHash,
+  "a changed P08 report digest invalidates the publish approval snapshot",
+);
 const content = {
   approvalStatus: "approved",
   approvalReviewerId: "admin-user-1",

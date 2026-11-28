@@ -16,6 +16,113 @@ import { prepareGeneratedVideoContentForDeletion } from "@/features/videos/servi
 type Status = "pending" | "processing" | "retry_wait" | "completed" | "failed" | "cancelled";
 type QueueFilter = "all" | "review" | Status;
 type ApprovalCheckKey = "sourceVerified" | "audioReviewed" | "visualsReviewed" | "captionsReviewed" | "rightsReviewed";
+
+function readVideoTechnicalQa(content: unknown) {
+  if (!content || typeof content !== "object" || Array.isArray(content)) return null;
+  const root = content as Record<string, unknown>;
+  const snapshot = root.videoTechnicalQa;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  const value = snapshot as Record<string, unknown>;
+  const media = value.media && typeof value.media === "object" && !Array.isArray(value.media)
+    ? value.media as Record<string, unknown>
+    : null;
+  const report = value.report && typeof value.report === "object" && !Array.isArray(value.report)
+    ? value.report as Record<string, unknown>
+    : null;
+  if (!media || !report) return null;
+  const finite = (field: unknown) => typeof field === "number" && Number.isFinite(field) ? field : null;
+  const label = (field: unknown) => typeof field === "string" ? field : "—";
+  const reasons = Array.isArray(report.reasons)
+    ? report.reasons.filter((item): item is string => typeof item === "string").slice(0, 8)
+    : [];
+  return {
+    status: root.videoTechnicalQaStatus === "passed" ? "passed" : "unconfirmed",
+    engine: label(value.engine),
+    version: label(value.version),
+    digest: label(value.digest),
+    createdAt: label(value.createdAt),
+    videoCodec: label(media.videoCodec),
+    audioCodec: label(media.audioCodec),
+    container: label(media.containerFormat),
+    width: finite(media.width),
+    height: finite(media.height),
+    frameRate: finite(media.frameRate),
+    duration: finite(media.durationSeconds),
+    sizeBytes: finite(media.sizeBytes),
+    audioMeanDb: finite(media.audioMeanVolumeDb),
+    audioPeakDb: finite(media.audioPeakVolumeDb),
+    frameCount: finite(report.frameCount),
+    meanDifference: finite(report.meanAdjacentDifference),
+    nearDuplicates: finite(report.nearDuplicateFrames),
+    blackFrames: finite(report.blackFrames),
+    blankFrames: finite(report.blankFrames),
+    passed: report.passed === true,
+    reasons,
+  };
+}
+
+function formatBytes(value: number | null): string {
+  if (value === null) return "—";
+  return value >= 1024 * 1024 ? (value / 1024 / 1024).toFixed(1) + " MiB" : Math.round(value / 1024) + " KiB";
+}
+
+function VideoTechnicalQaPanel({ content }: { content: unknown }) {
+  const qa = readVideoTechnicalQa(content);
+  if (!qa) {
+    return (
+      <section className="mt-5 rounded-2xl border border-amber-300/15 bg-amber-300/5 p-4">
+        <h3 className="font-semibold text-amber-100">فحص P08</h3>
+        <p className="mt-2 text-sm leading-6 text-brand-cream/60">لا يوجد تقرير P08 لهذا الطلب؛ قد يكون رندرًا قديمًا سبق دمج بوابة الفحص الفني.</p>
+      </section>
+    );
+  }
+  const approved = qa.status === "passed" && qa.passed;
+  return (
+    <section className="mt-5 space-y-4 rounded-2xl border border-brand-gold/15 bg-black/20 p-4" dir="rtl">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-semibold text-brand-gold">تقرير P08 الفني وتنوّع الإطارات</h3>
+          <p className="mt-1 text-[11px] text-brand-cream/35">{qa.engine} · {qa.version}</p>
+        </div>
+        <span className={approved
+          ? "rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200"
+          : "rounded-full border border-red-400/25 bg-red-400/10 px-3 py-1 text-xs text-red-200"}>
+          {approved ? "اجتاز الفحص الآلي" : "الفحص غير مكتمل أو مرفوض"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+        {[
+          ["الترميز", qa.videoCodec + " / " + qa.audioCodec],
+          ["الحاوية", qa.container],
+          ["الدقة", qa.width !== null && qa.height !== null ? qa.width + "×" + qa.height : "—"],
+          ["الإطارات/ث", qa.frameRate !== null ? qa.frameRate.toFixed(2) : "—"],
+          ["المدة", qa.duration !== null ? qa.duration.toFixed(1) + " ثانية" : "—"],
+          ["الحجم", formatBytes(qa.sizeBytes)],
+          ["متوسط الصوت", qa.audioMeanDb !== null ? qa.audioMeanDb.toFixed(1) + " dB" : "—"],
+          ["قمة الصوت", qa.audioPeakDb !== null ? qa.audioPeakDb.toFixed(1) + " dBFS" : "—"],
+          ["العينات", qa.frameCount ?? "—"],
+          ["تشابه متتالٍ", qa.nearDuplicates ?? "—"],
+          ["إطارات سوداء", qa.blackFrames ?? "—"],
+          ["إطارات فارغة", qa.blankFrames ?? "—"],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-brand-cream/10 bg-black/25 p-3">
+            <p className="text-brand-cream/35">{label}</p>
+            <p className="mt-1 font-semibold text-brand-cream/85" dir="ltr">{value}</p>
+          </div>
+        ))}
+      </div>
+      {qa.reasons.length > 0 && (
+        <div className="rounded-lg border border-red-400/20 bg-red-400/5 p-3">
+          <p className="text-xs font-semibold text-red-200">أسباب الرفض</p>
+          <ul className="mt-2 list-disc space-y-1 pr-5 text-xs leading-5 text-red-100/75">
+            {qa.reasons.map((reason, index) => <li key={index}>{reason}</li>)}
+          </ul>
+        </div>
+      )}
+      <p className="break-all text-[10px] text-brand-cream/25" dir="ltr">SHA-256: {qa.digest}</p>
+    </section>
+  );
+}
 const APPROVAL_CHECKS: ReadonlyArray<{ key: ApprovalCheckKey; label: string }> = [
   { key: "sourceVerified", label: "راجعت المصدر الأصلي وتطابق النص معه." },
   { key: "audioReviewed", label: "استمعت إلى الصوت وتأكدت من وضوحه ومناسبته." },
@@ -822,6 +929,7 @@ export default function AdminVideoRequestsClient({ canManageKids, canDelete = fa
               <div><dt className="text-brand-cream/35">تاريخ الإنشاء</dt><dd className="mt-1 text-brand-cream/75">{new Date(details.created_at).toLocaleString("ar-EG-u-nu-latn")}</dd></div>
               <div><dt className="text-brand-cream/35">آخر تحديث</dt><dd className="mt-1 text-brand-cream/75">{new Date(details.updated_at).toLocaleString("ar-EG-u-nu-latn")}</dd></div>
             </dl>
+            <VideoTechnicalQaPanel content={details.content} />
             {details.video_url && (
               <div className="mt-5 space-y-3">
                 <video controls preload="metadata" src={details.video_url} className="max-h-[55vh] w-full rounded-xl border border-brand-gold/15 bg-black" aria-label="معاينة الفيديو قبل النشر">

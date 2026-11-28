@@ -58,12 +58,17 @@ const facts: VideoMediaFacts = {
   sizeBytes: 4_000_000,
   audioMeanVolumeDb: -24,
   audioPeakVolumeDb: -2,
+  containerFormat: "mov,mp4,m4a,3gp,3g2,mj2",
 };
 assert.equal(isVideoMediaFactsValid(facts), true);
 assert.equal(isVideoMediaFactsValid({ ...facts, audioCodec: "mp3" }), false);
 assert.equal(isVideoMediaFactsValid({ ...facts, width: 320 }), false);
+assert.equal(isVideoMediaFactsValid({ ...facts, width: 4096 }), false, "dimensions above 4K are rejected");
 assert.equal(isVideoMediaFactsValid({ ...facts, frameRate: 120 }), false);
 assert.equal(isVideoMediaFactsValid({ ...facts, sizeBytes: 0 }), false);
+assert.equal(isVideoMediaFactsValid({ ...facts, sizeBytes: 60 * 1024 * 1024 }), false);
+assert.equal(isVideoMediaFactsValid({ ...facts, durationSeconds: 136 }), false);
+assert.equal(isVideoMediaFactsValid({ ...facts, containerFormat: "matroska,webm" }), false, "non-MP4/MOV containers fail closed");
 assert.equal(isVideoMediaFactsValid({ ...facts, audioMeanVolumeDb: -70 }), false);
 assert.equal(isVideoMediaFactsValid({ ...facts, audioPeakVolumeDb: 0 }), false, "clipped peaks fail QA");
 
