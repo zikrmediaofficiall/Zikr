@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { useLanguage } from './language-provider';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -20,6 +21,9 @@ export function InstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const { isEnglish, dir } = useLanguage();
+  const pathname = usePathname() ?? '';
+  // Kids game pages: a fixed banner would cover the controls children are tapping.
+  const onKidsPlayRoute = /^\/kids\/[^/]+/.test(pathname) && !/^\/kids\/(achievements|progress|parent-dashboard|audio|videos)/.test(pathname);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -73,7 +77,7 @@ export function InstallPrompt() {
     try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* storage unavailable */ }
   }, []);
 
-  if (!visible) return null;
+  if (!visible || onKidsPlayRoute) return null;
 
   return (
     <div
