@@ -21,7 +21,7 @@ const pages = existsSync(appRoot)
   : [];
 
 if (!pages.length) failures.push("no admin page files discovered");
-if (pages.length !== 64) failures.push(`expected 64 active admin pages (63 navigation routes + 1 security step-up page), found ${pages.length}`);
+if (pages.length !== 65) failures.push(`expected 65 active admin pages (64 navigation routes + 1 security step-up page), found ${pages.length}`);
 const retiredAdminRoutes = [
   "src/app/admin/videos/page.tsx",
   "src/app/admin/video-factory/page.tsx",
@@ -67,6 +67,8 @@ for (const token of ["requireAdmin()", "ADMIN_NAVIGATION", "hasAdminPermission",
 
 const navigation = readFileSync("src/features/admin/config/navigation.ts", "utf8");
 const hrefs = [...navigation.matchAll(/href:\s*"([^"]+)"/g)].map((match) => match[1]);
+const expectedActivePageCount = hrefs.length + 1;
+if (pages.length !== expectedActivePageCount) failures.push(`expected ${expectedActivePageCount} active admin pages (${hrefs.length} navigation routes + 1 security step-up page), found ${pages.length}`);
 if (new Set(hrefs).size !== hrefs.length) failures.push("admin navigation contains duplicate hrefs");
 
 // Every canonical admin page must be reachable from the role-filtered navigation.

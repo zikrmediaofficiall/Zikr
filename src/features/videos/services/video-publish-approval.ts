@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { isKidsVideoContentMarker, normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
+import { inspectVideoAssetUse } from "./video-asset-registry";
 
 export const REQUIRED_VIDEO_APPROVAL_CHECKS = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"] as const;
 export type VideoApprovalCheck = (typeof REQUIRED_VIDEO_APPROVAL_CHECKS)[number];
@@ -487,7 +488,125 @@ export function inspectVideoQueueItemExternalApproval(input: {
   if (!diagnostics.approved) return diagnostics;
 
   const content = record(input.request?.content);
-  if (normalizeVideoAudience(content?.audience) !== "kids" || !input.request) return diagnostics;
+  if (!input.request || !content) return diagnostics;
+
+  const render = record(content.render);
+  const hasStoryboardField = Boolean(render && Object.prototype.hasOwnProperty.call(render, "storyboard"));
+  const storyboardValue = render?.storyboard;
+  const storyboard = record(storyboardValue);
+  const referencedAssetKeys = new Set<string>();
+  let hasInvalidVisualReference = false;
+  const isStudioBinding = content.templateBindingMode === "studio";
+  const requiresAssetRightsCheck =
+    isStudioBinding ||
+    typeof content.templateAssetKey === "string" ||
+    hasStoryboardField ||
+    Object.prototype.hasOwnProperty.call(content, "visualAssetKeys");
+
+  if (isStudioBinding) {
+    const configSnapshot = record(content.templateConfigSnapshot);
+    if (
+      typeof content.templateId !== "string" || !content.templateId.trim() ||
+      typeof content.templateSlug !== "string" || !content.templateSlug.trim() ||
+      typeof content.templateVersionId !== "string" || !content.templateVersionId.trim() ||
+      !configSnapshot ||
+      typeof configSnapshot.assetKey !== "string" ||
+      configSnapshot.assetKey !== content.templateAssetKey
+    ) {
+      hasInvalidVisualReference = true;
+    }
+  }
+
+  if (requiresAssetRightsCheck && typeof content.audience !== "string") {
+    hasInvalidVisualReference = true;
+  }
+  if (requiresAssetRightsCheck && typeof content.templateAssetKey === "string") {
+    if (content.templateAssetKey.trim()) referencedAssetKeys.add(content.templateAssetKey.trim());
+    else hasInvalidVisualReference = true;
+  } else if (isStudioBinding) {
+    hasInvalidVisualReference = true;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(content, "visualAssetKeys")) {
+    if (!Array.isArray(content.visualAssetKeys) || content.visualAssetKeys.length === 0) {
+      hasInvalidVisualReference = true;
+    } else {
+      for (const value of content.visualAssetKeys) {
+        if (typeof value === "string" && value.trim()) referencedAssetKeys.add(value.trim());
+        else hasInvalidVisualReference = true;
+      }
+    }
+  }
+
+  if (hasStoryboardField) {
+    if (
+      !storyboard ||
+      storyboard.version !== "zikr-storyboard-v1" ||
+      !Array.isArray(storyboard.scenes) ||
+      storyboard.scenes.length < 2 ||
+      storyboard.scenes.length > 6
+    ) {
+      hasInvalidVisualReference = true;
+    } else {
+      for (const value of storyboard.scenes) {
+        const scene = record(value);
+        if (
+          !scene ||
+          typeof scene.assetKey !== "string" ||
+          !scene.assetKey.trim() ||
+          !Number.isInteger(scene.index) ||
+          typeof scene.id !== "string" ||
+          !scene.id.trim() ||
+          typeof scene.startSeconds !== "number" ||
+          !Number.isFinite(scene.startSeconds) ||
+          scene.startSeconds < 0 ||
+          typeof scene.durationSeconds !== "number" ||
+          !Number.isFinite(scene.durationSeconds) ||
+          scene.durationSeconds <= 0
+        ) {
+          hasInvalidVisualReference = true;
+        } else {
+          referencedAssetKeys.add(scene.assetKey.trim());
+        }
+      }
+    }
+  }
+
+  if (requiresAssetRightsCheck) {
+    const audience = normalizeVideoAudience(content.audience);
+    if (!audience || hasInvalidVisualReference || referencedAssetKeys.size === 0) {
+      return {
+        ...diagnostics,
+        approved: false,
+        reason: "بيانات النسخة المثبتة أو قائمة الأصول البصرية غير مكتملة؛ تم إيقاف النشر الخارجي لحين استكمالها وإثبات الحقوق الموثقة.",
+        missingChecks: ["rightsReviewed"],
+      };
+    }
+    for (const assetKey of referencedAssetKeys) {
+      const publicSiteDecision = inspectVideoAssetUse({
+        assetKey,
+        audience,
+        destination: "public_site",
+        topic: input.request.category,
+      });
+      const socialDecision = inspectVideoAssetUse({
+        assetKey,
+        audience,
+        destination: "social",
+        topic: input.request.category,
+      });
+      if (!publicSiteDecision.allowed || !socialDecision.allowed) {
+        return {
+          ...diagnostics,
+          approved: false,
+          reason: "الأصل البصري " + assetKey + " لم يحصل على مراجعة حقوق موثقة؛ المعاينة الداخلية مسموحة لكن النشر العام والاجتماعي متوقف.",
+          missingChecks: ["rightsReviewed"],
+        };
+      }
+    }
+  }
+
+  if (normalizeVideoAudience(content.audience) !== "kids") return diagnostics;
 
   const snapshotHash = buildVideoApprovalSnapshotHashForRequest(input.request);
   if (!snapshotHash) return {

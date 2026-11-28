@@ -196,6 +196,9 @@
       "path": "/admin/video/templates"
     },
     {
+      "path": "/admin/video/assets"
+    },
+    {
       "path": "/admin/video/visuals"
     },
     {

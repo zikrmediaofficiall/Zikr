@@ -86,6 +86,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       { href: "/admin/video/scripts", label: "نصوص السرد", permission: "video.manage", icon: "file-text" },
       { href: "/admin/video/voices", label: "الأصوات", permission: "video.manage", icon: "mic-2" },
       { href: "/admin/video/visuals", label: "العناصر المرئية", permission: "video.manage", icon: "image" },
+      { href: "/admin/video/assets", label: "مراجعة حقوق الأصول", permission: "video.manage", icon: "shield-check" },
       { href: "/admin/video/templates", label: "استوديو القوالب", permission: "video.manage", icon: "layout-template" },
       { href: "/admin/video/qa", label: "ضبط الجودة", permission: "video.manage", icon: "shield-check" },
       { href: "/admin/video/performance", label: "أداء الهوك", permission: "video.manage", icon: "bar-chart-3" },
