@@ -34,6 +34,40 @@ def parse_args():
     return parser.parse_args()
 
 
+def build_wan_predict_arguments(handle_file, image_path, prompt, duration, seed):
+    """Build positional arguments for the current WAN 2.2 Space API."""
+    return (
+        handle_file(image_path),
+        prompt,
+        4,  # steps
+        NEGATIVE_PROMPT,
+        max(2.0, min(5.0, float(duration))),
+        1.0,  # guidance_scale
+        1.0,  # guidance_scale_2
+        min(2_147_483_647, max(0, int(seed))),
+        False,  # keep the deterministic request seed
+    )
+
+
+def build_ltx_predict_arguments(prompt, duration, seed):
+    """Build positional arguments for the current LTX Distilled Space API."""
+    return (
+        prompt,
+        NEGATIVE_PROMPT,
+        None,
+        None,
+        512,
+        704,
+        "text-to-video",
+        max(2, min(6, int(round(duration)))),
+        9,
+        min(4_294_967_295, max(0, int(seed))),
+        True,
+        3.0,
+        False,
+    )
+
+
 def _effective_port(parsed):
     # An explicit port 0 is not the HTTPS default; do not treat falsy ports as absent.
     return parsed.port if parsed.port is not None else (443 if parsed.scheme == "https" else 80)
@@ -249,44 +283,17 @@ def main():
     if args.provider == "wan2_2_fast":
         if not args.image:
             raise RuntimeError("Wan2.2 fast requires an input image.")
-        # Current Wan Space UI input order:
-        # image, prompt, negative_prompt, duration_seconds, guidance_scale,
-        # guidance_scale_2, steps, seed, randomize_seed.
-        # The old adapter passed only three inputs and sent the step count as
-        # negative_prompt, causing every Wan request to fail.
+        # The current Space API expects steps BEFORE negative_prompt.
+        # Keep the Wan positional contract in one unit-tested adapter.
         result = client.predict(
-            handle_file(args.image),
-            prompt,
-            NEGATIVE_PROMPT,
-            max(2.0, min(5.0, float(args.duration))),
-            1.0,
-            3.0,
-            4,
-            min(2_147_483_647, max(0, int(args.seed))),
-            True,
+            *build_wan_predict_arguments(handle_file, args.image, prompt, args.duration, args.seed),
             api_name="/generate_video",
         )
     else:
-        # LTX-Video Distilled current public Space contract:
-        # text_to_video(prompt, negative_prompt, input_image, input_video,
-        #               height, width, mode, duration, frames_to_use,
-        #               seed, randomize_seed, guidance_scale, improve_texture)
-        # Use a six-second single-pass visual layer to stay inside the Space's
-        # 60-second ZeroGPU budget; FFmpeg composes/loops it into the full reel.
+        # LTX has a different 13-input API contract; do not reuse Wan ordering.
+        # Generate a short visual layer; FFmpeg composes it into the final reel.
         result = client.predict(
-            prompt,
-            NEGATIVE_PROMPT,
-            None,
-            None,
-            512,
-            704,
-            "text-to-video",
-            max(2, min(6, int(round(args.duration)))),
-            9,
-            min(4_294_967_295, max(0, int(args.seed))),
-            True,
-            3.0,
-            False,
+            *build_ltx_predict_arguments(prompt, args.duration, args.seed),
             api_name="/text_to_video",
         )
 

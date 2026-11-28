@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import {
   MAX_PROVIDER_VIDEO_BYTES,
@@ -111,5 +112,11 @@ assert.match(comfy, /readBoundedMediaResponse\(history, 2 \* 1024 \* 1024\)/);
 assert.match(comfy, /redirect: "error"/);
 assert.match(freeApi, /FREE_VIDEO_PROVIDER_ALLOWED_HOSTS/);
 assert.match(hfWorker, /MAX_VIDEO_BYTES = 50 \* 1024 \* 1024/);
+assert.match(hfWorker, /def build_wan_predict_arguments/);
+assert.match(hfWorker, /build_wan_predict_arguments\(handle_file, args\.image, prompt, args\.duration, args\.seed\)/);
+assert.match(hfWorker, /def build_ltx_predict_arguments/);
+execFileSync(process.env.HF_VIDEO_PYTHON || "python3", [
+  "scripts/tests/hf-space-video-adapter.test.py",
+], { stdio: "inherit" });
 
-console.log("Video provider download origin and byte-boundary tests passed.");
+console.log("Video provider download origin, byte boundaries and WAN/LTX adapter tests passed.");

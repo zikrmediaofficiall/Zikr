@@ -1,0 +1,74 @@
+name: ZIKR Cloudinary Private Upload Smoke Test
+
+on:
+  push:
+    branches:
+      - fix/video-wan-adapter-20261128
+    paths:
+      - .github/workflows/cloudinary-private-upload-smoke.yml
+      - scripts/tests/cloudinary-private-video-smoke-upload.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zikr-cloudinary-private-upload-smoke
+  cancel-in-progress: false
+
+jobs:
+  cloudinary-private-upload:
+    name: Verify authenticated Cloudinary video upload
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Checkout current smoke-test commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Validate ZIKR Cloudinary credentials without printing secrets
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$CLOUDINARY_CLOUD_NAME" = "dcuveyab9" || {
+            echo "Cloudinary cloud name does not match the verified ZIKR account." >&2
+            exit 1
+          }
+          test -n "$CLOUDINARY_API_KEY" || {
+            echo "Missing production secret: CLOUDINARY_API_KEY" >&2
+            exit 1
+          }
+          test -n "$CLOUDINARY_API_SECRET" || {
+            echo "Missing production secret: CLOUDINARY_API_SECRET" >&2
+            exit 1
+          }
+          echo "ZIKR Cloudinary credential presence check passed."
+
+      - name: Prepare a tiny local MP4 fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          mkdir -p smoke-output
+          ffmpeg -hide_banner -loglevel error -y \
+            -f lavfi -i "color=c=0x14243c:s=320x568:r=24:d=2" \
+            -an -c:v libx264 -preset ultrafast -crf 30 -pix_fmt yuv420p \
+            -movflags +faststart smoke-output/cloudinary-private-smoke.mp4
+          test -s smoke-output/cloudinary-private-smoke.mp4
+          test "$(stat -c '%s' smoke-output/cloudinary-private-smoke.mp4)" -ge 1024
+          echo "Local MP4 fixture is ready."
+
+      - name: Upload as authenticated video to the verified ZIKR cloud
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+        run: node scripts/tests/cloudinary-private-video-smoke-upload.mjs smoke-output/cloudinary-private-smoke.mp4 ltx_fast
