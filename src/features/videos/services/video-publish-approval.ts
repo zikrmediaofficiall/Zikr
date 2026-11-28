@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { isKidsVideoContentMarker, normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
 import { inspectVideoAssetUse } from "./video-asset-registry";
+import { isVideoMediaFactsValid, verifyQaSnapshot, type QaSnapshot } from "./video-frame-diversity";
 
 export const REQUIRED_VIDEO_APPROVAL_CHECKS = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"] as const;
 export type VideoApprovalCheck = (typeof REQUIRED_VIDEO_APPROVAL_CHECKS)[number];
@@ -331,6 +332,15 @@ export function isVideoApprovalRecorded(content: unknown, expectedSnapshotHash: 
   if (!expectedSnapshotHash || data.approvalSnapshotHash !== expectedSnapshotHash) return false;
   const reviewedAt = typeof data.approvalReviewedAt === "string" ? Date.parse(data.approvalReviewedAt) : Number.NaN;
   if (!Number.isFinite(reviewedAt)) return false;
+  if (data.videoTechnicalQaStatus != null) {
+    const technicalQa = record(data.videoTechnicalQa);
+    if (
+      data.videoTechnicalQaStatus !== "passed" ||
+      !technicalQa ||
+      !verifyQaSnapshot(technicalQa as unknown as QaSnapshot) ||
+      !isVideoMediaFactsValid(technicalQa.media)
+    ) return false;
+  }
   const reviewData = record(data.qualityReview);
   if (!hasCompleteVideoApprovalChecklist(reviewData)) return false;
   const review = reviewData as Record<string, unknown>;
