@@ -15,6 +15,8 @@ assert.ok(route.includes("readBoundedJsonBody(request, MAX_BODY_BYTES)"), "JSON 
 assert.ok(route.includes("validateClipRow(candidate)"), "clip metadata must pass shared Cloudinary/rights validation");
 assert.ok(route.includes("status: 'pending'"), "new clips must not be approved on create");
 assert.ok(route.includes("statusFilter = '&status=eq.pending'"), "approval must be a compare-and-set from pending");
+assert.ok(route.includes("rights_reviewer: approvalReviewer") && route.includes("rights_reviewed_at: approvalReviewedAt"), "the actual approving admin and review time must replace the pending uploader placeholder");
+assert.ok(route.includes("rightsReviewer: approvalReviewer") && route.includes("rightsReviewedAt: approvalReviewedAt"), "the admin audit record must carry the same approving identity and timestamp");
 assert.ok(route.includes("statusFilter = '&status=in.(pending,approved)'"), "retirement must be conditional");
 assert.ok(route.includes("recordAdminAuditEvent"), "mutations must be audited");
 assert.ok(route.includes("audioMuted !== true"), "the source clip must be explicitly confirmed muted");
