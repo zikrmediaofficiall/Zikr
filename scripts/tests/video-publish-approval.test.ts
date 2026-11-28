@@ -620,4 +620,110 @@ assert.ok(
   "Kids approval must come only from the automated worker, not a manual API review",
 );
 
+
+const rightsPendingStudioContent = {
+  ...content,
+  templateBindingMode: "studio",
+  templateId: "template-1",
+  templateSlug: "manuscript-library",
+  templateAssetKey: "manuscript-library",
+  templateVersionId: "template-version-1",
+  templateConfigSnapshot: {
+    assetKey: "manuscript-library",
+    defaultFormat: "vertical",
+    motion: "slow",
+    fontPreset: "auto",
+    palette: "template",
+    safeArea: "standard",
+    captionStyle: "classic",
+    sourceCardStyle: "standard",
+    audioPolicy: "allow-tts",
+  },
+};
+const rightsPendingStudioRequest = { ...request, content: rightsPendingStudioContent };
+assert.equal(
+  inspectVideoQueueItemApproval({ ...queueItem, request: rightsPendingStudioRequest }).approved,
+  true,
+  "Pending asset rights may still complete private technical/editorial QA.",
+);
+const rightsBlockedExternal = inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: rightsPendingStudioRequest,
+});
+assert.equal(rightsBlockedExternal.approved, false, "Unverified Template Studio assets must block external publication.");
+assert.deepEqual(rightsBlockedExternal.missingChecks, ["rightsReviewed"]);
+assert.match(rightsBlockedExternal.reason ?? "", /حقوق موثقة/);
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...queueItem,
+  request: rightsPendingStudioRequest,
+}), false, "Public and social publishing must remain blocked until asset rights are verified.");
+
+const storyboardRightsPendingRequest = {
+  ...request,
+  content: {
+    ...content,
+    render: {
+      storyboard: {
+        version: "zikr-storyboard-v1",
+        scenes: [
+          { id: "scene-1", index: 0, assetKey: "manuscript-library", startSeconds: 0, durationSeconds: 5 },
+          { id: "scene-2", index: 1, assetKey: "paper", startSeconds: 4.8, durationSeconds: 5 },
+        ],
+      },
+    },
+  },
+};
+assert.equal(inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: storyboardRightsPendingRequest,
+}).approved, false, "Every storyboard scene must pass rights review before external publishing.");
+
+const malformedStoryboardRequest = {
+  ...request,
+  content: {
+    ...content,
+    templateBindingMode: "studio",
+    render: { storyboard: { version: "zikr-storyboard-v1", scenes: [] } },
+  },
+};
+assert.equal(inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: malformedStoryboardRequest,
+}).approved, false, "A missing storyboard asset manifest must fail closed.");
+
+const mixedValidAndMissingSceneRequest = {
+  ...request,
+  content: {
+    ...content,
+    render: {
+      storyboard: {
+        version: "zikr-storyboard-v1",
+        scenes: [
+          { id: "scene-1", index: 0, assetKey: "manuscript-library", startSeconds: 0, durationSeconds: 5 },
+          { id: "scene-2", index: 1, startSeconds: 4.8, durationSeconds: 5 },
+        ],
+      },
+    },
+  },
+};
+assert.equal(inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: mixedValidAndMissingSceneRequest,
+}).approved, false, "A single scene without an asset key must block publishing even if other scenes are registered.");
+
+const incompleteStudioPinRequest = {
+  ...request,
+  content: {
+    ...rightsPendingStudioContent,
+    templateVersionId: "",
+    templateConfigSnapshot: null,
+  },
+};
+assert.equal(inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: incompleteStudioPinRequest,
+}).approved, false, "An incomplete immutable Template Studio pin must fail closed.");
+
+await import("./video-asset-rights.test");
+
 console.log("Video publishing approval contract passed.");
