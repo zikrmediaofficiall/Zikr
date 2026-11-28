@@ -1,0 +1,47 @@
+name: ZIKR Delete Cloudinary Assets (manual, confirmed ids)
+
+# Manual only. Needs the exact asset ids from an approved dry-run and the typed confirmation.
+# Every id is re-checked against the read-only plan at run time; any ineligible id aborts the whole run.
+on:
+  workflow_dispatch:
+    inputs:
+      asset_ids:
+        description: "Exact Cloudinary public ids, comma or newline separated (max 100)"
+        required: true
+        type: string
+      confirm:
+        description: "Type exactly: DELETE <number of ids> ASSETS"
+        required: true
+        type: string
+      min_age_days:
+        description: "Minimum days since the last publication"
+        required: true
+        default: "14"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: delete-cloudinary-assets
+  cancel-in-progress: false
+
+jobs:
+  delete:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Delete the confirmed assets
+        env:
+          ASSET_IDS: ${{ inputs.asset_ids }}
+          CONFIRM: ${{ inputs.confirm }}
+          MIN_AGE_DAYS: ${{ inputs.min_age_days }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/jobs/delete-cloudinary-assets.mjs

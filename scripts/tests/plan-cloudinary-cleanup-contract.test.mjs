@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { evaluateVideo, confirmedRemoteIds } from "../lib/cloudinary-cleanup-rules.mjs";
 const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
 const wf = read("../../.github/workflows/plan-cloudinary-cleanup.yml");
-const js = read("../jobs/plan-cloudinary-cleanup.mjs") + read("../lib/cloudinary-cleanup-rules.mjs");
+const js = read("../jobs/plan-cloudinary-cleanup.mjs") + read("../lib/cloudinary-cleanup-plan.mjs") + read("../lib/cloudinary-cleanup-rules.mjs");
 assert.ok(/^on:\n  workflow_dispatch:/m.test(wf) && /permissions:\n  contents: read/.test(wf), "manual and read-only token");
 assert.ok(!/pull_request|schedule:|push:/.test(wf), "no automatic triggers");
 assert.ok(wf.includes("if: github.ref == 'refs/heads/main'") && wf.includes("environment: production"));
