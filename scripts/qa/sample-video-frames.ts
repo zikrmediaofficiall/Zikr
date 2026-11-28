@@ -75,6 +75,7 @@ for (let index = 0; index < count; index++) {
     "-i", video,
     "-frames:v", "1",
     "-vf", "scale=16:16:force_original_aspect_ratio=decrease,pad=16:16:(ow-iw)/2:(oh-ih)/2,format=gray",
+    "-pix_fmt", "gray",
     "-f", "rawvideo",
     "-",
   ], { maxBuffer: 1024 * 1024 });
