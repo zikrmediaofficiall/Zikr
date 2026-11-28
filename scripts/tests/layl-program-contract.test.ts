@@ -95,8 +95,16 @@ const generationWorkflow = readFileSync(".github/workflows/generate-ai-video.yml
 assert.ok(generationWorkflow.includes('--voice "ar-EG-ShakirNeural"'), "the production worker must smoke-test the exact Egyptian male Layl voice before queue work");
 assert.ok(generationWorkflow.includes('--rate="-7%"'), "the Egyptian voice smoke test must use Layl's pinned narration rate");
 assert.ok(generationWorkflow.includes('--pitch="0Hz"'), "the Egyptian voice smoke test must use Layl's pinned pitch");
-assert.ok(worker.includes("const ttsVoice = (isLaylProgram || isHadyProgram ? narrationProfile.voice"), "Layl and Hady must ignore global non-Egyptian voice overrides");
-assert.ok(worker.includes("const ttsRate = isLaylProgram || isHadyProgram ? narrationProfile.rate"), "Layl and Hady must use their pinned narration rate instead of a global override");
+assert.ok(worker.includes("function narrationProfileForRequest(request: GeneratedRequest)"));
+assert.ok(worker.includes("return selectVideoVoiceProfile({"), "Layl and Hady must resolve through the approved voice-profile policy.");
+assert.ok(worker.includes("requestedProfileId: isLaylRequest"), "Layl must always pin its dedicated Egyptian voice profile.");
+assert.ok(worker.includes("isHadyRequest"), "Hady must use a dedicated documentary voice profile.");
+assert.ok(worker.includes("const ttsVoice = audioPolicy.ttsVoice"), "TTS must use the policy-approved voice ID.");
+assert.ok(worker.includes("const ttsRate = audioPolicy.ttsRate"), "TTS must use the policy-approved narration rate.");
+assert.ok(worker.includes("const ttsPitch = audioPolicy.ttsPitch"), "TTS must use the policy-approved narration pitch.");
+assert.ok(!worker.includes("process.env.ARABIC_TTS_VOICE"), "Global environment settings must never override the Layl/Hady voice.");
+assert.ok(!worker.includes("process.env.ARABIC_TTS_RATE"), "Global environment settings must never override the Layl/Hady rate.");
+assert.ok(!worker.includes("process.env.ARABIC_TTS_PITCH"), "Global environment settings must never override the Layl/Hady pitch.");
 assert.ok(worker.includes('"--voice", ttsVoice'), "the generated narration must use the pinned Egyptian voice ID");
 assert.ok(worker.includes("async function seedWeeklyLaylEpisodeRequest(now: Date)"), "the existing production worker must own weekly Layl scheduling");
 assert.ok(worker.includes('const automationKey = "layl-weekly:season-1:" + week'), "weekly generation must use one canonical ISO-week idempotency key");
