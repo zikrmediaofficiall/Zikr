@@ -16,12 +16,12 @@ export type AudioChoice = {
 };
 
 const BUNDLED_AUDIO_CHOICES: readonly AudioChoice[] = [
-  { key: "adhan-01", label: "الأذان المحلي — احتياط", webUrl: "/audio/adhan-01-charon.wav", nativeFile: "adhan_01_charon.wav", slot: "prayer" },
-  { key: "adhan-02", label: "الأذان المحلي 2 — احتياط", webUrl: "/audio/adhan-02-algieba.wav", nativeFile: "adhan_02_algieba.wav", slot: "prayer" },
-  { key: "adhan-03", label: "الأذان المحلي 3 — احتياط", webUrl: "/audio/adhan-03-enceladus.wav", nativeFile: "adhan_03_enceladus.wav", slot: "prayer" },
-  { key: "adhan-04", label: "الأذان المحلي 4 — احتياط", webUrl: "/audio/adhan-04-iapetus.wav", nativeFile: "adhan_04_iapetus.wav", slot: "prayer" },
-  { key: "adhan-05", label: "الأذان المحلي 5 — احتياط", webUrl: "/audio/adhan-05-alnilam.wav", nativeFile: "adhan_05_alnilam.wav", slot: "prayer" },
-  { key: "salawat-wav", label: "الصلاة على النبي — احتياط محلي", webUrl: "/audio/salawat.wav", nativeFile: "salawat.wav", slot: "salawat" },
+  { key: "adhan-01", label: "الأذان المحلي — احتياط", webUrl: "/audio/adhan-01-charon.m4a", nativeFile: "adhan_01_charon.wav", slot: "prayer" },
+  { key: "adhan-02", label: "الأذان المحلي 2 — احتياط", webUrl: "/audio/adhan-02-algieba.m4a", nativeFile: "adhan_02_algieba.wav", slot: "prayer" },
+  { key: "adhan-03", label: "الأذان المحلي 3 — احتياط", webUrl: "/audio/adhan-03-enceladus.m4a", nativeFile: "adhan_03_enceladus.wav", slot: "prayer" },
+  { key: "adhan-04", label: "الأذان المحلي 4 — احتياط", webUrl: "/audio/adhan-04-iapetus.m4a", nativeFile: "adhan_04_iapetus.wav", slot: "prayer" },
+  { key: "adhan-05", label: "الأذان المحلي 5 — احتياط", webUrl: "/audio/adhan-05-alnilam.m4a", nativeFile: "adhan_05_alnilam.wav", slot: "prayer" },
+  { key: "salawat-wav", label: "الصلاة على النبي — احتياط محلي", webUrl: "/audio/salawat.m4a", nativeFile: "salawat.wav", slot: "salawat" },
   { key: "adhan-mp3", label: "الأذان البديل — MP3 احتياط", webUrl: "/audio/adhan.mp3", nativeFile: "adhan_alt.mp3", slot: "prayer" },
 ] as const;
 

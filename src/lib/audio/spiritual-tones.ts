@@ -42,8 +42,8 @@ export function getToneVolume(): number {
   return masterVolume;
 }
 
-export const AZAN_CLIP_URL = "/audio/adhan.wav";
-export const SALAWAT_CLIP_URL = "/audio/salawat.wav";
+export const AZAN_CLIP_URL = "/audio/adhan.m4a";
+export const SALAWAT_CLIP_URL = "/audio/salawat.m4a";
 
 let azanEl: HTMLAudioElement | null = null;
 let dhikrEl: HTMLAudioElement | null = null;

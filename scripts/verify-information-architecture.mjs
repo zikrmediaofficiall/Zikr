@@ -148,7 +148,7 @@ for (const kind of ['adhan','salawat','dhikr']) {
   if (!migration.includes(`'${kind}'`)) failures.push(`نوع الصوت ${kind} غير موجود في migration.`);
 }
 
-const audioAssets = ['public/audio/adhan.wav','public/audio/salawat.wav'];
+const audioAssets = ['public/audio/adhan.m4a','public/audio/salawat.m4a'];
 for (const asset of audioAssets) if (!(await exists(asset))) failures.push(`ملف صوت محلي ناقص: ${asset}`);
 
 for (const navFile of ['src/components/layout/navbar.tsx','src/components/layout/mobile-nav.tsx','src/components/layout/footer.tsx']) {

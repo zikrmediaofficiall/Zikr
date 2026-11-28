@@ -26,7 +26,7 @@ const requiredFiles = [
   "src/components/layout/native-google-oauth-handler.tsx",
   "public/sw.js",
   "public/audio/adhan.mp3",
-  "public/audio/salawat.wav",
+  "public/audio/salawat.m4a",
   "android/app/src/main/res/raw/adhan.wav",
   "android/app/src/main/res/raw/salawat.wav",
   "ios/App/App/Resources/adhan.wav",
