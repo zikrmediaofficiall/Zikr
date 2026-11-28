@@ -1,5 +1,6 @@
 "use client";
 
+import { CloudPillar, Crescent, FlyScene, getFlySky } from "./fly-scene";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/layout/language-provider";
 import { useManagedTimeouts } from "@/features/kids/components/games/use-managed-timeouts";
@@ -16,7 +17,6 @@ import {
   KidsGameStage,
   KidsProgress,
   KidCharacter,
-  Moon,
   MosqueBackdrop,
   StarToken,
 } from "@/features/kids/components/games/kids-game-kit";
@@ -512,6 +512,7 @@ type FlyState = {
   seed: number;
 };
 
+const FLY_PILLAR_TONE: Record<string, string> = { cloud: "#cfe0ff", gate: "#b9d4f0", lantern: "#f4d7a0", arch: "#e6c9d8", crystal: "#b8e4ee", gold: "#f2dc9a" };
 const FLY_WIDTH = 760;
 const FLY_HEIGHT = 500;
 const FLY_X = 150;
@@ -817,10 +818,7 @@ export function HilalFlyGame({
           }, 150);
         }}
       >
-        <Moon />
-        <Cloud left={3} top={34} scale={0.9} tone="light" />
-        <Cloud left={60} top={48} scale={1.15} tone="light" />
-        <Cloud left={77} top={19} scale={0.7} tone="dark" />
+        <FlyScene sky={getFlySky(state.levelIndex)} distance={state.distance} />
 
         {state.objects.map(object => {
           if (object.kind === "star") {
@@ -832,19 +830,15 @@ export function HilalFlyGame({
           }
           const topHeight = object.gapY - object.gap / 2;
           const bottomTop = object.gapY + object.gap / 2;
-          const icon = object.style === "lantern" ? "✧" : object.style === "crystal" ? "◆" : object.style === "arch" ? "⌂" : object.style === "gate" ? "⌁" : "☁";
+          const tone = FLY_PILLAR_TONE[object.style] ?? "#cfe0ff";
           return (
             <div
               key={object.id}
               className="absolute inset-y-0 z-10 w-[82px] -translate-x-1/2"
               style={{ left: (object.x / FLY_WIDTH) * 100 + "%" }}
             >
-              <div className="absolute inset-x-0 top-0 rounded-b-[2rem] border-2 border-brand-gold/20 bg-brand-gold/10" style={{ height: Math.max(0, topHeight) }}>
-                <div className="grid h-full place-items-center text-2xl text-white/35">{icon}</div>
-              </div>
-              <div className="absolute inset-x-0 bottom-0 rounded-t-[2rem] border-2 border-brand-emerald/20 bg-brand-emerald/10" style={{ height: Math.max(0, FLY_HEIGHT - bottomTop) }}>
-                <div className="grid h-full place-items-center text-2xl text-white/35">{icon}</div>
-              </div>
+              <CloudPillar height={topHeight} fromTop tone={tone} />
+              <CloudPillar height={FLY_HEIGHT - bottomTop} fromTop={false} tone={tone} />
             </div>
           );
         })}
@@ -858,8 +852,7 @@ export function HilalFlyGame({
             opacity: state.invulnerableUntil > performance.now() ? 0.45 : 1,
           }}
         >
-          <KidCharacter variant="explorer" state={state.completed ? "celebrate" : state.gameOver ? "hit" : state.vy < -20 ? "jump" : "idle"} size={78} />
-          <div className="absolute inset-0 grid place-items-center text-3xl text-brand-gold" aria-hidden="true">☾</div>
+          <Crescent tilt={state.vy / 14} hit={state.gameOver} celebrate={state.completed} />
         </div>
 
         <div className="absolute bottom-0 inset-x-0 z-40 grid grid-cols-2 gap-2 border-t border-white/10 bg-black/25 p-3 backdrop-blur-md sm:gap-3 sm:p-4">
