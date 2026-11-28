@@ -97,7 +97,7 @@ assert.ok(!footer.includes("MONETAG_SMARTLINK_URL"), "SmartLink was removed from
 const videoOpsGuide = readFileSync("docs/GITHUB_AI_VIDEO.md", "utf8");
 const envExample = readFileSync(".env.example", "utf8");
 const productionVideoWorkflow = readFileSync(".github/workflows/generate-ai-video.yml", "utf8");
-assert.ok(videoOpsGuide.includes("VIDEO_PROVIDER_ORDER=hf_ltx_fast,hf_wan,template"),
+assert.ok(videoOpsGuide.includes("VIDEO_PROVIDER_ORDER=hf_wan,hf_ltx_fast,template"),
   "the video operations guide must match the checked-in provider order");
 assert.ok(videoOpsGuide.includes("Cloudinary") && videoOpsGuide.includes("fails closed rather than falling back to Supabase Storage"),
   "the video operations guide must describe the actual Cloudinary-only MP4 upload path");
