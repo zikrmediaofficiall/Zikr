@@ -180,7 +180,7 @@ function cuesForBeat(seriesId: string, sequence: number, beatIndex: number): Kid
   return groups[beatIndex];
 }
 
-function makeUnsignedManifest(episode: GeneratedKidsEpisode, factorySequence: number) {
+function makeUnsignedManifest(episode: GeneratedKidsEpisode, factorySequence: number): Omit<KidsVideoProductionManifest, "manifestSha256"> {
   if (UNSUPPORTED_RELIGIOUS_ATTRIBUTION.test(episode.text)) {
     throw new Error("Original Kids fiction contains an unsupported religious attribution and cannot enter the production factory.");
   }
@@ -310,9 +310,17 @@ export function validateKidsVideoProductionManifest(
 
 export function buildKidsCharacterSceneSvg(cues: readonly KidsCharacterCue[]): string {
   if (!Array.isArray(cues) || cues.length < 1 || cues.length > 4) throw new Error("Kids character scene requires one to four approved character cues.");
-  const groups = cues.map((cue, index) => {
+  // Array.isArray narrows readonly arrays to any[] in TypeScript; restore the reviewed cue contract explicitly.
+  const typedCues = cues as readonly KidsCharacterCue[];
+  const groups = typedCues.map((candidate, index) => {
+    if (!candidate || typeof candidate !== "object" ||
+        typeof candidate.characterId !== "string" ||
+        !POSES.includes(candidate.pose)) {
+      throw new Error("Kids character cue is not present in the versioned rig registry.");
+    }
+    const cue: KidsCharacterCue = candidate;
     const rig = CHARACTER_RIGS.find((character) => character.characterId === cue.characterId);
-    if (!rig || !POSES.includes(cue.pose)) throw new Error("Kids character cue is not present in the versioned rig registry.");
+    if (!rig) throw new Error("Kids character cue is not present in the versioned rig registry.");
     const colors = rig.palette;
     const arms: Record<KidsCharacterPose, string> = {
       idle: "M-72 330 L-104 510 M72 330 L104 510",
