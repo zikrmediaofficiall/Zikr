@@ -45,6 +45,8 @@ jobs:
       # Video experiments, off unless the GitHub environment variable is "true".
       VIDEO_HOOK_EXPERIMENT_ENABLED: ${{ vars.VIDEO_HOOK_EXPERIMENT_ENABLED || 'false' }}
       VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED: ${{ vars.VIDEO_THUMBNAIL_HOOK_FRAME_ENABLED || 'false' }}
+      # Manual clip library: off unless the GitHub variable is "true". It only serves approved, muted, 720p+ clips with rights evidence.
+      CLIP_LIBRARY_ENABLED: ${{ vars.CLIP_LIBRARY_ENABLED || 'false' }}
       AUTO_VIDEO_ENABLED: "true"
       AUTO_VIDEO_PUBLISH_ENABLED: "true"
       AUTO_VIDEO_PUBLISH_REQUIRES_APPROVAL: "false"

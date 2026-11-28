@@ -27,6 +27,9 @@
 | GET | `/api/admin/social/written` | `social.manage` — written queue read; conditional `kids.manage` for Kids rows. Social-only managers receive only positively classified general posts; unknown legacy rows are hidden. |
 | POST | `/api/admin/social/written` | `social.manage` + `social.publish` — MFA step-up before generation dispatch; `kids.manage` is conditional for explicit Kids or auto source selection |
 | POST | `/api/admin/video-generation/narration-upload` | `video.manage` |
+| GET | `/api/admin/video-clips` | `video.manage` |
+| POST | `/api/admin/video-clips` | `video.manage` — MFA step-up; clip is created pending |
+| PATCH | `/api/admin/video-clips` | `video.manage` — MFA step-up; approve or retire only |
 | GET | `/api/admin/video-purge` | `video.delete` — dry-run preview only |
 | POST | `/api/admin/video-purge` | `video.delete` — MFA step-up before destructive cleanup |
 | GET | `/api/admin/video-generation` | `video.manage`; `kids.manage` for Kids rows |
