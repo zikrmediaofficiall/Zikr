@@ -303,4 +303,5 @@ assert.match(types, /video_template_versions:\s*\{/);
 assert.match(types, /admin_create_video_template_version:/);
 assert.match(types, /activate_video_template_version:/);
 
-console.log("✅ Video Template Studio contracts passed.");
+await import("./video-template-selection.test");
+console.log("✅ Video Template Studio and automated binding contracts passed.");
