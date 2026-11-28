@@ -2791,7 +2791,7 @@ export function buildAutomatedVideoQaChecklist(
     content.clipLibraryRights,
     {
       clipId: typeof content.aiProviderJobId === "string" ? content.aiProviderJobId : "",
-      category,
+      category: visualAudience === "kids" ? "kids" : category,
       audience: visualAudience,
     },
   );
