@@ -252,6 +252,13 @@ assert.match(createApi, /isVideoTemplateAssetAllowedForAudience/);
 assert.match(createApi, /versionedTemplateLabel/);
 
 assert.match(worker, /async function bindTemplateVersion/);
+assert.match(worker, /async function loadTemplateSelectionCatalog/);
+assert.match(worker, /video_template_versions\\?status=eq\\.active/);
+assert.match(worker, /bindAutomatedVideoContent\\(templateCatalog, content, String\\(payload\\.category\\), key\\)/);
+assert.match(worker, /bindAutomatedVideoContent\\(catalog, content, "other", automationKey\\)/);
+assert.match(worker, /templateBindingMode: "specialized"/);
+assert.match(worker, /templateBindingReason: "dedicated-layl-program-renderer"/);
+assert.match(worker, /templateBindingReason: "dedicated-hady-program-renderer"/);
 assert.match(worker, /version\.status !== "active"/);
 assert.match(worker, /videoTemplateAssetPath/);
 assert.match(worker, /videoTemplateScene/);
