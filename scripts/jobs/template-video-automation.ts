@@ -2929,7 +2929,7 @@ export function buildAutomatedVideoQaChecklist(
   const kidsManifest = content.audience === "kids" && content.kidsProductionManifest && typeof content.kidsProductionManifest === "object"
     ? content.kidsProductionManifest as Record<string, unknown>
     : null;
-  const kidsManifestReviewed = content.audience !== "kids" || Boolean(
+  const kidsManifestReviewed = !isKidsSeries || Boolean(
     kidsManifest &&
     kidsManifest.version === "kids-video-production-v1" &&
     typeof kidsManifest.manifestSha256 === "string" &&
