@@ -233,19 +233,19 @@ export async function PATCH(request: NextRequest) {
       statusFilter = '&status=in.(pending,approved)';
     }
 
+    const approvalReviewer = (auth.profile.display_name || auth.profile.email || auth.profile.id).trim().slice(0, 120);
+    const approvalReviewedAt = new Date().toISOString();
+    const approvalMetadata = action === 'approve'
+      ? { rights_reviewer: approvalReviewer, rights_reviewed_at: approvalReviewedAt }
+      : {};
+
     const updated = await supabaseServerAdminRequest<ClipLibraryRow[]>(
       '/rest/v1/video_clip_library?id=eq.' + encodeURIComponent(id) + statusFilter +
         '&select=' + encodeURIComponent(SELECT_FIELDS),
       {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({
-          status: nextStatus,
-          ...(action === 'approve' ? {
-            rights_reviewer: (auth.profile.display_name || auth.profile.email || auth.profile.id).trim().slice(0, 120),
-            rights_reviewed_at: new Date().toISOString(),
-          } : {}),
-        }),
+        body: JSON.stringify({ status: nextStatus, ...approvalMetadata }),
         timeoutMs: 10000,
       },
     );
@@ -255,8 +255,8 @@ export async function PATCH(request: NextRequest) {
       previousStatus: current.status,
       status: nextStatus,
       ...(action === 'approve' ? {
-        rightsReviewer: (auth.profile.display_name || auth.profile.email || auth.profile.id).trim().slice(0, 120),
-        rightsReviewedAt: new Date().toISOString(),
+        rightsReviewer: approvalReviewer,
+        rightsReviewedAt: approvalReviewedAt,
       } : {}),
     });
     return NextResponse.json({ clip: changed, auditRecorded }, {
