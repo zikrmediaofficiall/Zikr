@@ -115,7 +115,12 @@ export function measureFrameDiversity(frames: SampledFrame[]): FrameDiversityRep
   };
 }
 
+export const VIDEO_FRAME_DIVERSITY_ENGINE = "zikr_video_frame_diversity";
+export const VIDEO_FRAME_DIVERSITY_VERSION = "2026-11-28-p08-v1";
+
 export type QaSnapshot = {
+  engine: string;
+  version: string;
   canaryId: string;
   createdAt: string;
   media: VideoMediaFacts | null;
@@ -145,7 +150,7 @@ export function createQaSnapshot(
     throw new TypeError("A non-empty canary ID up to 120 characters is required.");
   }
   if (!Number.isFinite(Date.parse(createdAt))) throw new TypeError("QA snapshot timestamp is invalid.");
-  const payload = { canaryId, createdAt, media, report };
+  const payload = { engine: VIDEO_FRAME_DIVERSITY_ENGINE, version: VIDEO_FRAME_DIVERSITY_VERSION, canaryId, createdAt, media, report };
   const digest = createHash("sha256").update(canonical(payload)).digest("hex");
   return { ...payload, digest };
 }
@@ -158,7 +163,19 @@ export function verifyQaSnapshot(snapshot: QaSnapshot): boolean {
       typeof snapshot.digest !== "string" ||
       !/^[a-f0-9]{64}$/.test(snapshot.digest)
     ) return false;
-    return createQaSnapshot(snapshot.canaryId, snapshot.report, snapshot.createdAt, snapshot.media ?? null).digest === snapshot.digest;
+    if (
+      typeof snapshot.engine !== "string" || !snapshot.engine.trim() ||
+      typeof snapshot.version !== "string" || !snapshot.version.trim()
+    ) return false;
+    const payload = {
+      engine: snapshot.engine,
+      version: snapshot.version,
+      canaryId: snapshot.canaryId,
+      createdAt: snapshot.createdAt,
+      media: snapshot.media ?? null,
+      report: snapshot.report,
+    };
+    return createHash("sha256").update(canonical(payload)).digest("hex") === snapshot.digest;
   } catch {
     return false;
   }
