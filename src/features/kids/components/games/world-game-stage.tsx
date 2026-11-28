@@ -122,7 +122,7 @@ export function WorldGameStage(props: WorldGameStageProps) {
         : gameId === "wudu-challenge" || gameId === "zikr-quiz"
           ? "learning"
           : "adventure";
-    localTone.current = new ToneFeedback(theme);
+    localTone.current = new ToneFeedback(theme, gameId);
     return () => {
       localTone.current?.dispose();
       localTone.current = null;
