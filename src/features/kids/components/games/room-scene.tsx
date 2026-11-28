@@ -41,7 +41,7 @@ export function RoomScene({ theme, total, placed }: { theme: RoomTheme; total: n
         <div key={i} className="absolute rounded-full" style={{ left: x + "%", top: y + "%", width: 34 + (i % 3) * 12, height: 16 + (i % 3) * 6, background: "rgba(70,50,30,.3)", filter: "blur(2px)" }} />
       ))}
       {clean && <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 55%,rgba(255,243,176,.55),transparent 60%)" }} />}
-      <div className="absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-black" style={{ background: "rgba(0,0,0,.28)", color: "#fff" }}>{c.name}</div>
+      <div className="absolute bottom-3 left-3 rounded-full px-3 py-1 text-xs font-black" style={{ background: "rgba(0,0,0,.28)", color: "#fff" }}>{c.name}</div>
     </div>
   );
 }
