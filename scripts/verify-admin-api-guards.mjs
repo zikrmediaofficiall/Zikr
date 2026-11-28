@@ -105,6 +105,9 @@ const CANONICAL_API_GUARDS = {
   "src/app/api/admin/social/written/route.ts GET": ["social.manage", "kids.manage"],
   // kids.manage is conditional: explicit Kids and auto source selection are checked before dispatch.
   "src/app/api/admin/social/written/route.ts POST": ["social.manage", "social.publish", "kids.manage"],
+  "src/app/api/admin/video-clips/route.ts GET": ["video.manage"],
+  "src/app/api/admin/video-clips/route.ts POST": ["video.manage"],
+  "src/app/api/admin/video-clips/route.ts PATCH": ["video.manage"],
   "src/app/api/admin/video-purge/route.ts GET": ["video.delete"],
   "src/app/api/admin/video-purge/route.ts POST": ["video.delete"],
   "src/app/api/admin/video-generation/narration-upload/route.ts POST": ["video.manage"],
