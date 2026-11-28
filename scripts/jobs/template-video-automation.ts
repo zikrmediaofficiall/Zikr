@@ -68,7 +68,7 @@ import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type 
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
-import { LAYL_EPISODES, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
+import { countLaylNarrationWords, LAYL_EPISODES, LAYL_MAX_NARRATION_WORDS, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
 import { isoWeekKey, resolveNextScheduledLaylEpisode } from "../../src/features/videos/services/layl-program-schedule";
 import { HADY_REVIEW } from "../../src/features/videos/data/hady-episodes";
 import { resolveNextScheduledHadyEpisode } from "../../src/features/videos/services/hady-program-schedule";
@@ -717,6 +717,10 @@ async function seedWeeklyLaylEpisodeRequest(now: Date): Promise<number> {
   if (!episode) return 0;
 
   const narration = episode.script.trim();
+  const narrationWords = countLaylNarrationWords(narration);
+  if (narrationWords > LAYL_MAX_NARRATION_WORDS) {
+    throw new Error(`Layl episode ${episode.number} exceeds its preflight narration budget (${narrationWords}/${LAYL_MAX_NARRATION_WORDS} words); shorten or split it before queueing.`);
+  }
   const content: Record<string, unknown> = {
     renderer: "template",
     type: "layl_program_episode",
