@@ -7,6 +7,7 @@ import { getAdminSettings } from "@/features/admin/services/platform";
 import { saveCustomVideoSpacesAction } from "@/app/admin/system-actions";
 import { AI_VISUAL_POLICY_TEXT, AI_VISUAL_POLICY_VERSION } from "@/features/videos/providers/ai-visual-policy";
 import { getVideoEngineConfig, type VideoProviderName } from "@/features/videos/providers/types";
+import { ProviderHealthSection } from "@/features/videos/components/provider-health-section";
 
 export const dynamic = "force-dynamic";
 
@@ -181,6 +182,7 @@ export default async function VideoFactoryVisualsPage() {
         <Link href="/admin/video/qa" className="rounded-xl border border-brand-gold/15 px-4 py-2 text-sm text-brand-cream/70">بوابة الجودة</Link>
         <Link href="/admin/automation" className="rounded-xl border border-brand-gold/15 px-4 py-2 text-sm text-brand-cream/70">التحكم في التشغيل</Link>
       </div>
+      <ProviderHealthSection />
     </Container>
   );
 }
