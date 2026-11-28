@@ -578,7 +578,7 @@ export function inspectVideoQueueItemExternalApproval(input: {
       return {
         ...diagnostics,
         approved: false,
-        reason: "بيانات النسخة المثبتة أو قائمة الأصول البصرية غير مكتملة؛ تم إيقاف النشر الخارجي لحين استكمالها ومراجعة الحقوق.",
+        reason: "بيانات النسخة المثبتة أو قائمة الأصول البصرية غير مكتملة؛ تم إيقاف النشر الخارجي لحين استكمالها وإثبات الحقوق الموثقة.",
         missingChecks: ["rightsReviewed"],
       };
     }
