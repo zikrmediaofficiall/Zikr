@@ -697,7 +697,7 @@ export function ZikrQuizGame({ difficulty, restartToken, paused, onHud, onResult
         <p className="text-xs text-brand-cream/45">{isEnglish ? "50/50 is available once per question and narrows the choices to two." : "ميزة 50/50 متاحة مرة واحدة لكل سؤال، وتفتح لك آخر خيارين محتملين."}</p>
         <button type="button" onClick={useFiftyFifty} disabled={paused || selected !== null || hiddenOptions.length > 0} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">✂️ 50/50</button>
       </div></div>
-      <div className="mx-3 mt-3 min-w-0 rounded-[1.5rem] border border-white/10 bg-black/20 p-3 sm:mx-6 sm:mt-4 sm:rounded-[2rem] sm:p-7">
+      <div className="mx-3 mt-3 min-w-0 rounded-[1.5rem] border border-white/10 bg-[#06130e]/90 backdrop-blur-sm p-3 sm:mx-6 sm:mt-4 sm:rounded-[2rem] sm:p-7">
         <div className="min-w-0 rounded-[1.3rem] border border-brand-gold/15 bg-brand-gold/[0.04] p-3 sm:rounded-[1.7rem] sm:p-5"><p className="text-xs font-black tracking-[0.18em] text-brand-emerald/80">{isEnglish ? "QUESTION " + (index + 1) : "السؤال " + (index + 1)}</p><h4 className="mt-3 break-words text-lg font-black leading-8 text-brand-cream [overflow-wrap:anywhere] sm:text-2xl sm:leading-10">{question.text}</h4></div>
         <div className="mt-4 grid min-w-0 grid-cols-1 gap-2 min-[440px]:grid-cols-2 sm:mt-5 sm:gap-3">
           {question.options.map((option, optionIndex) => {
@@ -708,7 +708,7 @@ export function ZikrQuizGame({ difficulty, restartToken, paused, onHud, onResult
               "min-h-20 min-w-0 break-words rounded-2xl border p-3 text-start transition sm:min-h-24 sm:p-4 [overflow-wrap:anywhere] " + (hidden ? "opacity-20 blur-[1px]" : ""),
               isSelected ? (isCorrect ? "border-brand-emerald bg-brand-emerald/15 text-brand-emerald" : "border-rose-300/35 bg-rose-300/10 text-rose-100")
                 : selected !== null && isCorrect ? "border-brand-emerald/60 bg-brand-emerald/10 text-brand-emerald"
-                : "border-white/10 bg-white/[0.03] text-brand-cream hover:-translate-y-0.5 hover:border-brand-gold/45",
+                : "border-white/10 bg-[#0d2a21]/80 text-brand-cream hover:-translate-y-0.5 hover:border-brand-gold/45",
             ].join(" ")}><span className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xs text-brand-cream/60">{String.fromCharCode(65 + optionIndex)}</span><p className="leading-7">{option}</p></button>;
           })}
         </div>
