@@ -35,11 +35,19 @@ if (!hf.includes("freeZeroGpuQuotaExhausted") ||
   failures.push("HF providers must stop retrying all Spaces after the account's free ZeroGPU quota is exhausted");
 }
 const hfAdapter = read("scripts/jobs/hf-space-video.py");
-for (const token of ["negative_prompt", "duration_seconds", "guidance_scale_2", "randomize_seed", 'api_name="/generate_video"', 'api_name="/text_to_video"']) {
-  if (!hfAdapter.includes(token)) failures.push("HF Gradio adapter is missing the current provider input contract: " + token);
+for (const token of [
+  "def build_wan_predict_arguments(",
+  "def build_ltx_predict_arguments(",
+  "NEGATIVE_PROMPT",
+  'api_name="/generate_video"',
+  'api_name="/text_to_video"',
+  "build_wan_predict_arguments(handle_file, args.image, prompt, args.duration, args.seed)",
+  "build_ltx_predict_arguments(prompt, args.duration, args.seed)",
+]) {
+  if (!hfAdapter.includes(token)) failures.push("HF Gradio adapter is missing the tested provider contract: " + token);
 }
-if (!hfAdapter.includes("max(2.0, min(5.0, float(args.duration)))") ||
-    !hfAdapter.includes("max(2, min(6, int(round(args.duration)))")) {
+if (!hfAdapter.includes("max(2.0, min(5.0, float(duration)))") ||
+    !hfAdapter.includes("max(2, min(6, int(round(duration)))")) {
   failures.push("HF video adapters must cap short visual clips to the verified Space runtime limits");
 }
 
