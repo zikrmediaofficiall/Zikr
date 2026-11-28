@@ -60,8 +60,11 @@ import { applyAutomatedVideoTemplateBinding, selectAutomatedVideoTemplate, type 
 import { buildVideoStoryboard, buildVideoStoryboardFilterGraph, type VideoStoryboard } from "../../src/features/videos/services/video-storyboard";
 import { AI_VISUAL_POLICY_VERSION, aiVisualPolicyPromptLine } from "../../src/features/videos/providers/ai-visual-policy";
 import { createVideoProviderRouter } from "../../src/features/videos/providers/provider-router";
+import { isClipLibraryRightsSnapshotValid } from "../../src/features/videos/providers/clip-library";
+import { SupabaseClipLibraryStore } from "../../src/features/videos/providers/clip-library-supabase-store";
 import { MAX_PROVIDER_VIDEO_BYTES, readBoundedMediaResponse } from "../../src/features/videos/providers/media-response";
 import { resolveFreeVideoProviderDownloadUrl } from "../../src/features/videos/providers/free-api-provider";
+import { assertCloudinaryVideoUrl } from "../../src/features/videos/services/video-media-url";
 import { selectVideoVoiceProfile, resolveVideoAudioRenderPolicy, buildVerifiedVideoCaptionTrack, VIDEO_AUDIO_POLICY_VERSION } from "../../src/features/videos/services/video-audio-policy";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
 import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
@@ -2295,6 +2298,12 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       request.content.aiProviderHint === "hf_wan"
         ? (request.content.aiProviderHint as "hf_ltx_fast" | "hf_wan")
         : undefined;
+    const clipLibraryEnabled = engineConfig().clipLibraryEnabled;
+    const canUseAiProvider =
+      engineConfig().aiEnabled &&
+      !["quran", "hadith", "dua", "adhkar"].includes(String(request.category)) &&
+      engineConfig().order.some((provider) => provider !== "template" && provider !== "clip_library") &&
+      aiAttemptsUsed < getAiAttemptsPerRunLimit();
 
     if (
       !isTemplatePreview &&
@@ -2302,19 +2311,20 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       !isHadyProgram &&
       !isProphetStoryRequest &&
       !boundTemplate &&
-      // Sacred-text videos use the curated clean template backgrounds only:
-      // generative video models draw garbled pseudo-Arabic over the scene.
-      !["quran", "hadith", "dua", "adhkar"].includes(String(request.category)) &&
-      engineConfig().aiEnabled &&
-      engineConfig().order.some((provider) => provider !== "template") &&
-      aiAttemptsUsed < getAiAttemptsPerRunLimit()
+      (clipLibraryEnabled || canUseAiProvider)
     ) {
-      aiAttemptsUsed += 1;
-      const router = createVideoProviderRouter(async () => ({
-        ok: false,
-        provider: "template" as const,
-        error: "The existing template renderer is handled by this worker.",
-      }));
+      // Manual reviewed clips do not consume the AI attempt budget and remain available
+      // when VIDEO_AI_ENABLED=false. Generative providers retain the existing free/AI gate.
+      if (canUseAiProvider) aiAttemptsUsed += 1;
+      const router = createVideoProviderRouter(
+        async () => ({
+          ok: false,
+          provider: "template" as const,
+          error: "The existing template renderer is handled by this worker.",
+        }),
+        process.env,
+        { clipStore: clipLibraryEnabled ? new SupabaseClipLibraryStore() : null },
+      );
       const aiResult = await router.generate({
         requestId: request.id,
         title: request.title,
@@ -2323,7 +2333,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         text,
         audience: request.content?.audience === "kids" ? "kids" : "general",
         seriesTitle: typeof request.content?.seriesTitle === "string" ? request.content.seriesTitle : undefined,
-        episodeNumber: Number.isInteger(Number(request.content?.episodeNumber)) ? Number(request.content?.episodeNumber) : undefined,
+        episodeNumber: Number.isInteger(Number(request.content?.episodeNumber)) ? Number(request.content.episodeNumber) : undefined,
         learningObjective: typeof request.content?.learningObjective === "string" ? request.content.learningObjective : undefined,
         sourceId:
           typeof request.content.sourceId === "string"
@@ -2336,7 +2346,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         durationSeconds: TARGET_VIDEO_SECONDS,
         language: "ar",
         style: scene,
-        preferredProvider,
+        preferredProvider: clipLibraryEnabled ? "clip_library" : preferredProvider,
       });
       throwIfVideoLeaseAborted(signal);
       if (aiResult.ok && aiResult.localPath) {
@@ -2348,20 +2358,22 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
               process.env.FREE_VIDEO_PROVIDER_URL ?? "",
               process.env.FREE_VIDEO_PROVIDER_ALLOWED_HOSTS ?? "",
             )
-          : null;
+          : aiResult.provider === "clip_library"
+            ? assertCloudinaryVideoUrl(aiResult.videoUrl, "Clip library", process.env.CLOUDINARY_CLOUD_NAME)
+            : null;
         if (!remoteVideoUrl) {
-          throw new Error("AI provider returned a video URL outside the configured HTTPS host allowlist.");
+          throw new Error("Video provider returned a URL outside its configured HTTPS media allowlist.");
         }
         const response = await fetch(remoteVideoUrl, {
           redirect: "error",
           signal: videoOperationSignal(signal, 60_000),
         });
         if (!response.ok) {
-          throw new Error("AI provider returned a video URL that could not be downloaded.");
+          throw new Error("Video provider returned a media URL that could not be downloaded.");
         }
         const videoBytes = await readBoundedMediaResponse(response, MAX_PROVIDER_VIDEO_BYTES);
         if (videoBytes.byteLength < 1024) {
-          throw new Error("AI provider video download is empty or suspiciously small.");
+          throw new Error("Video provider media download is empty or suspiciously small.");
         }
         aiVideoPath = temp + "/ai-source.mp4";
         await writeFile(aiVideoPath, videoBytes);
@@ -2370,6 +2382,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         ...request.content,
         aiProvider: aiResult.ok ? aiResult.provider : null,
         aiProviderJobId: aiResult.providerJobId ?? null,
+        clipLibraryRights: aiResult.ok ? aiResult.clipLibraryRights ?? null : null,
         aiFallbackReason: aiResult.ok
           ? null
           : aiResult.error || "AI providers unavailable",
@@ -2770,9 +2783,18 @@ export function buildAutomatedVideoQaChecklist(
       : audioKind === "arabic_tts_narration" ||
         (audioKind === "source_audio" && content.audioRightsVerified === true));
 
-  const allowedProviders = new Set(["hf_ltx_fast", "hf_wan", "template"]);
+  const allowedProviders = new Set(["hf_ltx_fast", "hf_wan", "template", "clip_library"]);
   const aiProvider = typeof content.aiProvider === "string" ? content.aiProvider : "";
   const providerAllowed = !aiProvider || allowedProviders.has(aiProvider);
+  const visualAudience: VideoTemplateAudience = content.audience === "kids" ? "kids" : "general";
+  const clipLibraryRightsReviewed = aiProvider !== "clip_library" || isClipLibraryRightsSnapshotValid(
+    content.clipLibraryRights,
+    {
+      clipId: typeof content.aiProviderJobId === "string" ? content.aiProviderJobId : "",
+      category,
+      audience: visualAudience,
+    },
+  );
   const allowedScenes = new Set(["calm", "dawn", "night", "gold", "emerald", "paper", "rose"]);
   const allowedMotions = new Set(["fade", "slow"]);
   const parsedMediaUrl = (() => {
@@ -2787,7 +2809,6 @@ export function buildAutomatedVideoQaChecklist(
   const renderDuration = Number(render.durationSeconds);
   const maximumReviewedDuration = isLaylProgram ? 120 : isVerifiedHadyEditorial ? 135 : 60;
   const resolutionValid = render.resolution === "1080x1920" || render.resolution === "1920x1080";
-  const visualAudience: VideoTemplateAudience = content.audience === "kids" ? "kids" : "general";
   const visualTheme = typeof content.visualTheme === "string" ? content.visualTheme : "";
   const visualThemeReviewed = visualTheme
     ? isVideoTemplateAssetAllowedForAudience(visualTheme as VideoTemplateAsset, visualAudience)
@@ -2797,7 +2818,7 @@ export function buildAutomatedVideoQaChecklist(
     allowedMotions.has(String(render.motion)) &&
     render.aiVisualPolicyVersion === AI_VISUAL_POLICY_VERSION &&
     typeof render.composition === "string" && Boolean(render.composition.trim()) &&
-    providerAllowed && cloudinaryVerified && resolutionValid &&
+    providerAllowed && clipLibraryRightsReviewed && cloudinaryVerified && resolutionValid &&
     Number.isFinite(renderDuration) && renderDuration >= 1 && renderDuration <= maximumReviewedDuration &&
     rendered.templateVersion === render.templateVersion;
 
@@ -2825,6 +2846,7 @@ export function buildAutomatedVideoQaChecklist(
   const rightsReviewed = sourceVerified &&
     audioReviewed &&
     providerAllowed &&
+    clipLibraryRightsReviewed &&
     (audioKind !== "source_audio" || content.audioRightsVerified === true) &&
     audioKind !== "user_supplied_human_recording" &&
     cloudinaryVerified;
