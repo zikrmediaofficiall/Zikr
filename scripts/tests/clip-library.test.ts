@@ -48,6 +48,12 @@ assert.equal(isClipLibraryRightsSnapshotValid(rights, { clipId: "a", category: "
 assert.equal(isClipLibraryRightsSnapshotValid({ ...rights, evidence: "" }, { clipId: "a", category: "dua", audience: "general" }), false);
 assert.equal(isClipLibraryRightsSnapshotValid({ ...rights, audience: "kids" }, { clipId: "a", category: "dua", audience: "general" }), false);
 assert.equal(isClipLibraryRightsSnapshotValid({ ...rights, cloudinaryPublicId: "../secret" }, { clipId: "a", category: "dua", audience: "general" }), false);
+const kidsRights = {
+  ...rights, category: "kids", audience: "kids", cloudinaryPublicId: "approved/kids-moon",
+};
+assert.equal(isClipLibraryRightsSnapshotValid(kidsRights, { clipId: "kid-clip", category: "kids", audience: "kids" }), false, "clip ID must match the selected request");
+assert.equal(isClipLibraryRightsSnapshotValid({ ...kidsRights, clipId: "kid-clip" }, { clipId: "kid-clip", category: "kids", audience: "kids" }), true, "Kids requests accept an isolated Kids clip rights snapshot");
+assert.equal(isClipLibraryRightsSnapshotValid({ ...kidsRights, audience: "general", clipId: "kid-clip" }, { clipId: "kid-clip", category: "kids", audience: "kids" }), false, "Kids snapshot audience cannot be downgraded");
 
 (async () => {
   const used: string[] = [];
