@@ -3,7 +3,7 @@
 import { appendFileSync, writeFileSync } from "node:fs";
 import { buildPlan } from "../lib/cloudinary-cleanup-plan.mjs";
 
-const { minAgeDays, assets, complete, candidates, kept, unreferenced, groups } = await buildPlan(process.env.MIN_AGE_DAYS);
+const { minAgeDays, assets, complete, candidates, kept, unreferenced, groups, noCloudinary } = await buildPlan(process.env.MIN_AGE_DAYS);
 const mb = (b) => (b / 1048576).toFixed(1);
 const totalBytes = candidates.reduce((s, c) => s + c.bytes, 0);
 const allBytes = [...assets.values()].reduce((s, b) => s + b, 0);
@@ -24,6 +24,9 @@ const lines = [
   "",
   "### Unreferenced assets by folder or prefix (count | MiB | examples)",
   ...[...groups.entries()].sort((a, b) => b[1].bytes - a[1].bytes).map(([g, e]) => `- ${g}: ${e.n} | ${mb(e.bytes)} MiB | ${e.ex.join(", ")}`),
+  "",
+  "### Catalog videos with no Cloudinary reference (where they live)",
+  ...[...noCloudinary.entries()].sort((a, b) => b[1].n - a[1].n).map(([k, e]) => `- ${k}: ${e.n} | e.g. ${e.ex.join(", ")}`),
   "",
   "### Candidate asset ids (per-asset reason: confirmed YouTube id shown)",
   ...candidates.map((c) => `- ${c.assetId} | ${mb(c.bytes)} MiB | yt ${c.youtubeId} | fb ${c.facebookConfirmed ? "yes" : "no"} | ${c.videos.join(",")}`),

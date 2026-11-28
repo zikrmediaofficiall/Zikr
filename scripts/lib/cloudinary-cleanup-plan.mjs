@@ -36,7 +36,7 @@ async function all(path) {
 }
 
 const { assets, complete } = await listCloudinary();
-const videos = await all("videos?select=id,slug,published,metadata&order=id");
+const videos = await all("videos?select=id,slug,published,youtube_id,metadata&order=id");
 const queue = await all("social_publish_queue?select=id,content_id,status,published_at,video_url,metadata&order=id");
 const clips = await supa("video_clip_library?select=cloudinary_public_id&limit=1000");
 const clipIds = new Set(clips.map((c) => c.cloudinary_public_id));
@@ -58,10 +58,21 @@ for (const [id, vids] of byAsset) {
   if (bad) { keep(bad.e.reasons[0], id); continue; }
   candidates.push({ assetId: id, bytes: assets.get(id) ?? 0, videos: vids.map((v) => v.slug), youtubeId: evals[0].e.youtubeId, facebookConfirmed: evals.some((x) => x.e.facebookConfirmed) });
 }
+const hostOf = (u) => { try { return new URL(u).hostname; } catch { return "invalid"; } };
+const noCloudinary = new Map();
+for (const v of videos) {
+  if ([...idsOf(v)].length) continue;
+  const m = v.metadata ?? {};
+  const urls = [m.videoUrl, m.generatedVideoUrl, m.video_url, m.sourceVideoUrl].filter((x) => typeof x === "string" && x);
+  const hosts = [...new Set(urls.map(hostOf))].map((h) => h.endsWith(".supabase.co") ? "supabase-storage" : h);
+  const where = hosts.length ? "file url on " + hosts.join("+") : (typeof m.youtubePublishedVideoId === "string" && m.youtubePublishedVideoId) || v.youtube_id ? "YouTube only (id, no file url)" : "no media reference";
+  const key = `${where} | ${m.generator === "zikr_internal_video_factory" ? "internal" : "imported/other"} | ${v.published ? "published" : "unpublished"}`;
+  const e = noCloudinary.get(key) ?? { n: 0, ex: [] }; e.n++; if (e.ex.length < 2) e.ex.push(v.slug); noCloudinary.set(key, e);
+}
 const referenced = new Set(byAsset.keys());
 const unreferenced = complete ? [...assets.keys()].filter((id) => !referenced.has(id) && !clipIds.has(id)) : [];
 const groupOf = (id) => id.startsWith("zikr/") ? id.split("/").slice(0, 3).join("/") : id.replace(/-\d.*$/, "-*");
 const groups = new Map();
 for (const id of unreferenced) { const g = groupOf(id); const e = groups.get(g) ?? { n: 0, bytes: 0, ex: [] }; e.n++; e.bytes += assets.get(id) ?? 0; if (e.ex.length < 3) e.ex.push(id); groups.set(g, e); }
-return { cloud, minAgeDays, assets, complete, videos, byAsset, candidates, kept, unreferenced, groups };
+return { cloud, minAgeDays, assets, complete, videos, byAsset, candidates, kept, unreferenced, groups, noCloudinary };
 }
