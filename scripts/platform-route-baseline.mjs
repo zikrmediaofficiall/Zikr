@@ -1,7 +1,7 @@
 // Deliberately maintained when canonical platform route files are added or retired.
 // Both route discovery and project-integrity checks import this single source of truth.
-export const EXPECTED_PLATFORM_PAGES = 140;
-// 83 Next.js route handlers are present after adding the Prophet candidate endpoint.
+export const EXPECTED_PLATFORM_PAGES = 141;
+// 141 Next.js pages include the reviewed Admin visual asset rights route; 83 route handlers remain.
 export const EXPECTED_PLATFORM_APIS = 83;
 
 /**
