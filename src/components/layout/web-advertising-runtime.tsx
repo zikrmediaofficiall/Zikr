@@ -15,6 +15,7 @@ function appendScript(id: string, src: string) {
   script.id = id;
   script.src = src;
   script.async = true;
+  if (src.includes("pagead2.googlesyndication.com")) script.crossOrigin = "anonymous";
   document.head.appendChild(script);
 }
 
@@ -106,6 +107,14 @@ export function WebAdvertisingRuntime() {
         meta.content = GOOGLE_ADSENSE_CLIENT;
         document.head.appendChild(meta);
       }
+
+      // The AdSense tag is what lets Privacy & messaging (the EEA/UK consent
+      // message) show. It serves no ads on its own: ads need an explicit slot,
+      // and the loader in adsense.tsx shares this id so it is never added twice.
+      appendScript(
+        "google-adsense-loader",
+        `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${GOOGLE_ADSENSE_CLIENT}`,
+      );
 
       appendScript(
         "google-funding-choices",
