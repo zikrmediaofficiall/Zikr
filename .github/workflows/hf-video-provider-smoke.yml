@@ -1,0 +1,181 @@
+name: ZIKR Hugging Face Provider Smoke Test
+
+on:
+  push:
+    branches:
+      - fix/video-wan-adapter-20261128
+    paths:
+      - .github/workflows/hf-video-provider-smoke.yml
+      - scripts/jobs/hf-space-video.py
+      - scripts/tests/cloudinary-private-video-smoke-upload.mjs
+  workflow_dispatch:
+    inputs:
+      confirm_zero_gpu_usage:
+        description: "Confirm using the free daily Hugging Face ZeroGPU allowance for two short test clips"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zikr-hf-provider-smoke
+  cancel-in-progress: false
+
+jobs:
+  provider-smoke:
+    name: Generate and privately store WAN/LTX test clips
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+      HF_WAN_SPACE: zerogpu-aoti/wan2-2-fp8da-aoti-faster
+      HF_LTX_SPACE: Lightricks/ltx-video-distilled
+      WAN_OUTPUT: ${{ runner.temp }}/zikr-wan-smoke.mp4
+      LTX_OUTPUT: ${{ runner.temp }}/zikr-ltx-smoke.mp4
+      PROMPT_FILE: ${{ runner.temp }}/zikr-provider-smoke-prompt.txt
+      CONDITIONING_IMAGE: ${{ runner.temp }}/zikr-provider-smoke-conditioning.png
+    steps:
+      - name: Confirm free GPU quota for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRMED: ${{ inputs.confirm_zero_gpu_usage }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRMED" != "true" ]]; then
+            echo "Manual run stopped: confirm_zero_gpu_usage must be true."
+            exit 1
+          fi
+
+      - name: Checkout the tested WAN/LTX adapter commit
+        uses: actions/checkout@v7
+        with:
+          ref: e4860c67716cdda0732d1617fd06f6c7a6edcfd5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate required secrets without printing their values
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$HF_TOKEN" || { echo "Missing production secret: HF_TOKEN" >&2; exit 1; }
+          test "$CLOUDINARY_CLOUD_NAME" = "dcuveyab9" || { echo "Cloudinary cloud name does not match the verified ZIKR account." >&2; exit 1; }
+          test -n "$CLOUDINARY_API_KEY" || { echo "Missing production secret: CLOUDINARY_API_KEY" >&2; exit 1; }
+          test -n "$CLOUDINARY_API_SECRET" || { echo "Missing production secret: CLOUDINARY_API_SECRET" >&2; exit 1; }
+          echo "Required Hugging Face and Cloudinary secrets are present."
+
+      - name: Install isolated smoke-test dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir "gradio_client==2.7.1" "Pillow==11.3.0"
+
+      - name: Create neutral conditioning image and prompt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$PROMPT_FILE" <<'PROMPT'
+          A calm cinematic aerial movement over an empty moonlit sea, distant coastal mountains, gentle silver reflections on dark blue water, subtle drifting clouds, natural fluid motion, atmospheric and realistic, no people, no text, no letters, no logos.
+          PROMPT
+          python - <<'PY'
+          import os
+          from PIL import Image, ImageDraw
+          path = os.environ["CONDITIONING_IMAGE"]
+          width, height = 704, 512
+          image = Image.new("RGB", (width, height))
+          pixels = image.load()
+          for y in range(height):
+              for x in range(width):
+                  if y < 265:
+                      t = y / 265
+                      pixels[x, y] = (int(10 + 12*t), int(22 + 28*t), int(48 + 42*t))
+                  else:
+                      t = (y - 265) / (height - 265)
+                      pixels[x, y] = (int(8 + 8*t), int(28 + 20*t), int(56 + 26*t))
+          draw = ImageDraw.Draw(image)
+          draw.ellipse((520, 74, 586, 140), fill=(224, 224, 196))
+          draw.polygon([(0, 280), (115, 235), (230, 278), (350, 224), (470, 280), (590, 238), (704, 275), (704, 310), (0, 310)], fill=(19, 35, 58))
+          for y in range(325, 480, 18):
+              span = max(25, 135 - (y - 325)//2)
+              draw.line((352-span, y, 352+span, y), fill=(78, 107, 126), width=2)
+          image.save(path, format="PNG")
+          print("Conditioning image ready.")
+          PY
+
+      - name: Generate WAN 2.2 five-second test clip
+        id: wan
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/jobs/hf-space-video.py \
+            --provider wan2_2_fast \
+            --space "$HF_WAN_SPACE" \
+            --prompt-file "$PROMPT_FILE" \
+            --output "$WAN_OUTPUT" \
+            --duration 5 \
+            --seed 28112026 \
+            --image "$CONDITIONING_IMAGE"
+          test -s "$WAN_OUTPUT"
+
+      - name: Upload WAN test clip to Cloudinary as authenticated
+        id: wan_upload
+        if: steps.wan.outcome == 'success'
+        continue-on-error: true
+        run: node scripts/tests/cloudinary-private-video-smoke-upload.mjs "$WAN_OUTPUT" wan2_2_fast
+
+      - name: Generate LTX Distilled six-second test clip
+        id: ltx
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/jobs/hf-space-video.py \
+            --provider ltx_fast \
+            --space "$HF_LTX_SPACE" \
+            --prompt-file "$PROMPT_FILE" \
+            --output "$LTX_OUTPUT" \
+            --duration 6 \
+            --seed 28112027
+          test -s "$LTX_OUTPUT"
+
+      - name: Upload LTX test clip to Cloudinary as authenticated
+        id: ltx_upload
+        if: steps.ltx.outcome == 'success'
+        continue-on-error: true
+        run: node scripts/tests/cloudinary-private-video-smoke-upload.mjs "$LTX_OUTPUT" ltx_fast
+
+      - name: Save generated clips as a short-lived GitHub artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zikr-hf-provider-smoke-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/zikr-wan-smoke.mp4
+            ${{ runner.temp }}/zikr-ltx-smoke.mp4
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Enforce both provider and private-upload results
+        if: always()
+        env:
+          WAN_RESULT: ${{ steps.wan.outcome }}
+          WAN_UPLOAD_RESULT: ${{ steps.wan_upload.outcome }}
+          LTX_RESULT: ${{ steps.ltx.outcome }}
+          LTX_UPLOAD_RESULT: ${{ steps.ltx_upload.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'WAN generation: %s | Cloudinary private upload: %s\n' "$WAN_RESULT" "$WAN_UPLOAD_RESULT"
+          printf 'LTX generation: %s | Cloudinary private upload: %s\n' "$LTX_RESULT" "$LTX_UPLOAD_RESULT"
+          [[ "$WAN_RESULT" == "success" && "$WAN_UPLOAD_RESULT" == "success" && "$LTX_RESULT" == "success" && "$LTX_UPLOAD_RESULT" == "success" ]] || {
+            echo "One or more live provider or private-storage checks failed." >&2
+            exit 1
+          }
+          echo "Both providers generated MP4 clips and both were stored as authenticated Cloudinary assets."
