@@ -6,6 +6,7 @@ import {
   createQaSnapshot,
   isVideoMediaFactsValid,
   measureFrameDiversity,
+  parseVolumeDetectOutput,
   type SampledFrame,
   type VideoMediaFacts,
 } from "../../src/features/videos/services/video-frame-diversity";
@@ -55,12 +56,10 @@ const volumeProbe = spawnSync("ffmpeg", [
   "-hide_banner", "-nostats", "-i", video, "-vn", "-af", "volumedetect", "-f", "null", "-",
 ], { encoding: "utf8", maxBuffer: 2 * 1024 * 1024 });
 if (volumeProbe.error || volumeProbe.status !== 0) fail("Audio loudness probe could not decode the complete input audio stream.");
-const volumeOutput = String(volumeProbe.stderr ?? "");
-const meanMatch = volumeOutput.match(/mean_volume:\s*(-?\\d+(?:\\.\\d+)?)\\s*dB/i);
-const peakMatch = volumeOutput.match(/max_volume:\s*(-?\\d+(?:\\.\\d+)?)\\s*dB/i);
-if (!meanMatch || !peakMatch) fail("Audio loudness probe did not return mean and peak volume measurements.");
-facts.audioMeanVolumeDb = Number(meanMatch[1]);
-facts.audioPeakVolumeDb = Number(peakMatch[1]);
+const volumeLevels = parseVolumeDetectOutput(String(volumeProbe.stderr ?? ""));
+if (!volumeLevels) fail("Audio loudness probe did not return finite mean and peak volume measurements.");
+facts.audioMeanVolumeDb = volumeLevels.meanVolumeDb;
+facts.audioPeakVolumeDb = volumeLevels.peakVolumeDb;
 if (!isVideoMediaFactsValid(facts)) {
   fail("Technical QA failed: expected H.264 video, AAC audio, 720p+, 15–60 FPS, positive media size/duration, mean audio above -55 dB and peak below -0.1 dBFS.");
 }
