@@ -39,7 +39,7 @@ const internalGenerationMode =
   workflow.includes('VIDEO_AI_ENABLED: "true"') &&
   workflow.includes('HF_WAN_VIDEO_ENABLED: "true"') &&
   workflow.includes('HF_LTX_FAST_VIDEO_ENABLED: "true"') &&
-  workflow.includes('VIDEO_PROVIDER_ORDER: "hf_ltx_fast,hf_wan,template"') &&
+  workflow.includes('VIDEO_PROVIDER_ORDER: "hf_wan,hf_ltx_fast,template"') &&
   workflow.includes('BACKGROUND_JOB_TARGET: "videos"');
 const worker = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 const approval = readFileSync("src/features/videos/services/video-publish-approval.ts", "utf8");
