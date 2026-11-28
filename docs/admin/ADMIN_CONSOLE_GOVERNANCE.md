@@ -84,6 +84,7 @@
 | `/admin/video/requests` | طلبات الفيديو والطابور | `video.manage` |
 | `/admin/video/review` | مراجعة الفيديوهات المتوقفة | `video.manage`؛ حذف السجل المنتهي يتطلب `video.delete` وغياب المراجع |
 | `/admin/video/studio` | استوديو الفيديو | `video.manage` |
+| `/admin/video/clips` | مكتبة المقاطع الجاهزة وبيانات Cloudinary والحقوق | `video.manage`؛ إنشاء واعتماد المقطع يتطلب Step-Up MFA |
 | `/admin/video/studio/curated` | المحتوى الموثق للفيديو | `video.manage` |
 | `/admin/video/sources` | مصادر الفيديو | `video.manage` |
 | `/admin/video/scripts` | نصوص السرد | `video.manage` |
