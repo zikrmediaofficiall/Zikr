@@ -29,6 +29,9 @@
 | POST | `/api/admin/video-generation/narration-upload` | `video.manage` |
 | GET | `/api/admin/video-purge` | `video.delete` — dry-run preview only |
 | POST | `/api/admin/video-purge` | `video.delete` — MFA step-up before destructive cleanup |
+| GET | `/api/admin/video-clips` | `video.manage` — metadata-only clip library listing; returns unavailable until the separately approved table migration exists |
+| POST | `/api/admin/video-clips` | `video.manage` — MFA step-up; records a rights-documented Cloudinary clip in pending status only |
+| PATCH | `/api/admin/video-clips` | `video.manage` — MFA step-up; compare-and-set approve or retire |
 | GET | `/api/admin/video-generation` | `video.manage`; `kids.manage` for Kids rows |
 | DELETE | `/api/admin/video-generation` | `video.delete` |
 | PATCH | `/api/admin/video-generation` | `video.manage`; `kids.manage` for Kids approval only — external publish retry returns HTTP 410 |
