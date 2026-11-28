@@ -21,7 +21,7 @@ export const ADMIN_SIDEBAR_LAYOUT: readonly AdminSidebarSection[] = [
     label: "الفيديو",
     icon: "clapperboard",
     hrefs: [
-      "/admin/video", "/admin/video/requests", "/admin/video/review", "/admin/video/studio", "/admin/video/studio/curated",
+      "/admin/video", "/admin/video/requests", "/admin/video/review", "/admin/video/studio", "/admin/video/clips", "/admin/video/studio/curated",
       "/admin/video/sources", "/admin/video/scripts", "/admin/video/voices", "/admin/video/visuals", "/admin/video/assets", "/admin/video/templates",
       "/admin/video/qa", "/admin/video/performance", "/admin/omnis/video-pipeline",
     ],
