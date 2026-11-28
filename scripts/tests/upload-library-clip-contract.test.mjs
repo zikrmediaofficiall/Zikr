@@ -15,7 +15,7 @@ assert.ok(workflow.includes("test -f \"/tmp/clip/$ASSET_NAME\""), "only the exac
 
 assert.ok(script.includes("realpathSync(\"/tmp/clip\")"), "uploader must constrain input to the release staging directory");
 assert.ok(script.includes("facts.width < 720 || facts.height < 720"), "media validation must enforce the 720p edge");
-assert.ok(script.includes("facts.codec !== \"h264\"") && script.includes("finalFacts.hasAudio"), "normalized output must be H.264 and silent");
+assert.ok(script.includes("finalFacts.codec !== \"h264\"") && script.includes("finalFacts.hasAudio"), "normalized output must be H.264 and silent");
 assert.ok(script.includes('"-an"'), "FFmpeg must strip the input audio stream");
 assert.ok(script.includes('form.set("overwrite", "false")'), "Cloudinary uploads must never overwrite an existing public ID");
 assert.ok(script.includes("assertCloudinaryUrl(secureUrl, cloudName, returnedPublicId)"), "Cloudinary URL, tenant and public ID must match");
