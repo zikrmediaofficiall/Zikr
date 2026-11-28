@@ -1,3 +1,4 @@
+import { MAX_VIDEO_DAILY_TARGET, effectiveVideoDailyTarget } from "../src/features/videos/config/daily-target";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { processTemplateVideoQueue, seedAutomatedVideoRequests } from "./jobs/template-video-automation";
@@ -86,9 +87,9 @@ async function getVideoAutomationSettings(): Promise<VideoAutomationSettings> {
     autoPublish: parseBoolSetting(values.video_automation_auto_publish, false),
     dailyTarget: parseBoundedNumberSetting(
       values.video_automation_daily_target,
-      Math.max(1, Number(process.env.DAILY_VIDEO_TARGET ?? 3) || 3),
+      effectiveVideoDailyTarget(process.env.DAILY_VIDEO_TARGET),
       1,
-      24,
+      MAX_VIDEO_DAILY_TARGET,
     ),
     aiAttemptsPerRun: parseBoundedNumberSetting(
       values.video_automation_ai_attempts_per_run,

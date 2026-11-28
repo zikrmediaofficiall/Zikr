@@ -1,3 +1,4 @@
+import { DEFAULT_VIDEO_DAILY_TARGET, MAX_VIDEO_DAILY_TARGET } from "@/features/videos/config/daily-target";
 import type { AdminPermission } from "@/features/admin/services/permissions";
 
 type StepUpPolicy = "always" | "policy" | "none";
@@ -201,7 +202,7 @@ export const ADMIN_SETTING_REGISTRY: readonly AdminSettingDefinition[] = [
     editable: true,
     key: "video_automation_daily_target",
     label: "الهدف اليومي للفيديوهات",
-    description: "الهدف اليومي الذي يستخدمه عامل الفيديو عند عدم وجود قيمة محفوظة.",
+    description: "الهدف اليومي للفيديوهات. الحد الأقصى يطابق ما يعالجه عامل الفيديو فعليًا (فيديوهان يوميًا في مرحلة التجربة).",
     category: "video",
     owner: "Video Operations",
     dependencies: ["video-automation-quota", "video-generation-worker", "supabase.admin_settings"],
@@ -210,9 +211,9 @@ export const ADMIN_SETTING_REGISTRY: readonly AdminSettingDefinition[] = [
     storage: "public.admin_settings",
     valueType: "integer",
     minimum: 1,
-    maximum: 24,
-    runtimeFallback: 3,
-    formFallback: 20,
+    maximum: MAX_VIDEO_DAILY_TARGET,
+    runtimeFallback: DEFAULT_VIDEO_DAILY_TARGET,
+    formFallback: DEFAULT_VIDEO_DAILY_TARGET,
     missingValuePolicy: "documented-fallback",
     revalidatePaths: ["/admin/automation", "/admin/health"],
   },
