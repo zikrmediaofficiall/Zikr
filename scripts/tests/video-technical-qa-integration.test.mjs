@@ -15,7 +15,7 @@ assert.ok(worker.includes("isVideoMediaFactsValid(technicalQa.media)"), "approva
 assert.ok(worker.includes("const visualsReviewed = technicalQaPassed &&"), "P08 is a hard requirement for the visuals approval check");
 assert.ok(worker.includes("technicalQaDigest:"), "automated approval must bind the QA digest");
 assert.ok(qaModule.includes("containerFormat") && qaModule.includes("facts.audioPeakVolumeDb"), "technical QA must validate container and loudness");
-assert.ok(qaModule.includes("measureFrameDiversity(frames)"), "the worker must measure sampled frame diversity");
+assert.ok(worker.includes("measureFrameDiversity(frames)"), "the worker must measure sampled frame diversity");
 assert.ok(approval.includes("snapshot.technicalQaDigest?.trim()"), "the approval hash must cover the P08 digest");
 assert.ok(approval.includes("record(content?.videoTechnicalQa)?.digest"), "the publish queue must recompute its approval hash from the stored P08 digest");
 
