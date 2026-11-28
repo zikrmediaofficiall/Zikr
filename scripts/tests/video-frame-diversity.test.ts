@@ -48,12 +48,16 @@ const facts: VideoMediaFacts = {
   frameRate: 30,
   durationSeconds: 12,
   sizeBytes: 4_000_000,
+  audioMeanVolumeDb: -24,
+  audioPeakVolumeDb: -2,
 };
 assert.equal(isVideoMediaFactsValid(facts), true);
 assert.equal(isVideoMediaFactsValid({ ...facts, audioCodec: "mp3" }), false);
 assert.equal(isVideoMediaFactsValid({ ...facts, width: 320 }), false);
 assert.equal(isVideoMediaFactsValid({ ...facts, frameRate: 120 }), false);
 assert.equal(isVideoMediaFactsValid({ ...facts, sizeBytes: 0 }), false);
+assert.equal(isVideoMediaFactsValid({ ...facts, audioMeanVolumeDb: -70 }), false);
+assert.equal(isVideoMediaFactsValid({ ...facts, audioPeakVolumeDb: 0 }), false, "clipped peaks fail QA");
 
 const snapshot = createQaSnapshot("canary-1", measureFrameDiversity(varied), "2026-11-28T00:00:00.000Z", facts);
 assert.equal(verifyQaSnapshot(snapshot), true);
