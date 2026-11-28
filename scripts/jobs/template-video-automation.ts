@@ -805,7 +805,10 @@ async function createVideoTechnicalQaSnapshot(
     frames.push({ timeSeconds: timestamp, pixels: Array.from(raw) });
   }
 
-  const report = measureFrameDiversity(frames);
+  const report = measureFrameDiversity(frames, { mode: "template" });
+  if (report.warnings?.length) {
+    console.warn("[template-video] P08 visual warnings for " + canaryId + ": " + report.warnings.join("; "));
+  }
   if (!report.passed) {
     throw new Error("P08 visual diversity QA rejected the render: " + report.reasons.join("; "));
   }
