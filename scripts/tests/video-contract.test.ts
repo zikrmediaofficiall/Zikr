@@ -105,8 +105,8 @@ assert.ok(videoOpsGuide.includes(CURRENT_VIDEO_RENDERER_VERSION),
   "the video operations guide must identify the current renderer contract version");
 assert.doesNotMatch(videoOpsGuide, /existing `videos` bucket|v4 renderer/,
   "the video operations guide must not retain the retired Supabase bucket or renderer instructions");
-assert.ok(envExample.includes("VIDEO_PROVIDER_ORDER=hf_ltx_fast,hf_wan,template") &&
-  productionVideoWorkflow.includes('VIDEO_PROVIDER_ORDER: "hf_ltx_fast,hf_wan,template"'),
+assert.ok(envExample.includes("VIDEO_PROVIDER_ORDER=hf_wan,hf_ltx_fast,template") &&
+  productionVideoWorkflow.includes('VIDEO_PROVIDER_ORDER: "hf_wan,hf_ltx_fast,template"'),
   "local environment template and production workflow must keep the same reviewed provider order");
 const cloudinaryUploadSource = readFileSync("scripts/jobs/template-video-automation.ts", "utf8");
 assert.ok(cloudinaryUploadSource.includes("uploadGeneratedVideoToCloudinary") &&
