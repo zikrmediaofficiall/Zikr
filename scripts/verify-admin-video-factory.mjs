@@ -371,7 +371,7 @@ if (
   !generationWorkflow.includes('VIDEO_FREE_ONLY: "true"') ||
   !generationWorkflow.includes('HF_WAN_VIDEO_ENABLED: "true"') ||
   !generationWorkflow.includes('HF_LTX_FAST_VIDEO_ENABLED: "true"') ||
-  !generationWorkflow.includes('VIDEO_PROVIDER_ORDER: "hf_ltx_fast,hf_wan,template"') ||
+  !generationWorkflow.includes('VIDEO_PROVIDER_ORDER: "hf_wan,hf_ltx_fast,template"') ||
   !generationWorkflow.includes('GEMINI_AUDIO_SMOKE_TEST: "false"') ||
   !providerTypes.includes("return !config.freeOnly && config.aiEnabled && Boolean(env.GEMINI_API_KEY?.trim())")
 ) {
