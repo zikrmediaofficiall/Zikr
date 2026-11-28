@@ -68,6 +68,18 @@ import { resolveFreeVideoProviderDownloadUrl } from "../../src/features/videos/p
 import { assertCloudinaryVideoUrl } from "../../src/features/videos/services/video-media-url";
 import { selectVideoVoiceProfile, resolveVideoAudioRenderPolicy, buildVerifiedVideoCaptionTrack, VIDEO_AUDIO_POLICY_VERSION } from "../../src/features/videos/services/video-audio-policy";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
+import {
+  createQaSnapshot,
+  isVideoMediaFactsValid,
+  measureFrameDiversity,
+  parseVolumeDetectOutput,
+  verifyQaSnapshot,
+  VIDEO_FRAME_DIVERSITY_ENGINE,
+  VIDEO_FRAME_DIVERSITY_VERSION,
+  type SampledFrame,
+  type QaSnapshot,
+  type VideoMediaFacts,
+} from "../../src/features/videos/services/video-frame-diversity";
 import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
 import { GENERAL_VIDEO_SCENES, KIDS_VIDEO_SCENES, isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene, resolveDeterministicVideoVisualTheme, type VideoScene, type VideoHookStyle } from "../../src/features/videos/services/video-creative-variation";
 import { paginateCaptionText, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
@@ -689,14 +701,115 @@ async function probeMedia(pathname: string, signal?: AbortSignal) {
   const { stdout } = await execFileAsync("ffprobe", [
     "-v", "error",
     "-show_entries",
-    "format=duration:stream=codec_type,codec_name,width,height,bit_rate,sample_rate,channels",
+    "format=format_name,duration,size:stream=codec_type,codec_name,width,height,bit_rate,sample_rate,channels,avg_frame_rate,r_frame_rate",
     "-of", "json",
     pathname,
   ], { maxBuffer: 2 * 1024 * 1024, signal });
   return JSON.parse(stdout) as {
-    streams?: Array<{ codec_type?: string; codec_name?: string; width?: number; height?: number; bit_rate?: string; sample_rate?: string; channels?: number }>;
-    format?: { duration?: string };
+    streams?: Array<{
+      codec_type?: string;
+      codec_name?: string;
+      width?: number;
+      height?: number;
+      bit_rate?: string;
+      sample_rate?: string;
+      channels?: number;
+      avg_frame_rate?: string;
+      r_frame_rate?: string;
+    }>;
+    format?: { format_name?: string; duration?: string; size?: string };
   };
+}
+
+/**
+ * P08 render-time technical and frame-diversity gate. This runs against the
+ * locally rendered MP4 before any Cloudinary write, so invalid files never
+ * enter durable media storage or the publishing queue.
+ */
+async function createVideoTechnicalQaSnapshot(
+  videoPath: string,
+  canaryId: string,
+  tempDirectory: string,
+  signal?: AbortSignal,
+): Promise<QaSnapshot> {
+  throwIfVideoLeaseAborted(signal);
+  const [probe, fileStats] = await Promise.all([probeMedia(videoPath, signal), stat(videoPath)]);
+  const videoStream = probe.streams?.find((stream) => stream.codec_type === "video");
+  const audioStream = probe.streams?.find((stream) => stream.codec_type === "audio");
+  if (!videoStream || !audioStream) {
+    throw new Error("P08 technical QA rejected the render: MP4 must contain both video and audio streams.");
+  }
+
+  const frameRateValue = videoStream.avg_frame_rate || videoStream.r_frame_rate || "0/1";
+  const frameRateParts = frameRateValue.split("/");
+  const frameRateNumerator = Number(frameRateParts[0]);
+  const frameRateDenominator = Number(frameRateParts[1]);
+  const frameRate = frameRateDenominator > 0 ? frameRateNumerator / frameRateDenominator : Number.NaN;
+  const volumeProbe = await execFileAsync("ffmpeg", [
+    "-hide_banner", "-nostats", "-i", videoPath, "-vn", "-af", "volumedetect", "-f", "null", "-",
+  ], { maxBuffer: 2 * 1024 * 1024, signal });
+  const volume = parseVolumeDetectOutput(String(volumeProbe.stderr ?? ""));
+  if (!volume) {
+    throw new Error("P08 technical QA rejected the render: FFmpeg did not return finite mean and peak audio levels.");
+  }
+
+  const media: VideoMediaFacts = {
+    videoCodec: String(videoStream.codec_name ?? ""),
+    audioCodec: String(audioStream.codec_name ?? ""),
+    width: Number(videoStream.width ?? 0),
+    height: Number(videoStream.height ?? 0),
+    frameRate,
+    durationSeconds: Number(probe.format?.duration),
+    sizeBytes: Number(probe.format?.size ?? fileStats.size),
+    audioMeanVolumeDb: volume.meanVolumeDb,
+    audioPeakVolumeDb: volume.peakVolumeDb,
+    containerFormat: String(probe.format?.format_name ?? ""),
+  };
+  if (!isVideoMediaFactsValid(media)) {
+    throw new Error(
+      "P08 technical QA rejected the render: expected MP4/MOV H.264 + AAC, at least 720p, 15–60 FPS, " +
+      "1 KiB–50 MiB, at most 135 seconds, mean audio above -55 dBFS and peak below -0.1 dBFS. " +
+      "Detected " + media.videoCodec + "/" + media.audioCodec + " " + media.width + "x" + media.height +
+      " at " + String(media.frameRate) + " FPS, " + String(media.durationSeconds) + "s and " +
+      String(media.sizeBytes) + " bytes (" + media.containerFormat + ").",
+    );
+  }
+
+  const sampleCount = Math.max(6, Math.min(24, Math.round(media.durationSeconds / 2)));
+  const frames: SampledFrame[] = [];
+  for (let index = 0; index < sampleCount; index++) {
+    throwIfVideoLeaseAborted(signal);
+    const timestamp = Number(((media.durationSeconds * (index + 0.5)) / sampleCount).toFixed(3));
+    const framePath = path.join(tempDirectory, "p08-frame-" + String(index).padStart(2, "0") + ".gray");
+    await execFileAsync("ffmpeg", [
+      "-v", "error",
+      "-ss", String(timestamp),
+      "-i", videoPath,
+      "-frames:v", "1",
+      "-vf", "scale=16:16:force_original_aspect_ratio=decrease,pad=16:16:(ow-iw)/2:(oh-ih)/2,format=gray",
+      "-f", "rawvideo",
+      framePath,
+    ], { maxBuffer: 1024 * 1024, signal });
+    const raw = await readFile(framePath);
+    await rm(framePath, { force: true });
+    if (raw.byteLength !== 256) {
+      throw new Error(
+        "P08 visual QA rejected the render: frame sample " + String(index + 1) + " at " +
+        String(timestamp) + "s returned " + String(raw.byteLength) + " bytes instead of 256.",
+      );
+    }
+    frames.push({ timeSeconds: timestamp, pixels: Array.from(raw) });
+  }
+
+  const report = measureFrameDiversity(frames);
+  if (!report.passed) {
+    throw new Error("P08 visual diversity QA rejected the render: " + report.reasons.join("; "));
+  }
+  const snapshot = createQaSnapshot(canaryId, report, new Date().toISOString(), media);
+  if (!verifyQaSnapshot(snapshot)) {
+    throw new Error("P08 technical QA could not verify its own versioned SHA-256 snapshot.");
+  }
+  return snapshot;
 }
 
 function dayIndex(date = new Date()) {
@@ -2648,6 +2761,12 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     if (!outputStats.isFile() || outputStats.size < 1024 || outputStats.size > MAX_PROVIDER_VIDEO_BYTES) {
       throw new Error("Rendered MP4 must be between 1 KiB and 50 MiB before it is read into memory.");
     }
+    const videoTechnicalQa = await createVideoTechnicalQaSnapshot(outputPath, request.id, temp, signal);
+    request.content = {
+      ...request.content,
+      videoTechnicalQa,
+      videoTechnicalQaStatus: "passed",
+    };
     const bytes = await readFile(outputPath);
     const storageKey = request.automation_key || request.id;
     const uploadedMedia = await uploadGeneratedVideoToCloudinary(bytes, storageKey, signal);
@@ -2898,6 +3017,19 @@ export function buildAutomatedVideoQaChecklist(
     media.provider === "cloudinary" &&
     typeof media.publicId === "string" && Boolean(media.publicId.trim()) &&
     Number(media.bytes) >= 1024;
+  const technicalQa = content.videoTechnicalQa && typeof content.videoTechnicalQa === "object" && !Array.isArray(content.videoTechnicalQa)
+    ? content.videoTechnicalQa as QaSnapshot
+    : null;
+  const technicalQaPassed = Boolean(
+    technicalQa &&
+    content.videoTechnicalQaStatus === "passed" &&
+    technicalQa.canaryId === request.id &&
+    technicalQa.engine === VIDEO_FRAME_DIVERSITY_ENGINE &&
+    technicalQa.version === VIDEO_FRAME_DIVERSITY_VERSION &&
+    verifyQaSnapshot(technicalQa) &&
+    technicalQa.report?.passed === true &&
+    isVideoMediaFactsValid(technicalQa.media),
+  );
   const renderDuration = Number(render.durationSeconds);
   const maximumReviewedDuration = isLaylProgram ? 120 : isVerifiedHadyEditorial ? 135 : 60;
   const resolutionValid = render.resolution === "1080x1920" || render.resolution === "1920x1080";
@@ -2905,7 +3037,8 @@ export function buildAutomatedVideoQaChecklist(
   const visualThemeReviewed = visualTheme
     ? isVideoTemplateAssetAllowedForAudience(visualTheme as VideoTemplateAsset, visualAudience)
     : allowedScenes.has(rendered.scene);
-  const visualsReviewed = visualThemeReviewed &&
+  const visualsReviewed = technicalQaPassed &&
+    visualThemeReviewed &&
     allowedScenes.has(rendered.scene) &&
     allowedMotions.has(String(render.motion)) &&
     render.aiVisualPolicyVersion === AI_VISUAL_POLICY_VERSION &&
@@ -3981,6 +4114,9 @@ export async function processTemplateVideoQueue(limit = BATCH_SIZE, priorityDay?
           templateVersion: rendered.templateVersion,
           videoUrl: rendered.videoUrl,
           audience: isKidsVideo ? "kids" : "general",
+          technicalQaDigest: typeof (request.content.videoTechnicalQa as QaSnapshot | undefined)?.digest === "string"
+            ? (request.content.videoTechnicalQa as QaSnapshot).digest
+            : null,
           ...(isKidsVideo ? { kidsVideoQaStatus } : {}),
         },
         checks: qaChecks,
