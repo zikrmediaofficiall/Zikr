@@ -86,6 +86,8 @@ const MEMORY_SCENE_ART: Record<string, MemorySceneArt> = {
   "rain-falls": { icon: "🌧️", tone: "border-blue-200/30 bg-blue-200/10 text-blue-100" },
 };
 
+import { getMemoryTheme, memoryCardBack, memoryColumns } from "./memory-scene";
+
 export function ZikrMemoryGame({ difficulty, restartToken, paused, onHud, onResult, onSound }: LearningGameProps) {
   const { isEnglish } = useLanguage();
   const isEnglishRef = useRef(isEnglish);
@@ -242,7 +244,7 @@ export function ZikrMemoryGame({ difficulty, restartToken, paused, onHud, onResu
           <button type="button" onClick={useHint} disabled={paused || locked || complete || Boolean(hintId)} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">💡 {isEnglish ? "Hint" : "تلميح"}</button>
         </div>
       </div>
-      <div className="relative mx-4 mt-4 grid grid-cols-2 gap-3 p-1 sm:mx-6 sm:grid-cols-3 sm:gap-4">
+      <div className={"relative mx-4 mt-4 grid gap-3 p-1 sm:mx-6 sm:gap-4 " + (memoryColumns(levelIndex, cards.length) === 4 ? "grid-cols-2 sm:grid-cols-4" : memoryColumns(levelIndex, cards.length) === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3")}>
         {cards.map((card, index) => {
           const visible = flipped.includes(card.id) || matched.includes(card.id);
           const cardText = isEnglish && card.side === "situation"
@@ -274,7 +276,7 @@ export function ZikrMemoryGame({ difficulty, restartToken, paused, onHud, onResu
                   </div>
                 </div>
                 <p className="mt-3 text-sm leading-7 text-brand-cream">{cardText}</p>
-              </> : <div className="grid h-full min-h-28 place-items-center text-center"><div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-brand-gold/20 bg-brand-gold/10 text-2xl text-brand-gold">✦</div><p className="mt-3 text-xs text-brand-cream/45">{isEnglish ? "Hidden card" : "بطاقة مخفية"}</p></div></div>}
+              </> : <div className="grid h-full min-h-28 place-items-center text-center"><div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border-2 text-2xl text-white shadow-md" style={{ background: memoryCardBack(getMemoryTheme(levelIndex)).back, borderColor: memoryCardBack(getMemoryTheme(levelIndex)).ring }}>{memoryCardBack(getMemoryTheme(levelIndex)).glyph}</div><p className="mt-3 text-xs text-brand-cream/45">{isEnglish ? "Hidden card" : "بطاقة مخفية"}</p></div></div>}
             </button>
           );
         })}
