@@ -86,6 +86,7 @@ const MEMORY_SCENE_ART: Record<string, MemorySceneArt> = {
   "rain-falls": { icon: "🌧️", tone: "border-blue-200/30 bg-blue-200/10 text-blue-100" },
 };
 
+import { WaterVessel, getWuduTheme } from "./wudu-scene";
 import { VerseLightString, getVerseTheme } from "./verse-scene";
 import { QuizPath, getQuizTheme } from "./quiz-scene";
 import { getMemoryTheme, memoryCardBack, memoryColumns } from "./memory-scene";
@@ -389,6 +390,7 @@ export function WuduChallengeGame({ difficulty, restartToken, paused, onHud, onR
         { label: isEnglish ? "Streak" : "السلسلة", value: state.streak, tone: "text-brand-emerald" },
         { label: isEnglish ? "Level" : "المستوى", value: levelIndex + 1, tone: "text-violet-200" },
       ]} /></div>
+      <WaterVessel theme={getWuduTheme(levelIndex)} done={state.stepIndex} total={steps.length} mistakes={state.mistakes} />
       <div className="mx-4 mt-4 rounded-[2rem] border border-white/10 bg-[#072530]/70 p-5 sm:mx-6 sm:p-6">
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={isEnglish ? "Wudu step sequence" : "تسلسل خطوات الوضوء"}>
           {steps.map((step, index) => <div key={step.order} className={"min-h-[4.25rem] min-w-0 break-words rounded-xl border px-2 py-2 text-[11px] leading-5 transition sm:px-3 sm:text-xs " + (index < state.stepIndex ? "border-brand-emerald/30 bg-brand-emerald/10 text-brand-emerald" : index === state.stepIndex ? "border-sky-200/40 bg-sky-200/10 text-sky-100" : "border-white/10 bg-white/[0.02] text-brand-cream/35")}>
