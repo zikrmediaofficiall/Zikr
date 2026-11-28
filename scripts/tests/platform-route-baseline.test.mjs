@@ -6,6 +6,8 @@ import {
   isPlatformRouteInventoryValid,
 } from "../platform-route-baseline.mjs";
 
+assert.equal(EXPECTED_PLATFORM_PAGES, 143, "the reviewed page inventory includes the admin clip library");
+assert.equal(EXPECTED_PLATFORM_APIS, 84, "the reviewed API inventory includes the admin clip metadata endpoint");
 assert.equal(
   isPlatformRouteInventoryValid(EXPECTED_PLATFORM_PAGES, EXPECTED_PLATFORM_APIS),
   true,
