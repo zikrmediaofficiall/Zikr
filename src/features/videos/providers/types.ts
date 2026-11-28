@@ -40,6 +40,21 @@ export type VideoGenerationResult = {
   width?: number;
   height?: number;
   audioPresent?: boolean;
+  clipLibraryRights?: {
+    clipId: string;
+    category: string;
+    audience: "general" | "kids";
+    sourceKind: string;
+    cloudinaryPublicId: string;
+    license: string;
+    evidence: string;
+    reviewedBy: string;
+    reviewedAt: string;
+    audioMuted: boolean;
+    width: number;
+    height: number;
+    durationSeconds: number;
+  };
   error?: string;
 };
 
