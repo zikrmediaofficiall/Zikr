@@ -1,6 +1,6 @@
 // Private QA helper (run manually on a private canary; never uploads or publishes).
 // Usage: pnpm tsx scripts/qa/sample-video-frames.ts <video.mp4> <canaryId> [out.json]
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { statSync, writeFileSync } from "node:fs";
 import {
   createQaSnapshot,
@@ -48,9 +48,21 @@ const facts: VideoMediaFacts = {
   frameRate: frameRateDenominator > 0 ? frameRateNumerator / frameRateDenominator : 0,
   durationSeconds,
   sizeBytes,
+  audioMeanVolumeDb: Number.NaN,
+  audioPeakVolumeDb: Number.NaN,
 };
+const volumeProbe = spawnSync("ffmpeg", [
+  "-hide_banner", "-nostats", "-i", video, "-vn", "-af", "volumedetect", "-f", "null", "-",
+], { encoding: "utf8", maxBuffer: 2 * 1024 * 1024 });
+if (volumeProbe.error || volumeProbe.status !== 0) fail("Audio loudness probe could not decode the complete input audio stream.");
+const volumeOutput = String(volumeProbe.stderr ?? "");
+const meanMatch = volumeOutput.match(/mean_volume:\s*(-?\\d+(?:\\.\\d+)?)\\s*dB/i);
+const peakMatch = volumeOutput.match(/max_volume:\s*(-?\\d+(?:\\.\\d+)?)\\s*dB/i);
+if (!meanMatch || !peakMatch) fail("Audio loudness probe did not return mean and peak volume measurements.");
+facts.audioMeanVolumeDb = Number(meanMatch[1]);
+facts.audioPeakVolumeDb = Number(peakMatch[1]);
 if (!isVideoMediaFactsValid(facts)) {
-  fail("Technical QA failed: expected H.264 video, AAC audio, 720p+ dimensions, 15–60 FPS, positive duration and file size.");
+  fail("Technical QA failed: expected H.264 video, AAC audio, 720p+, 15–60 FPS, positive media size/duration, mean audio above -55 dB and peak below -0.1 dBFS.");
 }
 
 const count = Math.max(6, Math.min(24, Math.round(durationSeconds / 2)));
