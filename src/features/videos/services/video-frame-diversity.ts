@@ -25,6 +25,7 @@ export type VideoMediaFacts = {
   sizeBytes: number;
   audioMeanVolumeDb: number;
   audioPeakVolumeDb: number;
+  containerFormat: string;
 };
 
 export const FRAME_DIVERSITY_LIMITS = {
@@ -201,7 +202,9 @@ export function isVideoMediaFactsValid(value: unknown): value is VideoMediaFacts
     Number.isInteger(facts.height) && Number(facts.height) >= 720 &&
     Number.isFinite(facts.frameRate) && Number(facts.frameRate) >= 15 && Number(facts.frameRate) <= 60 &&
     Number.isFinite(facts.durationSeconds) && Number(facts.durationSeconds) > 0 &&
-    Number.isSafeInteger(facts.sizeBytes) && Number(facts.sizeBytes) > 0 &&
+    Number.isSafeInteger(facts.sizeBytes) && Number(facts.sizeBytes) >= 1024 && Number(facts.sizeBytes) <= 50 * 1024 * 1024 &&
+    Number.isFinite(facts.durationSeconds) && Number(facts.durationSeconds) <= 135 &&
+    typeof facts.containerFormat === "string" && facts.containerFormat.split(",").some((name) => name === "mp4" || name === "mov") &&
     Number.isFinite(facts.audioMeanVolumeDb) && Number(facts.audioMeanVolumeDb) > -55 &&
     Number.isFinite(facts.audioPeakVolumeDb) && Number(facts.audioPeakVolumeDb) < -0.1 &&
     Number(facts.audioMeanVolumeDb) <= Number(facts.audioPeakVolumeDb)
