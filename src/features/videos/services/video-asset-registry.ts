@@ -44,9 +44,9 @@ export type VideoAssetRightsRecord = {
     notes: string;
   };
   usage: {
-    privatePreviewAllowed: true;
-    publicSiteAllowed: false;
-    socialAllowed: false;
+    privatePreviewAllowed: boolean;
+    publicSiteAllowed: boolean;
+    socialAllowed: boolean;
   };
 };
 
