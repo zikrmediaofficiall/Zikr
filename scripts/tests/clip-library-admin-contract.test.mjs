@@ -11,6 +11,7 @@ const migration = read("../../supabase/migrations/20261128120000_video_clip_libr
 
 assert.ok(route.includes("requireAdminApi('video.manage')"), "GET must require video.manage");
 assert.ok(route.includes("requireAdminStepUpApi('video.manage'"), "writes must require step-up MFA");
+assert.ok(client.includes("redirectToAdminStepUp(data.nextPath)"), "admin writes must complete the Step-Up flow when required");
 assert.ok(route.includes("readBoundedJsonBody(request, MAX_BODY_BYTES)"), "JSON payload must be size-bounded");
 assert.ok(route.includes("validateClipRow(candidate)"), "clip metadata must pass shared Cloudinary/rights validation");
 assert.ok(route.includes("status: 'pending'"), "new clips must not be approved on create");
