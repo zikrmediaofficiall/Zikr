@@ -29,7 +29,7 @@ function GameGuidePanel({ instructions, goal, isEnglish, sourceNotice, onAction,
   return (
     <section aria-labelledby="game-briefing-heading" className="w-full overflow-hidden rounded-2xl border border-brand-gold/25 bg-gradient-to-br from-[#102631] via-[#071b24] to-[#0b302f] p-5 shadow-2xl sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
           <p className="text-xs font-black tracking-[0.18em] text-brand-emerald">{isEnglish ? "HOW TO PLAY" : "طريقة اللعب"}</p>
           <h3 id="game-briefing-heading" className="mt-2 text-xl font-black text-brand-gold">{instructions.title}</h3>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-brand-cream/75">{instructions.intro}</p>

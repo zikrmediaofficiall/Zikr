@@ -1210,7 +1210,7 @@ export function ContentExpansion({ pathname, locale = 'ar' }: { pathname: string
                     href={reference.href}
                     target={external ? '_blank' : undefined}
                     rel={external ? 'noopener noreferrer' : undefined}
-                    className="inline-flex min-h-9 items-center text-brand-gold underline decoration-brand-gold/40 underline-offset-4 hover:text-brand-cream"
+                    className="inline-flex min-h-11 items-center text-brand-gold underline decoration-brand-gold/40 underline-offset-4 hover:text-brand-cream"
                   >
                     {reference.label}
                   </Link>
