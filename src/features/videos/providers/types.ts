@@ -2,6 +2,7 @@ export type VideoProviderName =
   | "template"
   | "comfyui"
   | "free_api"
+  | "clip_library"
   | "hf_wan"
   | "hf_ltx_fast"
   | "hf_custom_1"
@@ -54,6 +55,7 @@ export type VideoEngineConfig = {
   aiEnabled: boolean;
   comfyUiEnabled: boolean;
   freeApiEnabled: boolean;
+  clipLibraryEnabled: boolean;
   hfWanEnabled: boolean;
   hfLtxFastEnabled: boolean;
   customSpaces: Array<{ name: Extract<VideoProviderName, `hf_custom_${number}`>; space: string; variant: "wan2_2_fast" | "ltx_fast" }>;
@@ -72,6 +74,7 @@ const PROVIDERS: VideoProviderName[] = [
   "hf_wan",
   "comfyui",
   "free_api",
+  "clip_library",
   "template",
   "hf_custom_1",
   "hf_custom_2",
@@ -115,7 +118,7 @@ export function isVideoAiPlanningEnabled(env = process.env): boolean {
 export function getVideoEngineConfig(env = process.env): VideoEngineConfig {
   const customSpaces = parseCustomVideoSpaces(env.HF_VIDEO_CUSTOM_SPACES);
   const availableProviders = new Set<VideoProviderName>([
-    "hf_ltx_fast", "hf_wan", "comfyui", "free_api", "template",
+    "hf_ltx_fast", "hf_wan", "comfyui", "free_api", "clip_library", "template",
     ...customSpaces.map((entry) => entry.name),
   ]);
   const order = (env.VIDEO_PROVIDER_ORDER ?? "hf_ltx_fast,hf_wan,comfyui,free_api")
@@ -133,6 +136,7 @@ export function getVideoEngineConfig(env = process.env): VideoEngineConfig {
     aiEnabled: bool(env.VIDEO_AI_ENABLED, false),
     comfyUiEnabled: bool(env.COMFYUI_ENABLED, false),
     freeApiEnabled: bool(env.FREE_VIDEO_PROVIDER_ENABLED, false),
+    clipLibraryEnabled: bool(env.CLIP_LIBRARY_ENABLED, false),
     hfWanEnabled: bool(env.HF_WAN_VIDEO_ENABLED, false),
     hfLtxFastEnabled: bool(env.HF_LTX_FAST_VIDEO_ENABLED, false),
     customSpaces,
