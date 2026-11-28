@@ -117,7 +117,7 @@ export function measureFrameDiversity(frames: SampledFrame[]): FrameDiversityRep
 }
 
 export const VIDEO_FRAME_DIVERSITY_ENGINE = "zikr_video_frame_diversity";
-export const VIDEO_FRAME_DIVERSITY_VERSION = "2026-11-28-p08-v1";
+export const VIDEO_FRAME_DIVERSITY_VERSION = "2026-11-28-p08-v2";
 
 export type QaSnapshot = {
   engine: string;
@@ -198,12 +198,11 @@ export function isVideoMediaFactsValid(value: unknown): value is VideoMediaFacts
   return (
     facts.videoCodec === "h264" &&
     facts.audioCodec === "aac" &&
-    Number.isInteger(facts.width) && Number(facts.width) >= 720 &&
-    Number.isInteger(facts.height) && Number(facts.height) >= 720 &&
+    Number.isInteger(facts.width) && Number(facts.width) >= 720 && Number(facts.width) <= 3840 &&
+    Number.isInteger(facts.height) && Number(facts.height) >= 720 && Number(facts.height) <= 3840 &&
     Number.isFinite(facts.frameRate) && Number(facts.frameRate) >= 15 && Number(facts.frameRate) <= 60 &&
-    Number.isFinite(facts.durationSeconds) && Number(facts.durationSeconds) > 0 &&
+    Number.isFinite(facts.durationSeconds) && Number(facts.durationSeconds) > 0 && Number(facts.durationSeconds) <= 135 &&
     Number.isSafeInteger(facts.sizeBytes) && Number(facts.sizeBytes) >= 1024 && Number(facts.sizeBytes) <= 50 * 1024 * 1024 &&
-    Number.isFinite(facts.durationSeconds) && Number(facts.durationSeconds) <= 135 &&
     typeof facts.containerFormat === "string" && facts.containerFormat.split(",").some((name) => name === "mp4" || name === "mov") &&
     Number.isFinite(facts.audioMeanVolumeDb) && Number(facts.audioMeanVolumeDb) > -55 &&
     Number.isFinite(facts.audioPeakVolumeDb) && Number(facts.audioPeakVolumeDb) < -0.1 &&
