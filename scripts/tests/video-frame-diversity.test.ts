@@ -5,6 +5,8 @@ import {
   measureFrameDiversity,
   parseVolumeDetectOutput,
   verifyQaSnapshot,
+  VIDEO_FRAME_DIVERSITY_ENGINE,
+  VIDEO_FRAME_DIVERSITY_VERSION,
   type SampledFrame,
   type VideoMediaFacts,
 } from "../../src/features/videos/services/video-frame-diversity";
@@ -67,6 +69,9 @@ assert.equal(isVideoMediaFactsValid({ ...facts, audioPeakVolumeDb: 0 }), false, 
 
 const snapshot = createQaSnapshot("canary-1", measureFrameDiversity(varied), "2026-11-28T00:00:00.000Z", facts);
 assert.equal(verifyQaSnapshot(snapshot), true);
+assert.equal(snapshot.engine, VIDEO_FRAME_DIVERSITY_ENGINE);
+assert.equal(snapshot.version, VIDEO_FRAME_DIVERSITY_VERSION);
+assert.equal(verifyQaSnapshot({ ...snapshot, version: "2026-11-28-p08-v0" }), false, "version is bound to the checksum");
 assert.equal(verifyQaSnapshot({ ...snapshot, report: { ...snapshot.report, passed: false } }), false);
 assert.equal(verifyQaSnapshot({ ...snapshot, media: { ...facts, width: 320 } }), false, "tampering with media facts is detected");
 assert.equal(verifyQaSnapshot({ ...snapshot, digest: "not-a-sha256" }), false);
