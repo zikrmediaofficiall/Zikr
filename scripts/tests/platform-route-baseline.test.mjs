@@ -6,6 +6,7 @@ import {
   isPlatformRouteInventoryValid,
 } from "../platform-route-baseline.mjs";
 
+assert.equal(EXPECTED_PLATFORM_PAGES, 141, "the reviewed Admin asset-rights page must be part of the canonical 141-page inventory");
 assert.equal(
   isPlatformRouteInventoryValid(EXPECTED_PLATFORM_PAGES, EXPECTED_PLATFORM_APIS),
   true,
