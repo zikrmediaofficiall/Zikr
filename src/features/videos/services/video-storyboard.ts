@@ -102,10 +102,10 @@ function safeAsset(
 
 function orderedAssets(input: BuildVideoStoryboardInput): VideoTemplateAsset[] {
   if (input.templateAssetKey != null && !safeAsset(input.templateAssetKey, input.audience)) {
-    throw new Error("Pinned Template Studio asset is not approved for the requested storyboard audience.");
+    throw new Error("Pinned Template Studio asset is not among the audience-approved visual assets for the requested storyboard audience.");
   }
   if (input.visualTheme != null && !safeAsset(input.visualTheme, input.audience)) {
-    throw new Error("Requested visual theme is not approved for the requested storyboard audience.");
+    throw new Error("Requested visual theme is not among the audience-approved visual assets for the requested storyboard audience.");
   }
   const category = input.category.trim().toLowerCase();
   const audienceAssets = VIDEO_TEMPLATE_ASSETS.filter((asset) =>
