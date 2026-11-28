@@ -14,6 +14,9 @@ assert.ok(workflow.includes("select(.name == env.ASSET_NAME)"), "release downloa
 assert.ok(workflow.includes("test -f \"/tmp/clip/$ASSET_NAME\""), "only the exact selected release asset may be passed to the uploader");
 
 assert.ok(script.includes("realpathSync(\"/tmp/clip\")"), "uploader must constrain input to the release staging directory");
+assert.ok(script.includes("assertClipLibraryReady(supabaseUrl, serviceKey)"), "the production clip table must be verified before uploading to Cloudinary");
+assert.ok(script.includes("assertNoRegisteredClip(supabaseUrl, serviceKey, publicId)"), "duplicate registration must be rejected before uploading");
+assert.ok(!workflow.includes("group: upload-library-clip"), "manual clip uploads must not share a concurrency key that replaces pending runs");
 assert.ok(script.includes("facts.width < 720 || facts.height < 720"), "media validation must enforce the 720p edge");
 assert.ok(script.includes("finalFacts.codec !== \"h264\"") && script.includes("finalFacts.hasAudio"), "normalized output must be H.264 and silent");
 assert.ok(script.includes('"-an"'), "FFmpeg must strip the input audio stream");
