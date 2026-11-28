@@ -682,4 +682,62 @@ assert.equal(inspectVideoQueueItemExternalApproval({
 }).approved, false, "A missing storyboard asset manifest must fail closed.");
 await import("./video-asset-rights.test");
 
+const rightsPendingStudioContent = {
+  ...content,
+  templateBindingMode: "studio",
+  templateAssetKey: "manuscript-library",
+  templateVersionId: "template-version-1",
+};
+const rightsPendingStudioRequest = { ...request, content: rightsPendingStudioContent };
+assert.equal(
+  inspectVideoQueueItemApproval({ ...queueItem, request: rightsPendingStudioRequest }).approved,
+  true,
+  "Pending asset rights may still complete private technical/editorial QA.",
+);
+const rightsBlockedExternal = inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: rightsPendingStudioRequest,
+});
+assert.equal(rightsBlockedExternal.approved, false, "Unverified Template Studio assets must block external publication.");
+assert.deepEqual(rightsBlockedExternal.missingChecks, ["rightsReviewed"]);
+assert.match(rightsBlockedExternal.reason ?? "", /حقوق موثقة/);
+assert.equal(isVideoQueueItemApprovedForPublishing({
+  ...queueItem,
+  request: rightsPendingStudioRequest,
+}), false);
+
+const storyboardRightsPendingRequest = {
+  ...request,
+  content: {
+    ...content,
+    render: {
+      storyboard: {
+        version: "zikr-storyboard-v1",
+        scenes: [
+          { assetKey: "manuscript-library" },
+          { assetKey: "paper" },
+        ],
+      },
+    },
+  },
+};
+assert.equal(inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: storyboardRightsPendingRequest,
+}).approved, false, "Every storyboard scene must pass rights review before external publishing.");
+
+const malformedStoryboardRequest = {
+  ...request,
+  content: {
+    ...content,
+    templateBindingMode: "studio",
+    render: { storyboard: { version: "zikr-storyboard-v1", scenes: [] } },
+  },
+};
+assert.equal(inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: malformedStoryboardRequest,
+}).approved, false, "A missing storyboard asset manifest must fail closed.");
+await import("./video-asset-rights.test");
+
 console.log("Video publishing approval contract passed.");
