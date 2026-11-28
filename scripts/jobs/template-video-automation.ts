@@ -765,13 +765,14 @@ async function createVideoTechnicalQaSnapshot(
     audioPeakVolumeDb: volume.peakVolumeDb,
     containerFormat: String(probe.format?.format_name ?? ""),
   };
+  const detectedMediaDescription = media.videoCodec + "/" + media.audioCodec + " " +
+    String(media.width) + "x" + String(media.height) + " at " + String(media.frameRate) + " FPS, " +
+    String(media.durationSeconds) + "s and " + String(media.sizeBytes) + " bytes (" + media.containerFormat + ").";
   if (!isVideoMediaFactsValid(media)) {
     throw new Error(
       "P08 technical QA rejected the render: expected MP4/MOV H.264 + AAC, at least 720p, 15–60 FPS, " +
-      "1 KiB–50 MiB, at most 135 seconds, mean audio above -55 dBFS and peak below -0.1 dBFS. " +
-      "Detected " + media.videoCodec + "/" + media.audioCodec + " " + media.width + "x" + media.height +
-      " at " + String(media.frameRate) + " FPS, " + String(media.durationSeconds) + "s and " +
-      String(media.sizeBytes) + " bytes (" + media.containerFormat + ").",
+      "1 KiB–50 MiB, at most 135 seconds, mean audio above -55 dBFS and peak below -0.1 dBFS. Detected " +
+      detectedMediaDescription,
     );
   }
 
