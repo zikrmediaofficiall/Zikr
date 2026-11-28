@@ -1,6 +1,6 @@
 {
- "migrationCount": 482,
- "latestMigration": "20261125220000_omnis_push_campaigns",
+ "migrationCount": 483,
+ "latestMigration": "20261128120000_video_clip_library",
  "tables": [
   {
    "table": "admin_audit_events",
@@ -626,6 +626,13 @@
    "dropped": false
   },
   {
+   "table": "video_clip_library",
+   "createdIn": "20261128120000",
+   "rls": true,
+   "policies": 0,
+   "dropped": false
+  },
+  {
    "table": "video_generation_requests",
    "createdIn": "20260630000017",
    "rls": true,
@@ -794,6 +801,14 @@
    "methods": [
     "GET",
     "POST"
+   ]
+  },
+  {
+   "path": "/api/admin/video-clips",
+   "methods": [
+    "GET",
+    "POST",
+    "PATCH"
    ]
   },
   {

@@ -175,6 +175,9 @@
       "path": "/admin/video/qa"
     },
     {
+      "path": "/admin/video/clips"
+    },
+    {
       "path": "/admin/video/requests"
     },
     {

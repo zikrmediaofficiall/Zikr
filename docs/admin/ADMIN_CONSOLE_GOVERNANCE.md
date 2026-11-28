@@ -85,6 +85,7 @@
 | `/admin/video/review` | مراجعة الفيديوهات المتوقفة | `video.manage`؛ حذف السجل المنتهي يتطلب `video.delete` وغياب المراجع |
 | `/admin/video/studio` | استوديو الفيديو | `video.manage` |
 | `/admin/video/studio/curated` | المحتوى الموثق للفيديو | `video.manage` |
+| `/admin/video/clips` | مكتبة المقاطع الجاهزة | `video.manage`؛ التسجيل والاعتماد والتقاعد تتطلب تحقق إضافي |
 | `/admin/video/sources` | مصادر الفيديو | `video.manage` |
 | `/admin/video/scripts` | نصوص السرد | `video.manage` |
 | `/admin/video/voices` | الأصوات | `video.manage` |
