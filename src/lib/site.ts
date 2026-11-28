@@ -7,6 +7,18 @@
  */
 export const PRODUCTION_URL = "https://zikrmediaofficial.vercel.app";
 
+/**
+ * Public SEO origin (canonical links, metadata base, OG urls, sitemap, robots,
+ * llms.txt). Auth, OAuth callbacks, native apps and the host guard keep using
+ * PRODUCTION_URL above and are NOT affected by this switch.
+ *
+ * To move SEO to the custom domain: confirm it resolves over HTTPS and serves
+ * this app, then set CUSTOM_DOMAIN_ACTIVE to true in one small PR.
+ */
+export const CUSTOM_DOMAIN_URL = "https://zikrmediaofficial.qd.je";
+export const CUSTOM_DOMAIN_ACTIVE = false;
+export const PUBLIC_SEO_URL: string = CUSTOM_DOMAIN_ACTIVE ? CUSTOM_DOMAIN_URL : PRODUCTION_URL;
+
 export function enforceCanonicalProductionUrl(_value?: string): string {
   return PRODUCTION_URL;
 }
@@ -54,7 +66,7 @@ export const siteConfig = {
   shortName: "ZIKR",
   description:
     "ZIKR - منصة إسلامية شاملة للقرآن الكريم، الأحاديث النبوية، قصص الأنبياء، ومواقيت الصلاة بتجربة حديثة ومتكاملة.",
-  url: PRODUCTION_URL,
+  url: PUBLIC_SEO_URL,
   locale: "ar_EG",
   dir: "rtl" as const,
 };
