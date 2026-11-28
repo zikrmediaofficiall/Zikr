@@ -17,7 +17,7 @@ The production automation runs directly from `.github/workflows/generate-ai-vide
 Copy the video settings from `.env.example`. Important safe defaults:
 
 ```text
-VIDEO_PROVIDER_ORDER=hf_ltx_fast,hf_wan,template
+VIDEO_PROVIDER_ORDER=hf_wan,hf_ltx_fast,template
 VIDEO_FREE_ONLY=true
 VIDEO_AI_ENABLED=true
 HF_LTX_FAST_VIDEO_ENABLED=false
