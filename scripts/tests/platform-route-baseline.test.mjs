@@ -28,6 +28,7 @@ assert.equal(
 );
 
 const routesVerifier = readFileSync("scripts/verify-platform-routes.mjs", "utf8");
+assert.ok(routesVerifier.includes("src/app/admin/video/clips/page.tsx") && routesVerifier.includes("src/app/api/admin/video-clips/route.ts"), "the clip library page and admin API must be required by the platform route audit");
 const integrityVerifier = readFileSync("scripts/verify-project-integrity.mjs", "utf8");
 assert.ok(
   routesVerifier.includes("isPlatformRouteInventoryValid(pages.length, apis.length)") &&
