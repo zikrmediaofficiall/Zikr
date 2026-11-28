@@ -239,7 +239,7 @@ export function ZikrMemoryGame({ difficulty, restartToken, paused, onHud, onResu
         ]} />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-brand-cream/45">{isEnglish ? "The hint costs 35 points and briefly highlights a matching pair." : "التلميح يخصم 35 نقطة ويكشف الزوج بصريًا للحظات."}</p>
-          <button type="button" onClick={useHint} disabled={paused || locked || complete || Boolean(hintId)} className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">💡 {isEnglish ? "Hint" : "تلميح"}</button>
+          <button type="button" onClick={useHint} disabled={paused || locked || complete || Boolean(hintId)} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">💡 {isEnglish ? "Hint" : "تلميح"}</button>
         </div>
       </div>
       <div className="relative mx-4 mt-4 grid grid-cols-2 gap-3 p-1 sm:mx-6 sm:grid-cols-3 sm:gap-4">
@@ -537,7 +537,7 @@ export function VersePuzzleGame({ difficulty, restartToken, paused, onHud, onRes
       ]} />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-brand-cream/45">{isEnglish ? "The hint adds one mistake but points toward the next word." : "التلميح يضيف خطأً واحدًا لكنه يوضح اتجاه الحل."}</p>
-        <button type="button" onClick={useVerseHint} disabled={paused || complete || hintVisible} className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">🔎 {isEnglish ? "Hint" : "تلميح"}</button>
+        <button type="button" onClick={useVerseHint} disabled={paused || complete || hintVisible} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">🔎 {isEnglish ? "Hint" : "تلميح"}</button>
       </div></div>
       
       <div className="mx-3 mt-3 min-w-0 rounded-[1.5rem] border border-violet-200/10 bg-black/20 p-3 sm:mx-6 sm:mt-4 sm:rounded-[2rem] sm:p-5">
@@ -695,7 +695,7 @@ export function ZikrQuizGame({ difficulty, restartToken, paused, onHud, onResult
       ]} />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-brand-cream/45">{isEnglish ? "50/50 is available once per question and narrows the choices to two." : "ميزة 50/50 متاحة مرة واحدة لكل سؤال، وتفتح لك آخر خيارين محتملين."}</p>
-        <button type="button" onClick={useFiftyFifty} disabled={paused || selected !== null || hiddenOptions.length > 0} className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">✂️ 50/50</button>
+        <button type="button" onClick={useFiftyFifty} disabled={paused || selected !== null || hiddenOptions.length > 0} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">✂️ 50/50</button>
       </div></div>
       <div className="mx-3 mt-3 min-w-0 rounded-[1.5rem] border border-white/10 bg-black/20 p-3 sm:mx-6 sm:mt-4 sm:rounded-[2rem] sm:p-7">
         <div className="min-w-0 rounded-[1.3rem] border border-brand-gold/15 bg-brand-gold/[0.04] p-3 sm:rounded-[1.7rem] sm:p-5"><p className="text-xs font-black tracking-[0.18em] text-brand-emerald/80">{isEnglish ? "QUESTION " + (index + 1) : "السؤال " + (index + 1)}</p><h4 className="mt-3 break-words text-lg font-black leading-8 text-brand-cream [overflow-wrap:anywhere] sm:text-2xl sm:leading-10">{question.text}</h4></div>

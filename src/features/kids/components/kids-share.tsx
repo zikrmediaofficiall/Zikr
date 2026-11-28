@@ -92,7 +92,8 @@ export function KidsShare({
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
         <Button
           onClick={handleFacebookShare}
-          className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+          aria-label="Facebook"
+          className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg min-h-11"
           size="sm"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -103,7 +104,8 @@ export function KidsShare({
 
         <Button
           onClick={handleWhatsAppShare}
-          className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+          aria-label="WhatsApp"
+          className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-lg min-h-11"
           size="sm"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -114,7 +116,8 @@ export function KidsShare({
 
         <Button
           onClick={handleTwitterShare}
-          className="flex items-center justify-center gap-2 bg-blue-400 hover:bg-blue-500 text-white rounded-lg"
+          aria-label="Twitter / X"
+          className="flex items-center justify-center gap-2 bg-blue-400 hover:bg-blue-500 text-white rounded-lg min-h-11"
           size="sm"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -125,7 +128,8 @@ export function KidsShare({
 
         <Button
           onClick={handleCopyLink}
-          className="flex items-center justify-center gap-2 bg-brand-gold hover:bg-brand-gold/90 text-black rounded-lg"
+          aria-label="نسخ الرابط"
+          className="flex items-center justify-center gap-2 bg-brand-gold hover:bg-brand-gold/90 text-black rounded-lg min-h-11"
           size="sm"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

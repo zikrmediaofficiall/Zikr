@@ -64,7 +64,7 @@ function GameGuidePanel({ instructions, goal, isEnglish, sourceNotice, onAction,
       </p>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
         <p className="text-xs leading-6 text-brand-cream/50">{isEnglish ? "There is no rush. You can pause whenever you need." : "مش محتاج تستعجل؛ تقدر توقف اللعبة مؤقتًا وقت ما تحتاج."}</p>
-        <Button type="button" onClick={onAction}>{actionLabel}</Button>
+        <Button type="button" onClick={onAction} className="min-h-11">{actionLabel}</Button>
       </div>
     </section>
   );
@@ -340,7 +340,7 @@ export function KidsWorldGameShell({ gameId, initialDifficulty }: KidsWorldGameS
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-brand-emerald/80">{isEnglish ? "ZIKR Kids" : "عالم ذِكر للأطفال"}</p>
           <h2 id="game-heading" className="break-words text-xl font-black leading-tight text-brand-gold sm:text-2xl">{isEnglish ? definition.titleEn : definition.titleAr}</h2>
           <p className="max-w-2xl break-words text-sm leading-6 text-brand-cream/65">{isEnglish ? definition.storyEn : definition.storyAr}</p>
-          <Link href="/kids/games" className="inline-flex min-h-9 items-center pt-1 text-sm text-brand-cream/70 underline underline-offset-4 hover:text-brand-gold">
+          <Link href="/kids/games" className="inline-flex min-h-11 items-center pt-1 text-sm text-brand-cream/70 underline underline-offset-4 hover:text-brand-gold">
             {isEnglish ? "Back to games" : "العودة إلى الألعاب"}
           </Link>
         </div>
