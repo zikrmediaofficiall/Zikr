@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   VIDEO_AUDIO_POLICY_VERSION,
   buildVerifiedVideoCaptionTrack,
@@ -105,8 +106,9 @@ assert.equal(editorial.voiceOverrideAllowed, false);
 const composition = resolveVideoComposition({
   category: "story",
   audience: "general",
-  format: "vertical",
-  videoFormat: "vertical",
+  seed: "audio-policy-caption",
+  width: 1080,
+  height: 1920,
 });
 const approvedText = "هذا نص عربي معتمد للكابتشن يجب أن يبقى كما هو دون إضافة أو حذف أو إعادة ترتيب للكلمات.";
 const track = buildVerifiedVideoCaptionTrack({
@@ -138,5 +140,16 @@ assert.throws(() => buildVerifiedVideoCaptionTrack({
   audioDurationSeconds: 0,
   composition,
 }), /duration must be greater than zero/i);
+
+
+const worker = readFileSync(new URL("../jobs/template-video-automation.ts", import.meta.url), "utf8");
+assert.ok(worker.includes("selectVideoVoiceProfile("));
+assert.ok(worker.includes("resolveVideoAudioRenderPolicy("));
+assert.ok(worker.includes("buildVerifiedVideoCaptionTrack("));
+assert.ok(worker.includes("audioPolicy.quranTtsAllowed"));
+assert.ok(worker.includes("captionPolicyVersion: VIDEO_AUDIO_POLICY_VERSION"));
+assert.ok(!worker.includes("process.env.ARABIC_TTS_VOICE"), "Environment variables must not override an approved voice identity.");
+assert.ok(!worker.includes("process.env.ARABIC_TTS_RATE"), "Environment variables must not change the approved voice rate.");
+assert.ok(!worker.includes("process.env.ARABIC_TTS_PITCH"), "Environment variables must not change the approved voice pitch.");
 
 console.log("Video audio identity, Quran human-recitation policy, Kids voice isolation, and source-locked Arabic caption checks passed.");
