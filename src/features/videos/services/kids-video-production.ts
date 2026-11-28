@@ -323,19 +323,19 @@ export function buildKidsCharacterSceneSvg(cues: readonly KidsCharacterCue[]): s
       celebrating: "M-72 330 L-145 175 M72 330 L145 175",
     };
     const centerX = 540 + (index - (cues.length - 1) / 2) * 265;
-    return "<g transform=\\"translate(" + centerX + " 1020) scale(0.72)\\">" +
-      "<ellipse cx=\\"0\\" cy=\\"610\\" rx=\\"160\\" ry=\\"38\\" fill=\\"#12251F\\" opacity=\\".22\\"/>" +
-      "<path d=\\"" + arms[cue.pose] + "\\" fill=\\"none\\" stroke=\\"" + colors.skin + "\\" stroke-width=\\"58\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"/>" +
-      "<path d=\\"M-58 495 L-77 665 L-80 795 M58 495 L77 665 L80 795\\" fill=\\"none\\" stroke=\\"" + colors.shoes + "\\" stroke-width=\\"56\\" stroke-linecap=\\"round\\"/>" +
-      "<path d=\\"M-130 295 Q0 235 130 295 L115 510 Q0 570 -115 510 Z\\" fill=\\"" + colors.outfit + "\\" stroke=\\"#243B3A\\" stroke-width=\\"14\\"/>" +
-      "<path d=\\"M-88 350 Q0 398 88 350\\" fill=\\"none\\" stroke=\\"" + colors.accent + "\\" stroke-width=\\"16\\" stroke-linecap=\\"round\\"/>" +
-      "<circle cx=\\"0\\" cy=\\"120\\" r=\\"132\\" fill=\\"" + colors.skin + "\\" stroke=\\"#51392F\\" stroke-width=\\"14\\"/>" +
-      "<path d=\\"M-132 105 Q-145 -40 -42 -48 Q30 -105 105 -32 Q148 20 132 100 Q82 46 36 53 Q-35 85 -132 105Z\\" fill=\\"" + colors.hair + "\\"/>" +
-      "<circle cx=\\"-45\\" cy=\\"130\\" r=\\"11\\" fill=\\"#27302E\\"/><circle cx=\\"45\\" cy=\\"130\\" r=\\"11\\" fill=\\"#27302E\\"/>" +
-      "<path d=\\"M-27 184 Q0 207 27 184\\" fill=\\"none\\" stroke=\\"#773F3A\\" stroke-width=\\"10\\" stroke-linecap=\\"round\\"/>" +
-      "</g>";
+    return '<g transform="translate(' + centerX + ' 1020) scale(0.72)">' +
+      '<ellipse cx="0" cy="610" rx="160" ry="38" fill="#12251F" opacity=".22"/>' +
+      '<path d="' + arms[cue.pose] + '" fill="none" stroke="' + colors.skin + '" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M-58 495 L-77 665 L-80 795 M58 495 L77 665 L80 795" fill="none" stroke="' + colors.shoes + '" stroke-width="56" stroke-linecap="round"/>' +
+      '<path d="M-130 295 Q0 235 130 295 L115 510 Q0 570 -115 510 Z" fill="' + colors.outfit + '" stroke="#243B3A" stroke-width="14"/>' +
+      '<path d="M-88 350 Q0 398 88 350" fill="none" stroke="' + colors.accent + '" stroke-width="16" stroke-linecap="round"/>' +
+      '<circle cx="0" cy="120" r="132" fill="' + colors.skin + '" stroke="#51392F" stroke-width="14"/>' +
+      '<path d="M-132 105 Q-145 -40 -42 -48 Q30 -105 105 -32 Q148 20 132 100 Q82 46 36 53 Q-35 85 -132 105Z" fill="' + colors.hair + '"/>' +
+      '<circle cx="-45" cy="130" r="11" fill="#27302E"/><circle cx="45" cy="130" r="11" fill="#27302E"/>' +
+      '<path d="M-27 184 Q0 207 27 184" fill="none" stroke="#773F3A" stroke-width="10" stroke-linecap="round"/>' +
+      '</g>';
   });
-  return "<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"1080\\" height=\\"1920\\" viewBox=\\"0 0 1080 1920\\"><g>" + groups.join("") + "</g></svg>";
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920"><g>' + groups.join("") + '</g></svg>';
 }
 
 export const KIDS_CHARACTER_RIGS = CHARACTER_RIGS;
