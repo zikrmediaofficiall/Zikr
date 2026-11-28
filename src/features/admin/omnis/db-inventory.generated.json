@@ -1,6 +1,6 @@
 {
- "migrationCount": 482,
- "latestMigration": "20261125220000_omnis_push_campaigns",
+ "migrationCount": 483,
+ "latestMigration": "20261128120000_video_clip_library",
  "tables": [
   {
    "table": "admin_audit_events",
@@ -623,6 +623,13 @@
    "createdIn": "20260605000010",
    "rls": true,
    "policies": 10,
+   "dropped": false
+  },
+  {
+   "table": "video_clip_library",
+   "createdIn": "20261128120000",
+   "rls": true,
+   "policies": 0,
    "dropped": false
   },
   {
