@@ -1,0 +1,30 @@
+name: ZIKR Reconcile Cloudinary Catalog
+
+# Manual and read-only. Lists Cloudinary video assets and compares them with catalog references.
+# It never deletes, uploads, or writes anything. The result is the workflow run summary.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reconcile-cloudinary-catalog
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compare Cloudinary with catalog (read-only)
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          SUPABASE_URL: https://zqtssvlvmkzeeyqghqfk.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/jobs/reconcile-cloudinary-catalog.mjs
