@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { LAYL_EPISODES, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
+import { countLaylNarrationWords, LAYL_EPISODES, LAYL_MAX_NARRATION_WORDS, LAYL_PROGRAM_ID, LAYL_PROGRAM_TITLE, LAYL_VOICE_PROFILE, LAYL_VISUAL_THEME } from "../../src/features/videos/data/layl-program";
 import { resolveRenderDuration, MAX_AUTO_VIDEO_SECONDS } from "../../src/features/videos/services/render-duration";
 import { isoWeekKey, resolveNextScheduledLaylEpisode } from "../../src/features/videos/services/layl-program-schedule";
 import { resolveVideoCatalogDuration } from "../../src/features/videos/services/video-render-contract";
@@ -43,6 +43,9 @@ assert.equal(
 for (const episode of LAYL_EPISODES) {
   assert.ok(episode.title.trim().length >= 5, "each Layl episode needs a title");
   assert.ok(episode.script.length >= 300 && episode.script.length <= 2500, "episode script must fit the narration endpoint");
+  const narrationWords = countLaylNarrationWords(episode.script);
+  assert.ok(narrationWords > 0 && narrationWords <= LAYL_MAX_NARRATION_WORDS, "episode must fit the preflight two-minute narration budget");
+  assert.ok((narrationWords / 90) * 60 <= 110, "episode must retain at least ten seconds of duration safety margin");
   assert.ok(/^https:\/\//.test(episode.referenceUrl), "each episode must expose an HTTPS source reference");
   assert.ok(episode.referenceLabel.trim().length >= 8, "each episode must name its religious/editorial source");
 }
