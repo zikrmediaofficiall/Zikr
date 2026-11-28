@@ -32,7 +32,7 @@ export type VideoAssetRightsRecord = {
     measurement: "default_pending_visual_review";
   };
   safeArea: {
-    status: "not_measured";
+    status: "not_measured" | "measured";
     notes: string;
   };
   rights: {
@@ -203,7 +203,8 @@ export function inspectVideoAssetUse(input: {
   if (!isVideoTemplateAssetAllowedForAudience(asset.assetKey, input.audience)) {
     return { allowed: false, destination: input.destination, reason: "Visual asset is outside the allowed audience catalogue.", asset };
   }
-  const topic = input.topic?.trim().toLowerCase();
+  const rawTopic = input.topic?.trim().toLowerCase();
+  const topic = rawTopic === "story" ? "stories" : rawTopic;
   if (topic && !asset.allowedTopics.includes(topic)) {
     return { allowed: false, destination: input.destination, reason: "Visual asset is not approved for the requested content topic.", asset };
   }
