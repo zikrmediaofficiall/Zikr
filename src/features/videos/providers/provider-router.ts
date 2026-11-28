@@ -35,7 +35,9 @@ export function createVideoProviderRouter(
   return {
     config,
     async generate(input: VideoGenerationInput): Promise<VideoGenerationResult> {
-      const fallbackCandidates = config.order;
+      const fallbackCandidates = config.clipLibraryEnabled && !config.order.includes("clip_library")
+        ? ["clip_library" as const, ...config.order]
+        : config.order;
       const preferred =
         input.preferredProvider && fallbackCandidates.includes(input.preferredProvider)
           ? [input.preferredProvider]
