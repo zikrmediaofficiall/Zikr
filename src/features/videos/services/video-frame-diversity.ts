@@ -35,9 +35,9 @@ function difference(a: number[], b: number[]): number {
 
 function spread(pixels: number[]): number {
   if (pixels.length === 0) return 0;
-  // 10th to 90th percentile, so a few edge pixels from scaling cannot make a flat frame look varied.
+  // 20th to 80th percentile, so a few edge pixels from scaling cannot make a flat frame look varied.
   const sorted = [...pixels].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length * 0.9)] - sorted[Math.floor(sorted.length * 0.1)];
+  return sorted[Math.floor(sorted.length * 0.8)] - sorted[Math.floor(sorted.length * 0.2)];
 }
 
 /** Measures how much a rendered video really changes between sampled frames. */
