@@ -195,14 +195,14 @@ export function AdminVideoClipsClient() {
           </label>
           <label className="space-y-1 text-sm text-brand-cream/80">
             <span>التصنيف</span>
-            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ClipCategory, audience: e.target.value === "kids" ? "kids" : form.audience })} className="w-full rounded-lg border border-brand-cream/15 bg-black/20 px-3 py-2 text-brand-cream">
+            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ClipCategory, audience: e.target.value === "kids" ? "kids" : form.audience === "kids" ? "general" : form.audience })} className="w-full rounded-lg border border-brand-cream/15 bg-black/20 px-3 py-2 text-brand-cream">
               {Object.entries(CATEGORY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
           <label className="space-y-1 text-sm text-brand-cream/80">
             <span>الجمهور</span>
             <select value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value as "general" | "kids" })} className="w-full rounded-lg border border-brand-cream/15 bg-black/20 px-3 py-2 text-brand-cream">
-              <option value="general">عام</option>
+              <option value="general" disabled={form.category === "kids"}>عام</option>
               <option value="kids">الأطفال</option>
             </select>
           </label>
