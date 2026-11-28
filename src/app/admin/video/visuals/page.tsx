@@ -177,6 +177,7 @@ export default async function VideoFactoryVisualsPage() {
 
       <div className="flex flex-wrap gap-3">
         <Link href="/admin/video/templates" className="rounded-xl border border-brand-gold/25 bg-brand-gold/10 px-4 py-2 text-sm font-semibold text-brand-gold">مكتبة القوالب</Link>
+        <Link href="/admin/video/assets" className="rounded-xl border border-amber-400/25 px-4 py-2 text-sm text-amber-200">مراجعة حقوق الأصول</Link>
         <Link href="/admin/video/qa" className="rounded-xl border border-brand-gold/15 px-4 py-2 text-sm text-brand-cream/70">بوابة الجودة</Link>
         <Link href="/admin/automation" className="rounded-xl border border-brand-gold/15 px-4 py-2 text-sm text-brand-cream/70">التحكم في التشغيل</Link>
       </div>
