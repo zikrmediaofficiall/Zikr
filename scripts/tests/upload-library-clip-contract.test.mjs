@@ -5,6 +5,9 @@ const workflow = readFileSync(".github/workflows/upload-library-clip.yml", "utf8
 const script = readFileSync("scripts/jobs/upload-library-clip.mjs", "utf8");
 
 assert.ok(workflow.includes("actions/checkout@v7"), "workflow must use the repository's pinned checkout version");
+assert.ok(workflow.includes("Ensure FFmpeg and ffprobe are available"), "manual upload must prepare FFmpeg tools before the uploader");
+assert.ok(workflow.includes("sudo apt-get install -y --no-install-recommends ffmpeg"), "missing FFmpeg/ffprobe must be installed on a clean runner");
+assert.ok(workflow.includes("command -v ffprobe"), "workflow must explicitly verify ffprobe is available");
 assert.ok(!workflow.includes("actions/checkout@v4"), "deprecated checkout action must not be used");
 assert.ok(workflow.includes("github.ref == 'refs/heads/main'"), "production upload must run only from main");
 assert.ok(workflow.includes("environment: production"), "upload secrets must be scoped to the production environment");
