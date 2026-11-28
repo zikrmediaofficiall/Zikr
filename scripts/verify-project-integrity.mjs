@@ -320,7 +320,7 @@ if (!nextConfig.includes('NEXT_PUBLIC_SITE_URL')) {
 if (
   !siteSource.includes('PRODUCTION_URL') ||
   !siteSource.includes('export const PRODUCTION_URL = "https://zikrmediaofficial.vercel.app";') ||
-  !siteSource.includes('url: PRODUCTION_URL')
+  !siteSource.includes('url: PUBLIC_SEO_URL')
 ) {
   failures.push('src/lib/site.ts must remain the immutable canonical site URL source');
 }
