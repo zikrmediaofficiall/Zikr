@@ -322,7 +322,11 @@ export function WuduChallengeGame({ difficulty, restartToken, paused, onHud, onR
     const correct = steps[state.stepIndex];
     if (!correct) return [];
     const pool = steps.filter(step => step.order !== correct.order);
-    return seededShuffle([correct, ...pool], "wudu-options:" + meta.seed + ":" + state.stepIndex).slice(0, difficulty === "easy" ? 3 : difficulty === "normal" ? 4 : 5);
+    // The correct step must always be among the visible options: shuffle the distractors,
+    // keep only enough of them, then shuffle the correct step back in.
+    const optionCount = difficulty === "easy" ? 3 : difficulty === "normal" ? 4 : 5;
+    const distractors = seededShuffle(pool, "wudu-distractors:" + meta.seed + ":" + state.stepIndex).slice(0, optionCount - 1);
+    return seededShuffle([correct, ...distractors], "wudu-options:" + meta.seed + ":" + state.stepIndex);
   }, [difficulty, meta.seed, state.stepIndex, steps]);
 
   const choose = (order: number) => {
