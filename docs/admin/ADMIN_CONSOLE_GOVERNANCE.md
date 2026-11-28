@@ -20,6 +20,7 @@
 - نصوص السرد: `/admin/video/scripts` بصلاحية `video.manage`.
 - ملفات الأصوات: `/admin/video/voices` بصلاحية `video.manage`.
 - العناصر المرئية: `/admin/video/visuals` بصلاحية `video.manage`.
+- مراجعة حقوق الأصول: `/admin/video/assets` بصلاحية `video.manage`.
 - القوالب: `/admin/video/templates` بصلاحية `video.manage`.
 - ضبط الجودة: `/admin/video/qa` بصلاحية `video.manage`.
 
@@ -88,6 +89,7 @@
 | `/admin/video/scripts` | نصوص السرد | `video.manage` |
 | `/admin/video/voices` | الأصوات | `video.manage` |
 | `/admin/video/visuals` | العناصر المرئية | `video.manage` |
+| `/admin/video/assets` | مراجعة حقوق الأصول | `video.manage` |
 | `/admin/video/templates` | استوديو القوالب | `video.manage` |
 | `/admin/video/qa` | ضبط الجودة | `video.manage` |
 | `/admin/video/performance` | أداء الهوك | `video.manage` |
