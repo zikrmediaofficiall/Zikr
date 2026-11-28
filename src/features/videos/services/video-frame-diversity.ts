@@ -176,6 +176,7 @@ export function isVideoMediaFactsValid(value: unknown): value is VideoMediaFacts
     Number.isFinite(facts.durationSeconds) && Number(facts.durationSeconds) > 0 &&
     Number.isSafeInteger(facts.sizeBytes) && Number(facts.sizeBytes) > 0 &&
     Number.isFinite(facts.audioMeanVolumeDb) && Number(facts.audioMeanVolumeDb) > -55 &&
-    Number.isFinite(facts.audioPeakVolumeDb) && Number(facts.audioPeakVolumeDb) < -0.1
+    Number.isFinite(facts.audioPeakVolumeDb) && Number(facts.audioPeakVolumeDb) < -0.1 &&
+    Number(facts.audioMeanVolumeDb) <= Number(facts.audioPeakVolumeDb)
   );
 }
