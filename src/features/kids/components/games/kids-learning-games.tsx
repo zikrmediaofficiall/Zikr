@@ -86,6 +86,7 @@ const MEMORY_SCENE_ART: Record<string, MemorySceneArt> = {
   "rain-falls": { icon: "🌧️", tone: "border-blue-200/30 bg-blue-200/10 text-blue-100" },
 };
 
+import { QuizPath, getQuizTheme } from "./quiz-scene";
 import { getMemoryTheme, memoryCardBack, memoryColumns } from "./memory-scene";
 
 export function ZikrMemoryGame({ difficulty, restartToken, paused, onHud, onResult, onSound }: LearningGameProps) {
@@ -699,6 +700,7 @@ export function ZikrQuizGame({ difficulty, restartToken, paused, onHud, onResult
         { label: isEnglish ? "Time" : "الوقت", value: formatSeconds(seconds), tone: "text-sky-200" },
         { label: isEnglish ? "Level" : "المستوى", value: levelIndex + 1, tone: "text-amber-200" },
       ]} />
+      <QuizPath theme={getQuizTheme(levelIndex)} total={questions.length} index={index} streak={streak} />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-brand-cream/45">{isEnglish ? "50/50 is available once per question and narrows the choices to two." : "ميزة 50/50 متاحة مرة واحدة لكل سؤال، وتفتح لك آخر خيارين محتملين."}</p>
         <button type="button" onClick={useFiftyFifty} disabled={paused || selected !== null || hiddenOptions.length > 0} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">✂️ 50/50</button>
