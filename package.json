@@ -120,7 +120,7 @@
     "admin:omnis:check": "node scripts/verify-admin-omnis.mjs",
     "control-plane:check": "node scripts/verify-control-plane-contracts.mjs && node --test scripts/tests/control-plane-contracts.test.mjs",
     "omnis:config-inventory:check": "node scripts/verify-omnis-config-inventory.mjs",
-    "admin:settings:check": "tsx scripts/tests/admin-settings-registry.test.ts && node scripts/tests/admin-settings-versioning.test.mjs"
+    "admin:settings:check": "tsx scripts/tests/admin-settings-registry.test.ts && tsx scripts/tests/video-daily-target-cap.test.ts && node scripts/tests/admin-settings-versioning.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "7.6.10",

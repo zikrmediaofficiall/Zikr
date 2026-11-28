@@ -1,3 +1,4 @@
+import { effectiveVideoDailyTarget } from "../../src/features/videos/config/daily-target";
 import { createHash } from "node:crypto";
 import { HOOK_FRAME_POSTER_SECONDS, isHookFramePosterEnabled } from "../../src/features/videos/services/video-media-url";
 import { growthOverlayCta } from "../../src/features/videos/services/video-cta";
@@ -1342,7 +1343,7 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
   const todaysRows = quotaInventoryRows.filter((row) => !row.automation_key?.startsWith("layl-weekly:") && !row.automation_key?.startsWith("hady-weekly:"));
   const dailyQuota = calculateDailyVideoQuotaState(todaysRows);
   // Enforce a hard three-short-video daily ceiling, including urgent admin dispatches.
-  const dailyTarget = Math.max(1, Math.min(2, Number(process.env.DAILY_VIDEO_TARGET ?? 2) || 2));
+  const dailyTarget = effectiveVideoDailyTarget(process.env.DAILY_VIDEO_TARGET);
   const promoDailyCapacity = Math.max(0, Math.min(batchSize, dailyTarget - dailyQuota.reservedCount));
   const templateCatalog = dailyQuota.reservedCount < dailyTarget && batchSize > 0
     ? await loadTemplateSelectionCatalog(now)

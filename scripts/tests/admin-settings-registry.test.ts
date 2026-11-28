@@ -68,7 +68,7 @@ for (const key of booleanKeys) {
 const integerCases = [
   ["search_result_limit", 10, 100],
   ["video_automation_batch_size", 1, 10],
-  ["video_automation_daily_target", 1, 24],
+  ["video_automation_daily_target", 1, 2],
   ["video_automation_ai_attempts_per_run", 0, 4],
   ["video_automation_video_seconds", 10, 45],
 ] as const;
@@ -104,7 +104,7 @@ const failClosed = getEditableAdminSettingDefinition("video_automation_enabled")
 assert.ok(failClosed && failClosed.valueType === "boolean");
 assert.equal(failClosed.runtimeFallback, false);
 assert.equal(failClosed.missingValuePolicy, "fail-closed");
-assert.equal(getIntegerAdminSettingDefinition("video_automation_daily_target")?.formFallback, 20, "the admin form retains the documented daily target input");
+assert.equal(getIntegerAdminSettingDefinition("video_automation_daily_target")?.formFallback, 2, "the admin form default matches the worker cap");
 assert.equal(getIntegerAdminSettingDefinition("video_automation_batch_size")?.formFallback, 10, "the admin form retains its documented batch-size input");
 
 console.log("Admin settings typed registry and validation contracts passed.");
