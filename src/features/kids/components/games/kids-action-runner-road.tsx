@@ -1,5 +1,6 @@
 "use client";
 
+import { RunnerHazard, RunnerScene } from "./runner-scene";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useLanguage } from "@/components/layout/language-provider";
 import { useManagedTimeouts } from "@/features/kids/components/games/use-managed-timeouts";
@@ -9,7 +10,6 @@ import type { WorldHud } from "@/features/kids/components/games/world-game-stage
 import { KidsGameWorld } from "@/features/kids/components/games/kids-game-visuals";
 import {
   GameToast,
-  GardenBackdrop,
   KidsGameHeader,
   KidsGameHud,
   KidsGameStage,
@@ -585,8 +585,7 @@ export function ZikrRunnerGame({
         onPointerLeave={() => setSwipeStart(null)}
       >
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#07131b] to-transparent" />
-        <GardenBackdrop />
-        {theme === "mosque" && <MosqueBackdrop compact />}
+        <RunnerScene theme={theme} distance={model.distance} />
 
         <div className="absolute left-7 top-6 rounded-full border border-brand-gold/15 bg-black/20 px-4 py-2 text-xs text-brand-cream/60">
           {Math.min(100, Math.round(progress))}% —{" "}
@@ -612,13 +611,7 @@ export function ZikrRunnerGame({
                 transform: "translate(-50%,-50%)",
               }}
             >
-              <div className="grid h-12 w-12 place-items-center rounded-2xl border-2 border-rose-200/40 bg-rose-200/10 text-xl text-rose-100 shadow-lg">
-                {item.variant === "box"
-                  ? "▣"
-                  : item.variant === "cone"
-                    ? "▲"
-                    : "●"}
-              </div>
+              <RunnerHazard variant={item.variant} theme={theme} />
             </div>
           )
         )}
