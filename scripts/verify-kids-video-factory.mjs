@@ -43,7 +43,7 @@ for (const field of ["seriesId:", "seriesTitle:", "seasonNumber:", "episodeNumbe
 }
 
 const router = read("src/features/videos/providers/provider-router.ts");
-if (!router.includes('!["hf_ltx_fast", "hf_wan", "template"].includes(name)')) failures.push("free-only mode must reject potentially billable/custom providers");
+if (!router.includes('!["hf_ltx_fast", "hf_wan", "template", "clip_library"].includes(name)')) failures.push("free-only mode must reject potentially billable/custom providers");
 if (!router.includes("templateAttempted")) failures.push("local FFmpeg fallback must remain available");
 
 const config = read("src/features/videos/providers/types.ts");
