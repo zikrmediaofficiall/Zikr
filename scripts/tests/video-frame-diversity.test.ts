@@ -84,3 +84,12 @@ assert.throws(() => createQaSnapshot("", measureFrameDiversity(varied)), /canary
 assert.throws(() => createQaSnapshot("x", measureFrameDiversity(varied), "not-a-date"), /timestamp/);
 
 console.log("P08 technical probe, frame-diversity and QA snapshot contracts passed.");
+
+// Template mode: dark/flat/slow renders warn but pass; mostly-black renders still fail.
+{
+  const darkSlow = measureFrameDiversity(frozen, { mode: "template" });
+  assert.equal(darkSlow.passed, !(darkSlow.reasons.length > 0));
+  assert.ok((darkSlow.warnings ?? []).length > 0, "template mode records soft findings as warnings");
+  const allBlack = measureFrameDiversity(black, { mode: "template" });
+  assert.equal(allBlack.passed, false, "all-black template render still fails");
+}

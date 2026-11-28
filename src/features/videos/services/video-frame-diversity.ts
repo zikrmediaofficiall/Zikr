@@ -13,6 +13,8 @@ export type FrameDiversityReport = {
   meanBrightness: number;
   passed: boolean;
   reasons: string[];
+  /** Template mode only: findings that are recorded but do not block. */
+  warnings?: string[];
 };
 
 export type VideoMediaFacts = {
@@ -38,6 +40,7 @@ export const FRAME_DIVERSITY_LIMITS = {
   maxBlackFrames: 0,
   minMeanAdjacentDifference: 0.01,
   expectedPixelsPerFrame: 256,
+  templateMaxBlankOrBlackRatio: 0.5,
 } as const;
 
 function difference(a: number[], b: number[]): number {
@@ -64,7 +67,10 @@ function frameIsValid(frame: SampledFrame): boolean {
 }
 
 /** Measures blank/black frames and near-duplicate consecutive samples. */
-export function measureFrameDiversity(frames: SampledFrame[]): FrameDiversityReport {
+export function measureFrameDiversity(
+  frames: SampledFrame[],
+  options: { mode?: "strict" | "template" } = {},
+): FrameDiversityReport {
   const L = FRAME_DIVERSITY_LIMITS;
   const reasons: string[] = [];
   const invalidFrames = frames.filter((frame) => !frameIsValid(frame)).length;
@@ -95,12 +101,26 @@ export function measureFrameDiversity(frames: SampledFrame[]): FrameDiversityRep
       ) / validFrames.length
     : 0;
 
-  if (blankFrames > L.maxBlankFrames) reasons.push(`${blankFrames} flat or blank frames`);
-  if (blackFrames > L.maxBlackFrames) reasons.push(`${blackFrames} near-black frames`);
+  const strictReasons: string[] = [];
+  if (blankFrames > L.maxBlankFrames) strictReasons.push(`${blankFrames} flat or blank frames`);
+  if (blackFrames > L.maxBlackFrames) strictReasons.push(`${blackFrames} near-black frames`);
   if (diffs.length && nearDuplicateFrames / diffs.length > L.maxNearDuplicateRatio) {
-    reasons.push("most adjacent frames are near duplicates");
+    strictReasons.push("most adjacent frames are near duplicates");
   }
-  if (diffs.length && mean < L.minMeanAdjacentDifference) reasons.push("video barely changes over time");
+  if (diffs.length && mean < L.minMeanAdjacentDifference) strictReasons.push("video barely changes over time");
+
+  // Template renders are dark text-on-background compositions: at 16x16 grayscale they
+  // legitimately look flat, dark and slow. They only fail when most sampled frames are
+  // blank or black. The softer findings are kept as warnings for review.
+  let warnings: string[] | undefined;
+  if (options.mode === "template") {
+    const total = Math.max(1, validFrames.length);
+    if (blankFrames / total > L.templateMaxBlankOrBlackRatio) reasons.push(`${blankFrames} of ${total} frames are flat or blank`);
+    if (blackFrames / total > L.templateMaxBlankOrBlackRatio) reasons.push(`${blackFrames} of ${total} frames are near-black`);
+    warnings = strictReasons;
+  } else {
+    reasons.push(...strictReasons);
+  }
 
   return {
     frameCount: frames.length,
@@ -113,6 +133,7 @@ export function measureFrameDiversity(frames: SampledFrame[]): FrameDiversityRep
     meanBrightness: Number(brightness.toFixed(2)),
     passed: reasons.length === 0,
     reasons,
+    ...(warnings ? { warnings } : {}),
   };
 }
 
