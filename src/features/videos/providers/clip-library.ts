@@ -46,8 +46,9 @@ export function validateClipRow(
   if (!CLIP_CATEGORIES.has(row.category) || !CLIP_AUDIENCES.has(row.audience)) {
     return { ok: false, reason: "clip category or audience is invalid" };
   }
-  if (row.category === "kids" && row.audience !== "kids") {
-    return { ok: false, reason: "Kids clips must be isolated to the Kids audience" };
+  if ((row.category === "kids" && row.audience !== "kids") ||
+      (row.audience === "kids" && row.category !== "kids" && row.category !== "general")) {
+    return { ok: false, reason: "Kids clips must be isolated to the Kids audience and category" };
   }
   if (row.audio_muted !== true) return { ok: false, reason: "clip audio must be muted before use" };
   if (!Number.isInteger(row.width) || !Number.isInteger(row.height) ||
