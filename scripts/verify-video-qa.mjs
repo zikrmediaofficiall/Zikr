@@ -99,9 +99,11 @@ for (const token of [
   "QURAN_AYAH_AUDIO_BASE_URL",
   "resolveVideoComposition",
   "paginateCaptionText(normalizeArabicText(value), lineChars, linesPerPage)",
-  "planCaptionTimings(textPages, audioDuration)",
+  "buildVerifiedVideoCaptionTrack({",
+  "captionPolicyVersion: VIDEO_AUDIO_POLICY_VERSION",
+  "captionTiming: \"approved-text-audio-duration-verified\"",
+  "audioPolicy.sourceMode",
   "audioDuration - 0.55",
-  "captionTiming: \"page-weighted-audio-duration\"",
   "buildAutomatedVideoQaChecklist",
   "createAutomatedVideoQaApproval",
   "request.content.kidsVideoQaStatus === \"passed\"",
@@ -125,6 +127,22 @@ for (const token of [
 const rendererVersion = read("src/features/videos/services/video-template-version.ts");
 if (!rendererVersion.includes('CURRENT_VIDEO_RENDERER_VERSION = "2026-11-21-visual-catalog-v12"')) {
   failures.push("central video renderer version must match the validated template worker version");
+}
+
+const audioCaptionPolicy = read("src/features/videos/services/video-audio-policy.ts");
+for (const token of [
+  "approved-request-source-text",
+  "sourceTokens.some((token, index) => token !== reconstructedTokens[index])",
+  "planCaptionTimings(pages, input.audioDurationSeconds)",
+  "cue.end > input.audioDurationSeconds + 0.001",
+  "quranTtsAllowed: false",
+]) {
+  if (!audioCaptionPolicy.includes(token)) failures.push(`verified audio/caption policy missing contract: ${token}`);
+}
+if (!worker.includes("buildVerifiedVideoCaptionTrack({") ||
+    !worker.includes("captionPolicyVersion: VIDEO_AUDIO_POLICY_VERSION") ||
+    !worker.includes('captionTiming: "approved-text-audio-duration-verified"')) {
+  failures.push("production worker must persist the source-locked audio-duration caption policy");
 }
 
 const composition = read("src/features/videos/services/video-composition.ts");

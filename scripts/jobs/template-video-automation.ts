@@ -62,11 +62,11 @@ import { AI_VISUAL_POLICY_VERSION, aiVisualPolicyPromptLine } from "../../src/fe
 import { createVideoProviderRouter } from "../../src/features/videos/providers/provider-router";
 import { MAX_PROVIDER_VIDEO_BYTES, readBoundedMediaResponse } from "../../src/features/videos/providers/media-response";
 import { resolveFreeVideoProviderDownloadUrl } from "../../src/features/videos/providers/free-api-provider";
-import { getDefaultVideoVoiceProfile, getVideoVoiceProfile } from "../../src/features/videos/services/voice-profiles";
+import { selectVideoVoiceProfile, resolveVideoAudioRenderPolicy, buildVerifiedVideoCaptionTrack, VIDEO_AUDIO_POLICY_VERSION } from "../../src/features/videos/services/video-audio-policy";
 import { evaluateArabicNarrationText } from "../../src/features/videos/services/narration-quality";
 import { isReadyAdminNarrationAsset, resolveVideoAudioSource } from "../../src/features/media/services/video-audio-source";
 import { GENERAL_VIDEO_SCENES, KIDS_VIDEO_SCENES, isVideoSceneAllowedForAudience, resolveDeterministicVideoHook, resolveDeterministicVideoMotion, resolveDeterministicVideoScene, resolveDeterministicVideoVisualTheme, type VideoScene, type VideoHookStyle } from "../../src/features/videos/services/video-creative-variation";
-import { paginateCaptionText, planCaptionTimings, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
+import { paginateCaptionText, resolveVideoComposition, type VideoCompositionProfile } from "../../src/features/videos/services/video-composition";
 import { MAX_AUTO_VIDEO_SECONDS, resolveRenderDuration } from "../../src/features/videos/services/render-duration";
 import { resolveVideoCatalogDuration, resolveVideoResolution } from "../../src/features/videos/services/video-render-contract";
 import { hasCompleteKidsVideoSeriesMetadata, AUTOMATED_VIDEO_QA_ENGINE, AUTOMATED_VIDEO_QA_VERSION, REQUIRED_VIDEO_APPROVAL_CHECKS, createAutomatedVideoQaApproval, type VideoApprovalChecklist } from "../../src/features/videos/services/video-publish-approval";
@@ -78,7 +78,6 @@ import { resolveNextScheduledHadyEpisode } from "../../src/features/videos/servi
 const execFileAsync = promisify(execFile);
 const BATCH_SIZE = Math.max(1, Number(process.env.AUTO_VIDEO_BATCH_SIZE ?? process.env.DAILY_VIDEO_TARGET ?? 3));
 const TARGET_VIDEO_SECONDS = Math.min(45, Math.max(10, Number(process.env.AUTO_VIDEO_SECONDS ?? 18)));
-const VIDEO_DEFAULT_TTS_PROFILE = process.env.ARABIC_TTS_PROFILE?.trim() || "hadith_male_msa";
 const QURAN_AYAH_AUDIO_BASE_URL =
   process.env.QURAN_AYAH_AUDIO_BASE_URL?.trim() || "https://verses.quran.com/Alafasy/mp3";
 const VIDEO_TEMPLATE_VERSION = CURRENT_VIDEO_RENDERER_VERSION;
@@ -180,14 +179,24 @@ function getArabicTtsPython() {
 }
 
 function narrationProfileForRequest(request: GeneratedRequest) {
-  const configured =
-    typeof request.content?.voiceProfile === "string"
-      ? request.content.voiceProfile
-      : VIDEO_DEFAULT_TTS_PROFILE;
-  const profile = getVideoVoiceProfile(configured);
-  if (request.category === "quran") return getDefaultVideoVoiceProfile("quran");
-  if (request.content?.audience === "kids" || request.category === "kids") return getDefaultVideoVoiceProfile("kids");
-  return profile;
+  const configured = typeof request.content?.voiceProfile === "string"
+    ? request.content.voiceProfile
+    : undefined;
+  const isLaylRequest =
+    request.content?.programId === LAYL_PROGRAM_ID ||
+    request.content?.workflow === "layl-program" ||
+    configured === LAYL_VOICE_PROFILE;
+  const isHadyRequest = request.content?.workflow === "hady-program";
+
+  return selectVideoVoiceProfile({
+    category: isLaylRequest || isHadyRequest ? "story" : request.category,
+    audience: isLaylRequest || isHadyRequest ? "general" : request.content?.audience,
+    requestedProfileId: isLaylRequest
+      ? LAYL_VOICE_PROFILE
+      : isHadyRequest
+        ? configured ?? "documentary_male_msa"
+        : configured,
+  });
 }
 
 type QuranRow = {
@@ -732,8 +741,13 @@ function makeAss(
   const sourceOutline = composition.sourceCardStyle === "standard" ? 8 : 1;
   const sourceOutlineColour = composition.sourceCardStyle === "standard" ? "&H7007110E" : "&H00101513";
   const sourceShadow = composition.sourceCardStyle === "standard" ? 0 : 1;
-  const textPages = paginateArabic(text, composition.lineChars, composition.linesPerPage);
-  const captionCues = planCaptionTimings(textPages, audioDuration);
+  const captionTrack = buildVerifiedVideoCaptionTrack({
+    approvedText: text,
+    audioDurationSeconds: audioDuration,
+    composition,
+  });
+  const textPages = captionTrack.pages;
+  const captionCues = captionTrack.cues;
   const bodyFont = composition.fontFamily;
   const textEvents = captionCues.map((cue) =>
     "Dialogue: 1," + assTimestamp(cue.start) + "," + assTimestamp(cue.end) +
@@ -2228,9 +2242,6 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     const isVertical = height >= width;
 
     const narrationProfile = narrationProfileForRequest(request);
-    const ttsVoice = (isLaylProgram || isHadyProgram ? narrationProfile.voice : process.env.ARABIC_TTS_VOICE?.trim() || narrationProfile.voice) ?? "";
-    const ttsRate = isLaylProgram || isHadyProgram ? narrationProfile.rate : process.env.ARABIC_TTS_RATE?.trim() || narrationProfile.rate;
-    const ttsPitch = isLaylProgram || isHadyProgram ? narrationProfile.pitch : process.env.ARABIC_TTS_PITCH?.trim() || narrationProfile.pitch;
     const narrationText = contentText(request);
     const narrationTextQuality = evaluateArabicNarrationText(narrationText, request.category);
     if (!narrationTextQuality.ok) {
@@ -2260,6 +2271,24 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
     ) {
       throw new Error("Template audio policy requires a verified source or human recording; synthetic narration is disabled.");
     }
+
+    const audioSourceKind = audioUrl
+      ? request.category === "quran"
+        ? "quran_ayah_cdn" as const
+        : request.content?.audioSource === "human_recording"
+          ? "human_recording" as const
+          : "source_audio" as const
+      : null;
+    const audioPolicy = resolveVideoAudioRenderPolicy({
+      category: request.category,
+      audience: request.content?.audience,
+      requestedProfileId: narrationProfile.id,
+      hasVerifiedAudioSource: Boolean(audioUrl),
+      audioSourceKind,
+    });
+    const ttsVoice = audioPolicy.ttsVoice ?? "";
+    const ttsRate = audioPolicy.ttsRate;
+    const ttsPitch = audioPolicy.ttsPitch;
 
     const preferredProvider =
       request.content.aiProviderHint === "hf_ltx_fast" ||
@@ -2364,8 +2393,8 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       const bytes = await readBoundedAudioResponse(response, MAX_VIDEO_AUDIO_BYTES);
       await writeFile(audioPath, bytes);
     } else {
-      if (narrationProfile.mode !== "tts" || !narrationProfile.voice) {
-        throw new Error("A recorded audio source is required for this video category.");
+      if (audioPolicy.sourceMode !== "arabic_tts" || !audioPolicy.ttsVoice) {
+        throw new Error("A verified recording is required by the selected audio policy; TTS fallback is disabled.");
       }
       try {
         await execFileAsync(
@@ -2522,10 +2551,17 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
       ...request.content,
       audio: {
         kind: audioKind,
+        policyVersion: audioPolicy.version,
+        sourceMode: audioPolicy.sourceMode,
+        sourceKind: audioPolicy.sourceKind,
+        quranTtsAllowed: audioPolicy.quranTtsAllowed,
         voice: audioKind === "arabic_tts_narration" ? ttsVoice || null : null,
-        voiceProfile: narrationProfile.id,
+        voiceProfile: audioPolicy.profile.id,
         rate: ttsRate,
         pitch: ttsPitch,
+        voiceOverrideAllowed: audioPolicy.voiceOverrideAllowed,
+        narrationTextAuthority: audioPolicy.narrationTextAuthority,
+        durationSeconds: audioDuration,
         sourceUrl: audioUrl || null,
         generatedAt: new Date().toISOString(),
       },
@@ -2546,7 +2582,9 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
         renderDurationMs,
         composition: composition.key,
         cameraPath: composition.cameraPath,
-        captionTiming: "page-weighted-audio-duration",
+        captionTiming: "approved-text-audio-duration-verified",
+        captionPolicyVersion: VIDEO_AUDIO_POLICY_VERSION,
+        captionTextWordCount: narrationText.trim().split(/\\s+/u).filter(Boolean).length,
         visualEngine: storyboard ? storyboard.version : (aiVideoPath ? "provider-video" : "single-template"),
         storyboard: storyboard ? {
           version: storyboard.version,
