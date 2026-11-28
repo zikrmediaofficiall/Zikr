@@ -55,13 +55,22 @@ jobs:
     environment: production
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Download clip
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
           ASSET_NAME: ${{ inputs.asset_name }}
-        run: gh release download "$RELEASE_TAG" --pattern "$ASSET_NAME" --dir /tmp/clip --repo "$GITHUB_REPOSITORY"
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v?[A-Za-z0-9][A-Za-z0-9._-]{0,79}$ ]]
+          [[ "$ASSET_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\\.mp4$ ]]
+          mkdir -p /tmp/clip
+          matched="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name == env.ASSET_NAME) | .name')"
+          [[ "$matched" == "$ASSET_NAME" ]]
+          gh release download "$RELEASE_TAG" --pattern "$ASSET_NAME" --dir /tmp/clip --repo "$GITHUB_REPOSITORY"
+          test -f "/tmp/clip/$ASSET_NAME"
+          test ! -L "/tmp/clip/$ASSET_NAME"
       - name: Upload and register as pending
         env:
           CLIP_TITLE: ${{ inputs.title }}
