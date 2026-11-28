@@ -787,6 +787,7 @@ async function createVideoTechnicalQaSnapshot(
       "-i", videoPath,
       "-frames:v", "1",
       "-vf", "scale=16:16:force_original_aspect_ratio=decrease,pad=16:16:(ow-iw)/2:(oh-ih)/2,format=gray",
+      "-pix_fmt", "gray",
       "-f", "rawvideo",
       framePath,
     ], { maxBuffer: 1024 * 1024, signal });
