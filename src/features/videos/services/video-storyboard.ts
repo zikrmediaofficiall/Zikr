@@ -206,17 +206,19 @@ export function buildVideoStoryboard(input: BuildVideoStoryboardInput): VideoSto
 function cameraExpressions(scene: VideoStoryboardScene): { x: string; y: string } {
   const frames = Math.max(1, Math.round(scene.durationSeconds * 30));
   const progress = "min(on/" + String(frames) + ",1)";
+  const x = (focus: string) => "(iw-iw/zoom)*" + focus;
+  const y = (focus: string) => "(ih-ih/zoom)*" + focus;
   switch (scene.cameraPath) {
     case "left-to-right":
-      return { x: "(0.12+0.76*" + progress + ")", y: "0.50" };
+      return { x: x("(0.12+0.76*" + progress + ")"), y: y("0.50") };
     case "right-to-left":
-      return { x: "(0.88-0.76*" + progress + ")", y: "0.50" };
+      return { x: x("(0.88-0.76*" + progress + ")"), y: y("0.50") };
     case "top-to-bottom":
-      return { x: "0.50", y: "(0.12+0.76*" + progress + ")" };
+      return { x: x("0.50"), y: y("(0.12+0.76*" + progress + ")") };
     case "bottom-to-top":
-      return { x: "0.50", y: "(0.88-0.76*" + progress + ")" };
+      return { x: x("0.50"), y: y("(0.88-0.76*" + progress + ")") };
     default:
-      return { x: "0.50", y: "0.50" };
+      return { x: x("0.50"), y: y("0.50") };
   }
 }
 
