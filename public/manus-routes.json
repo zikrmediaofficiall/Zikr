@@ -49,6 +49,9 @@
       "path": "/admin/editorial"
     },
     {
+      "path": "/admin/free-tier"
+    },
+    {
       "path": "/admin/health"
     },
     {

@@ -44,6 +44,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       { href: "/admin/queues", label: "مركز الطوابير", permission: "dashboard.view", icon: "list-checks" },
       { href: "/admin/automation", label: "التشغيل الآلي", permission: "system.manage", icon: "refresh-cw" },
       { href: "/admin/health", label: "صحة النظام", permission: "system.manage", icon: "heart-pulse" },
+      { href: "/admin/free-tier", label: "حدود الخطط المجانية", permission: "system.manage", icon: "heart-pulse" },
       { href: "/admin/notifications", label: "التنبيهات", permission: "notifications.manage", icon: "bell" },
     ],
   },

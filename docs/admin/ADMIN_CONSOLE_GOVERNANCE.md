@@ -52,6 +52,7 @@
 | `/admin/queues` | مركز الطوابير | `dashboard.view` |
 | `/admin/automation` | التشغيل الآلي | `system.manage` |
 | `/admin/health` | صحة النظام | `system.manage` |
+| `/admin/free-tier` | حدود الخطط المجانية | `system.manage` |
 | `/admin/notifications` | التنبيهات | `notifications.manage` |
 
 ### إدارة المحتوى
