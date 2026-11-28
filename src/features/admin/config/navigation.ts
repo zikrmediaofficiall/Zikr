@@ -81,6 +81,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       { href: "/admin/video/requests", label: "طلبات الفيديو والطابور", permission: "video.manage", icon: "list-todo" },
       { href: "/admin/video/review", label: "مراجعة الفيديوهات المتوقفة", permission: "video.manage", icon: "list-checks" },
       { href: "/admin/video/studio", label: "استوديو الفيديو", permission: "video.manage", icon: "wand-sparkles" },
+      { href: "/admin/video/clips", label: "مكتبة المقاطع الجاهزة", permission: "video.manage", icon: "film" },
       { href: "/admin/video/studio/curated", label: "المحتوى الموثق للفيديو", permission: "video.manage", icon: "badge-check" },
       { href: "/admin/video/sources", label: "مصادر الفيديو", permission: "video.manage", icon: "database" },
       { href: "/admin/video/scripts", label: "نصوص السرد", permission: "video.manage", icon: "file-text" },
