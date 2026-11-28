@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 type ClipCategory = "quran" | "hadith" | "dua" | "adhkar" | "story" | "kids" | "general";
 type Clip = {
@@ -102,7 +102,7 @@ export function AdminVideoClipsClient() {
     void loadClips();
   }, [loadClips]);
 
-  async function createClip(event: React.FormEvent<HTMLFormElement>) {
+  async function createClip(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setError(null);
