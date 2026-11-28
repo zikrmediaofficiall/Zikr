@@ -116,8 +116,8 @@ assert.match(hfWorker, /MAX_VIDEO_BYTES = 50 \* 1024 \* 1024/);
 const hfAdapter = readFileSync("scripts/jobs/hf-space-video.py", "utf8");
 assert.match(hfAdapter, /def build_wan_predict_arguments/);
 assert.match(hfAdapter, /def build_ltx_predict_arguments/);
-assert.match(hfAdapter, /api_name="\\/generate_video"/);
-assert.match(hfAdapter, /api_name="\\/text_to_video"/);
+assert.ok(hfAdapter.includes('api_name="/generate_video"'));
+assert.ok(hfAdapter.includes('api_name="/text_to_video"'));
 execFileSync(process.env.HF_VIDEO_PYTHON || "python3", [
   "scripts/tests/hf-space-video-adapter.test.py",
 ], { stdio: "inherit" });
