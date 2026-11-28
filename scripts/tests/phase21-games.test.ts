@@ -333,12 +333,12 @@ assert.equal(
 );
 assert.equal(
   (coloringCatalog.match(/, titleEn:/g) ?? []).length,
-  6,
+  10,
   "all Coloring scenes need English titles"
 );
 assert.equal(
   (coloringCatalog.match(/subtitleEn:/g) ?? []).length,
-  6,
+  10,
   "all Coloring scenes need English descriptions"
 );
 assert.equal(
