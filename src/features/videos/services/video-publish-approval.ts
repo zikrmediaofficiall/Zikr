@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { isKidsVideoContentMarker, normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
 import { inspectVideoAssetUse } from "./video-asset-registry";
+import { isVideoMediaFactsValid, verifyQaSnapshot, type QaSnapshot } from "./video-frame-diversity";
 
 export const REQUIRED_VIDEO_APPROVAL_CHECKS = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"] as const;
 export type VideoApprovalCheck = (typeof REQUIRED_VIDEO_APPROVAL_CHECKS)[number];
@@ -163,6 +164,7 @@ export type VideoApprovalSnapshot = {
   videoUrl: string | null;
   audience?: string | null;
   kidsVideoQaStatus?: string | null;
+  technicalQaDigest?: string | null;
 };
 
 export function buildVideoApprovalSnapshotHash(snapshot: VideoApprovalSnapshot): string | null {
@@ -180,6 +182,7 @@ export function buildVideoApprovalSnapshotHash(snapshot: VideoApprovalSnapshot):
     contentHash,
     snapshot.templateVersion?.trim() ?? "",
     videoUrl,
+    ...(snapshot.technicalQaDigest?.trim() ? ["technical-qa", snapshot.technicalQaDigest.trim()] : []),
     ...(audience === "kids" ? ["kids", "passed"] : []),
   ]);
   return createHash("sha256").update(canonical, "utf8").digest("hex");
@@ -329,6 +332,15 @@ export function isVideoApprovalRecorded(content: unknown, expectedSnapshotHash: 
   if (!expectedSnapshotHash || data.approvalSnapshotHash !== expectedSnapshotHash) return false;
   const reviewedAt = typeof data.approvalReviewedAt === "string" ? Date.parse(data.approvalReviewedAt) : Number.NaN;
   if (!Number.isFinite(reviewedAt)) return false;
+  if (data.videoTechnicalQaStatus != null) {
+    const technicalQa = record(data.videoTechnicalQa);
+    if (
+      data.videoTechnicalQaStatus !== "passed" ||
+      !technicalQa ||
+      !verifyQaSnapshot(technicalQa as unknown as QaSnapshot) ||
+      !isVideoMediaFactsValid(technicalQa.media)
+    ) return false;
+  }
   const reviewData = record(data.qualityReview);
   if (!hasCompleteVideoApprovalChecklist(reviewData)) return false;
   const review = reviewData as Record<string, unknown>;
@@ -396,6 +408,9 @@ export function buildVideoApprovalSnapshotHashForRequest(request: VideoPublishRe
     videoUrl: request.video_url,
     audience,
     kidsVideoQaStatus: typeof content?.kidsVideoQaStatus === "string" ? content.kidsVideoQaStatus : null,
+    technicalQaDigest: typeof record(content?.videoTechnicalQa)?.digest === "string"
+      ? String(record(content?.videoTechnicalQa)?.digest)
+      : null,
   });
 }
 
