@@ -76,6 +76,8 @@ assert.equal((graph.match(/xfade=transition=fade/g) ?? []).length, general.scene
 assert.ok(graph.includes("[0:v]"));
 assert.ok(graph.includes("[3:v]"));
 assert.ok(graph.includes("[storyboard_v]"));
+assert.ok(graph.includes("(iw-iw/zoom)*"), "Horizontal camera motion must use zoom-relative pixel coordinates.");
+assert.ok(graph.includes("(ih-ih/zoom)*"), "Vertical camera motion must use zoom-relative pixel coordinates.");
 assert.ok(!graph.includes("drawtext"), "Arabic text is rendered only by the approved final caption renderer.");
 assert.ok(!graph.includes("subtitles"), "Storyboard generation must remain visual-only.");
 assert.throws(() => buildVideoStoryboardFilterGraph(general, 4096, 4096), /frame dimensions/i);
