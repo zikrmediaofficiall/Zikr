@@ -72,5 +72,6 @@ assert.ok(zeroDurationCues[0].end > zeroDurationCues[0].start);
 assert.deepEqual(planCaptionTimings([], 20), []);
 
 await import("./video-storyboard.test");
+await import("./kids-video-production.test");
 await import("./video-audio-policy.test");
 console.log("Video composition and audio-aware caption timing tests passed.");
