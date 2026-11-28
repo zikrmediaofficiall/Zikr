@@ -22,10 +22,6 @@ jobs:
     environment: production
     timeout-minutes: 30
     env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
-      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
       HF_WAN_SPACE: zerogpu-aoti/wan2-2-fp8da-aoti-faster
       HF_LTX_SPACE: Lightricks/ltx-video-distilled
       WAN_OUTPUT: smoke-output/zikr-wan-smoke.mp4
@@ -55,6 +51,11 @@ jobs:
           python-version: "3.12"
 
       - name: Validate required secrets without printing their values
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
@@ -103,6 +104,8 @@ jobs:
 
       - name: Generate WAN 2.2 five-second test clip
         id: wan
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         continue-on-error: true
         shell: bash
         run: |
@@ -120,11 +123,17 @@ jobs:
       - name: Upload WAN test clip to Cloudinary as authenticated
         id: wan_upload
         if: steps.wan.outcome == 'success'
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
         continue-on-error: true
         run: node scripts/tests/cloudinary-private-video-smoke-upload.mjs "$WAN_OUTPUT" wan2_2_fast
 
       - name: Generate LTX Distilled six-second test clip
         id: ltx
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         continue-on-error: true
         shell: bash
         run: |
@@ -141,6 +150,10 @@ jobs:
       - name: Upload LTX test clip to Cloudinary as authenticated
         id: ltx_upload
         if: steps.ltx.outcome == 'success'
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
         continue-on-error: true
         run: node scripts/tests/cloudinary-private-video-smoke-upload.mjs "$LTX_OUTPUT" ltx_fast
 
