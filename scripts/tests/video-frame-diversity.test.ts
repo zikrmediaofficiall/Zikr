@@ -63,6 +63,7 @@ const facts: VideoMediaFacts = {
 assert.equal(isVideoMediaFactsValid(facts), true);
 assert.equal(isVideoMediaFactsValid({ ...facts, audioCodec: "mp3" }), false);
 assert.equal(isVideoMediaFactsValid({ ...facts, width: 320 }), false);
+assert.equal(isVideoMediaFactsValid({ ...facts, width: 4096 }), false, "dimensions above 4K are rejected");
 assert.equal(isVideoMediaFactsValid({ ...facts, frameRate: 120 }), false);
 assert.equal(isVideoMediaFactsValid({ ...facts, sizeBytes: 0 }), false);
 assert.equal(isVideoMediaFactsValid({ ...facts, sizeBytes: 60 * 1024 * 1024 }), false);
