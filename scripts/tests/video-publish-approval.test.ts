@@ -52,6 +52,28 @@ const technicalQaSnapshotHash = buildVideoApprovalSnapshotHash({ ...snapshot, te
 const differentTechnicalQaSnapshotHash = buildVideoApprovalSnapshotHash({ ...snapshot, technicalQaDigest: "b".repeat(64) });
 assert.notEqual(technicalQaSnapshotHash, differentTechnicalQaSnapshotHash, "technical QA digest must be part of the approval snapshot hash");
 assert.notEqual(technicalQaSnapshotHash, snapshotHash, "adding a technical QA digest changes the approval snapshot hash");
+const requestWithTechnicalQa = {
+  status: "completed",
+  category: snapshot.category,
+  video_url: snapshot.videoUrl,
+  source_hash: snapshot.sourceHash,
+  content_hash: snapshot.contentHash,
+  template_version: snapshot.templateVersion,
+  content: { audience: "general", videoTechnicalQa: { digest: "a".repeat(64) } },
+};
+assert.equal(
+  buildVideoApprovalSnapshotHashForRequest(requestWithTechnicalQa),
+  technicalQaSnapshotHash,
+  "the publishing queue must recompute the approval hash using the stored P08 digest",
+);
+assert.notEqual(
+  buildVideoApprovalSnapshotHashForRequest({
+    ...requestWithTechnicalQa,
+    content: { audience: "general", videoTechnicalQa: { digest: "b".repeat(64) } },
+  }),
+  technicalQaSnapshotHash,
+  "a changed P08 report digest invalidates the publish approval snapshot",
+);
 const content = {
   approvalStatus: "approved",
   approvalReviewerId: "admin-user-1",
