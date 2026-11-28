@@ -163,6 +163,7 @@ export type VideoApprovalSnapshot = {
   videoUrl: string | null;
   audience?: string | null;
   kidsVideoQaStatus?: string | null;
+  technicalQaDigest?: string | null;
 };
 
 export function buildVideoApprovalSnapshotHash(snapshot: VideoApprovalSnapshot): string | null {
@@ -180,6 +181,7 @@ export function buildVideoApprovalSnapshotHash(snapshot: VideoApprovalSnapshot):
     contentHash,
     snapshot.templateVersion?.trim() ?? "",
     videoUrl,
+    ...(snapshot.technicalQaDigest?.trim() ? ["technical-qa", snapshot.technicalQaDigest.trim()] : []),
     ...(audience === "kids" ? ["kids", "passed"] : []),
   ]);
   return createHash("sha256").update(canonical, "utf8").digest("hex");
@@ -396,6 +398,9 @@ export function buildVideoApprovalSnapshotHashForRequest(request: VideoPublishRe
     videoUrl: request.video_url,
     audience,
     kidsVideoQaStatus: typeof content?.kidsVideoQaStatus === "string" ? content.kidsVideoQaStatus : null,
+    technicalQaDigest: typeof record(content?.videoTechnicalQa)?.digest === "string"
+      ? String(record(content?.videoTechnicalQa)?.digest)
+      : null,
   });
 }
 
