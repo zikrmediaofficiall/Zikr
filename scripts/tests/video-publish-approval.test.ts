@@ -624,8 +624,21 @@ assert.ok(
 const rightsPendingStudioContent = {
   ...content,
   templateBindingMode: "studio",
+  templateId: "template-1",
+  templateSlug: "manuscript-library",
   templateAssetKey: "manuscript-library",
   templateVersionId: "template-version-1",
+  templateConfigSnapshot: {
+    assetKey: "manuscript-library",
+    defaultFormat: "vertical",
+    motion: "slow",
+    fontPreset: "auto",
+    palette: "template",
+    safeArea: "standard",
+    captionStyle: "classic",
+    sourceCardStyle: "standard",
+    audioPolicy: "allow-tts",
+  },
 };
 const rightsPendingStudioRequest = { ...request, content: rightsPendingStudioContent };
 assert.equal(
@@ -680,6 +693,39 @@ assert.equal(inspectVideoQueueItemExternalApproval({
   ...queueItem,
   request: malformedStoryboardRequest,
 }).approved, false, "A missing storyboard asset manifest must fail closed.");
+const mixedValidAndMissingSceneRequest = {
+  ...request,
+  content: {
+    ...content,
+    render: {
+      storyboard: {
+        version: "zikr-storyboard-v1",
+        scenes: [
+          { id: "scene-1", index: 0, assetKey: "manuscript-library", startSeconds: 0, durationSeconds: 5 },
+          { id: "scene-2", index: 1, startSeconds: 4.8, durationSeconds: 5 },
+        ],
+      },
+    },
+  },
+};
+assert.equal(inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: mixedValidAndMissingSceneRequest,
+}).approved, false, "A single scene without an asset key must block publishing even if other scenes are registered.");
+
+const incompleteStudioPinRequest = {
+  ...request,
+  content: {
+    ...rightsPendingStudioContent,
+    templateVersionId: "",
+    templateConfigSnapshot: null,
+  },
+};
+assert.equal(inspectVideoQueueItemExternalApproval({
+  ...queueItem,
+  request: incompleteStudioPinRequest,
+}).approved, false, "An incomplete immutable Template Studio pin must fail closed.");
+
 await import("./video-asset-rights.test");
 
 const rightsPendingStudioContent = {
