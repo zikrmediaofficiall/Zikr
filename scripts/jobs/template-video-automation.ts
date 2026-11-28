@@ -20,6 +20,7 @@ import { listVideoSources, resolveVideoSource } from "../../src/features/videos/
 import { listCuratedVideoSources, resolveCuratedVideoSource } from "../../src/features/videos/data/curated-content";
 import { filterGeneralStorySources, resolveVideoSourceDisclosureLine } from "../../src/features/videos/services/video-source-contract";
 import { buildKidsSeriesEpisode, validateCanonicalKidsEpisodeSnapshot, validateGeneratedKidsEpisode } from "../../src/features/videos/data/kids-story-factory";
+import { buildKidsVideoProductionManifest, validateKidsVideoProductionManifest, buildKidsCharacterSceneSvg, type KidsVideoProductionManifest } from "../../src/features/videos/services/kids-video-production";
 import { videoContentHash, sourceHash } from "../../src/features/videos/providers/content-hash";
 import { buildDuplicateVideoOwnerRecoveryFilter, canRecoverDuplicateVideoRender, resolveUniqueDuplicateVideoSiteRecord } from "../../src/features/videos/services/duplicate-video-recovery";
 import { buildMissingMediaQueueRecoveryPatch } from "../../src/features/social/services/platform-availability";
@@ -57,7 +58,7 @@ import { getServerEnv } from "../../src/lib/env";
 import { isVideoTemplateAssetAllowedForAudience, parseVideoTemplateConfig, videoTemplateAssetPath, videoTemplateScene, type VideoTemplateAudience, type VideoTemplateAsset } from "../../src/features/videos/services/template-config";
 import { CURRENT_VIDEO_RENDERER_VERSION, versionedTemplateLabel } from "../../src/features/videos/services/video-template-version";
 import { applyAutomatedVideoTemplateBinding, selectAutomatedVideoTemplate, type VideoTemplateCandidateInput, type VideoTemplateUsage } from "../../src/features/videos/services/video-template-selection";
-import { buildVideoStoryboard, buildVideoStoryboardFilterGraph, type VideoStoryboard } from "../../src/features/videos/services/video-storyboard";
+import { buildVideoStoryboard, buildVideoStoryboardFilterGraph, type VideoStoryboard, type VideoStoryboardVisualBeat } from "../../src/features/videos/services/video-storyboard";
 import { AI_VISUAL_POLICY_VERSION, aiVisualPolicyPromptLine } from "../../src/features/videos/providers/ai-visual-policy";
 import { createVideoProviderRouter } from "../../src/features/videos/providers/provider-router";
 import { isClipLibraryRightsSnapshotValid } from "../../src/features/videos/providers/clip-library";
@@ -200,6 +201,62 @@ function narrationProfileForRequest(request: GeneratedRequest) {
         ? configured ?? "documentary_male_msa"
         : configured,
   });
+}
+
+function resolveKidsProductionManifest(request: GeneratedRequest): KidsVideoProductionManifest | null {
+  const content = request.content ?? {};
+  if (content.audience !== "kids" || content.sourceType !== "original_kids_fiction") return null;
+
+  const sequence = Number(content.factorySequence);
+  if (!Number.isSafeInteger(sequence) || sequence < 1) {
+    throw new Error("Kids video request is missing its canonical factory sequence.");
+  }
+  const requestTexts = [content.textAr, content.text, content.script]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const normalize = (value: string) => value.normalize("NFC").replace(/\\s+/gu, " ").trim();
+  const requestText = requestTexts[0] ?? "";
+  const episode = [
+    buildKidsSeriesEpisode(sequence),
+    buildKidsSeriesEpisode(sequence, "legacy_msa"),
+  ].find((candidate) => candidate.sourceId === content.sourceId && normalize(candidate.text) === normalize(requestText));
+  if (!episode || requestTexts.some((value) => normalize(value) !== normalize(episode.text))) {
+    throw new Error("Kids video request does not match either canonical Egyptian or legacy episode text.");
+  }
+
+  const canonicalCheck = validateCanonicalKidsEpisodeSnapshot({
+    factorySequence: sequence,
+    sourceId: content.sourceId,
+    text: requestText,
+    seriesId: content.seriesId,
+    seasonNumber: content.seasonNumber,
+    episodeNumber: content.episodeNumber,
+    learningObjective: content.learningObjective,
+  });
+  if (!canonicalCheck.ok) {
+    throw new Error("Kids video request does not match its canonical episode: " + canonicalCheck.errors.join(" | "));
+  }
+
+  const storedManifest = content.kidsProductionManifest;
+  if (storedManifest == null) {
+    const generated = buildKidsVideoProductionManifest(episode, sequence);
+    const validation = validateKidsVideoProductionManifest(generated, episode, sequence);
+    if (!validation.ok) {
+      throw new Error("New Kids production manifest failed validation: " + validation.errors.join(" | "));
+    }
+    content.kidsProductionManifest = generated;
+    content.kidsProductionManifestSha256 = generated.manifestSha256;
+    return generated;
+  }
+
+  const validation = validateKidsVideoProductionManifest(storedManifest, episode, sequence);
+  if (!validation.ok) {
+    throw new Error("Stored Kids production manifest is stale or invalid: " + validation.errors.join(" | "));
+  }
+  const manifest = storedManifest as KidsVideoProductionManifest;
+  if (content.kidsProductionManifestSha256 !== manifest.manifestSha256) {
+    throw new Error("Kids production manifest fingerprint does not match the request metadata.");
+  }
+  return manifest;
 }
 
 type QuranRow = {
@@ -572,7 +629,25 @@ async function renderStoryboardBackground(
       ["-w", String(width), "-h", String(height), source, "-o", output],
       { maxBuffer: 2 * 1024 * 1024, signal },
     );
-    scenePaths.push(output);
+    if (scene.characterCues?.length) {
+      const characterSvgPath = path.join(temp, "kids-character-scene-" + String(scene.index + 1) + ".svg");
+      const characterPngPath = path.join(temp, "kids-character-scene-" + String(scene.index + 1) + ".png");
+      const composedScenePath = path.join(temp, "storyboard-scene-composed-" + String(scene.index + 1) + ".png");
+      await writeFile(characterSvgPath, buildKidsCharacterSceneSvg(scene.characterCues), "utf8");
+      await execFileAsync(
+        "rsvg-convert",
+        ["-w", String(width), "-h", String(height), characterSvgPath, "-o", characterPngPath],
+        { maxBuffer: 2 * 1024 * 1024, signal },
+      );
+      await execFileAsync("ffmpeg", [
+        "-y", "-i", output, "-i", characterPngPath,
+        "-filter_complex", "[0:v][1:v]overlay=0:0:format=auto",
+        "-frames:v", "1", "-update", "1", composedScenePath,
+      ], { maxBuffer: 8 * 1024 * 1024, signal });
+      scenePaths.push(composedScenePath);
+    } else {
+      scenePaths.push(output);
+    }
   }
 
   const outputPath = path.join(temp, "storyboard-background.mp4");
@@ -1464,6 +1539,11 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
       if (!episodeValidation.ok) {
         throw new Error("Generated kids story failed editorial contract: " + episodeValidation.errors.join(" | "));
       }
+      const kidsProductionManifest = buildKidsVideoProductionManifest(episode, episodeSequence);
+      const kidsManifestValidation = validateKidsVideoProductionManifest(kidsProductionManifest, episode, episodeSequence);
+      if (!kidsManifestValidation.ok) {
+        throw new Error("Generated Kids production manifest failed editorial contract: " + kidsManifestValidation.errors.join(" | "));
+      }
       payload = {
         title: episode.title,
         description: episode.description,
@@ -1488,6 +1568,9 @@ export async function seedAutomatedVideoRequests(batchSize = BATCH_SIZE) {
           episodeTitle: episode.episodeTitle,
           ageGroup: episode.ageGroup,
           learningObjective: episode.learningObjective,
+          storyBeats: episode.storyBeats,
+          kidsProductionManifest,
+          kidsProductionManifestSha256: kidsProductionManifest.manifestSha256,
           visualTheme: episode.visualTheme,
           style: episode.visualTheme,
           generationMode: episode.generationMode,
@@ -2151,6 +2234,7 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
   const boundTemplate = await bindTemplateVersion(request);
   throwIfVideoLeaseAborted(signal);
   assertKidsStoryContract(request);
+  const kidsProductionManifest = resolveKidsProductionManifest(request);
   const text = contentText(request);
   const sourceUrl = contentSourceUrl(request);
   const [width, height] = requestedVideoShape(request).split("x").map(Number);
@@ -2448,6 +2532,14 @@ async function renderVideo(request: GeneratedRequest, signal?: AbortSignal) {
           durationSeconds: duration,
           templateAssetKey: boundTemplate?.config.assetKey ?? null,
           visualTheme: requestedVisualTheme,
+          ...(kidsProductionManifest ? {
+            visualBeats: kidsProductionManifest.scenePack.safeVisualBeats.map((beat): VideoStoryboardVisualBeat => ({
+              id: beat.id,
+              narrationAnchor: beat.narrationAnchor,
+              assetKey: beat.assetKey,
+              characterCues: beat.characterCues,
+            })),
+          } : {}),
         })
       : null;
     const backgroundPath = aiVideoPath || (
@@ -2834,9 +2926,23 @@ export function buildAutomatedVideoQaChecklist(
     typeof ai.reflection === "string" ? ai.reflection : "",
     typeof ai.socialCaption === "string" ? ai.socialCaption : "",
   ].every((value) => !containsKidsPersonalDataSolicitation(value));
-  const captionsReviewed = kidsEditorialTextSafe && narrationQuality.ok &&
+  const kidsManifest = content.audience === "kids" && content.kidsProductionManifest && typeof content.kidsProductionManifest === "object"
+    ? content.kidsProductionManifest as Record<string, unknown>
+    : null;
+  const kidsManifestReviewed = content.audience !== "kids" || Boolean(
+    kidsManifest &&
+    kidsManifest.version === "kids-video-production-v1" &&
+    typeof kidsManifest.manifestSha256 === "string" &&
+    kidsManifest.manifestSha256 === content.kidsProductionManifestSha256 &&
+    Array.isArray((kidsManifest.scenePack as Record<string, unknown> | undefined)?.safeVisualBeats) &&
+    ((kidsManifest.scenePack as Record<string, unknown>).safeVisualBeats as unknown[]).length === 4 &&
+    Array.isArray((kidsManifest.characterContinuity as Record<string, unknown> | undefined)?.characters) &&
+    ((kidsManifest.characterContinuity as Record<string, unknown>).characters as unknown[]).length >= 2
+  );
+  const captionsReviewed = kidsEditorialTextSafe && narrationQuality.ok && kidsManifestReviewed &&
     narration.length >= 8 &&
-    render.captionTiming === "page-weighted-audio-duration" &&
+    render.captionTiming === "approved-text-audio-duration-verified" &&
+    render.captionPolicyVersion === VIDEO_AUDIO_POLICY_VERSION &&
     typeof render.composition === "string" && Boolean(render.composition.trim()) &&
     !/https?:\/\//i.test(narration);
 
