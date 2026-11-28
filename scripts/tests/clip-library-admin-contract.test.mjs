@@ -24,6 +24,7 @@ assert.ok(client.includes("/api/admin/video-clips"), "admin UI must use the guar
 assert.ok(client.includes('action: "approve"') && client.includes('action: "retire"'), "admin UI must expose review and retirement actions");
 assert.ok(navigation.includes('href: "/admin/video/clips"'), "clip library must be registered in admin navigation");
 assert.ok(layout.includes('"/admin/video/clips"'), "clip library must be placed in the video sidebar");
+assert.ok(migration.includes("video_clip_library_cloudinary_public_id_uidx"), "one Cloudinary asset must not be registered more than once");
 assert.ok(migration.includes("enable row level security"), "clip table must enable RLS");
 assert.ok(migration.includes("revoke all on table public.video_clip_library from public, anon, authenticated"), "client roles must have no table privileges");
 assert.ok(migration.includes("grant select, insert, update on table public.video_clip_library to service_role"), "only worker service role gets required table access");
