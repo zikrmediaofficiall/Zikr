@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { isKidsVideoContentMarker, normalizeVideoAudience, normalizeVideoMarker } from "./video-audience-visibility";
+import { inspectVideoAssetUse } from "./video-asset-registry";
 
 export const REQUIRED_VIDEO_APPROVAL_CHECKS = ["sourceVerified", "audioReviewed", "visualsReviewed", "captionsReviewed", "rightsReviewed"] as const;
 export type VideoApprovalCheck = (typeof REQUIRED_VIDEO_APPROVAL_CHECKS)[number];
@@ -487,7 +488,75 @@ export function inspectVideoQueueItemExternalApproval(input: {
   if (!diagnostics.approved) return diagnostics;
 
   const content = record(input.request?.content);
-  if (normalizeVideoAudience(content?.audience) !== "kids" || !input.request) return diagnostics;
+  if (!input.request || !content) return diagnostics;
+
+  const render = record(content.render);
+  const storyboard = record(render?.storyboard);
+  const referencedAssetKeys = new Set<string>();
+  let requiresAssetRightsCheck =
+    content.templateBindingMode === "studio" ||
+    typeof content.templateAssetKey === "string" ||
+    storyboard !== null;
+
+  if (typeof content.templateAssetKey === "string" && content.templateAssetKey.trim()) {
+    referencedAssetKeys.add(content.templateAssetKey.trim());
+  }
+  if (Array.isArray(content.visualAssetKeys)) {
+    for (const value of content.visualAssetKeys) {
+      if (typeof value === "string" && value.trim()) referencedAssetKeys.add(value.trim());
+      else requiresAssetRightsCheck = true;
+    }
+  }
+  if (storyboard) {
+    if (!Array.isArray(storyboard.scenes) || storyboard.scenes.length === 0) {
+      requiresAssetRightsCheck = true;
+    } else {
+      for (const value of storyboard.scenes) {
+        const scene = record(value);
+        if (typeof scene?.assetKey === "string" && scene.assetKey.trim()) {
+          referencedAssetKeys.add(scene.assetKey.trim());
+        } else {
+          requiresAssetRightsCheck = true;
+        }
+      }
+    }
+  }
+
+  if (requiresAssetRightsCheck) {
+    const audience = normalizeVideoAudience(content.audience);
+    if (!audience || referencedAssetKeys.size === 0) {
+      return {
+        ...diagnostics,
+        approved: false,
+        reason: "الأصول البصرية المرتبطة بطلب الفيديو غير مكتملة؛ تم إيقاف النشر الخارجي لحين مراجعتها.",
+        missingChecks: ["rightsReviewed"],
+      };
+    }
+    for (const assetKey of referencedAssetKeys) {
+      const publicSiteDecision = inspectVideoAssetUse({
+        assetKey,
+        audience,
+        destination: "public_site",
+        topic: input.request.category,
+      });
+      const socialDecision = inspectVideoAssetUse({
+        assetKey,
+        audience,
+        destination: "social",
+        topic: input.request.category,
+      });
+      if (!publicSiteDecision.allowed || !socialDecision.allowed) {
+        return {
+          ...diagnostics,
+          approved: false,
+          reason: "الأصل البصري " + assetKey + " لم يحصل على مراجعة حقوق موثقة؛ المعاينة الداخلية مسموحة لكن النشر العام والاجتماعي متوقف.",
+          missingChecks: ["rightsReviewed"],
+        };
+      }
+    }
+  }
+
+  if (normalizeVideoAudience(content.audience) !== "kids") return diagnostics;
 
   const snapshotHash = buildVideoApprovalSnapshotHashForRequest(input.request);
   if (!snapshotHash) return {
