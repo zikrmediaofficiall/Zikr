@@ -48,7 +48,7 @@ const scheduledFreeProviderConfig = getVideoEngineConfig({
   VIDEO_AI_ENABLED: "true",
   HF_WAN_VIDEO_ENABLED: "true",
   HF_LTX_FAST_VIDEO_ENABLED: "true",
-  VIDEO_PROVIDER_ORDER: "hf_ltx_fast,hf_wan,template",
+  VIDEO_PROVIDER_ORDER: "hf_wan,hf_ltx_fast,template",
 });
 assert.equal(scheduledFreeProviderConfig.freeOnly, true);
 assert.equal(scheduledFreeProviderConfig.hfLtxFastEnabled, true);
