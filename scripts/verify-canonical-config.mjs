@@ -122,8 +122,8 @@ if (!siteSource.includes('export const PRODUCTION_URL = "https://zikrmediaoffici
 if (!siteSource.includes("return PRODUCTION_URL;")) {
   fail("enforceCanonicalProductionUrl must return PRODUCTION_URL");
 }
-if (!siteSource.includes("url: PRODUCTION_URL")) {
-  fail("siteConfig.url must be the canonical production URL");
+if (!siteSource.includes("url: PUBLIC_SEO_URL") || !siteSource.includes("CUSTOM_DOMAIN_ACTIVE ? CUSTOM_DOMAIN_URL : PRODUCTION_URL")) {
+  fail("siteConfig.url must be PUBLIC_SEO_URL (custom domain only when CUSTOM_DOMAIN_ACTIVE)");
 }
 
 const nextConfig = read("next.config.ts");
