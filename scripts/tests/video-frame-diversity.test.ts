@@ -3,6 +3,7 @@ import {
   createQaSnapshot,
   isVideoMediaFactsValid,
   measureFrameDiversity,
+  parseVolumeDetectOutput,
   verifyQaSnapshot,
   type SampledFrame,
   type VideoMediaFacts,
@@ -39,6 +40,11 @@ assert.equal(
   false,
   "sample timestamps must increase",
 );
+
+const parsedLevels = parseVolumeDetectOutput("video:0kB audio:12kB mean_volume: -21.4 dB max_volume: -2.7 dB");
+assert.deepEqual(parsedLevels, { meanVolumeDb: -21.4, peakVolumeDb: -2.7 });
+assert.equal(parseVolumeDetectOutput("mean_volume: -inf dB max_volume: -inf dB"), null, "silent tracks fail closed");
+assert.equal(parseVolumeDetectOutput("no audio statistics"), null);
 
 const facts: VideoMediaFacts = {
   videoCodec: "h264",
