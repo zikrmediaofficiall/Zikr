@@ -86,6 +86,7 @@ const MEMORY_SCENE_ART: Record<string, MemorySceneArt> = {
   "rain-falls": { icon: "🌧️", tone: "border-blue-200/30 bg-blue-200/10 text-blue-100" },
 };
 
+import { VerseLightString, getVerseTheme } from "./verse-scene";
 import { QuizPath, getQuizTheme } from "./quiz-scene";
 import { getMemoryTheme, memoryCardBack, memoryColumns } from "./memory-scene";
 
@@ -546,6 +547,7 @@ export function VersePuzzleGame({ difficulty, restartToken, paused, onHud, onRes
         <p className="text-xs text-brand-cream/45">{isEnglish ? "The hint adds one mistake but points toward the next word." : "التلميح يضيف خطأً واحدًا لكنه يوضح اتجاه الحل."}</p>
         <button type="button" onClick={useVerseHint} disabled={paused || complete || hintVisible} className="min-h-11 rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 text-xs font-black text-brand-gold disabled:opacity-40">🔎 {isEnglish ? "Hint" : "تلميح"}</button>
       </div></div>
+      <VerseLightString theme={getVerseTheme(levelIndex)} total={tokens.length} placed={answer.length} />
       
       <div className="mx-3 mt-3 min-w-0 rounded-[1.5rem] border border-violet-200/10 bg-black/20 p-3 sm:mx-6 sm:mt-4 sm:rounded-[2rem] sm:p-5">
         <div className="flex min-h-24 min-w-0 items-center justify-center break-words rounded-[1.5rem] border border-violet-200/15 bg-violet-200/[0.04] p-3 text-center text-base leading-8 text-brand-gold [overflow-wrap:anywhere] sm:min-h-28 sm:p-5 sm:text-xl sm:leading-[2.5]">{answer.length ? answer.map(index => tokens.find(token => token.index === index)?.text ?? "").join(" ") : <span className="text-sm text-brand-cream/30">{isEnglish ? "Start with the first word" : "ابدأ من الكلمة الأولى"}</span>}</div>
