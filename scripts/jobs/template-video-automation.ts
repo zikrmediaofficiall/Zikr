@@ -2939,7 +2939,7 @@ export function buildAutomatedVideoQaChecklist(
     Array.isArray((kidsManifest.characterContinuity as Record<string, unknown> | undefined)?.characters) &&
     ((kidsManifest.characterContinuity as Record<string, unknown>).characters as unknown[]).length >= 2
   );
-  const captionsReviewed = kidsEditorialTextSafe && kidsManifestReviewed && narrationQuality.ok &&
+  const captionsReviewed = kidsEditorialTextSafe && narrationQuality.ok && kidsManifestReviewed &&
     narration.length >= 8 &&
     render.captionTiming === "approved-text-audio-duration-verified" &&
     render.captionPolicyVersion === VIDEO_AUDIO_POLICY_VERSION &&
