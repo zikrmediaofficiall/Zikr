@@ -273,8 +273,8 @@ if ((cleanupItemsCatalog.match(/nameEn:/g) ?? []).length !== 16 || (cleanupZones
 if (!values.includes("useLanguage") || !values.includes('title={isEnglish ? "Good Deeds Adventure"') || !values.includes('title={isEnglish ? "Organize the Place"') || !values.includes('title={isEnglish ? "ZIKR Coloring Studio"')) {
   throw new Error("All three values games must localize their active gameplay interface.");
 }
-if ((coloringCatalog.match(/, titleEn:/g) ?? []).length !== 6 || (coloringCatalog.match(/subtitleEn:/g) ?? []).length !== 6) {
-  throw new Error("All six Coloring scenes need English titles and descriptions.");
+if ((coloringCatalog.match(/, titleEn:/g) ?? []).length !== 10 || (coloringCatalog.match(/subtitleEn:/g) ?? []).length !== 10) {
+  throw new Error("All ten Coloring scenes need English titles and descriptions.");
 }
 const coloringSheetIds = [...coloringCatalog.matchAll(/id: "([^"]+)"/g)].map(match => match[1]);
 if (coloringSheetIds.length < 6 || new Set(coloringSheetIds).size !== coloringSheetIds.length) {
