@@ -652,7 +652,7 @@ const rightsBlockedExternal = inspectVideoQueueItemExternalApproval({
 });
 assert.equal(rightsBlockedExternal.approved, false, "Unverified Template Studio assets must block external publication.");
 assert.deepEqual(rightsBlockedExternal.missingChecks, ["rightsReviewed"]);
-assert.match(rightsBlockedExternal.reason ?? "", /حقوق موثقة/);
+assert.match(rightsBlockedExternal.reason ?? "", /الحقوق الموثقة/);
 assert.equal(isVideoQueueItemApprovedForPublishing({
   ...queueItem,
   request: rightsPendingStudioRequest,
