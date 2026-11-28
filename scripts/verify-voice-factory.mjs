@@ -26,13 +26,17 @@ for (const [profile, voice] of [
 ]) {
   if (!tts.includes(profile) || !tts.includes(voice)) failures.push("TTS runtime is missing " + profile);
   if (!canonicalProfiles.includes(profile) || !canonicalProfiles.includes(voice)) failures.push("Voice Factory registry is missing " + profile);
-  if (!worker.includes(profile)) failures.push("automated QA allowlist is missing " + profile);
 }
 for (const token of ["ARABIC_TTS_VOICE", "ARABIC_TTS_RATE", "ARABIC_TTS_PITCH"]) if (!tts.includes(token)) failures.push(`Arabic TTS configuration missing: ${token}`);
 
 if (!worker.includes("scripts/generate-arabic-voice.py")) failures.push("production video worker must use the canonical Arabic TTS helper");
-if (!worker.includes("getDefaultVideoVoiceProfile")) failures.push("production video worker must resolve canonical voice profiles");
-if (!worker.includes("ARABIC_TTS_VOICE")) failures.push("production video worker must expose the canonical TTS voice setting");
+const audioPolicy = read("src/features/videos/services/video-audio-policy.ts");
+if (!worker.includes("selectVideoVoiceProfile")) failures.push("production video worker must select voice profiles through the canonical audio policy");
+if (!worker.includes("resolveVideoAudioRenderPolicy")) failures.push("production video worker must enforce category/source audio policy");
+if (!worker.includes("audioPolicy.ttsVoice") || !worker.includes("audioPolicy.ttsRate") || !worker.includes("audioPolicy.ttsPitch")) failures.push("production video worker must use only policy-approved TTS voice/rate/pitch values");
+if (!worker.includes("buildVerifiedVideoCaptionTrack")) failures.push("production video worker must use exact-source verified Arabic caption timing");
+if (worker.includes("process.env.ARABIC_TTS_VOICE") || worker.includes("process.env.ARABIC_TTS_RATE") || worker.includes("process.env.ARABIC_TTS_PITCH")) failures.push("production video worker must not allow environment overrides of the approved audio identity");
+if (!audioPolicy.includes('category === "quran"') || !audioPolicy.includes("quranTtsAllowed: false") || !audioPolicy.includes("quran_ayah_cdn")) failures.push("canonical audio policy must lock Quran to verified human recitation and disallow Quran TTS");
 if (!worker.includes('category === "quran" && !audioUrl')) failures.push("Quran videos must reject missing verified recitation rather than falling back to TTS");
 if (!worker.includes("Rendered output has no narration/audio stream.")) failures.push("production worker must reject silent renders");
 

@@ -3,6 +3,25 @@
 **Audit snapshot:** 2026-11-28 01:51 UTC  
 **Scope:** Video generation, AI providers, FFmpeg rendering, template studio, scene and asset library, voice, captions, quality control, Cloudinary storage, social publishing, and Admin operations.
 
+**Execution checkpoint — 2026-11-28 08:21 Africa/Cairo**
+
+| Phase | Verified implementation/evidence | Remaining release gate |
+|---|---|---|
+| P00 Inventory and safety | Production Supabase project is healthy (PostgreSQL 17); 482 remote migrations are registered; Cloudinary cloud `dcuveyab9` is verified; private MP4 uploads succeeded and the test assets are authenticated. Current Cloudinary usage is 5.19/25 credits (20.76%). | Complete request/catalog/social-queue-to-Cloudinary reconciliation and preserve a settings snapshot before any production setting change. No deletion was performed. |
+| P01 Providers | WAN Gradio contract repair and distinct WAN/LTX adapters are merged; Quality Gate passes. Cloudinary authenticated upload is verified. | Live WAN/LTX smoke generation is blocked by the Hugging Face free ZeroGPU quota at the last attempt (WAN needed 100s with 94s left; LTX needed 120s with 34s left). Re-run each provider separately after quota reset; no paid tier was enabled. |
+| P02 Narration | Layl word-count preflight and revised episode scripts are merged; the post-TTS duration probe remains in place. | Validate a real Layl render once the private render path is available; do not publish during this test. |
+| P03 Template Studio | Main worker resolves an audience-safe active immutable version and stores `templateVersionId`, `templateConfigSnapshot`, asset, format, and renderer metadata on new automatic requests. Selection contract is covered by tests. Production has 50 templates and 50 active versions. | Zero requests were created after the merge commit, so no production row has yet exercised the new binding. Verify the first post-merge request before marking acceptance complete. |
+| P04 Storyboard | Versioned `zikr-storyboard-v1`, deterministic 2–6 scene planning, audience-safe asset selection, camera paths, fade transitions, FFmpeg graph, and persisted scene metadata are present; Quality Gate passes. | Render and probe a private MP4 to verify scene transitions, audio alignment, and duration end-to-end. |
+| P05 Visual library | 50 database templates/versions and a large local SVG scene catalog exist, including general and Kids assets. Runtime asset checks are in the production workflow. | Complete asset rights/source metadata and preview coverage per template/aspect ratio before expanding the catalogue. |
+| P06 Audio/captions | Arabic TTS smoke checks, pinned Layl voice profile, Noto Arabic fonts, audio normalization, and trusted caption rendering are present. | Complete phrase-level alignment and a private end-to-end presenter/series continuity render. |
+| P07 Kids | Dedicated Kids content factory, age/audience separation, source/fiction contracts, Kids QA and 13-game source checks are present; Quality Gate passes. | Verify one private Kids storyboard render and confirm Kids-only assets remain isolated. |
+| P08 QA | Automated technical/editorial approval contracts and PostgreSQL integration tests pass. | Add measured frame-sampling/visual-diversity evidence from real rendered samples and retain immutable QA snapshots for each canary. |
+| P09 Storage/publishing | Cloudinary production account is confirmed; authenticated video upload works; generated video worker uploads directly to Cloudinary rather than Supabase Storage; social publishing contracts are tested. | Reconcile production catalog references with Cloudinary and verify platform remote IDs in a private/non-publishing canary. No media was deleted and no public post was triggered. |
+| P10 Admin operations | Admin video controls, approvals, queue states, OMNIS ledger and settings governance contracts exist and pass current integration checks. | Align visible daily target with actual worker caps and add/verify private test-render controls and provider-health detail. |
+| P11 Observability/rollout | Queue ledger, retries, cron reconciliation and integration checks exist. | Add per-stage timings/provider success metrics and complete the 3-private-preview canary before raising volume. |
+
+**Current production safeguards:** `VIDEO_FREE_ONLY=true`; ComfyUI and custom paid-provider paths remain disabled; GitHub worker currently caps the daily target at 2 despite the Admin setting of 20; auto-publish is enabled on the scheduled production workflow. Therefore no production worker dispatch, public publishing, volume increase, or destructive media cleanup was run during this checkpoint.
+
 ## 1. Executive direction
 
 ZIKR already has a functioning video pipeline. The next release should not replace it with a second generator. Keep GitHub Actions as the scheduled worker, Supabase as the job/configuration ledger, Cloudinary as the media origin, provider adapters for optional AI-generated visual layers, and FFmpeg as the deterministic final compositor.
@@ -333,4 +352,4 @@ A phase is complete only when:
 - No unrequested public social post or irreversible media deletion occurred.
 - The roadmap status and evidence links are updated.
 
-**Current status at audit close:** P00 partially completed; WAN repair in draft PR #497; Layl duration/preflight repair in draft PR #498; provider live smoke tests, template-version binding, storyboard engine, production Cloudinary account reconciliation, Admin control-plane alignment, and volume decision remain open.
+**Current status after execution checkpoint:** PRs #497, #498, and #499 are merged. The merge-commit Quality Gate passed all 32 PostgreSQL integration checks and the canonical source/architecture gate. P01 adapter repair, P02 Layl preflight, P03 template-version binding, and P04 storyboard implementation are present in `main`; P03/P04 production acceptance remains pending a post-merge private render. P00 and P05–P11 retain the release gates in the execution checkpoint above. The last HF provider smoke attempt was quota-blocked, not credential- or adapter-blocked. Do not claim the full V2 plan complete until the remaining live-render, reconciliation, QA, Admin, and observability gates pass.

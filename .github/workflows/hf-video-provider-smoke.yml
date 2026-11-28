@@ -3,8 +3,17 @@ name: ZIKR Hugging Face Provider Smoke Test
 on:
   workflow_dispatch:
     inputs:
+      provider:
+        description: "Choose one provider per run to avoid exhausting the free daily quota"
+        required: true
+        default: "wan"
+        type: choice
+        options:
+          - wan
+          - ltx
+          - both
       confirm_zero_gpu_usage:
-        description: "Confirm using the free daily Hugging Face ZeroGPU allowance for two short test clips"
+        description: "Confirm using the free daily Hugging Face ZeroGPU allowance for the selected provider(s)"
         required: true
         default: false
         type: boolean
@@ -17,7 +26,7 @@ concurrency:
 
 jobs:
   provider-smoke:
-    name: Generate and privately store WAN/LTX test clips
+    name: Generate and privately store selected WAN/LTX test clip(s)
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 30
@@ -103,6 +112,7 @@ jobs:
           PY
 
       - name: Generate WAN 2.2 five-second test clip
+        if: inputs.provider == 'wan' || inputs.provider == 'both'
         id: wan
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -122,7 +132,7 @@ jobs:
 
       - name: Upload WAN test clip to Cloudinary as authenticated
         id: wan_upload
-        if: steps.wan.outcome == 'success'
+        if: (inputs.provider == 'wan' || inputs.provider == 'both') && steps.wan.outcome == 'success'
         env:
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
@@ -131,6 +141,7 @@ jobs:
         run: node scripts/tests/cloudinary-private-video-smoke-upload.mjs "$WAN_OUTPUT" wan2_2_fast
 
       - name: Generate LTX Distilled six-second test clip
+        if: inputs.provider == 'ltx' || inputs.provider == 'both'
         id: ltx
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -149,7 +160,7 @@ jobs:
 
       - name: Upload LTX test clip to Cloudinary as authenticated
         id: ltx_upload
-        if: steps.ltx.outcome == 'success'
+        if: (inputs.provider == 'ltx' || inputs.provider == 'both') && steps.ltx.outcome == 'success'
         env:
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
@@ -167,9 +178,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
-      - name: Enforce both provider and private-upload results
+      - name: Enforce selected provider and private-upload results
         if: always()
         env:
+          SELECTED_PROVIDER: ${{ inputs.provider || 'wan' }}
           WAN_RESULT: ${{ steps.wan.outcome }}
           WAN_UPLOAD_RESULT: ${{ steps.wan_upload.outcome }}
           LTX_RESULT: ${{ steps.ltx.outcome }}
@@ -179,8 +191,18 @@ jobs:
           set -euo pipefail
           printf 'WAN generation: %s | Cloudinary private upload: %s\n' "$WAN_RESULT" "$WAN_UPLOAD_RESULT"
           printf 'LTX generation: %s | Cloudinary private upload: %s\n' "$LTX_RESULT" "$LTX_UPLOAD_RESULT"
-          [[ "$WAN_RESULT" == "success" && "$WAN_UPLOAD_RESULT" == "success" && "$LTX_RESULT" == "success" && "$LTX_UPLOAD_RESULT" == "success" ]] || {
-            echo "One or more live provider or private-storage checks failed." >&2
+          case "$SELECTED_PROVIDER" in
+            wan)
+              [[ "$WAN_RESULT" == "success" && "$WAN_UPLOAD_RESULT" == "success" ]] ;;
+            ltx)
+              [[ "$LTX_RESULT" == "success" && "$LTX_UPLOAD_RESULT" == "success" ]] ;;
+            both)
+              [[ "$WAN_RESULT" == "success" && "$WAN_UPLOAD_RESULT" == "success" && "$LTX_RESULT" == "success" && "$LTX_UPLOAD_RESULT" == "success" ]] ;;
+            *)
+              echo "Unknown provider selection." >&2
+              exit 1 ;;
+          esac || {
+            echo "Selected provider generation or authenticated Cloudinary upload failed." >&2
             exit 1
           }
-          echo "Both providers generated MP4 clips and both were stored as authenticated Cloudinary assets."
+          echo "Selected provider smoke test and authenticated Cloudinary upload passed."
