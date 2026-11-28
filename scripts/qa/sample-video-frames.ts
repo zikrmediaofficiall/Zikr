@@ -1,5 +1,5 @@
 // Private QA helper (run manually on a private canary; never uploads or publishes).
-// Usage: pnpm tsx scripts/qa/sample-video-frames.ts <video.mp4> <canaryId> [out.json]
+// Usage: pnpm tsx scripts/qa/sample-video-frames.ts <video.mp4> <safe-canary-id> [out.json]
 import { execFileSync, spawnSync } from "node:child_process";
 import { statSync, writeFileSync } from "node:fs";
 import {
@@ -11,7 +11,7 @@ import {
 } from "../../src/features/videos/services/video-frame-diversity";
 
 const [, , video, canaryId = "manual", out] = process.argv;
-if (!video || !canaryId.trim()) {
+if (!video || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,119}$/.test(canaryId)) {
   console.error("usage: sample-video-frames.ts <video.mp4> <canaryId> [out.json]");
   process.exit(2);
 }
