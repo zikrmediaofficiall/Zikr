@@ -58,6 +58,16 @@ for (const sequence of sequences) {
     () => buildKidsCharacterSceneSvg([{ characterId: "unregistered", pose: "curious" }]),
     /versioned rig registry/i,
   );
+  assert.throws(
+    () => buildKidsCharacterSceneSvg([null as never]),
+    /versioned rig registry/i,
+    "malformed character cues must fail closed rather than throw a TypeError",
+  );
+  assert.throws(
+    () => buildKidsCharacterSceneSvg([{ characterId: "salim", pose: "flying" } as never]),
+    /versioned rig registry/i,
+    "unregistered character poses must fail closed",
+  );
 }
 
 const canonical = buildKidsSeriesEpisode(1);
