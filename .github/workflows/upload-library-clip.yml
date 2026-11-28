@@ -44,10 +44,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: upload-library-clip
-  cancel-in-progress: false
-
 jobs:
   upload:
     if: github.ref == 'refs/heads/main'
