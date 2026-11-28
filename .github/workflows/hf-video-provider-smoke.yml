@@ -1,13 +1,6 @@
 name: ZIKR Hugging Face Provider Smoke Test
 
 on:
-  push:
-    branches:
-      - fix/video-wan-adapter-20261128
-    paths:
-      - .github/workflows/hf-video-provider-smoke.yml
-      - scripts/jobs/hf-space-video.py
-      - scripts/tests/cloudinary-private-video-smoke-upload.mjs
   workflow_dispatch:
     inputs:
       confirm_zero_gpu_usage:
@@ -15,7 +8,6 @@ on:
         required: true
         default: false
         type: boolean
-
 permissions:
   contents: read
 
