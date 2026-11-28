@@ -1,0 +1,17 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
+const wf = read("../../.github/workflows/delete-cloudinary-assets.yml");
+const js = read("../jobs/delete-cloudinary-assets.mjs");
+assert.ok(/^on:\n  workflow_dispatch:/m.test(wf) && /permissions:\n  contents: read/.test(wf), "manual trigger, read-only token");
+assert.ok(!/pull_request|schedule:|push:/.test(wf), "no automatic triggers");
+assert.ok(wf.includes("if: github.ref == 'refs/heads/main'") && wf.includes("environment: production"));
+assert.ok(/asset_ids:[\s\S]*required: true/.test(wf) && /confirm:[\s\S]*required: true/.test(wf), "ids and confirmation are required inputs");
+assert.ok(js.includes("DELETE ${ids.length} ASSETS"), "typed count confirmation");
+assert.ok(js.includes("refused.length") && js.includes("process.exit(1)"), "any ineligible id aborts before deleting");
+assert.ok(js.indexOf("process.exit(1)") < js.indexOf("await destroy(id)"), "validation precedes every delete");
+assert.ok(js.indexOf("method: \"PATCH\"") < js.indexOf("await destroy(id)"), "catalog switches to the YouTube fallback before the file is deleted");
+assert.equal((js.match(/\/video\/destroy/g) ?? []).length, 1, "single-asset video destroy only");
+assert.ok(!/resources\/(video|image|raw)\/upload|delete_by_prefix|public_ids|\/image\/destroy|\/raw\/destroy/.test(js), "no bulk, prefix, image or raw deletion");
+assert.ok(js.includes('startsWith("samples/")') && !js.includes('"zikr/audio'), "only demo samples are allowed outside candidates; audio is never listed");
+console.log("Cloudinary delete workflow contract passed: manual, confirmed, validated, single-asset video destroy.");
