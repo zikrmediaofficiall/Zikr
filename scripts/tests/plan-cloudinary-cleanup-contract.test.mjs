@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { evaluateVideo, confirmedRemoteIds } from "../lib/cloudinary-cleanup-rules.mjs";
+const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
+const wf = read("../../.github/workflows/plan-cloudinary-cleanup.yml");
+const js = read("../jobs/plan-cloudinary-cleanup.mjs") + read("../lib/cloudinary-cleanup-rules.mjs");
+assert.ok(/^on:\n  workflow_dispatch:/m.test(wf) && /permissions:\n  contents: read/.test(wf), "manual and read-only token");
+assert.ok(!/pull_request|schedule:|push:/.test(wf), "no automatic triggers");
+assert.ok(wf.includes("if: github.ref == 'refs/heads/main'") && wf.includes("environment: production"));
+assert.ok(!/method:\s*["'](POST|PUT|PATCH|DELETE)/i.test(js) && !/destroy|\/delete/i.test(js), "dry run must not write or delete");
+
+const now = Date.parse("2026-12-01T00:00:00Z");
+const base = { slug: "auto-quran-1", published: true, metadata: { generator: "zikr_internal_video_factory", youtubePublishedVideoId: "abcDEF12345" } };
+const q = (over = {}) => ({ status: "published", published_at: "2026-11-01T00:00:00Z", metadata: { platformResults: { youtube: { ok: true, remoteId: "abcDEF12345" } } }, ...over });
+const opts = { minAgeDays: 14, now };
+assert.equal(evaluateVideo(base, [q()], opts).ok, true);
+assert.equal(evaluateVideo(base, [q({ published_at: "2026-11-25T00:00:00Z" })], opts).ok, false, "too recent");
+assert.equal(evaluateVideo(base, [], opts).ok, false, "no confirmation");
+assert.equal(evaluateVideo(base, [q({ metadata: { platformResults: { facebook: { ok: true, remoteId: "1" } } } })], opts).ok, false, "facebook only keeps the file");
+assert.equal(evaluateVideo({ ...base, metadata: { ...base.metadata, youtubePublishedVideoId: "other123456" } }, [q()], opts).ok, false, "id mismatch");
+assert.equal(evaluateVideo({ ...base, metadata: { ...base.metadata, audience: "kids" } }, [q()], opts).ok, false, "kids");
+assert.equal(evaluateVideo({ ...base, slug: "layl-episode-3" }, [q()], opts).ok, false, "layl");
+assert.equal(evaluateVideo({ ...base, published: false }, [q()], opts).ok, false, "unpublished");
+assert.equal(evaluateVideo(base, [q(), q({ status: "queued" })], opts).ok, false, "still queued");
+assert.equal(confirmedRemoteIds([q({ metadata: { platformResults: { youtube: { ok: true, remoteId: "abcDEF12345" } }, platformDeletions: { youtube: { status: "deleted", remoteId: "abcDEF12345" } } } })], "youtube").size, 0, "deleted on YouTube");
+console.log("Cloudinary cleanup dry-run contract passed.");
