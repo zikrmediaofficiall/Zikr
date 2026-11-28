@@ -103,6 +103,27 @@ async function isClipRegistered(supabaseUrl, serviceKey, publicId) {
   return Array.isArray(rows) && rows.length > 0;
 }
 
+async function assertClipLibraryReady(supabaseUrl, serviceKey) {
+  const endpoint = new URL(supabaseUrl + "/rest/v1/video_clip_library");
+  endpoint.searchParams.set("select", "id");
+  endpoint.searchParams.set("limit", "0");
+  const response = await fetch(endpoint, {
+    headers: { apikey: serviceKey, Authorization: "Bearer " + serviceKey },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) {
+    throw new Error("Clip library table is not ready in Supabase; refusing Cloudinary upload before database registration is available.");
+  }
+  const rows = await response.json().catch(() => null);
+  if (!Array.isArray(rows)) throw new Error("Supabase clip library readiness response was invalid.");
+}
+
+async function assertNoRegisteredClip(supabaseUrl, serviceKey, publicId) {
+  if (await isClipRegistered(supabaseUrl, serviceKey, publicId)) {
+    throw new Error("A clip with this Cloudinary public ID is already registered; choose a new slug.");
+  }
+}
+
 async function main() {
   const fileArgument = need("CLIP_FILE");
   const file = realpathSync(fileArgument);
@@ -157,8 +178,11 @@ async function main() {
   const apiSecret = need("CLOUDINARY_API_SECRET");
   const supabaseUrl = need("SUPABASE_URL").replace(/\/$/, "");
   const serviceKey = need("SUPABASE_SERVICE_ROLE_KEY");
+  // Prove the production table and slug are ready before any Cloudinary write.
+  await assertClipLibraryReady(supabaseUrl, serviceKey);
   const folder = "zikr/clip-library";
   const publicId = folder + "/" + slug;
+  await assertNoRegisteredClip(supabaseUrl, serviceKey, publicId);
   const timestamp = String(Math.floor(Date.now() / 1000));
   const uploadParameters = { folder, overwrite: "false", public_id: slug, timestamp };
   const form = new FormData();
@@ -204,14 +228,17 @@ async function main() {
       signal: AbortSignal.timeout(20000),
     });
     const body = await insertResponse.json().catch(() => ({}));
-    if (!insertResponse.ok) insertError = new Error("Registration failed: " + insertResponse.status + " " + JSON.stringify(body).slice(0, 180));
-    else {
+    if (!insertResponse.ok) {
+      insertError = new Error("Registration failed: " + insertResponse.status + " " + JSON.stringify(body).slice(0, 180));
+    } else if (Array.isArray(body) && typeof body[0]?.id === "string") {
       console.log(JSON.stringify({
-        registered: true, id: body?.[0]?.id, status: "pending",
+        registered: true, id: body[0].id, status: "pending",
         width: finalFacts.width, height: finalFacts.height, duration: finalFacts.duration,
         hadAudio: initialFacts.hasAudio, publicId: returnedPublicId,
       }));
       return;
+    } else {
+      insertError = new Error("Supabase did not return a registered clip row; reconciliation will verify the commit.");
     }
   } catch (error) {
     insertError = error instanceof Error ? error : new Error(String(error));
