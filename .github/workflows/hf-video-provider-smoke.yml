@@ -36,8 +36,8 @@ jobs:
       CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
       HF_WAN_SPACE: zerogpu-aoti/wan2-2-fp8da-aoti-faster
       HF_LTX_SPACE: Lightricks/ltx-video-distilled
-      WAN_OUTPUT: /tmp/zikr-wan-smoke.mp4
-      LTX_OUTPUT: /tmp/zikr-ltx-smoke.mp4
+      WAN_OUTPUT: smoke-output/zikr-wan-smoke.mp4
+      LTX_OUTPUT: smoke-output/zikr-ltx-smoke.mp4
       PROMPT_FILE: /tmp/zikr-provider-smoke-prompt.txt
       CONDITIONING_IMAGE: /tmp/zikr-provider-smoke-conditioning.png
     steps:
@@ -55,7 +55,7 @@ jobs:
       - name: Checkout the tested WAN/LTX adapter commit
         uses: actions/checkout@v7
         with:
-          ref: e4860c67716cdda0732d1617fd06f6c7a6edcfd5
+          ref: ${{ github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -80,6 +80,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p smoke-output
           cat > "$PROMPT_FILE" <<'PROMPT'
           A calm cinematic aerial movement over an empty moonlit sea, distant coastal mountains, gentle silver reflections on dark blue water, subtle drifting clouds, natural fluid motion, atmospheric and realistic, no people, no text, no letters, no logos.
           PROMPT
@@ -157,8 +158,7 @@ jobs:
         with:
           name: zikr-hf-provider-smoke-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/zikr-wan-smoke.mp4
-            ${{ runner.temp }}/zikr-ltx-smoke.mp4
+            smoke-output/*.mp4
           if-no-files-found: ignore
           retention-days: 3
 
