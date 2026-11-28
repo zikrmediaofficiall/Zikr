@@ -1,5 +1,6 @@
 "use client";
 
+import { DeedTree, getTreeTheme } from "./deed-tree-scene";
 import { renderExtraSheet } from "./coloring-extra-sheets";
 import { RoomScene, getRoomTheme } from "./room-scene";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -123,7 +124,7 @@ export function GoodDeedsGame({ difficulty, restartToken, paused, onHud, onResul
         { label: isEnglish ? "Difficulty" : "الصعوبة", value: difficultyLabel(difficulty, isEnglish), tone: "text-sky-200" },
       ]} /></div>
       <div className="relative mx-4 mt-4 min-h-[500px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#09272b] sm:mx-6">
-        <GardenBackdrop /><MosqueBackdrop compact />
+        <GardenBackdrop /><MosqueBackdrop compact /><DeedTree theme={getTreeTheme(levelIndex)} done={done.length} total={deeds.length} complete={complete} />
         <div className="relative z-20 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
           {deeds.map((deed, index) => {
             const doneAlready = done.includes(deed.id), isActive = active === deed.id;
