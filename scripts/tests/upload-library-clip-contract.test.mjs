@@ -9,7 +9,8 @@ assert.ok(!workflow.includes("actions/checkout@v4"), "deprecated checkout action
 assert.ok(workflow.includes("github.ref == 'refs/heads/main'"), "production upload must run only from main");
 assert.ok(workflow.includes("environment: production"), "upload secrets must be scoped to the production environment");
 assert.ok(workflow.includes("permissions:\n  contents: read"), "workflow token must remain read-only");
-assert.ok(workflow.includes("^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\\\\.mp4$"), "release asset name must be a literal safe MP4 filename");
+assert.ok(workflow.includes('[[ "$ASSET_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$ ]]'), "release asset stem must use a strict safe-character allowlist");
+assert.ok(workflow.includes('[[ "$ASSET_NAME" == *.mp4 ]]'), "release asset extension must match a literal .mp4 suffix");
 assert.ok(workflow.includes("select(.name == env.ASSET_NAME)"), "release download must verify an exact asset name, not a glob");
 assert.ok(workflow.includes("test -f \"/tmp/clip/$ASSET_NAME\""), "only the exact selected release asset may be passed to the uploader");
 
