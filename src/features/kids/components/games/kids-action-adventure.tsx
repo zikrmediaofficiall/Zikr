@@ -1,5 +1,6 @@
 "use client";
 
+import { JumpHazardArt, JumpPlatformArt, JumpScene, getJumpBiome } from "./jump-scene";
 import { CloudPillar, Crescent, FlyScene, getFlySky } from "./fly-scene";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/layout/language-provider";
@@ -381,6 +382,7 @@ export function ZikrJumpGame({
   }, [difficulty, levels, onHud, onResult, onSound, paused, rules]);
 
   const level = levels[snapshot.levelIndex];
+  const biome = getJumpBiome(snapshot.levelIndex);
   const levelMeta = getKidsLevelMeta("zikr-jump", difficulty, snapshot.levelIndex);
   const percent = level ? Math.min(100, Math.round((1 - (snapshot.player.y - (level.platforms[level.goalPlatformIndex]?.y ?? 0)) / 1700) * 100)) : 0;
 
@@ -405,10 +407,7 @@ export function ZikrJumpGame({
       </div>
 
       <div className="relative mx-4 mt-4 h-[500px] touch-none overflow-hidden rounded-[2rem] border border-white/10 sm:mx-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,#f3c96920,transparent_25%),linear-gradient(180deg,#0e2a3a,#07151e)]" />
-        <Cloud left={8} top={19} scale={0.9} />
-        <Cloud left={57} top={12} scale={1.15} />
-        <Cloud left={77} top={38} scale={0.7} />
+        <JumpScene biome={biome} cameraY={snapshot.cameraY} />
 
         {level.platforms.map((platform, index) => {
           const y = platform.y - snapshot.cameraY;
@@ -417,12 +416,7 @@ export function ZikrJumpGame({
           return (
             <div
               key={index}
-              className={
-                "absolute -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 " +
-                (goal
-                  ? "border-brand-gold bg-brand-gold/30 shadow-[0_0_28px_rgba(243,201,105,.2)]"
-                  : "border-brand-emerald/50 bg-brand-emerald/20")
-              }
+              className="absolute -translate-x-1/2 -translate-y-1/2"
               style={{
                 left: (platform.x / JUMP_WORLD_WIDTH) * 100 + "%",
                 top: y,
@@ -430,6 +424,7 @@ export function ZikrJumpGame({
                 height: 20,
               }}
             >
+              <JumpPlatformArt biome={biome} goal={goal} widthPct={(platform.width / JUMP_WORLD_WIDTH) * 100} />
               {goal && <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-brand-gold">✦</span>}
             </div>
           );
@@ -456,14 +451,14 @@ export function ZikrJumpGame({
             return (
               <div
                 key={"hazard-" + index}
-                className="absolute grid h-9 w-14 place-items-center rounded-xl border-2 border-rose-200/40 bg-rose-200/10 text-rose-100"
+                className="absolute"
                 style={{
                   left: ((platform.x + hazard.offset) / JUMP_WORLD_WIDTH) * 100 + "%",
                   top: y,
                   transform: "translate(-50%,-50%)",
                 }}
               >
-                !
+                <JumpHazardArt />
               </div>
             );
           })}
