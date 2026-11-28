@@ -36,10 +36,10 @@ jobs:
       CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
       HF_WAN_SPACE: zerogpu-aoti/wan2-2-fp8da-aoti-faster
       HF_LTX_SPACE: Lightricks/ltx-video-distilled
-      WAN_OUTPUT: ${{ runner.temp }}/zikr-wan-smoke.mp4
-      LTX_OUTPUT: ${{ runner.temp }}/zikr-ltx-smoke.mp4
-      PROMPT_FILE: ${{ runner.temp }}/zikr-provider-smoke-prompt.txt
-      CONDITIONING_IMAGE: ${{ runner.temp }}/zikr-provider-smoke-conditioning.png
+      WAN_OUTPUT: /tmp/zikr-wan-smoke.mp4
+      LTX_OUTPUT: /tmp/zikr-ltx-smoke.mp4
+      PROMPT_FILE: /tmp/zikr-provider-smoke-prompt.txt
+      CONDITIONING_IMAGE: /tmp/zikr-provider-smoke-conditioning.png
     steps:
       - name: Confirm free GPU quota for manual runs
         if: github.event_name == 'workflow_dispatch'
