@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { redirectToAdminStepUp } from "@/features/admin/utils/step-up-client";
 
 type ClipCategory = "quran" | "hadith" | "dua" | "adhkar" | "story" | "kids" | "general";
 type Clip = {
@@ -119,7 +120,10 @@ export function AdminVideoClipsClient() {
         }),
       });
       const data: unknown = await response.json();
-      if (!response.ok) throw new Error(errorMessage(data, "تعذر حفظ المقطع."));
+      if (!response.ok) {
+        if (data && typeof data === "object" && "nextPath" in data) redirectToAdminStepUp(data.nextPath);
+        throw new Error(errorMessage(data, "تعذر حفظ المقطع."));
+      }
       setForm(INITIAL_FORM);
       setNotice("تم تسجيل المقطع بحالة «بانتظار المراجعة». لن يدخل التوليد قبل اعتماده.");
       await loadClips();
@@ -141,7 +145,10 @@ export function AdminVideoClipsClient() {
         body: JSON.stringify({ id, action }),
       });
       const data: unknown = await response.json();
-      if (!response.ok) throw new Error(errorMessage(data, "تعذر تحديث حالة المقطع."));
+      if (!response.ok) {
+        if (data && typeof data === "object" && "nextPath" in data) redirectToAdminStepUp(data.nextPath);
+        throw new Error(errorMessage(data, "تعذر تحديث حالة المقطع."));
+      }
       setNotice(action === "approve" ? "تم اعتماد المقطع." : "تمت إحالة المقطع للتقاعد.");
       await loadClips();
     } catch (updateError) {
