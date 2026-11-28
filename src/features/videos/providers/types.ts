@@ -118,7 +118,7 @@ export function getVideoEngineConfig(env = process.env): VideoEngineConfig {
     "hf_ltx_fast", "hf_wan", "comfyui", "free_api", "template",
     ...customSpaces.map((entry) => entry.name),
   ]);
-  const order = (env.VIDEO_PROVIDER_ORDER ?? "hf_ltx_fast,hf_wan,comfyui,free_api")
+  const order = (env.VIDEO_PROVIDER_ORDER ?? "hf_wan,hf_ltx_fast,comfyui,free_api")
     .split(",")
     .map((value) => value.trim() as VideoProviderName)
     .filter(
@@ -127,7 +127,7 @@ export function getVideoEngineConfig(env = process.env): VideoEngineConfig {
     );
 
   return {
-    order: [...(order.length ? order : ["hf_ltx_fast", "hf_wan", "comfyui", "free_api"] as VideoProviderName[]), ...customSpaces.map((entry) => entry.name)].filter((value, index, values) => values.indexOf(value) === index),
+    order: [...(order.length ? order : ["hf_wan", "hf_ltx_fast", "comfyui", "free_api"] as VideoProviderName[]), ...customSpaces.map((entry) => entry.name)].filter((value, index, values) => values.indexOf(value) === index),
     // Free-only mode is the safe default. Non-free/custom endpoints need an explicit opt-out.
     freeOnly: bool(env.VIDEO_FREE_ONLY, true),
     aiEnabled: bool(env.VIDEO_AI_ENABLED, false),
