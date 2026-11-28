@@ -491,32 +491,82 @@ export function inspectVideoQueueItemExternalApproval(input: {
   if (!input.request || !content) return diagnostics;
 
   const render = record(content.render);
-  const storyboard = record(render?.storyboard);
+  const hasStoryboardField = Boolean(render && Object.prototype.hasOwnProperty.call(render, "storyboard"));
+  const storyboardValue = render?.storyboard;
+  const storyboard = record(storyboardValue);
   const referencedAssetKeys = new Set<string>();
-  let requiresAssetRightsCheck =
-    content.templateBindingMode === "studio" ||
+  let hasInvalidVisualReference = false;
+  const isStudioBinding = content.templateBindingMode === "studio";
+  const requiresAssetRightsCheck =
+    isStudioBinding ||
     typeof content.templateAssetKey === "string" ||
-    storyboard !== null;
+    hasStoryboardField ||
+    Object.prototype.hasOwnProperty.call(content, "visualAssetKeys");
 
-  if (typeof content.templateAssetKey === "string" && content.templateAssetKey.trim()) {
-    referencedAssetKeys.add(content.templateAssetKey.trim());
-  }
-  if (Array.isArray(content.visualAssetKeys)) {
-    for (const value of content.visualAssetKeys) {
-      if (typeof value === "string" && value.trim()) referencedAssetKeys.add(value.trim());
-      else requiresAssetRightsCheck = true;
+  if (isStudioBinding) {
+    const configSnapshot = record(content.templateConfigSnapshot);
+    if (
+      typeof content.templateId !== "string" || !content.templateId.trim() ||
+      typeof content.templateSlug !== "string" || !content.templateSlug.trim() ||
+      typeof content.templateVersionId !== "string" || !content.templateVersionId.trim() ||
+      !configSnapshot ||
+      typeof configSnapshot.assetKey !== "string" ||
+      configSnapshot.assetKey !== content.templateAssetKey
+    ) {
+      hasInvalidVisualReference = true;
     }
   }
-  if (storyboard) {
-    if (!Array.isArray(storyboard.scenes) || storyboard.scenes.length === 0) {
-      requiresAssetRightsCheck = true;
+
+  if (requiresAssetRightsCheck && typeof content.audience !== "string") {
+    hasInvalidVisualReference = true;
+  }
+  if (requiresAssetRightsCheck && typeof content.templateAssetKey === "string") {
+    if (content.templateAssetKey.trim()) referencedAssetKeys.add(content.templateAssetKey.trim());
+    else hasInvalidVisualReference = true;
+  } else if (isStudioBinding) {
+    hasInvalidVisualReference = true;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(content, "visualAssetKeys")) {
+    if (!Array.isArray(content.visualAssetKeys) || content.visualAssetKeys.length === 0) {
+      hasInvalidVisualReference = true;
+    } else {
+      for (const value of content.visualAssetKeys) {
+        if (typeof value === "string" && value.trim()) referencedAssetKeys.add(value.trim());
+        else hasInvalidVisualReference = true;
+      }
+    }
+  }
+
+  if (hasStoryboardField) {
+    if (
+      !storyboard ||
+      storyboard.version !== "zikr-storyboard-v1" ||
+      !Array.isArray(storyboard.scenes) ||
+      storyboard.scenes.length < 2 ||
+      storyboard.scenes.length > 6
+    ) {
+      hasInvalidVisualReference = true;
     } else {
       for (const value of storyboard.scenes) {
         const scene = record(value);
-        if (typeof scene?.assetKey === "string" && scene.assetKey.trim()) {
-          referencedAssetKeys.add(scene.assetKey.trim());
+        if (
+          !scene ||
+          typeof scene.assetKey !== "string" ||
+          !scene.assetKey.trim() ||
+          !Number.isInteger(scene.index) ||
+          typeof scene.id !== "string" ||
+          !scene.id.trim() ||
+          typeof scene.startSeconds !== "number" ||
+          !Number.isFinite(scene.startSeconds) ||
+          scene.startSeconds < 0 ||
+          typeof scene.durationSeconds !== "number" ||
+          !Number.isFinite(scene.durationSeconds) ||
+          scene.durationSeconds <= 0
+        ) {
+          hasInvalidVisualReference = true;
         } else {
-          requiresAssetRightsCheck = true;
+          referencedAssetKeys.add(scene.assetKey.trim());
         }
       }
     }
@@ -524,11 +574,11 @@ export function inspectVideoQueueItemExternalApproval(input: {
 
   if (requiresAssetRightsCheck) {
     const audience = normalizeVideoAudience(content.audience);
-    if (!audience || referencedAssetKeys.size === 0) {
+    if (!audience || hasInvalidVisualReference || referencedAssetKeys.size === 0) {
       return {
         ...diagnostics,
         approved: false,
-        reason: "الأصول البصرية المرتبطة بطلب الفيديو غير مكتملة؛ تم إيقاف النشر الخارجي لحين مراجعتها.",
+        reason: "بيانات النسخة المثبتة أو قائمة الأصول البصرية غير مكتملة؛ تم إيقاف النشر الخارجي لحين استكمالها ومراجعة الحقوق.",
         missingChecks: ["rightsReviewed"],
       };
     }
