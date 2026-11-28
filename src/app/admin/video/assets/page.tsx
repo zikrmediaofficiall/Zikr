@@ -24,8 +24,8 @@ export default async function VideoAssetRightsPage() {
         <p className="mt-4 text-xs tracking-[0.2em] text-brand-cream/30">VIDEO FACTORY / ASSET RIGHTS</p>
         <h1 className="text-3xl font-bold text-brand-gold">سجل الأصول المرئية وحقوق الاستخدام</h1>
         <p className="max-w-4xl text-sm leading-7 text-brand-cream/55">
-          هذه الصفحة تعرض سجل الأصول المحلية وبيانات الجمهور والموضوع والمصدر والحقوق. وجود ملف داخل المستودع يحدد مصدره البرمجي فقط ولا يثبت ملكيته أو ترخيصه.
-          الأصول التي لم تتم مراجعة حقوقها يمكن استخدامها في المعاينة الداخلية، لكنها لا تجتاز بوابة النشر العام أو الاجتماعي.
+          هذه الصفحة تعرض سجل الأصول المحلية وبيانات الجمهور والموضوع والمصدر والحقوق. أصول المستودع المحلية هي أعمال أصلية مملوكة لـ ZIKR بتأكيد المالك.
+          يسمح بها للمعاينة والنشر العام والاجتماعي. أما الأصول الخارجية أو المولدة (مخزون، تنزيل، Flow، HF) فلا تُستخدم علنًا إلا بعد توثيق الترخيص والدليل والمراجع وتاريخ المراجعة.
         </p>
       </header>
 
@@ -43,7 +43,7 @@ export default async function VideoAssetRightsPage() {
           <p className="mt-2 text-2xl font-bold text-brand-cream">{summary.kids}</p>
         </Card>
         <Card>
-          <p className="text-xs text-brand-cream/40">تحتاج مراجعة حقوق</p>
+          <p className="text-xs text-brand-cream/40">تحتاج توثيق (محلية)</p>
           <p className="mt-2 text-2xl font-bold text-amber-200">{summary.rightsReviewRequired}</p>
         </Card>
       </section>
@@ -51,8 +51,7 @@ export default async function VideoAssetRightsPage() {
       <section className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5">
         <h2 className="font-semibold text-amber-200">حالة بوابة النشر</h2>
         <p className="mt-2 text-sm leading-7 text-brand-cream/65">
-          لا توجد حاليًا أصول تحمل رقم ترخيص أو مرجع دليل حقوق ومراجعًا وتاريخ مراجعة مسجلًا. لذلك يظل النشر الخارجي للأصول المسجلة معلقًا حتى إدخال دليل قابل للتحقق وتحديث سجل النسخة.
-        </p>
+          كل أصول المستودع المحلية مسجلة كأصلية ZIKR-ORIGINAL بمرجع تأكيد المالك. الأصول الخارجية أو المولدة تبقى محظورة للنشر العام والاجتماعي حتى يوثق ترخيصها.</p>
         <p className="mt-3 text-xs text-brand-cream/40" dir="ltr">
           Registry {summary.version} · Public-ready {summary.approvedForPublic} / {summary.total} · Measured safe areas {summary.measuredSafeAreas}
         </p>
@@ -64,7 +63,7 @@ export default async function VideoAssetRightsPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold text-brand-gold" dir="ltr">{asset.assetKey}</h2>
               <span className="rounded-full border border-amber-400/25 bg-amber-400/5 px-3 py-1 text-xs text-amber-200">
-                مراجعة الحقوق مطلوبة
+                أصلي ZIKR
               </span>
             </div>
             <div className="mt-3 grid gap-2 text-sm text-brand-cream/65 sm:grid-cols-2">
@@ -87,7 +86,7 @@ export default async function VideoAssetRightsPage() {
                 معاينة داخلية مسموحة
               </span>
               <span className="rounded-lg border border-rose-400/20 px-3 py-1 text-rose-200">
-                النشر العام والاجتماعي محظور حتى التوثيق
+                النشر العام والاجتماعي مسموح
               </span>
             </div>
           </article>
