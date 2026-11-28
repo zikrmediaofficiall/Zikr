@@ -13,6 +13,17 @@ export type VideoStoryboardCameraPath =
   | "bottom-to-top";
 
 export type VideoStoryboardTransition = "none" | "fade";
+export type VideoStoryboardBeatId = "opening" | "challenge" | "safe_action" | "resolution";
+export type VideoStoryboardCharacterCue = {
+  characterId: string;
+  pose: "idle" | "curious" | "thinking" | "listening" | "helping" | "celebrating";
+};
+export type VideoStoryboardVisualBeat = {
+  id: VideoStoryboardBeatId;
+  narrationAnchor: string;
+  assetKey: VideoTemplateAsset;
+  characterCues: VideoStoryboardCharacterCue[];
+};
 
 export type VideoStoryboardScene = {
   id: string;
@@ -23,6 +34,8 @@ export type VideoStoryboardScene = {
   transitionIn: VideoStoryboardTransition;
   cameraPath: VideoStoryboardCameraPath;
   zoomIncrement: number;
+  beat?: VideoStoryboardBeatId;
+  characterCues?: VideoStoryboardCharacterCue[];
 };
 
 export type VideoStoryboard = {
@@ -42,6 +55,7 @@ export type BuildVideoStoryboardInput = {
   durationSeconds: number;
   templateAssetKey?: VideoTemplateAsset | null;
   visualTheme?: VideoTemplateAsset | null;
+  visualBeats?: readonly VideoStoryboardVisualBeat[];
 };
 
 const CATEGORY_ASSETS: Record<string, readonly VideoTemplateAsset[]> = {
@@ -148,19 +162,38 @@ export function buildVideoStoryboard(input: BuildVideoStoryboardInput): VideoSto
     throw new Error("At least two audience-approved visual assets are required for a multi-scene storyboard.");
   }
 
-  const count = Math.min(sceneCountForDuration(totalDurationSeconds), assets.length, 6);
+  const visualBeats = input.visualBeats;
+  if (visualBeats && input.audience !== "kids") {
+    throw new Error("Character-guided visual beats are reserved for the Kids production factory.");
+  }
+  if (visualBeats && (visualBeats.length !== 4 || visualBeats.some((beat) =>
+    !beat.narrationAnchor.trim() ||
+    !safeAsset(beat.assetKey, "kids") ||
+    !Array.isArray(beat.characterCues) ||
+    beat.characterCues.length < 1 ||
+    beat.characterCues.length > 4 ||
+    beat.characterCues.some((cue) => !cue.characterId.trim() || !["idle", "curious", "thinking", "listening", "helping", "celebrating"].includes(cue.pose))
+  ))) {
+    throw new Error("Kids visual beat manifest is incomplete or references an unapproved character/asset.");
+  }
+
+  const count = visualBeats?.length ?? Math.min(sceneCountForDuration(totalDurationSeconds), assets.length, 6);
   const overlapSeconds = roundedSeconds(Math.min(0.35, totalDurationSeconds / (count * 5)));
   const clipDuration = (totalDurationSeconds + overlapSeconds * (count - 1)) / count;
   const seed = requestId + "|" + category + "|" + input.audience;
-  const primary = assets[0];
-  const additional = assets.slice(1);
-  const additionalStart = stableHash(seed + ":asset-order") % Math.max(1, additional.length);
-  const ordered = [
-    primary,
-    ...Array.from({ length: count - 1 }, (_, index) =>
-      additional[(additionalStart + index) % additional.length],
-    ),
-  ];
+  const ordered = visualBeats
+    ? visualBeats.map((beat) => beat.assetKey)
+    : (() => {
+        const primary = assets[0];
+        const additional = assets.slice(1);
+        const additionalStart = stableHash(seed + ":asset-order") % Math.max(1, additional.length);
+        return [
+          primary,
+          ...Array.from({ length: count - 1 }, (_, index) =>
+            additional[(additionalStart + index) % additional.length],
+          ),
+        ];
+      })();
 
   const scenes: VideoStoryboardScene[] = ordered.map((assetKey, index) => {
     const startSeconds = index === 0
@@ -181,6 +214,10 @@ export function buildVideoStoryboard(input: BuildVideoStoryboardInput): VideoSto
       transitionIn: index === 0 ? "none" : "fade",
       cameraPath: CAMERA_PATHS[cameraIndex],
       zoomIncrement: Number((0.0001 + zoomIndex * 0.00002).toFixed(6)),
+      ...(visualBeats ? {
+        beat: visualBeats[index].id,
+        characterCues: visualBeats[index].characterCues,
+      } : {}),
     };
   });
 

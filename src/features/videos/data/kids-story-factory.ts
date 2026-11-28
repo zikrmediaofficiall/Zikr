@@ -30,6 +30,14 @@ export type GeneratedKidsEpisode = {
   title: string;
   description: string;
   text: string;
+  storyBeats: {
+    opening: string;
+    problem: string;
+    action: string;
+    outcome: string;
+    lesson: string;
+    question: string;
+  };
   learningObjective: string;
   ageGroup: string;
   visualTheme: KidsVideoSeries["visualTheme"];
@@ -178,7 +186,18 @@ export function buildKidsSeriesEpisode(sequence: number, dialect: KidsStoryDiale
     episodeTitle: episode.title,
     title: series.title + " — الموسم " + seasonNumber + "، الحلقة " + episodeNumber + ": " + episode.title,
     description: (dialect === "legacy_msa" ? "قصة" : "حكاية") + " تربوية خيالية أصلية للأطفال عن " + episode.objective + ". حلقة " + episodeNumber + " من سلسلة " + series.title + ".",
-    text, learningObjective: episode.objective, ageGroup: series.ageGroup, visualTheme: series.visualTheme,
+    text,
+    storyBeats: {
+      opening: episode.opening,
+      problem: situation,
+      action: episode.action,
+      outcome: episode.outcome,
+      lesson: episode.lesson,
+      question: episode.question,
+    },
+    learningObjective: episode.objective,
+    ageGroup: series.ageGroup,
+    visualTheme: series.visualTheme,
     generationMode: "free_deterministic_story_factory"
   };
 }
