@@ -25,6 +25,7 @@ create table if not exists public.video_clip_library (
   constraint video_clip_library_kids_audience_check check (category <> 'kids' or audience = 'kids')
 );
 create index if not exists video_clip_library_pick_idx on public.video_clip_library (status, audience, category, times_used, created_at);
+create unique index if not exists video_clip_library_cloudinary_public_id_uidx on public.video_clip_library (cloudinary_public_id);
 alter table public.video_clip_library enable row level security;
 
 
