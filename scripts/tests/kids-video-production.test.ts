@@ -50,6 +50,10 @@ for (const sequence of sequences) {
   assert.ok(storyboard.scenes.every((scene) => (scene.characterCues?.length ?? 0) > 0));
   const characterSvg = buildKidsCharacterSceneSvg(manifest.scenePack.safeVisualBeats[0].characterCues);
   assert.ok(characterSvg.startsWith("<svg"));
+  assert.match(characterSvg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="1080" height="1920"/);
+  assert.equal((characterSvg.match(/<g transform="translate\(/g) ?? []).length, manifest.scenePack.safeVisualBeats[0].characterCues.length,
+    "the SVG overlay must render one transform group for every registered character cue");
+  assert.match(characterSvg, /<\/g><\/svg>$/, "the SVG overlay must close its scene and root elements");
   assert.throws(
     () => buildKidsCharacterSceneSvg([{ characterId: "unregistered", pose: "curious" }]),
     /versioned rig registry/i,
