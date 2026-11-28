@@ -1139,7 +1139,7 @@ export function ZikrRoadGame({
         />
       </div>
 
-      <div className="relative mx-4 mt-4 h-[500px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b2a34] sm:mx-6">
+      <div className="relative mx-4 mt-4 h-[580px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b2a34] sm:mx-6">
         <RoadScene theme={getRoadTheme(state.levelIndex)} distance={state.distance} />
 
         <div className="absolute left-5 top-5 rounded-full border border-brand-emerald/20 bg-brand-emerald/10 px-4 py-2 text-xs text-brand-emerald">
